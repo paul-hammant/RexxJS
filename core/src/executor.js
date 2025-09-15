@@ -33,11 +33,19 @@ const { RexxInterpreter } = require('./interpreter');
  * Execute a Rexx script from a string
  * @param {string} scriptContent - The Rexx script content
  * @param {Object} rpcClient - The Address Sender to use for command execution
+ * @param {Array<string>} args - Optional command line arguments for PARSE ARG
  * @returns {Promise<Interpreter>} The interpreter instance after execution
  */
-async function executeScript(scriptContent, rpcClient) {
+async function executeScript(scriptContent, rpcClient, args = []) {
   const commands = parse(scriptContent);
   const interpreter = new RexxInterpreter(rpcClient);
+  
+  // Set up command line arguments for PARSE ARG
+  interpreter.variables.set('ARG.0', args.length.toString());
+  for (let i = 0; i < args.length; i++) {
+    interpreter.variables.set(`ARG.${i + 1}`, args[i]);
+  }
+  
   await interpreter.run(commands);
   return interpreter;
 }
