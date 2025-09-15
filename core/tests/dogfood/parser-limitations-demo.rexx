@@ -5,15 +5,32 @@
 
 REQUIRE "./src/expectations-address.js"
 
+/* @test-tags parser-limitations, educational, dogfood */
+/* @description Parser Limitations Demo - Current Parser Limitations */
+
 /* ============= SETUP SECTION ============= */
 SAY "⚠️  Parser Limitations Demo Starting..."
 SAY "This test demonstrates current parser limitations with non-parentheses function syntax."
 
-/* ============= PARSER LIMITATION TESTS ============= */
-CALL ParserLimitationTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
+
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "📝 Parser Limitations Demo Complete"
 SAY "Note: These limitations are documented and will be addressed in future parser updates."
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= PARSER LIMITATION DEMONSTRATION ============= */

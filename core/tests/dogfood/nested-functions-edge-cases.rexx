@@ -12,14 +12,24 @@ REQUIRE "./src/expectations-address.js"
 SAY "🧪 Nested Function Edge Cases Testing..."
 SAY "Testing: Boundary conditions and edge scenarios"
 
-/* ============= MAIN TEST EXECUTION ============= */
-CALL EmptyDataTest
-CALL BoundaryValueTest
-CALL LargeDataTest
-CALL TypeConversionTest
-CALL ComplexNestedTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
+
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ Nested Function Edge Cases Complete"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= EMPTY DATA HANDLING ============= */
