@@ -968,6 +968,68 @@ describe('Rexx-lite Interpreter', () => {
     expect(meals[0].servings).toBe(15);
   });
 
+  it('should evaluate modulo expressions with % operator', async () => {
+    const script = `
+      LET dividend = 17
+      LET divisor = 5
+      LET remainder = dividend % divisor
+      ADDRESS kitchen
+      prepareDish name='Modulo' servings=remainder
+    `;
+    
+    const commands = parse(script);
+    const interpreter = new Interpreter(addressSender);
+    await interpreter.run(commands);
+    
+    // Should evaluate as 17 % 5 = 2
+    const result = interpreter.getVariable('remainder');
+    expect(result).toBe(2);
+    
+    const meals = kitchenService.getMeals();
+    expect(meals[0].servings).toBe(2);
+  });
+
+  it('should evaluate power expressions with ** operator', async () => {
+    const script = `
+      LET base = 2
+      LET exponent = 3
+      LET power = base ** exponent
+      ADDRESS kitchen
+      prepareDish name='Power' servings=power
+    `;
+    
+    const commands = parse(script);
+    const interpreter = new Interpreter(addressSender);
+    await interpreter.run(commands);
+    
+    // Should evaluate as 2 ** 3 = 8
+    const result = interpreter.getVariable('power');
+    expect(result).toBe(8);
+    
+    const meals = kitchenService.getMeals();
+    expect(meals[0].servings).toBe(8);
+  });
+
+  it('should handle complex expressions with modulo and power', async () => {
+    const script = `
+      LET base = 3
+      LET result = (base ** 2) % 7
+      ADDRESS kitchen
+      prepareDish name='Complex' servings=result
+    `;
+    
+    const commands = parse(script);
+    const interpreter = new Interpreter(addressSender);
+    await interpreter.run(commands);
+    
+    // Should evaluate as (3 ** 2) % 7 = 9 % 7 = 2
+    const result = interpreter.getVariable('result');
+    expect(result).toBe(2);
+    
+    const meals = kitchenService.getMeals();
+    expect(meals[0].servings).toBe(2);
+  });
+
   describe('String Interpolation', () => {
     it('should interpolate variables in function parameters', async () => {
       const script = `

@@ -241,10 +241,13 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
           }
           return leftValue / rightValue;
         case '//':
+        case '%':
           if (rightValue === 0) {
             throw new Error('Division by zero in modulo operation');
           }
           return leftValue % rightValue;
+        case '**':
+          return Math.pow(leftValue, rightValue);
         default:
           throw new Error(`Unknown operator: ${expr.operator}`);
       }

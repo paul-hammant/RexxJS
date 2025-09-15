@@ -1379,7 +1379,7 @@ function parseFunctionCall(line) {
         // Has parentheses - definitely an expression
         const expr = parseExpression(value);
         value = expr !== null ? expr : value;
-      } else if (value.match(/\b\d+\s*[+\-*/]\s*\d+\b/) || value.match(/^[a-zA-Z_]\w*(\.\w+)*\s*[+*/]\s*\d+$/) || value.match(/^[a-zA-Z_]\w*(\.\w+)*\s*[\-]\s*\d+$/) || value.match(/^[a-zA-Z_]\w*\s+[+\-]\s+\d+$/)) {
+      } else if (value.match(/\b\d+\s*[+\-*/%]\s*\d+\b/) || value.match(/\b\d+\s*\*\*\s*\d+\b/) || value.match(/^[a-zA-Z_]\w*(\.\w+)*\s*[+*/%]\s*\d+$/) || value.match(/^[a-zA-Z_]\w*(\.\w+)*\s*\*\*\s*\d+$/) || value.match(/^[a-zA-Z_]\w*(\.\w+)*\s*[\-]\s*\d+$/) || value.match(/^[a-zA-Z_]\w*\s+[+\-]\s+\d+$/)) {
         // Has clear mathematical pattern: 
         // - "5 + 3" (number op number)
         // - "variable*5", "variable/10", "variable+1" (variable op number - no spaces needed for * / +)
@@ -1525,7 +1525,7 @@ function parseExpression(exprStr) {
   }
 
   // First check if this looks like a mathematical expression (contains operators or parentheses)
-  if (expr.match(/[+\-*/()]|\|\|/)) {
+  if (expr.match(/[+\-*/%()]|\*\*|\|\|/)) {
     // Parse as mathematical expression (which can contain function calls and concatenation)
     return parseArithmeticExpression(expr);
   }
@@ -1633,12 +1633,15 @@ function parseMultiplication(expr) {
   let result = parseFactor(expr);
   let remaining = result.remaining;
   
-  while (remaining.length > 0 && (remaining[0] === '*' || remaining[0] === '/' || remaining.substring(0, 2) === '//')) {
+  while (remaining.length > 0 && (remaining[0] === '*' || remaining[0] === '/' || remaining[0] === '%' || remaining.substring(0, 2) === '//' || remaining.substring(0, 2) === '**')) {
     let operator;
     let skipLength;
     
     if (remaining.substring(0, 2) === '//') {
       operator = '//';
+      skipLength = 2;
+    } else if (remaining.substring(0, 2) === '**') {
+      operator = '**';
       skipLength = 2;
     } else {
       operator = remaining[0];
