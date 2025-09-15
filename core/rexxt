@@ -84,6 +84,7 @@ function showHelp() {
   console.log(`  ${Colors.green}--tags <tags>${Colors.reset}                 - Filter by tags (comma-separated)`);
   console.log(`  ${Colors.green}--verbose, -v${Colors.reset}                 - Verbose output`);
   console.log(`  ${Colors.green}--verbose-output${Colors.reset}              - Show all SAY output from scripts`);
+  console.log(`  ${Colors.green}--live-output${Colors.reset}                 - Show SAY output in real-time without debug info`);
   console.log(`  ${Colors.green}--rerun-failures-with-verbose${Colors.reset}  - Rerun failed tests with verbose output`);
   console.log(`  ${Colors.green}--timeout <ms>${Colors.reset}                - Test timeout (default: 30000)`);
   console.log(`  ${Colors.green}--help, -h${Colors.reset}                    - Show this help`);
@@ -95,6 +96,7 @@ function showHelp() {
   console.log(`  ${Colors.cyan}./rexxt --pattern "tests/*-specs.rexx"${Colors.reset}    - Run files matching pattern`);
   console.log(`  ${Colors.cyan}./rexxt --tags math,basic${Colors.reset}                 - Run tests with specific tags`);
   console.log(`  ${Colors.cyan}./rexxt --verbose-output tests/math-tests.rexx${Colors.reset} - Show all script output`);
+  console.log(`  ${Colors.cyan}./rexxt --live-output tests/debug.rexx${Colors.reset}       - Show just SAY output live`);
   console.log(`  ${Colors.cyan}./rexxt --rerun-failures-with-verbose tests/*.rexx${Colors.reset} - Debug failed tests`);
   console.log(`  ${Colors.cyan}./rexxt --run-and-navigate tests/*.rexx${Colors.reset}   - Run tests then browse results`);
   console.log(`  ${Colors.cyan}./rexxt --navigate${Colors.reset}                        - Browse previous test results`);
@@ -129,125 +131,7 @@ function parseTestTags(filePath) {
   return [];
 }
 
-function findTestSubroutines(sourceCode) {
-  const testSubroutines = [];
-  const lines = sourceCode.split('\n');
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    
-    // Look for subroutine labels ending in "Test" or "Tests" followed by ":"
-    const subroutineMatch = line.match(/^([A-Za-z][A-Za-z0-9_]*Tests?):(\s|$)/);
-    if (subroutineMatch) {
-      const subroutineName = subroutineMatch[1];
-      
-      // Count START_TEST calls within this subroutine
-      const testCount = countTestsInSubroutine(lines, i);
-      
-      // Count ADDRESS EXPECTATIONS calls within this subroutine
-      const expectationCount = countExpectationsInSubroutine(lines, i);
-      
-      testSubroutines.push({
-        name: subroutineName,
-        lineNumber: i + 1,
-        testCount: testCount,
-        expectationCount: expectationCount
-      });
-    }
-  }
-  
-  return testSubroutines;
-}
-
-function countCallsToTestSubroutines(sourceCode) {
-  const lines = sourceCode.split('\n');
-  let callCount = 0;
-  
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    // Match CALL statements to subroutines ending in "Test" (singular only)
-    // Handle both indented and non-indented CALL statements
-    const callMatch = trimmedLine.match(/^CALL\s+(\w+Test)\s*$/);
-    if (callMatch) {
-      callCount++;
-    }
-  }
-  
-  return callCount;
-}
-
-function countTestsInSubroutine(lines, startIndex) {
-  let count = 0;
-  let i = startIndex + 1;
-  
-  // Look for START_TEST calls until we hit RETURN or another subroutine
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    
-    // Stop if we hit RETURN or another subroutine label
-    if (line === 'RETURN' || line.match(/^[A-Za-z][A-Za-z0-9_]*:/)) {
-      break;
-    }
-    
-    // Count START_TEST calls
-    if (line.includes('START_TEST')) {
-      count++;
-    }
-    
-    i++;
-  }
-  
-  return count;
-}
-
-function countExpectationsInSubroutine(lines, startIndex) {
-  let count = 0;
-  let i = startIndex + 1;
-  let inMultiLineExpectations = false;
-  
-  // Look for ADDRESS EXPECTATIONS calls until we hit RETURN or another subroutine
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    
-    // Stop if we hit RETURN or another subroutine label
-    if (line === 'RETURN' || line.match(/^[A-Za-z][A-Za-z0-9_]*:/)) {
-      break;
-    }
-    
-    // Check for ADDRESS EXPECTATIONS on its own line (multi-line mode)
-    if (line.match(/^ADDRESS\s+EXPECTATIONS\s*$/i)) {
-      inMultiLineExpectations = true;
-      i++;
-      continue;
-    }
-    
-    // Check for ADDRESS EXPECTATIONS with inline expectation (single-line mode)
-    if (line.match(/ADDRESS\s+EXPECTATIONS\s+["{]/i)) {
-      count++;
-      inMultiLineExpectations = false;
-      i++;
-      continue;
-    }
-    
-    // If we're in multi-line mode, count expectation lines
-    if (inMultiLineExpectations) {
-      // Check if this line looks like an expectation (starts with quote and contains "should")
-      if (line.match(/^["{].*should.*["}]\s*$/i)) {
-        count++;
-      } else if (line && !line.match(/^\s*\/\*/) && !line.match(/^\s*SAY/i)) {
-        // Stop multi-line mode if we hit a non-expectation, non-comment, non-SAY line
-        inMultiLineExpectations = false;
-      }
-    }
-    
-    i++;
-  }
-  
-  return count;
-}
-
-// Note: Expectation counting is now handled by expectations-address.js during execution
-// No static parsing needed - actual execution count is more accurate
+// Static analysis functions removed - test counting now done at runtime by TestRexxInterpreter
 
 function findTestFilesSync(dir, patterns = [], found = []) {
   if (!fs.existsSync(dir)) return found;
@@ -376,11 +260,9 @@ async function runTestFile(filePath, options = {}) {
     // Ignore cleanup errors
   }
   
-  // Find test subroutines ending in "Test" or "Tests" 
-  const testSubroutines = findTestSubroutines(rexxCode);
-  
-  // Count CALL statements to Test subroutines for accurate test counting
-  const testCallCount = countCallsToTestSubroutines(rexxCode);
+  // Test counting will be done at runtime by the TestRexxInterpreter
+  const testSubroutines = [];
+  const testCallCount = 0;
 
   try {
     // Import the executor
@@ -403,7 +285,7 @@ async function runTestFile(filePath, options = {}) {
         // Parse test structure from SAY output
         parseTestOutput(text, testResults);
         
-        if (options.verbose || options.verboseOutput) {
+        if (options.verbose || options.verboseOutput || options.liveOutput) {
           console.log(text);
         }
       }
@@ -446,8 +328,8 @@ async function runTestFile(filePath, options = {}) {
     
     const commands = parse(rexxCode);
     
-    // Debug: Show what the parser actually generated for debugging
-    if (options.verbose || options.verboseOutput) {
+    // Debug: Show what the parser actually generated for debugging (but not for live-output)
+    if ((options.verbose || options.verboseOutput) && !options.liveOutput) {
       console.log('🔍 Parser generated commands:');
       commands.slice(0, 10).forEach((cmd, i) => {
         console.log(`  ${i+1}. ${cmd.type}: ${JSON.stringify(cmd).substring(0, 100)}...`);
@@ -538,6 +420,7 @@ async function main() {
     tags: [],
     verbose: false,
     verboseOutput: args.includes('--verbose-output'),
+    liveOutput: args.includes('--live-output'),
     rerunFailuresWithVerbose: args.includes('--rerun-failures-with-verbose'),
     timeout: 30000,
     runAndNavigate: args.includes('--run-and-navigate'),
@@ -557,6 +440,8 @@ async function main() {
       options.verbose = true;
     } else if (arg === '--verbose-output') {
       options.verboseOutput = true;
+    } else if (arg === '--live-output') {
+      options.liveOutput = true;
     } else if (!arg.startsWith('--') && arg.endsWith('.rexx')) {
       options.patterns.push(arg);
     } else if (!arg.startsWith('--')) {
@@ -607,31 +492,25 @@ async function main() {
     fileResults.push(result); // Store raw result for later analysis
     
     if (result.code === 0) {
-      // Show test subroutines found in static analysis
-      if (result.testSubroutines && result.testSubroutines.length > 0) {
-        for (const subroutine of result.testSubroutines) {
-          // Convert "JsonSupportTests" to "Json Support"
-          let displayName = subroutine.name;
-          if (displayName.endsWith('Tests')) {
-            displayName = displayName.slice(0, -5); // Remove 'Tests'
-          } else if (displayName.endsWith('Test')) {
-            displayName = displayName.slice(0, -4); // Remove 'Test'
-          }
-          
-          // Add spaces before capital letters (camelCase to readable)
-          displayName = displayName.replace(/([A-Z])/g, ' $1').trim();
-          
-          // Build the display string
+      // Show test execution results from runtime (only if tests were actually executed)
+      if (result.testResults && result.testResults.describes && result.testResults.describes.length > 0) {
+        for (const describe of result.testResults.describes) {
           let displayParts = [];
-          if (subroutine.testCount > 0) {
-            displayParts.push(`${subroutine.testCount} ${displayName} test${subroutine.testCount === 1 ? '' : 's'}`);
-          }
-          if (subroutine.expectationCount > 0) {
-            displayParts.push(`${subroutine.expectationCount} expectation${subroutine.expectationCount === 1 ? '' : 's'}`);
+          
+          if (describe.tests && describe.tests.length > 0) {
+            displayParts.push(`${describe.tests.length} ${describe.name} test${describe.tests.length === 1 ? '' : 's'}`);
+            
+            // Count expectations from actual test execution
+            let expectationCount = describe.tests.reduce((acc, test) => acc + (test.expectationCount || 0), 0);
+            if (expectationCount > 0) {
+              displayParts.push(`${expectationCount} expectation${expectationCount === 1 ? '' : 's'}`);
+            }
           }
           
-          const displayText = displayParts.join(', ');
-          console.log(`   ${Colors.cyan}📦 ${displayText}${Colors.reset}`);
+          if (displayParts.length > 0) {
+            const displayText = displayParts.join(', ');
+            console.log(`   ${Colors.cyan}📦 ${displayText}${Colors.reset}`);
+          }
         }
       }
       

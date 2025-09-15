@@ -21,6 +21,10 @@ LET empty_string = ""
 LET numeric_string = "12345"
 LET mixed_string = "Test123"
 
+// Mathematical constants for ConstantValidationTest
+LET pi = 3.14159265359
+LET e = 2.71828182846
+
 // ============= ARGUMENT PARSING =============
 
 PARSE ARG target_describe .
