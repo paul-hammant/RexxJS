@@ -20,6 +20,27 @@
  * Licensed under the MIT License
  */
 
+// Test counter functionality
+function incrementTestCounter() {
+  try {
+    const fs = require('fs');
+    const tempFile = '.rexxt-test-count.tmp';
+    let count = 0;
+    
+    // Read existing count if file exists
+    if (fs.existsSync(tempFile)) {
+      const content = fs.readFileSync(tempFile, 'utf8').trim();
+      count = parseInt(content) || 0;
+    }
+    
+    // Increment and write back
+    count++;
+    fs.writeFileSync(tempFile, count.toString());
+  } catch (error) {
+    // Ignore errors - counting is non-critical
+  }
+}
+
 // Custom ExpectationError class
 class ExpectationError extends Error {
   constructor(message, actual, expected, matcher, negated, originalExpectation, sourceContext = null) {
@@ -931,9 +952,19 @@ function ADDRESS_EXPECTATIONS_HANDLER(commandOrMethod, params = {}, sourceContex
       });
     }
     
-    // Handle known method names
+    // Handle known method names  
     let resultPromise;
     switch (commandOrMethod.toLowerCase()) {
+      case 'test_count':
+        // Special command to increment test counter
+        incrementTestCounter();
+        return Promise.resolve({
+          operation: 'TEST_COUNT',
+          success: true,
+          result: null,
+          message: 'Test counted',
+          timestamp: new Date().toISOString()
+        });
       case 'expect':
       case 'test':
       case 'check':

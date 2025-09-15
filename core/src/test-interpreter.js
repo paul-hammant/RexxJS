@@ -18,8 +18,7 @@ class TestRexxInterpreter extends RexxInterpreter {
     
     // Test state tracking
     this.testResults = {
-      describes: [],
-      currentDescribe: null,
+      tests: [],
       totalTests: 0,
       passedTests: 0,
       failedTests: 0
@@ -45,27 +44,28 @@ class TestRexxInterpreter extends RexxInterpreter {
       body: []
     });
     
-    this.subroutines.set('START_TEST', {
-      type: 'PROCEDURE',
-      name: 'START_TEST', 
-      arguments: ['name'],
-      body: []
-    });
+    // Removed START_TEST, START_DESCRIBE and END_DESCRIBE - simplified to just count test subroutines
     
-    this.subroutines.set('START_DESCRIBE', {
-      type: 'PROCEDURE',
-      name: 'START_DESCRIBE',
-      arguments: ['name'], 
-      body: []
-    });
+  }
+
+  // Override executeCommand to handle test function calls
+  async executeCommand(command) {
+    // Handle CALL and FUNCTION_CALL commands for PASS and FAIL
+    if (command.type === 'CALL' || command.type === 'FUNCTION_CALL') {
+      const subroutineName = command.subroutine || command.command;
+      
+      if (subroutineName) {
+        const upperSubroutine = subroutineName.toUpperCase();
+        if (upperSubroutine === 'PASS' || upperSubroutine === 'FAIL') {
+          // Extract arguments from the params or arguments
+          const args = command.arguments || (command.params ? [command.params.value] : []);
+          return this.executeCall(subroutineName, args);
+        }
+      }
+    }
     
-    this.subroutines.set('END_DESCRIBE', {
-      type: 'PROCEDURE',
-      name: 'END_DESCRIBE',
-      arguments: [],
-      body: []
-    });
-    
+    // For all other commands, use parent implementation
+    return super.executeCommand(command);
   }
 
   // Override handleOperationResult to output test-specific messages
@@ -79,12 +79,19 @@ class TestRexxInterpreter extends RexxInterpreter {
     super.handleOperationResult(result);
   }
   
-  // Override executeCall to handle our test functions
-  async executeCall(command) {
-    const { subroutine, arguments: args } = command;
+  // Override executeCall to count test subroutines and handle test functions
+  executeCall(subroutine, args) {
+    const uppercaseSubroutine = subroutine.toUpperCase();
+    
+    // Check if this is a test subroutine (ends with 'Test')
+    if (uppercaseSubroutine.endsWith('TEST')) {
+      console.log(`[DEBUG] Test subroutine called: ${subroutine}`);
+      // Count this as a test execution
+      this.handleTestSubroutineCall(subroutine);
+    }
     
     // Handle test function calls
-    switch (subroutine) {
+    switch (uppercaseSubroutine) {
       case 'PASS':
         return this.handlePass();
       case 'FAIL':
@@ -94,44 +101,28 @@ class TestRexxInterpreter extends RexxInterpreter {
           message = message.slice(1, -1);
         }
         return this.handleFail(message);
-      case 'START_TEST':
-        let testName = args.length > 0 ? args[0] : "Unnamed test";
-        // Remove quotes if they exist
-        if (typeof testName === 'string' && testName.startsWith('"') && testName.endsWith('"')) {
-          testName = testName.slice(1, -1);
-        }
-        return this.handleStartTest(testName);
-      case 'START_DESCRIBE':
-        let describeName = args.length > 0 ? args[0] : "Unnamed describe";
-        // Remove quotes if they exist
-        if (typeof describeName === 'string' && describeName.startsWith('"') && describeName.endsWith('"')) {
-          describeName = describeName.slice(1, -1);
-        }
-        return this.handleStartDescribe(describeName);  
-      case 'END_DESCRIBE':
-        return this.handleEndDescribe();
       default:
-        // For variable-based calls, resolve the variable first
-        let resolvedSubroutine = subroutine;
-        let uppercaseSubroutine = subroutine.toUpperCase();
-        
-        // Check if it's a variable containing subroutine name (like parent class does)
-        if (!this.subroutines.has(uppercaseSubroutine)) {
-          const variableValue = this.variables.get(subroutine);
-          if (variableValue !== undefined && typeof variableValue === 'string') {
-            resolvedSubroutine = variableValue;
-            uppercaseSubroutine = variableValue.toUpperCase();
-          }
-        }
-        
-        // Check if the resolved subroutine is a describe subroutine
-        if (this.isDescribeSubroutine(uppercaseSubroutine)) {
-          // Auto-call START_DESCRIBE with inferred name (use original case)
-          const describeName = this.inferDescribeName(resolvedSubroutine);
-          this.handleStartDescribe(describeName);
-        }
         // Fall back to parent class for regular subroutines
-        return super.executeCall(command);
+        return super.executeCall(subroutine, args);
+    }
+  }
+  
+  // Handle test subroutine execution (each test subroutine = one test)
+  handleTestSubroutineCall(subroutineName) {
+    const test = {
+      name: subroutineName,
+      passed: true, // Assume passed unless we hit an error
+      output: [],
+      startTime: new Date().toISOString(),
+      endTime: null,
+      error: null
+    };
+    this.testResults.tests.push(test);
+    this.testResults.totalTests++;
+    this.testResults.passedTests++; // Count as passed for now
+    
+    if (this.outputHandler) {
+      this.outputHandler.output(`🔍 ${subroutineName}`);
     }
   }
   
@@ -211,51 +202,38 @@ class TestRexxInterpreter extends RexxInterpreter {
     }
   }
 
-  handleStartTest(name) {
-    this.endCurrentTestIfRunning();
-    if (this.testResults.currentDescribe) {
-      const test = {
-        name: name,
-        passed: null,
-        output: [],
-        startTime: new Date().toISOString(),
-        endTime: null,
-        error: null
+  // Removed handleStartTest - no longer needed with simplified approach
+  
+  // Removed handleStartDescribe and handleEndDescribe - simplified to just START_TEST
+  
+  // Override run method to write test results at the end
+  async run(commands, source, fileName) {
+    try {
+      const result = await super.run(commands, source, fileName);
+      // Write test results to temp file after execution
+      this.writeTestResultsToFile();
+      return result;
+    } catch (error) {
+      // Even on error, try to write partial results
+      this.writeTestResultsToFile();
+      throw error;
+    }
+  }
+  
+  // Write test results to temp file for rexxt to read
+  writeTestResultsToFile() {
+    const fs = require('fs');
+    const tempFile = '.rexxt-test-results.tmp';
+    try {
+      const resultsData = {
+        totalTests: this.testResults.totalTests,
+        passedTests: this.testResults.passedTests,
+        failedTests: this.testResults.failedTests,
+        tests: this.testResults.tests
       };
-      this.testResults.currentDescribe.tests.push(test);
-      this.testResults.totalTests++;
-      
-      if (this.outputHandler) {
-        this.outputHandler.output(`  🔍 ${name}`);
-      }
-    }
-  }
-  
-  handleStartDescribe(name) {
-    this.endCurrentTestIfRunning();
-    const describe = {
-      name: name,
-      tests: [],
-      startTime: new Date().toISOString(),
-      passed: 0,
-      failed: 0,
-      endTime: null
-    };
-    this.testResults.describes.push(describe);
-    this.testResults.currentDescribe = describe;
-    
-    if (this.outputHandler) {
-      this.outputHandler.output(`📋 ${name}`);
-    }
-  }
-  
-  handleEndDescribe() {
-    this.endCurrentTestIfRunning();
-    if (this.testResults.currentDescribe) {
-      this.testResults.currentDescribe.endTime = new Date().toISOString();
-      if (this.outputHandler) {
-        this.outputHandler.output(`  📋 ${this.testResults.currentDescribe.name} completed`);
-      }
+      fs.writeFileSync(tempFile, JSON.stringify(resultsData, null, 2));
+    } catch (error) {
+      // Ignore write errors
     }
   }
 }

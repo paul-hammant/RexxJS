@@ -250,11 +250,15 @@ async function runTestFile(filePath, options = {}) {
   
   const rexxCode = fs.readFileSync(filePath, 'utf8');
   
-  // Clear expectation counter before running this file
+  // Clear expectation and test counters before running this file
   const expectationCounterFile = '.rexxt-expectations-count.tmp';
+  const testCounterFile = '.rexxt-test-count.tmp';
   try {
     if (fs.existsSync(expectationCounterFile)) {
       fs.unlinkSync(expectationCounterFile);
+    }
+    if (fs.existsSync(testCounterFile)) {
+      fs.unlinkSync(testCounterFile);
     }
   } catch (error) {
     // Ignore cleanup errors
@@ -340,7 +344,9 @@ async function runTestFile(filePath, options = {}) {
       console.log('');
     }
     
-    const interpreter = new TestRexxInterpreter(testAddressSender, {}, outputHandler, options.scriptArgs || []);
+    // Pass .*Test$ as default argument when no script arguments provided
+    const scriptArgs = options.scriptArgs && options.scriptArgs.length > 0 ? options.scriptArgs : ['.*Test$'];
+    const interpreter = new TestRexxInterpreter(testAddressSender, {}, outputHandler, scriptArgs);
     await interpreter.run(commands, rexxCode, filePath);
     
     // Read actual expectation count from temp file
@@ -356,9 +362,48 @@ async function runTestFile(filePath, options = {}) {
       // If we can't read the count, leave it as 0
     }
 
-    // Update testResults with actual expectation count
-    testResults.totalExpectations = actualExpectationCount;
-    testResults.passedExpectations = actualExpectationCount; // All executed expectations passed
+    // Read actual test count from temp file
+    let actualTestCount = 0;
+    try {
+      if (fs.existsSync(testCounterFile)) {
+        const content = fs.readFileSync(testCounterFile, 'utf8').trim();
+        actualTestCount = parseInt(content) || 0;
+        // Clean up temp file
+        fs.unlinkSync(testCounterFile);
+      }
+    } catch (error) {
+      // If we can't read the count, leave it as 0
+    }
+
+    // Read actual test results from temp file
+    const testResultsFile = '.rexxt-test-results.tmp';
+    let actualTestResults = null;
+    try {
+      if (fs.existsSync(testResultsFile)) {
+        const content = fs.readFileSync(testResultsFile, 'utf8');
+        actualTestResults = JSON.parse(content);
+        // Clean up temp file
+        fs.unlinkSync(testResultsFile);
+      }
+    } catch (error) {
+      // If we can't read test results, use defaults
+    }
+
+    // Update testResults with actual counts
+    if (actualTestResults) {
+      testResults = {
+        ...actualTestResults,
+        totalTests: actualTestCount,
+        passedTests: actualTestCount, // All executed tests passed (if we got here)
+        totalExpectations: actualExpectationCount,
+        passedExpectations: actualExpectationCount // All executed expectations passed
+      };
+    } else {
+      testResults.totalTests = actualTestCount;
+      testResults.passedTests = actualTestCount;
+      testResults.totalExpectations = actualExpectationCount;
+      testResults.passedExpectations = actualExpectationCount;
+    }
 
     return { 
       code: 0, 
@@ -468,6 +513,12 @@ async function main() {
   if (options.tags.length > 0) {
     console.log(`${Colors.dim}Tags: ${options.tags.join(', ')}${Colors.reset}`);
   }
+  
+  // Show subset mode indication if specific scriptArgs were provided
+  if (options.scriptArgs && options.scriptArgs.length > 0) {
+    console.log(`${Colors.yellow}🔍 Subset mode: filtering tests matching pattern "${options.scriptArgs.join(' ')}"${Colors.reset}`);
+  }
+  
   console.log('');
   
   let totalPassed = 0;
@@ -493,25 +544,9 @@ async function main() {
     
     if (result.code === 0) {
       // Show test execution results from runtime (only if tests were actually executed)
-      if (result.testResults && result.testResults.describes && result.testResults.describes.length > 0) {
-        for (const describe of result.testResults.describes) {
-          let displayParts = [];
-          
-          if (describe.tests && describe.tests.length > 0) {
-            displayParts.push(`${describe.tests.length} ${describe.name} test${describe.tests.length === 1 ? '' : 's'}`);
-            
-            // Count expectations from actual test execution
-            let expectationCount = describe.tests.reduce((acc, test) => acc + (test.expectationCount || 0), 0);
-            if (expectationCount > 0) {
-              displayParts.push(`${expectationCount} expectation${expectationCount === 1 ? '' : 's'}`);
-            }
-          }
-          
-          if (displayParts.length > 0) {
-            const displayText = displayParts.join(', ');
-            console.log(`   ${Colors.cyan}📦 ${displayText}${Colors.reset}`);
-          }
-        }
+      if (result.testResults && result.testResults.tests && result.testResults.tests.length > 0) {
+        const testCount = result.testResults.tests.length;
+        console.log(`   ${Colors.cyan}📦 ${testCount} test${testCount === 1 ? '' : 's'} executed${Colors.reset}`);
       }
       
       // Show detailed test/expectation counts
