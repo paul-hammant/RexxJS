@@ -392,7 +392,7 @@ assert('{input} should match /^\\w+@\\w+\\.\\w+$/', { input });
 
 ## Related Documentation
 
-- **[Testing with rexxt](23-testing-rexxt.md)**: Complete guide to RexxJS test runner and execution patterns
+- **[Testing with rexxt](32-testing-rexxt.md)**: Complete guide to RexxJS test runner and execution patterns
 - **[Control Flow](02-control-flow.md)**: Core RexxJS statements and flow control
 - **[Error Handling](21-error-handling.md)**: Error patterns and recovery strategies
 

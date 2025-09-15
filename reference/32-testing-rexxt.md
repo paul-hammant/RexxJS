@@ -30,6 +30,27 @@ The native test runner for RexxJS code, designed around execution sets and colle
 
 # Verbose output
 ./rexxt --verbose-output tests/string-tests.rexx
+
+# Live output (real-time SAY statements without debug info)
+./rexxt --live-output tests/debug-tests.rexx
+
+# Rerun failed tests with verbose output for debugging
+./rexxt --rerun-failures-with-verbose tests/*.rexx
+```
+
+### Subset Mode
+
+When running specific test patterns or individual tests, rexxt indicates subset mode:
+
+```bash
+# Run specific test subroutine (shows subset mode indication)
+./rexxt tests/math-tests.rexx AdditionTest
+
+# Output shows:
+# 🔍 Subset mode: filtering tests matching pattern "AdditionTest"
+
+# Run multiple specific patterns
+./rexxt tests/validation.rexx EmailTest PhoneTest
 ```
 
 ### Navigation and Results
@@ -175,6 +196,22 @@ Example output:
 - **Execution counting**: Runtime tracking of actual executions
 - Failed files still contribute static test counts to totals
 
+### Test Name Enhancement
+
+rexxt automatically converts PascalCase test names to readable Title Case format:
+
+**Before (raw subroutine names):**
+- `StringLengthTest`
+- `DatabaseConnectionTest` 
+- `XMLHttpRequestTest`
+
+**After (in TUI and JSON output):**
+- `"String Length Test"`
+- `"Database Connection Test"`
+- `"XML Http Request Test"`
+
+This conversion preserves the "Test" suffix and handles complex cases like acronyms (XML, HTTP) appropriately.
+
 ### JSON Output
 
 Results are saved to `test-results.json` for the TUI navigator:
@@ -201,11 +238,98 @@ Results are saved to `test-results.json` for the TUI navigator:
       "type": "file",
       "name": "tests/math-test.rexx",
       "tags": ["math", "basic"],
-      "children": []
+      "children": [
+        {
+          "type": "test",
+          "name": "Addition Test",
+          "passed": true,
+          "status": "passed",
+          "error": null,
+          "startTime": null,
+          "endTime": null,
+          "output": []
+        },
+        {
+          "type": "test", 
+          "name": "Multiplication Test",
+          "passed": true,
+          "status": "passed",
+          "error": null,
+          "startTime": null,
+          "endTime": null,
+          "output": []
+        }
+      ]
     }
   ]
 }
 ```
+
+## TUI Navigator
+
+rexxt includes a Terminal User Interface (TUI) navigator for interactive test result browsing.
+
+### Launching the Navigator
+
+```bash
+# Run tests then launch navigator
+./rexxt --run-and-navigate tests/*.rexx
+
+# Launch navigator for previous results  
+./rexxt --navigate
+```
+
+### Navigator Display
+
+The TUI shows a hierarchical view of test results:
+
+```
+📊 RexxJS Test Navigator (hierarchy view, all filter)
+5 passed | 0 failed | 5 total (100%)
+
+📄 tests/string-validation-specs.rexx [] (4/4)
+  🧪 String Length Test ✅
+  🧪 String Case Test ✅  
+  🧪 Edge Case Test ✅
+  🧪 Constant Validation Test ✅
+
+1 items | Use ↑↓ to navigate, → to expand, ← to collapse, h for help, q to quit
+```
+
+### Navigation Controls
+
+| Key | Action |
+|-----|---------|
+| `↑` / `↓` | Navigate up/down through items |
+| `→` / `Enter` | Expand file to show individual tests |
+| `←` | Collapse expanded file |
+| `Space` | Toggle expand/collapse |
+| `v` | Change view mode (hierarchy/details/output) |
+| `f` | Filter tests (all/passed/failed) |
+| `s` | Show summary |
+| `r` | Refresh results |
+| `h` | Show help |
+| `q` | Quit navigator |
+
+### Test Name Display
+
+Test names are automatically converted from PascalCase to readable Title Case:
+
+- `StringLengthTest` → **"String Length Test"**
+- `DatabaseConnectionTest` → **"Database Connection Test"**
+- `XMLHttpRequestTest` → **"XML Http Request Test"**
+
+### View Modes
+
+1. **Hierarchy View**: Tree structure with expandable files and tests
+2. **Details View**: Extended information about selected test
+3. **Output View**: Test execution output and logs
+
+### Filtering Options
+
+- **All**: Show all tests regardless of status
+- **Passed**: Show only passing tests  
+- **Failed**: Show only failed tests
 
 ## Integration with ADDRESS EXPECTATIONS
 
@@ -396,21 +520,25 @@ RETURN
 # Basic execution
 ./rexxt                          # Run all .rexx files
 ./rexxt file.rexx               # Run specific file
+./rexxt file.rexx TestName      # Run specific test (subset mode)
 ./rexxt --pattern "tests/*.rexx" # Pattern matching
 
 # Filtering and organization  
 ./rexxt --tags math,string      # Filter by tags
-./rexxt --verbose               # Show parser debug info
+./rexxt --verbose, -v           # Show parser debug info
 ./rexxt --verbose-output        # Show all SAY statements
+./rexxt --live-output           # Show SAY output in real-time without debug info
 
 # Navigation and results
 ./rexxt --navigate              # Launch TUI navigator
 ./rexxt --run-and-navigate      # Run then navigate
 ./rexxt --timeout 60000         # Set timeout (ms)
 
+# Error handling and debugging
+./rexxt --rerun-failures-with-verbose # Rerun failed tests with verbose output
+
 # Help and information
-./rexxt --help                  # Show help
-./rexxt --version              # Show version info
+./rexxt --help, -h              # Show help
 ```
 
 ## Integration Examples
@@ -433,14 +561,23 @@ echo "All tests passed!"
 ### Development Workflow
 
 ```bash
-# Quick test during development
-./rexxt tests/current-work.rexx --verbose-output
+# Quick test during development with live output
+./rexxt tests/current-work.rexx --live-output
+
+# Run specific test subroutine for focused debugging
+./rexxt tests/validation.rexx EmailValidationTest --live-output
 
 # Full test run with navigation
 ./rexxt --run-and-navigate
 
 # Test specific functionality
 ./rexxt --tags math --verbose-output
+
+# Debug failed tests with detailed output
+./rexxt --rerun-failures-with-verbose tests/*.rexx
+
+# Browse previous test results
+./rexxt --navigate
 ```
 
 ---
@@ -450,5 +587,10 @@ echo "All tests passed!"
 - Tests = `CALL *Test` subroutines, Expectations = `ADDRESS EXPECTATIONS`  
 - Any `.rexx` file can contain tests
 - Tag-based organization and filtering
+- **Subset mode** for focused testing of specific test subroutines
+- **Interactive TUI navigator** with expandable test hierarchy
+- **Readable test names** with automatic PascalCase → Title Case conversion
+- **Live output mode** for real-time debugging
+- **Failure rerun capabilities** for debugging failed tests
 - Rich reporting and navigation tools
 - Seamless integration with ADDRESS EXPECTATIONS library
