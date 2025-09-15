@@ -1,0 +1,16 @@
+{
+  "name": "@rexx/address-openai-chat-completions",
+  "version": "1.0.0",
+  "description": "REXX address target for OpenAI Chat Completions API",
+  "main": "src/chat-completions.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "rexx",
+    "address",
+    "openai"
+  ],
+  "author": "",
+  "license": "MIT"
+}

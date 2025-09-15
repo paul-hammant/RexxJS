@@ -1,0 +1,31 @@
+{
+  "name": "rexxjs-r-graphics",
+  "version": "1.0.0",
+  "description": "R-style graphics and visualization functions for RexxJS",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "install:core": "cd ../../../../core && npm install", 
+    "pretest": "npm run install:core"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "rexxjs",
+    "r-functions",
+    "graphics",
+    "visualization",
+    "plotting",
+    "charts"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/*.spec.js"],
+    "testPathIgnorePatterns": ["/node_modules/", ".*png-rendering.*"]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "rexxjs-numpy-inspired",
+  "version": "0.2.0",
+  "description": "Tiny NumPy-inspired array creation and manipulation helpers (pure JS) for the rexxjs monorepo",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --runInBand"
+  },
+  "keywords": [
+    "numpy",
+    "array",
+    "creation",
+    "rexxjs"
+  ],
+  "author": "paul-hammant",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}

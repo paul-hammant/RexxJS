@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SciPy Interpolation Functions Test Harness</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .canvas-container {
+            margin: 15px 0;
+            border: 1px solid #ccc;
+            background-color: white;
+        }
+        canvas {
+            display: block;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        label {
+            display: inline-block;
+            width: 100px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            padding: 5px;
+            margin: 0 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        textarea {
+            width: 300px;
+            height: 60px;
+            font-family: monospace;
+        }
+        .results {
+            background-color: #e7f3ff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .success {
+            background-color: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SciPy Interpolation Functions Test Harness</h1>
+        
+        <div class="test-section">
+            <h3>Setup JavaScript Execution</h3>
+            <div class="input-group">
+                <label>Setup Code:</label>
+                <textarea id="setupCode" placeholder="Enter JavaScript setup code...">// Example setup
+const xData = [0, 1, 2, 3, 4, 5];
+const yData = [0, 1, 4, 9, 16, 25]; // x^2</textarea>
+            </div>
+            <button onclick="executeSetup()">Execute Setup</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_INTERP1D - 1D Interpolation</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>X Data:</label>
+                    <input type="text" id="interpX" value="[0,1,2,3,4]" />
+                </div>
+                <div class="input-group">
+                    <label>Y Data:</label>
+                    <input type="text" id="interpY" value="[0,1,4,9,16]" />
+                </div>
+                <div class="input-group">
+                    <label>Method:</label>
+                    <select id="interpMethod">
+                        <option value="linear">Linear</option>
+                        <option value="cubic" selected>Cubic</option>
+                        <option value="nearest">Nearest</option>
+                        <option value="quadratic">Quadratic</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Eval Points:</label>
+                    <input type="text" id="interpEval" value="[0.5,1.5,2.5,3.5]" />
+                </div>
+            </div>
+            <button onclick="testInterp1D()">Test SP_INTERP1D</button>
+            <button onclick="visualizeInterp1D()">Visualize Interpolation</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_PCHIP - Shape-Preserving Interpolation</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>X Data:</label>
+                    <input type="text" id="pchipX" value="[0,1,2,3,4]" />
+                </div>
+                <div class="input-group">
+                    <label>Y Data:</label>
+                    <input type="text" id="pchipY" value="[0,2,1,3,2]" />
+                </div>
+            </div>
+            <button onclick="testPCHIP()">Test SP_PCHIP</button>
+            <button onclick="visualizePCHIP()">Visualize PCHIP</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_RBF - Radial Basis Functions</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>X Data:</label>
+                    <input type="text" id="rbfX" value="[0,1,2,3,4]" />
+                </div>
+                <div class="input-group">
+                    <label>Y Data:</label>
+                    <input type="text" id="rbfY" value="[1,2,1,3,2]" />
+                </div>
+                <div class="input-group">
+                    <label>Function:</label>
+                    <select id="rbfFunction">
+                        <option value="multiquadric" selected>Multiquadric</option>
+                        <option value="gaussian">Gaussian</option>
+                        <option value="linear">Linear</option>
+                        <option value="cubic">Cubic</option>
+                        <option value="thin_plate">Thin Plate</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="testRBF()">Test SP_RBF</button>
+            <button onclick="visualizeRBF()">Visualize RBF</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_SPLREP/SP_SPLEV - B-Splines</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>Degree:</label>
+                    <select id="splineDegree">
+                        <option value="1">Linear</option>
+                        <option value="2">Quadratic</option>
+                        <option value="3" selected>Cubic</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="testBSpline()">Test B-Splines</button>
+            <button onclick="visualizeBSpline()">Visualize B-Splines</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_GRIDDATA - Scattered Data Interpolation</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>Points:</label>
+                    <input type="text" id="griddataPoints" value="[[0,0],[1,0],[0,1],[1,1]]" />
+                </div>
+                <div class="input-group">
+                    <label>Values:</label>
+                    <input type="text" id="griddataValues" value="[1,2,3,4]" />
+                </div>
+                <div class="input-group">
+                    <label>Method:</label>
+                    <select id="griddataMethod">
+                        <option value="nearest">Nearest</option>
+                        <option value="linear" selected>Linear</option>
+                        <option value="cubic">Cubic</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Query Points:</label>
+                    <input type="text" id="griddataQuery" value="[[0.5,0.5],[0.25,0.75]]" />
+                </div>
+            </div>
+            <button onclick="testGriddata()">Test SP_GRIDDATA</button>
+            <button onclick="visualizeGriddata()">Visualize Griddata</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_AKIMA1D - Shape-Preserving Interpolation</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>X Data:</label>
+                    <input type="text" id="akimaX" value="[0,1,2,3,4,5]" />
+                </div>
+                <div class="input-group">
+                    <label>Y Data:</label>
+                    <input type="text" id="akimaY" value="[0,2,1,3,2,4]" />
+                </div>
+            </div>
+            <button onclick="testAkima()">Test SP_AKIMA1D</button>
+            <button onclick="visualizeAkima()">Visualize Akima</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_UNISPLINE - Smoothing Splines</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>X Data:</label>
+                    <input type="text" id="unisplineX" value="[0,1,2,3,4,5]" />
+                </div>
+                <div class="input-group">
+                    <label>Y Data:</label>
+                    <input type="text" id="unisplineY" value="[0.1,0.9,4.1,8.9,16.1,24.9]" />
+                </div>
+                <div class="input-group">
+                    <label>Smoothing:</label>
+                    <input type="number" id="unisplineSmooth" value="1" step="0.1" />
+                </div>
+            </div>
+            <button onclick="testUnispline()">Test SP_UNISPLINE</button>
+            <button onclick="visualizeUnispline()">Visualize Unispline</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_REGULARGRID - Regular Grid Interpolation</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>Grid Points:</label>
+                    <input type="text" id="regulargridPoints" value="[0,1,2,3,4]" />
+                </div>
+                <div class="input-group">
+                    <label>Grid Values:</label>
+                    <input type="text" id="regulargridValues" value="[0,1,4,9,16]" />
+                </div>
+                <div class="input-group">
+                    <label>Method:</label>
+                    <select id="regulargridMethod">
+                        <option value="linear" selected>Linear</option>
+                        <option value="nearest">Nearest</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="testRegulargrid()">Test SP_REGULARGRID</button>
+            <button onclick="visualizeRegulargrid()">Visualize Regulargrid</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_CUBIC_SPLINE - Enhanced Cubic Splines</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>Boundary Type:</label>
+                    <select id="cubicBoundary">
+                        <option value="natural" selected>Natural</option>
+                        <option value="not-a-knot">Not-a-knot</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Extrapolate:</label>
+                    <input type="checkbox" id="cubicExtrapolate" />
+                </div>
+            </div>
+            <button onclick="testCubicSpline()">Test SP_CUBIC_SPLINE</button>
+            <button onclick="visualizeCubicSpline()">Visualize Cubic Spline</button>
+        </div>
+
+        <div class="test-section">
+            <h3>SP_SPLPREP - Parametric Splines</h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label>X Coords:</label>
+                    <input type="text" id="splprepX" value="[0,1,2,3]" />
+                </div>
+                <div class="input-group">
+                    <label>Y Coords:</label>
+                    <input type="text" id="splprepY" value="[0,1,0,-1]" />
+                </div>
+            </div>
+            <button onclick="testSplprep()">Test SP_SPLPREP</button>
+            <button onclick="visualizeSplprep()">Visualize Parametric Curve</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Visualization Canvas</h3>
+            <div class="canvas-container">
+                <canvas id="plotCanvas" width="600" height="400"></canvas>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Results Log</h3>
+            <button onclick="clearLog()">Clear Log</button>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <div id="testLog" class="log"></div>
+        </div>
+    </div>
+
+    <script src="../../src/sp-interpolation-functions.js"></script>
+    <script>
+        let componentUnderTest = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logClass = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            logDiv.innerHTML += `<div class="${logClass}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+
+        function executeSetup() {
+            try {
+                const setupCode = document.getElementById('setupCode').value;
+                eval(setupCode);
+                log('✅ Setup code executed successfully', 'success');
+            } catch (error) {
+                log(`❌ Setup failed: ${error.message}`, 'error');
+            }
+        }
+
+        function parseArrayInput(inputValue) {
+            try {
+                return JSON.parse(inputValue);
+            } catch {
+                return inputValue.split(',').map(x => parseFloat(x.trim()));
+            }
+        }
+
+        function testInterp1D() {
+            try {
+                const x = parseArrayInput(document.getElementById('interpX').value);
+                const y = parseArrayInput(document.getElementById('interpY').value);
+                const method = document.getElementById('interpMethod').value;
+                const evalPoints = parseArrayInput(document.getElementById('interpEval').value);
+
+                log(`Testing SP_INTERP1D with method: ${method}`);
+                log(`Input X: [${x.join(', ')}]`);
+                log(`Input Y: [${y.join(', ')}]`);
+
+                const interpolator = spInterpolationFunctions.SP_INTERP1D(x, y, {kind: method});
+                
+                if (interpolator.error) {
+                    log(`❌ Error creating interpolator: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                log('✅ Interpolator created successfully', 'success');
+
+                const results = evalPoints.map(xi => {
+                    const result = interpolator.interpolate(xi);
+                    return `f(${xi}) = ${result.toFixed(4)}`;
+                });
+
+                log(`Interpolated values: ${results.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_INTERP1D test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testPCHIP() {
+            try {
+                const x = parseArrayInput(document.getElementById('pchipX').value);
+                const y = parseArrayInput(document.getElementById('pchipY').value);
+
+                log('Testing SP_PCHIP');
+                log(`Input X: [${x.join(', ')}]`);
+                log(`Input Y: [${y.join(', ')}]`);
+
+                const interpolator = spInterpolationFunctions.SP_PCHIP(x, y);
+                
+                if (interpolator.error) {
+                    log(`❌ Error creating PCHIP interpolator: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                log('✅ PCHIP interpolator created successfully', 'success');
+
+                const testPoints = [0.5, 1.5, 2.5, 3.5];
+                const results = testPoints.map(xi => {
+                    const result = interpolator.interpolate(xi);
+                    return `f(${xi}) = ${result.toFixed(4)}`;
+                });
+
+                log(`PCHIP interpolated values: ${results.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_PCHIP test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testRBF() {
+            try {
+                const x = parseArrayInput(document.getElementById('rbfX').value);
+                const y = parseArrayInput(document.getElementById('rbfY').value);
+                const func = document.getElementById('rbfFunction').value;
+
+                log(`Testing SP_RBF with function: ${func}`);
+                log(`Input X: [${x.join(', ')}]`);
+                log(`Input Y: [${y.join(', ')}]`);
+
+                const interpolator = spInterpolationFunctions.SP_RBF(x, null, y, {function: func});
+                
+                if (interpolator.error) {
+                    log(`❌ Error creating RBF interpolator: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                log('✅ RBF interpolator created successfully', 'success');
+
+                const testPoints = [0.5, 1.5, 2.5, 3.5];
+                const results = testPoints.map(xi => {
+                    const result = interpolator.interpolate(xi);
+                    return `f(${xi}) = ${result.toFixed(4)}`;
+                });
+
+                log(`RBF interpolated values: ${results.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_RBF test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testBSpline() {
+            try {
+                const x = [0, 1, 2, 3, 4];
+                const y = [0, 1, 4, 9, 16];
+                const degree = parseInt(document.getElementById('splineDegree').value);
+
+                log(`Testing SP_SPLREP/SP_SPLEV with degree: ${degree}`);
+                log(`Input X: [${x.join(', ')}]`);
+                log(`Input Y: [${y.join(', ')}]`);
+
+                const splineRep = spInterpolationFunctions.SP_SPLREP(x, y, {k: degree});
+                
+                if (splineRep.error) {
+                    log(`❌ Error creating B-spline representation: ${splineRep.error}`, 'error');
+                    return;
+                }
+
+                log('✅ B-spline representation created successfully', 'success');
+
+                const testPoints = [0.5, 1.5, 2.5, 3.5];
+                const results = testPoints.map(xi => {
+                    const result = spInterpolationFunctions.SP_SPLEV(xi, splineRep);
+                    return `f(${xi}) = ${result.toFixed(4)}`;
+                });
+
+                log(`B-spline interpolated values: ${results.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ B-spline test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeInterpolation(method, interpolator, x, y, title) {
+            const canvas = document.getElementById('plotCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Setup plotting area
+            const padding = 50;
+            const plotWidth = canvas.width - 2 * padding;
+            const plotHeight = canvas.height - 2 * padding;
+            
+            const xMin = Math.min(...x) - 0.5;
+            const xMax = Math.max(...x) + 0.5;
+            const yMin = Math.min(...y) - 2;
+            const yMax = Math.max(...y) + 2;
+            
+            function scaleX(val) {
+                return padding + (val - xMin) / (xMax - xMin) * plotWidth;
+            }
+            
+            function scaleY(val) {
+                return padding + (1 - (val - yMin) / (yMax - yMin)) * plotHeight;
+            }
+            
+            // Draw axes
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw original data points
+            ctx.fillStyle = '#ff0000';
+            for (let i = 0; i < x.length; i++) {
+                ctx.beginPath();
+                ctx.arc(scaleX(x[i]), scaleY(y[i]), 4, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+            
+            // Draw interpolated curve
+            ctx.strokeStyle = '#0066cc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const numPoints = 100;
+            const step = (xMax - xMin) / numPoints;
+            
+            for (let i = 0; i <= numPoints; i++) {
+                const xi = xMin + i * step;
+                let yi;
+                
+                try {
+                    yi = interpolator.interpolate(xi);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(scaleX(xi), scaleY(yi));
+                    } else {
+                        ctx.lineTo(scaleX(xi), scaleY(yi));
+                    }
+                } catch (e) {
+                    // Skip points that can't be interpolated
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Draw title
+            ctx.fillStyle = '#000';
+            ctx.font = '16px Arial';
+            ctx.fillText(title, 10, 20);
+            
+            // Legend
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#ff0000';
+            ctx.fillText('● Original Data', 10, canvas.height - 30);
+            ctx.fillStyle = '#0066cc';
+            ctx.fillText('— Interpolated', 10, canvas.height - 15);
+        }
+
+        function visualizeInterp1D() {
+            try {
+                const x = parseArrayInput(document.getElementById('interpX').value);
+                const y = parseArrayInput(document.getElementById('interpY').value);
+                const method = document.getElementById('interpMethod').value;
+
+                const interpolator = spInterpolationFunctions.SP_INTERP1D(x, y, {kind: method});
+                
+                if (interpolator.error) {
+                    log(`❌ Cannot visualize: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                visualizeInterpolation(method, interpolator, x, y, `SP_INTERP1D (${method})`);
+                log('✅ Visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ Visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizePCHIP() {
+            try {
+                const x = parseArrayInput(document.getElementById('pchipX').value);
+                const y = parseArrayInput(document.getElementById('pchipY').value);
+
+                const interpolator = spInterpolationFunctions.SP_PCHIP(x, y);
+                
+                if (interpolator.error) {
+                    log(`❌ Cannot visualize PCHIP: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                visualizeInterpolation('PCHIP', interpolator, x, y, 'SP_PCHIP');
+                log('✅ PCHIP visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ PCHIP visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeRBF() {
+            try {
+                const x = parseArrayInput(document.getElementById('rbfX').value);
+                const y = parseArrayInput(document.getElementById('rbfY').value);
+                const func = document.getElementById('rbfFunction').value;
+
+                const interpolator = spInterpolationFunctions.SP_RBF(x, null, y, {function: func});
+                
+                if (interpolator.error) {
+                    log(`❌ Cannot visualize RBF: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                visualizeInterpolation('RBF', interpolator, x, y, `SP_RBF (${func})`);
+                log('✅ RBF visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ RBF visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeBSpline() {
+            try {
+                const x = [0, 1, 2, 3, 4];
+                const y = [0, 1, 4, 9, 16];
+                const degree = parseInt(document.getElementById('splineDegree').value);
+
+                const splineRep = spInterpolationFunctions.SP_SPLREP(x, y, {k: degree});
+                
+                if (splineRep.error) {
+                    log(`❌ Cannot visualize B-spline: ${splineRep.error}`, 'error');
+                    return;
+                }
+
+                // Create wrapper for SP_SPLEV to match interpolator interface
+                const interpolator = {
+                    interpolate: (xi) => spInterpolationFunctions.SP_SPLEV(xi, splineRep)
+                };
+
+                visualizeInterpolation('B-Spline', interpolator, x, y, `SP_SPLREP/SP_SPLEV (degree ${degree})`);
+                log('✅ B-spline visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ B-spline visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testGriddata() {
+            try {
+                const points = parseArrayInput(document.getElementById('griddataPoints').value);
+                const values = parseArrayInput(document.getElementById('griddataValues').value);
+                const method = document.getElementById('griddataMethod').value;
+                const queryPoints = parseArrayInput(document.getElementById('griddataQuery').value);
+
+                log(`Testing SP_GRIDDATA with method: ${method}`);
+                log(`Input points: ${JSON.stringify(points)}`);
+                log(`Input values: [${values.join(', ')}]`);
+
+                const result = spInterpolationFunctions.SP_GRIDDATA(points, values, queryPoints, {method: method});
+                
+                if (result.error) {
+                    log(`❌ Error in SP_GRIDDATA: ${result.error}`, 'error');
+                    return;
+                }
+
+                log('✅ SP_GRIDDATA interpolator created successfully', 'success');
+                log(`Results: [${result.results.map(r => r.toFixed(4)).join(', ')}]`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_GRIDDATA test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testAkima() {
+            try {
+                const x = parseArrayInput(document.getElementById('akimaX').value);
+                const y = parseArrayInput(document.getElementById('akimaY').value);
+
+                log('Testing SP_AKIMA1D');
+                log(`Input X: [${x.join(', ')}]`);
+                log(`Input Y: [${y.join(', ')}]`);
+
+                const interpolator = spInterpolationFunctions.SP_AKIMA1D(x, y);
+                
+                if (interpolator.error) {
+                    log(`❌ Error in SP_AKIMA1D: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                log('✅ SP_AKIMA1D interpolator created successfully', 'success');
+
+                const testPoints = [0.5, 1.5, 2.5, 3.5, 4.5];
+                const results = interpolator.interpolate(testPoints);
+                
+                const resultStrings = results.map((r, i) => `f(${testPoints[i]}) = ${r.toFixed(4)}`);
+                log(`Akima interpolated values: ${resultStrings.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_AKIMA1D test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testUnispline() {
+            try {
+                const x = parseArrayInput(document.getElementById('unisplineX').value);
+                const y = parseArrayInput(document.getElementById('unisplineY').value);
+                const smoothing = parseFloat(document.getElementById('unisplineSmooth').value);
+
+                log(`Testing SP_UNISPLINE with smoothing factor: ${smoothing}`);
+                log(`Input X: [${x.join(', ')}]`);
+                log(`Input Y: [${y.join(', ')}]`);
+
+                const interpolator = spInterpolationFunctions.SP_UNISPLINE(x, y, {s: smoothing});
+                
+                if (interpolator.error) {
+                    log(`❌ Error in SP_UNISPLINE: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                log('✅ SP_UNISPLINE interpolator created successfully', 'success');
+
+                const testPoints = [0.5, 1.5, 2.5, 3.5, 4.5];
+                const results = interpolator.interpolate(testPoints);
+                
+                const resultStrings = results.map((r, i) => `f(${testPoints[i]}) = ${r.toFixed(4)}`);
+                log(`Unispline interpolated values: ${resultStrings.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_UNISPLINE test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testRegulargrid() {
+            try {
+                const points = parseArrayInput(document.getElementById('regulargridPoints').value);
+                const values = parseArrayInput(document.getElementById('regulargridValues').value);
+                const method = document.getElementById('regulargridMethod').value;
+
+                log(`Testing SP_REGULARGRID with method: ${method}`);
+                log(`Grid points: [${points.join(', ')}]`);
+                log(`Grid values: [${values.join(', ')}]`);
+
+                const interpolator = spInterpolationFunctions.SP_REGULARGRID(points, values, {method: method});
+                
+                if (interpolator.error) {
+                    log(`❌ Error in SP_REGULARGRID: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                log('✅ SP_REGULARGRID interpolator created successfully', 'success');
+
+                const testPoints = [0.5, 1.5, 2.5, 3.5];
+                const results = interpolator.interpolate(testPoints);
+                
+                const resultStrings = results.map((r, i) => `f(${testPoints[i]}) = ${r.toFixed(4)}`);
+                log(`Regular grid interpolated values: ${resultStrings.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_REGULARGRID test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testCubicSpline() {
+            try {
+                const x = [0, 1, 2, 3, 4];
+                const y = [0, 1, 4, 9, 16];
+                const bcType = document.getElementById('cubicBoundary').value;
+                const extrapolate = document.getElementById('cubicExtrapolate').checked;
+
+                log(`Testing SP_CUBIC_SPLINE with boundary: ${bcType}, extrapolate: ${extrapolate}`);
+                log(`Input X: [${x.join(', ')}]`);
+                log(`Input Y: [${y.join(', ')}]`);
+
+                const interpolator = spInterpolationFunctions.SP_CUBIC_SPLINE(x, y, {
+                    bc_type: bcType,
+                    extrapolate: extrapolate
+                });
+                
+                if (interpolator.error) {
+                    log(`❌ Error in SP_CUBIC_SPLINE: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                log('✅ SP_CUBIC_SPLINE interpolator created successfully', 'success');
+
+                const testPoints = extrapolate ? [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5] : [0.5, 1.5, 2.5, 3.5];
+                const results = interpolator.interpolate(testPoints);
+                
+                const resultStrings = results.map((r, i) => `f(${testPoints[i]}) = ${isNaN(r) ? 'NaN' : r.toFixed(4)}`);
+                log(`Cubic spline interpolated values: ${resultStrings.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_CUBIC_SPLINE test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testSplprep() {
+            try {
+                const xCoords = parseArrayInput(document.getElementById('splprepX').value);
+                const yCoords = parseArrayInput(document.getElementById('splprepY').value);
+
+                log('Testing SP_SPLPREP for parametric curve');
+                log(`X coordinates: [${xCoords.join(', ')}]`);
+                log(`Y coordinates: [${yCoords.join(', ')}]`);
+
+                const result = spInterpolationFunctions.SP_SPLPREP([xCoords, yCoords]);
+                
+                if (result.error) {
+                    log(`❌ Error in SP_SPLPREP: ${result.error}`, 'error');
+                    return;
+                }
+
+                log('✅ SP_SPLPREP parametric spline created successfully', 'success');
+                log(`Parameter range: [0, 1] with ${result.u.length} parameter values`, 'success');
+
+                const testParams = [0.25, 0.5, 0.75];
+                const paramResults = result.evaluate(testParams);
+                
+                const resultStrings = testParams.map((p, i) => 
+                    `u(${p}) = [${paramResults[0][i].toFixed(4)}, ${paramResults[1][i].toFixed(4)}]`
+                );
+                log(`Parametric curve values: ${resultStrings.join(', ')}`, 'success');
+                
+            } catch (error) {
+                log(`❌ SP_SPLPREP test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeGriddata() {
+            try {
+                // For scattered data visualization, we'll create a surface plot
+                const canvas = document.getElementById('plotCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Simple visualization showing scattered points
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '12px Arial';
+                ctx.fillText('SP_GRIDDATA - Scattered data visualization (simplified)', 10, 20);
+                
+                // Draw some sample scattered points
+                const points = [[100, 100], [200, 150], [150, 200], [250, 180]];
+                points.forEach(([x, y], i) => {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.fillText(`P${i+1}`, x + 10, y - 10);
+                });
+                
+                log('✅ Griddata visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ Griddata visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeAkima() {
+            try {
+                const x = parseArrayInput(document.getElementById('akimaX').value);
+                const y = parseArrayInput(document.getElementById('akimaY').value);
+
+                const interpolator = spInterpolationFunctions.SP_AKIMA1D(x, y);
+                
+                if (interpolator.error) {
+                    log(`❌ Cannot visualize Akima: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                visualizeInterpolation('Akima', interpolator, x, y, 'SP_AKIMA1D (Shape-Preserving)');
+                log('✅ Akima visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ Akima visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeUnispline() {
+            try {
+                const x = parseArrayInput(document.getElementById('unisplineX').value);
+                const y = parseArrayInput(document.getElementById('unisplineY').value);
+                const smoothing = parseFloat(document.getElementById('unisplineSmooth').value);
+
+                const interpolator = spInterpolationFunctions.SP_UNISPLINE(x, y, {s: smoothing});
+                
+                if (interpolator.error) {
+                    log(`❌ Cannot visualize Unispline: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                visualizeInterpolation('Unispline', interpolator, x, y, `SP_UNISPLINE (s=${smoothing})`);
+                log('✅ Unispline visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ Unispline visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeRegulargrid() {
+            try {
+                const points = parseArrayInput(document.getElementById('regulargridPoints').value);
+                const values = parseArrayInput(document.getElementById('regulargridValues').value);
+                const method = document.getElementById('regulargridMethod').value;
+
+                const interpolator = spInterpolationFunctions.SP_REGULARGRID(points, values, {method: method});
+                
+                if (interpolator.error) {
+                    log(`❌ Cannot visualize Regular grid: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                visualizeInterpolation('RegularGrid', interpolator, points, values, `SP_REGULARGRID (${method})`);
+                log('✅ Regular grid visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ Regular grid visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeCubicSpline() {
+            try {
+                const x = [0, 1, 2, 3, 4];
+                const y = [0, 1, 4, 9, 16];
+                const bcType = document.getElementById('cubicBoundary').value;
+                const extrapolate = document.getElementById('cubicExtrapolate').checked;
+
+                const interpolator = spInterpolationFunctions.SP_CUBIC_SPLINE(x, y, {
+                    bc_type: bcType,
+                    extrapolate: extrapolate
+                });
+                
+                if (interpolator.error) {
+                    log(`❌ Cannot visualize Cubic spline: ${interpolator.error}`, 'error');
+                    return;
+                }
+
+                visualizeInterpolation('CubicSpline', interpolator, x, y, `SP_CUBIC_SPLINE (${bcType})`);
+                log('✅ Cubic spline visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ Cubic spline visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function visualizeSplprep() {
+            try {
+                const xCoords = parseArrayInput(document.getElementById('splprepX').value);
+                const yCoords = parseArrayInput(document.getElementById('splprepY').value);
+
+                const result = spInterpolationFunctions.SP_SPLPREP([xCoords, yCoords]);
+                
+                if (result.error) {
+                    log(`❌ Cannot visualize parametric curve: ${result.error}`, 'error');
+                    return;
+                }
+
+                // Visualize parametric curve
+                const canvas = document.getElementById('plotCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Setup plotting area
+                const padding = 50;
+                const plotWidth = canvas.width - 2 * padding;
+                const plotHeight = canvas.height - 2 * padding;
+                
+                const xMin = Math.min(...xCoords) - 0.5;
+                const xMax = Math.max(...xCoords) + 0.5;
+                const yMin = Math.min(...yCoords) - 0.5;
+                const yMax = Math.max(...yCoords) + 0.5;
+                
+                function scaleX(val) {
+                    return padding + (val - xMin) / (xMax - xMin) * plotWidth;
+                }
+                
+                function scaleY(val) {
+                    return padding + (1 - (val - yMin) / (yMax - yMin)) * plotHeight;
+                }
+                
+                // Draw axes
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(padding, padding);
+                ctx.lineTo(padding, canvas.height - padding);
+                ctx.lineTo(canvas.width - padding, canvas.height - padding);
+                ctx.stroke();
+                
+                // Draw original data points
+                ctx.fillStyle = '#ff0000';
+                for (let i = 0; i < xCoords.length; i++) {
+                    ctx.beginPath();
+                    ctx.arc(scaleX(xCoords[i]), scaleY(yCoords[i]), 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                
+                // Draw parametric curve
+                ctx.strokeStyle = '#0066cc';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                const numPoints = 100;
+                const paramStep = 1.0 / numPoints;
+                
+                for (let i = 0; i <= numPoints; i++) {
+                    const u = i * paramStep;
+                    const coords = result.evaluate([u]);
+                    const xi = coords[0][0];
+                    const yi = coords[1][0];
+                    
+                    if (i === 0) {
+                        ctx.moveTo(scaleX(xi), scaleY(yi));
+                    } else {
+                        ctx.lineTo(scaleX(xi), scaleY(yi));
+                    }
+                }
+                
+                ctx.stroke();
+                
+                // Draw title and legend
+                ctx.fillStyle = '#000';
+                ctx.font = '16px Arial';
+                ctx.fillText('SP_SPLPREP - Parametric Curve', 10, 20);
+                
+                ctx.font = '12px Arial';
+                ctx.fillStyle = '#ff0000';
+                ctx.fillText('● Original Points', 10, canvas.height - 30);
+                ctx.fillStyle = '#0066cc';
+                ctx.fillText('— Parametric Curve', 10, canvas.height - 15);
+
+                log('✅ Parametric curve visualization updated', 'success');
+                
+            } catch (error) {
+                log(`❌ Parametric curve visualization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function runAllTests() {
+            clearLog();
+            log('=== Running All SciPy Interpolation Tests ===');
+            
+            try {
+                testInterp1D();
+                testPCHIP();
+                testRBF();
+                testBSpline();
+                testGriddata();
+                testAkima();
+                testUnispline();
+                testRegulargrid();
+                testCubicSpline();
+                testSplprep();
+                
+                log('=== All Tests Completed ===', 'success');
+            } catch (error) {
+                log(`❌ Test suite failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize with default data
+        window.addEventListener('load', () => {
+            log('SciPy Interpolation Functions Test Harness loaded');
+            log('Click "Run All Tests" to test all functions');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Rexx Calculator Service</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .calculator {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 3px solid #dc3545;
+        }
+        
+        #display {
+            width: 100%;
+            height: 60px;
+            font-size: 24px;
+            text-align: right;
+            padding: 10px;
+            border: 2px solid #dc3545;
+            border-radius: 4px;
+            background: #f8f8f8;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 15px;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        
+        button:hover {
+            background: #c82333;
+        }
+        
+        .log {
+            background: #333;
+            color: #ff6b6b;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .calculator-buttons {
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            width: calc(100% + 24px);
+            margin-left: 0px;
+            padding: 0 10px;
+            border: 2px solid transparent;
+            box-sizing: border-box;
+        }
+        
+        .calc-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            margin: 0;
+            border-right: 1px solid transparent;
+            min-width: 0;
+        }
+        
+        .calc-btn:last-child {
+            border-right: none;
+        }
+        
+        .calc-btn:hover {
+            background: #c82333;
+        }
+        
+        .calc-btn.number {
+            background: #28a745;
+        }
+        
+        .calc-btn.number:hover {
+            background: #1e7e34;
+        }
+        
+        .calc-btn.operator {
+            background: #dc3545;
+        }
+        
+        .calc-btn.operator:hover {
+            background: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <h2>🔴 Raw Rexx Calculator Service</h2>
+    <p><strong>Raw Rexx Calculator:</strong> Receives and executes raw Rexx calculator code via postMessage</p>
+    
+    <div class="calculator">
+        <input type="text" id="display" value="0" readonly>
+        
+        <div class="controls">
+            <button id="test-button">🧪 Test: Calculate 42</button>
+            <button id="clear-button" onclick="clearCalculator()">Clear</button>
+            <button id="show-capabilities">📋 Show Capabilities</button>
+        </div>
+        
+        <div class="calculator-buttons">
+            <button class="calc-btn number" data-button="0">0</button>
+            <button class="calc-btn number" data-button="1">1</button>
+            <button class="calc-btn number" data-button="2">2</button>
+            <button class="calc-btn number" data-button="3">3</button>
+            <button class="calc-btn number" data-button="4">4</button>
+            <button class="calc-btn number" data-button="5">5</button>
+            <button class="calc-btn number" data-button="6">6</button>
+            <button class="calc-btn number" data-button="7">7</button>
+            <button class="calc-btn number" data-button="8">8</button>
+            <button class="calc-btn number" data-button="9">9</button>
+            <button class="calc-btn operator" data-button="+">+</button>
+            <button class="calc-btn operator" data-button="-">-</button>
+            <button class="calc-btn operator" data-button="*">*</button>
+            <button class="calc-btn operator" data-button="/">/</button>
+            <button class="calc-btn operator" data-button="=">=</button>
+        </div>
+    </div>
+    
+    <div class="status success" id="status">Raw Rexx Calculator Service ready for calculator operations!</div>
+    
+    <div id="rpc-log" class="log">Calculator Operation Log:
+    </div>
+    
+    <!-- Load Rexx interpreter for code execution -->
+    <script src="../../src/function-parsing-strategies.js"></script>
+    <script src="../../src/parameter-converter.js"></script>
+    <script src="../../src/parser.js"></script>
+    
+    <!-- Load required modular dependencies -->
+    <script src="../../src/interpreter-string-and-expression-processing.js"></script>
+    <script src="../../src/interpreter-variable-stack.js"></script>
+    <script src="../../src/interpreter-evaluation-utilities.js"></script>
+    <script src="../../src/interpreter-execution-context.js"></script>
+    <script src="../../src/interpreter-control-flow.js"></script>
+    <script src="../../src/interpreter-expression-value-resolution.js"></script>
+    <script src="../../src/interpreter-dom-manager.js"></script>
+    <script src="../../src/interpreter-error-handling.js"></script>
+    <script src="../../src/interpreter-parse-subroutine.js"></script>
+    <script src="../../src/interpreter-trace-formatting.js"></script>
+    
+    <!-- Load utility modules -->
+    <script src="../../src/utils.js"></script>
+    <script src="../../src/security.js"></script>
+    <script src="../../src/string-processing.js"></script>
+    
+    <script src="../../src/interpreter.js"></script>
+    <script src="../../src/dom-element-manager.js"></script>
+    <script src="../mocks/dom-rpc-client.js"></script>
+    
+    <script>
+        // IoC: Accept service identity and reply target from container
+        function setupRexxCalculatorService(config = {}) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                serviceId: config.serviceId || urlParams.get('service') || 'raw-rexx-calculator',
+                replyTarget: config.replyTarget || window.parent
+            };
+        }
+        
+        const serviceConfig = setupRexxCalculatorService();
+        const { serviceId, replyTarget } = serviceConfig;
+        
+        console.log(`Raw Rexx Calculator Service: ${serviceId}`);
+        
+        // Initialize Rexx interpreter with DOM capabilities
+        const rpcClient = new BrowserDOMRpcClient();
+        const interpreter = RexxInterpreter.builder(rpcClient)
+            .withDomInterop()
+            .build();
+            
+        // Calculator state
+        let displayValue = '0';
+        let memory = 0;
+        let calculatorState = {
+            accumulator: 0,
+            pendingOperation: null,
+            waitingForOperand: true
+        };
+        
+        // Calculator functions implemented in Rexx-style
+        const calculatorFunctions = {
+            add: function(x, y) {
+                logOperation(`🔧 add() called with x=${x}, y=${y}`);
+                const result = Number(x) + Number(y);
+                updateDisplay(result);
+                logOperation(`add(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            subtract: function(x, y) {
+                logOperation(`🔧 subtract() called with x=${x}, y=${y}`);
+                const result = Number(x) - Number(y);
+                updateDisplay(result);
+                logOperation(`subtract(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            multiply: function(x, y) {
+                logOperation(`🔧 multiply() called with x=${x}, y=${y}`);
+                const result = Number(x) * Number(y);
+                updateDisplay(result);
+                logOperation(`multiply(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            divide: function(x, y) {
+                if (Number(y) === 0) {
+                    updateDisplay('Error');
+                    logOperation(`divide(${x}, ${y}) = Error: Division by zero`);
+                    return 'Error';
+                }
+                const result = Number(x) / Number(y);
+                updateDisplay(result);
+                logOperation(`divide(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            setValue: function(value) {
+                const val = Number(value);
+                updateDisplay(val);
+                logOperation(`setValue(${value})`);
+                return val;
+            },
+            
+            display: function(value, message) {
+                logOperation(`🔧 display() called with args: ${JSON.stringify(Array.from(arguments))}`);
+                // Handle named parameters - the interpreter converts them to positional args
+                const displayValue = arguments[0];
+                const displayMessage = arguments[1] || '';
+                updateDisplay(displayValue);
+                logOperation(`display: ${displayMessage} -> ${displayValue}`);
+                return 'displayed';
+            },
+            
+            press: function(button) {
+                logOperation(`🔧 press() called with button=${button}`);
+                
+                // Handle equals button
+                if (button === '=' || button === 'equals') {
+                    if (calculatorState.pendingOperation && !calculatorState.waitingForOperand) {
+                        const current = parseFloat(displayValue);
+                        let result = calculatorState.accumulator;
+                        
+                        switch (calculatorState.pendingOperation) {
+                            case '+':
+                                result = calculatorState.accumulator + current;
+                                break;
+                            case '-':
+                                result = calculatorState.accumulator - current;
+                                break;
+                            case '*':
+                                result = calculatorState.accumulator * current;
+                                break;
+                            case '/':
+                                result = calculatorState.accumulator / current;
+                                break;
+                        }
+                        
+                        updateDisplay(result);
+                        calculatorState = { accumulator: 0, pendingOperation: null, waitingForOperand: true };
+                        logOperation(`Equals pressed, result: ${result}`);
+                        return result;
+                    }
+                    return parseFloat(displayValue);
+                } else if (['+', '-', '*', '/'].includes(button)) {
+                    const current = parseFloat(displayValue);
+                    
+                    if (calculatorState.pendingOperation && !calculatorState.waitingForOperand) {
+                        // Chain operations: complete previous operation first
+                        let result = calculatorState.accumulator;
+                        switch (calculatorState.pendingOperation) {
+                            case '+':
+                                result = calculatorState.accumulator + current;
+                                break;
+                            case '-':
+                                result = calculatorState.accumulator - current;
+                                break;
+                            case '*':
+                                result = calculatorState.accumulator * current;
+                                break;
+                            case '/':
+                                result = calculatorState.accumulator / current;
+                                break;
+                        }
+                        updateDisplay(result);
+                        calculatorState.accumulator = result;
+                    } else {
+                        calculatorState.accumulator = current;
+                    }
+                    
+                    calculatorState.pendingOperation = button;
+                    calculatorState.waitingForOperand = true;
+                    logOperation(`Operation: ${button}, accumulator: ${calculatorState.accumulator}`);
+                    return button;
+                } else if (!isNaN(parseFloat(button))) {
+                    // Number button
+                    if (calculatorState.waitingForOperand) {
+                        updateDisplay(button);
+                        calculatorState.waitingForOperand = false;
+                    } else {
+                        updateDisplay(displayValue + button);
+                    }
+                    return parseFloat(button);
+                }
+                
+                return button;
+            }
+        };
+        
+        function updateDisplay(value) {
+            displayValue = String(value);
+            document.getElementById('display').value = displayValue;
+        }
+        
+        function clearCalculator() {
+            displayValue = '0';
+            updateDisplay(displayValue);
+            logOperation('Calculator cleared');
+        }
+        
+        function logOperation(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('rpc-log');
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // Also send to reply target for main log
+            replyTarget.postMessage({
+                type: 'log',
+                source: serviceId,
+                message: message
+            }, '*');
+        }
+        
+        // Listen for raw Rexx execution requests
+        window.addEventListener('message', async (event) => {
+            if (event.data.type === 'rexx-execution-request') {
+                const { id, rexxCode, source } = event.data;
+                
+                logOperation(`📥 Received raw Rexx calculator code from ${source} (${rexxCode.length} chars)`);
+                
+                try {
+                    // Parse the Rexx code
+                    logOperation('🔍 Parsing Rexx calculator code...');
+                    const commands = parse(rexxCode);
+                    logOperation(`✅ Parsed ${commands.length} calculator commands`);
+                    
+                    // Set up calculator function context for interpreter
+                    // Add calculator functions to interpreter built-in functions (both cases)
+                    Object.keys(calculatorFunctions).forEach(funcName => {
+                        interpreter.builtInFunctions[funcName] = calculatorFunctions[funcName];
+                        interpreter.builtInFunctions[funcName.toUpperCase()] = calculatorFunctions[funcName];
+                    });
+                    
+                    // Execute the code with calculator context
+                    logOperation('⚡ Executing Rexx calculator code...');
+                    await interpreter.run(commands);
+                    
+                    // Get final result from display
+                    const finalResult = displayValue;
+                    
+                    logOperation(`✅ Calculator execution completed successfully!`);
+                    logOperation(`📊 Final result: ${finalResult}`);
+                    
+                    // Send success response back
+                    replyTarget.postMessage({
+                        type: 'rexx-response',
+                        id: id,
+                        result: finalResult,
+                        display: displayValue,
+                        source: serviceId
+                    }, '*');
+                    
+                } catch (error) {
+                    logOperation(`❌ Calculator execution failed: ${error.message}`);
+                    updateDisplay('Error');
+                    
+                    // Send error response back
+                    replyTarget.postMessage({
+                        type: 'rexx-response',
+                        id: id,
+                        error: error.message,
+                        display: 'Error',
+                        source: serviceId
+                    }, '*');
+                }
+            }
+        });
+        
+        // Test button functionality
+        document.getElementById('test-button').addEventListener('click', async () => {
+            const testCode = `-- Test calculation: 6 * 7 = 42
+CALL multiply 6, 7
+CALL display 42, "The Answer to Everything"`;
+            
+            logOperation('🧪 Running calculator test...');
+            
+            try {
+                const commands = parse(testCode);
+                logOperation(`📋 Parsed commands: ${JSON.stringify(commands, null, 2)}`);
+                
+                // Set up calculator functions as both built-ins and subroutines
+                Object.keys(calculatorFunctions).forEach(funcName => {
+                    // Add as built-in functions
+                    interpreter.builtInFunctions[funcName] = calculatorFunctions[funcName];
+                    interpreter.builtInFunctions[funcName.toUpperCase()] = calculatorFunctions[funcName];
+                    
+                    // Add as subroutines for CALL statements
+                    interpreter.subroutines.set(funcName.toUpperCase(), {
+                        commands: [], // Empty - will be handled by built-in execution
+                        isBuiltIn: true,
+                        func: calculatorFunctions[funcName]
+                    });
+                    
+                    logOperation(`🔧 Added function as built-in and subroutine: ${funcName.toUpperCase()}`);
+                });
+                
+                logOperation(`⚡ Starting execution of ${commands.length} commands...`);
+                await interpreter.run(commands);
+                logOperation('✅ Calculator test completed');
+            } catch (error) {
+                logOperation(`❌ Calculator test failed: ${error.message}`);
+            }
+        });
+        
+        document.getElementById('show-capabilities').addEventListener('click', () => {
+            logOperation('=== RAW REXX CALCULATOR SERVICE CAPABILITIES ===');
+            logOperation('📡 Protocol: Raw Rexx calculator code transmission via postMessage');
+            logOperation('⚡ Execution: Rexx code with calculator function context');
+            logOperation('📤 Response: Final result and display state');
+            logOperation('🔒 Security: Sandboxed iframe execution environment');
+            logOperation('💾 State: Calculator display and memory management');
+            logOperation('');
+            logOperation('Supported calculator operations:');
+            logOperation('• add(x, y) - Addition');
+            logOperation('• subtract(x, y) - Subtraction'); 
+            logOperation('• multiply(x, y) - Multiplication');
+            logOperation('• divide(x, y) - Division');
+            logOperation('• setValue(value) - Set display value');
+            logOperation('• display(value, message) - Display with message');
+            logOperation('• press(button) - Press a calculator button');
+            logOperation('=== END CAPABILITIES ===');
+        });
+        
+        // Calculator button event handlers
+        document.querySelectorAll('.calc-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const buttonValue = button.getAttribute('data-button');
+                logOperation(`Calculator button pressed: ${buttonValue}`);
+                
+                // Call the press function directly
+                calculatorFunctions.press(buttonValue);
+            });
+        });
+        
+        // Signal that we're ready
+        window.addEventListener('load', () => {
+            logOperation('🔴 Raw Rexx Calculator Service ready!');
+            logOperation('💡 This service executes RAW REXX CALCULATOR CODE received via postMessage');
+            logOperation('🔄 Calculator functions available in Rexx execution context');
+        });
+    </script>
+</body>
+</html>

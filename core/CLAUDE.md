@@ -1,0 +1,1 @@
+1. Never implement "fallback" code.  

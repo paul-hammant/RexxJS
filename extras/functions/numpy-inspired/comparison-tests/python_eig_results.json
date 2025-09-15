@@ -1,0 +1,424 @@
+{
+  "test_suite": "Python NumPy linalg.eig",
+  "numpy_version": "1.26.4",
+  "total_tests": 10,
+  "successful_tests": 10,
+  "results": [
+    {
+      "name": "Identity 2x2",
+      "matrix": [
+        [
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        1.0,
+        1.0
+      ],
+      "eigenvectors": [
+        [
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "verification_errors": [
+        0.0,
+        0.0
+      ],
+      "max_verification_error": 0.0,
+      "condition_number": 1.0,
+      "determinant": 1.0,
+      "trace": 2.0
+    },
+    {
+      "name": "Simple diagonal",
+      "matrix": [
+        [
+          3.0,
+          0.0
+        ],
+        [
+          0.0,
+          4.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        4.0,
+        3.0
+      ],
+      "eigenvectors": [
+        [
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "verification_errors": [
+        0.0,
+        0.0
+      ],
+      "max_verification_error": 0.0,
+      "condition_number": 1.3333333333333333,
+      "determinant": 12.0,
+      "trace": 7.0
+    },
+    {
+      "name": "Symmetric 2x2",
+      "matrix": [
+        [
+          2.0,
+          1.0
+        ],
+        [
+          1.0,
+          2.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        3.0,
+        1.0
+      ],
+      "eigenvectors": [
+        [
+          0.7071067811865475,
+          -0.7071067811865475
+        ],
+        [
+          0.7071067811865475,
+          0.7071067811865475
+        ]
+      ],
+      "verification_errors": [
+        0.0,
+        0.0
+      ],
+      "max_verification_error": 0.0,
+      "condition_number": 2.999999999999999,
+      "determinant": 2.9999999999999996,
+      "trace": 4.0
+    },
+    {
+      "name": "Symmetric 2x2 (variant)",
+      "matrix": [
+        [
+          3.0,
+          1.0
+        ],
+        [
+          1.0,
+          3.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        4.0,
+        2.0
+      ],
+      "eigenvectors": [
+        [
+          0.7071067811865475,
+          -0.7071067811865475
+        ],
+        [
+          0.7071067811865475,
+          0.7071067811865475
+        ]
+      ],
+      "verification_errors": [
+        0.0,
+        0.0
+      ],
+      "max_verification_error": 0.0,
+      "condition_number": 2.0000000000000004,
+      "determinant": 8.000000000000002,
+      "trace": 6.0
+    },
+    {
+      "name": "Non-symmetric 2x2",
+      "matrix": [
+        [
+          1.0,
+          2.0
+        ],
+        [
+          3.0,
+          4.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        5.372281323269014,
+        -0.3722813232690143
+      ],
+      "eigenvectors": [
+        [
+          -0.4159735579192842,
+          -0.8245648401323938
+        ],
+        [
+          -0.9093767091321241,
+          0.5657674649689923
+        ]
+      ],
+      "verification_errors": [
+        8.266305934623613e-17,
+        1.4911076049642367e-16
+      ],
+      "max_verification_error": 1.4911076049642367e-16,
+      "condition_number": 14.933034373659268,
+      "determinant": -2.0000000000000004,
+      "trace": 5.0
+    },
+    {
+      "name": "Rotation-like matrix",
+      "matrix": [
+        [
+          0.0,
+          -1.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        {
+          "real": 0.0,
+          "imag": -1.0,
+          "_complex": true
+        },
+        {
+          "real": 0.0,
+          "imag": 1.0,
+          "_complex": true
+        }
+      ],
+      "eigenvectors": [
+        [
+          {
+            "real": 0.7071067811865475,
+            "imag": -0.0,
+            "_complex": true
+          },
+          {
+            "real": 0.7071067811865475,
+            "imag": 0.0,
+            "_complex": true
+          }
+        ],
+        [
+          {
+            "real": 0.0,
+            "imag": 0.7071067811865475,
+            "_complex": true
+          },
+          {
+            "real": 0.0,
+            "imag": -0.7071067811865475,
+            "_complex": true
+          }
+        ]
+      ],
+      "verification_errors": [
+        0.0,
+        0.0
+      ],
+      "max_verification_error": 0.0,
+      "condition_number": 1.0,
+      "determinant": 1.0,
+      "trace": 0.0
+    },
+    {
+      "name": "Symmetric 3x3",
+      "matrix": [
+        [
+          4.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          4.0,
+          1.0
+        ],
+        [
+          0.0,
+          1.0,
+          4.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        5.414213562373095,
+        3.999999999999999,
+        2.585786437626907
+      ],
+      "eigenvectors": [
+        [
+          0.4999999999999998,
+          0.707106781186548,
+          0.5000000000000001
+        ],
+        [
+          0.7071067811865475,
+          1.3746439995992662e-16,
+          -0.7071067811865475
+        ],
+        [
+          0.5000000000000003,
+          -0.707106781186547,
+          0.5
+        ]
+      ],
+      "verification_errors": [
+        1.4206773812894906e-16,
+        2.961586953867878e-16,
+        6.706755741375622e-16
+      ],
+      "max_verification_error": 6.706755741375622e-16,
+      "condition_number": 2.0938363213560542,
+      "determinant": 56.00000000000002,
+      "trace": 12.0
+    },
+    {
+      "name": "Upper triangular 3x3",
+      "matrix": [
+        [
+          2.0,
+          1.0,
+          3.0
+        ],
+        [
+          0.0,
+          3.0,
+          1.0
+        ],
+        [
+          0.0,
+          0.0,
+          4.0
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        4.0,
+        3.0,
+        2.0
+      ],
+      "eigenvectors": [
+        [
+          0.8164965809277261,
+          0.7071067811865475,
+          1.0
+        ],
+        [
+          0.4082482904638631,
+          0.7071067811865475,
+          0.0
+        ],
+        [
+          0.4082482904638631,
+          0.0,
+          0.0
+        ]
+      ],
+      "verification_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "max_verification_error": 0.0,
+      "condition_number": 3.484228590935033,
+      "determinant": 23.999999999999993,
+      "trace": 9.0
+    },
+    {
+      "name": "Nearly singular",
+      "matrix": [
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0001
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        2.00005000125,
+        4.999875000000209e-05
+      ],
+      "eigenvectors": [
+        [
+          -0.7070891032960636,
+          -0.7071244586350897
+        ],
+        [
+          -0.7071244586350897,
+          0.7070891032960636
+        ]
+      ],
+      "verification_errors": [
+        1.1101952690495577e-16,
+        1.8358060611375158e-12
+      ],
+      "max_verification_error": 1.8358060611375158e-12,
+      "condition_number": 40002.00007491187,
+      "determinant": 9.99999999999889e-05,
+      "trace": 2.0000999999999998
+    },
+    {
+      "name": "Large eigenvalue spread",
+      "matrix": [
+        [
+          1000.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.001
+        ]
+      ],
+      "success": true,
+      "eigenvalues": [
+        1000.0,
+        0.001
+      ],
+      "eigenvectors": [
+        [
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0
+        ]
+      ],
+      "verification_errors": [
+        0.0,
+        0.0
+      ],
+      "max_verification_error": 0.0,
+      "condition_number": 1000000.0,
+      "determinant": 1.0,
+      "trace": 1000.001
+    }
+  ]
+}

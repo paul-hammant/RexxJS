@@ -1,0 +1,31 @@
+{
+  "name": "rexxjs-r-data-types",
+  "version": "1.0.0",
+  "description": "R-style data type functions for datetime and factor operations in RexxJS",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch", 
+    "install:core": "cd ../../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "rexxjs",
+    "r-functions",
+    "data-types",
+    "datetime",
+    "factors",
+    "categorical-data"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/*.spec.js"],
+    "testPathIgnorePatterns": ["/node_modules/"]
+  }
+}

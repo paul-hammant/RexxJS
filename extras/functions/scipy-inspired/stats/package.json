@@ -1,0 +1,12 @@
+{
+  "name": "scipy-inspired-stats-functions",
+  "version": "1.0.0",
+  "description": "SciPy-inspired statistical functions for RexxJS",
+  "main": "src/sp-stats-functions.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}

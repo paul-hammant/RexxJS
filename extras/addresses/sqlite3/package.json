@@ -1,0 +1,32 @@
+{
+  "name": "rexxjs-sqlite3-address",
+  "version": "1.0.0",
+  "description": "SQLite3 ADDRESS library for RexxJS",
+  "main": "sqlite-address.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "install:core": "cd ../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "rexxjs",
+    "sqlite",
+    "sqlite3",
+    "database",
+    "sql"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/__tests__/**/*.js", "**/*.test.js", "**/*.spec.js"],
+    "testPathIgnorePatterns": ["/node_modules/"]
+  }
+}

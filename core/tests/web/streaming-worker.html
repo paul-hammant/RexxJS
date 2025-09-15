@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Worker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f0fff0;
+        }
+        
+        .header {
+            background: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .execution-section {
+            background: white;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .execution-section h4 {
+            margin: 0 0 10px 0;
+            color: #28a745;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.waiting { background: #d1ecf1; color: #0c5460; }
+        .status.executing { background: #fff3cd; color: #856404; }
+        .status.paused { background: #f8d7da; color: #721c24; }
+        .status.completed { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        
+        .script-display {
+            background: #f8f9fa;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .variables {
+            background: #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        
+        .log {
+            background: #333;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+        
+        
+        .controls {
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        
+        button:hover {
+            background: #218838;
+        }
+        
+        #calculator {
+            display: block !important;
+            position: static !important;
+            float: none !important;
+            margin-bottom: 30px;
+            clear: both;
+            overflow: visible !important;
+        }
+        
+        #calculator table {
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            height: auto !important;
+        }
+        
+        #calculator h1 {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        #calculator *, #calculator table, #calculator tr, #calculator td, #calculator button {
+            position: static !important;
+            float: none !important;
+            display: table-cell !important;
+        }
+        
+        #calculator table {
+            display: table !important;
+        }
+        
+        #calculator tr {
+            display: table-row !important;
+        }
+        
+        #calculator h1, #calculator p {
+            display: block !important;
+            width: auto !important;
+        }
+        
+        #calculator .box {
+            display: block !important;
+            width: 250px !important;
+            margin: 0 auto !important;
+            font-family: 'Roboto', sans-serif !important;
+            font-size: 24px !important;
+            font-weight: normal !important;
+            text-align: right !important;
+            height: 50px !important;
+            line-height: 50px !important;
+            padding: 0 15px !important;
+            border: 2px solid #e68a00 !important;
+            color: white !important;
+            border-radius: 15px !important;
+            background-color: black !important;
+            box-sizing: border-box !important;
+        }
+    </style>
+    <!-- Calculator head content -->
+    <title>Calculator</title>
+    <link rel="stylesheet" type="text/css" href="AlexFlorides_javascript-calculator/assets/calc_style.css"/>
+    <script language="JavaScript" src="AlexFlorides_javascript-calculator/code.js" type="text/javascript"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="AlexFlorides_javascript-calculator/assets/favicon.png"/>
+</head>
+<body>
+
+    <!-- Calculator body content -->
+    <div id="calculator">
+        <h1>Calculator</h1>
+        <p id="last_operation_history"></p>
+        <p id="box" class="box">0</p>
+        <table id="table">
+            <tr>
+                <td><button onclick="calculate_percentage()">%</button></td>
+                <td><button onclick="clear_entry()">CE</button></td>
+                <td><button onclick="button_clear()">C</button></td>
+                <td><button id="backspace_btn" onclick="backspace_remove()"></button></td>
+            </tr>
+            <tr>
+                <td><button onclick="division_one()">¹∕ₓ</button></td>
+                <td><button onclick="power_of()">𝑥²</button></td>
+                <td><button onclick="square_root()">√𝑥</button></td>
+                <td><button id="plusOp" value="+" class="operator" onclick="button_number('+')">+</button></td>
+            </tr>
+            <tr>
+                <td><button onclick="button_number(7)">7</button></td>
+                <td><button onclick="button_number(8)">8</button></td>
+                <td><button onclick="button_number(9)">9</button></td>
+                <td><button id="subOp" value="-" class="operator" onclick="button_number('-')">-</button></td>
+            </tr>
+            <tr>
+                <td><button onclick="button_number(4)">4</button></td>
+                <td><button onclick="button_number(5)">5</button></td>
+                <td><button onclick="button_number(6)">6</button></td>
+                <td><button id="multiOp" value="*" class="operator" onclick="button_number('*')">×</button></td>
+            </tr>
+            <tr>
+                <td><button onclick="button_number(1)">1</button></td>
+                <td><button onclick="button_number(2)">2</button></td>
+                <td><button onclick="button_number(3)">3</button></td>            
+                <td><button id="divOp" value="/" class="operator" onclick="button_number('/')">÷</button></td>
+            </tr>
+            <tr>
+                <td><button onclick="plus_minus()">±</button></td>
+                <td><button onclick="button_number(0)">0</button></td>
+                <td><button id="dot" value="." onclick="button_number('.')">.</button></td>
+                <td colspan="4"><button value="=" class="operator" id="equal_sign" onclick="button_number('=')">="></button></td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="header">
+        <h3>⚙️ Streaming Worker</h3>
+        <small>Executes remote Rexx scripts with streaming progress control</small>
+    </div>
+    
+    <div class="execution-section">
+        <h4>🔧 Execution Status</h4>
+        <div class="status waiting" id="status-indicator">
+            Waiting for streaming execution request...
+        </div>
+        
+        <div id="script-section" style="display: none;">
+            <h5>📝 Current Script:</h5>
+            <div class="script-display" id="current-script">No script loaded</div>
+        </div>
+        
+        <div id="variables-section" style="display: none;">
+            <h5>📊 Current Variables:</h5>
+            <div class="variables" id="current-variables">No variables set</div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="showSystemInfo()">System Info</button>
+        <button onclick="jsDiscovery()" style="background: #007cba;">🔍 JS Discovery</button>
+    </div>
+    
+    <div class="log" id="worker-log">Streaming Worker initialized. Waiting for execution requests...
+    </div>
+
+    <!-- Calculator embedded below the streaming worker interface -->
+
+    <!-- Load Rexx interpreter and dependencies -->
+    <script src="../../src/function-parsing-strategies.js"></script>
+    <script src="../../src/parameter-converter.js"></script>
+    <script src="../../src/parser.js"></script>
+    <script src="../../src/dom-functions.js"></script>
+    <script src="../../src/composite-output-handler.js"></script>
+    
+    <!-- Load required modular dependencies -->
+    <script src="../../src/interpreter-string-and-expression-processing.js"></script>
+    <script src="../../src/interpreter-variable-stack.js"></script>
+    <script src="../../src/interpreter-evaluation-utilities.js"></script>
+    <script src="../../src/interpreter-execution-context.js"></script>
+    <script src="../../src/interpreter-control-flow.js"></script>
+    <script src="../../src/interpreter-expression-value-resolution.js"></script>
+    <script src="../../src/interpreter-dom-manager.js"></script>
+    <script src="../../src/interpreter-error-handling.js"></script>
+    <script src="../../src/interpreter-parse-subroutine.js"></script>
+    <script src="../../src/interpreter-trace-formatting.js"></script>
+    
+    <!-- Load utility modules -->
+    <script src="../../src/utils.js"></script>
+    <script src="../../src/security.js"></script>
+    <script src="../../src/string-processing.js"></script>
+    
+    <script src="../../src/interpreter.js"></script>
+    
+    <script>
+        // IoC: Get configuration from URL parameters
+        function setupWorker() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return {
+                role: urlParams.get('role') || 'worker',
+                controllerId: urlParams.get('controller') || 'streaming-controller',
+                replyTarget: window.parent
+            };
+        }
+        
+        const config = setupWorker();
+        const { role, controllerId, replyTarget } = config;
+        
+        console.log(`Streaming Worker initialized: ${role} ← ${controllerId}`);
+        
+        const statusIndicator = document.getElementById('status-indicator');
+        const currentScript = document.getElementById('current-script');
+        const currentVariables = document.getElementById('current-variables');
+        const workerLog = document.getElementById('worker-log');
+        
+        let interpreter = null;
+        let isExecuting = false;
+        let currentExecutionId = null;
+        let controlQueue = [];
+        let completionLogged = false;
+        let lastDiscoveryMessage = '';
+        let lastProgressCount = 0;
+        
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            workerLog.textContent += `[${timestamp}] ${message}\n`;
+            workerLog.scrollTop = workerLog.scrollHeight;
+            
+            // Only send important messages to parent to reduce log spam
+            const shouldSendToParent = (
+                type === 'success' || 
+                type === 'error' || 
+                type === 'summary' ||
+                message.includes('✅') || 
+                message.includes('❌') || 
+                message.includes('Starting') ||
+                message.includes('complete') ||
+                message.includes('introspection') ||
+                (type === 'progress' && message.includes('WORKER SENDING')) ||
+                (type === 'discovery' && message.includes('Discovery:')) ||
+                message.includes('initialized') ||
+                message.includes('Generated API Advice')
+            );
+            
+            if (shouldSendToParent) {
+                replyTarget.postMessage({
+                    type: 'log',
+                    source: role,
+                    message: message
+                }, '*');
+            }
+        }
+        
+        function clearLog() {
+            workerLog.textContent = 'Worker log cleared.\n';
+        }
+        
+        function showSystemInfo() {
+            logMessage('JS:  === SYSTEM INFO ===', 'info');
+            logMessage(`JS: Role: ${role}`, 'info');
+            logMessage(`JS: Controller: ${controllerId}`, 'info');
+            logMessage(`JS: Rexx interpreter: ${interpreter ? 'Ready' : 'Not initialized'}`, 'info');
+            logMessage(`JS: Currently executing: ${isExecuting}`, 'info');
+            logMessage('JS:  === END INFO ===', 'info');
+        }
+        
+        function jsDiscovery() {
+            console.log('=== JS DISCOVERY START ===');
+            
+            // Find all buttons within the calculator element
+            const calculatorButtons = document.querySelectorAll('#calculator button');
+            console.log(`Found ${calculatorButtons.length} buttons in #calculator`);
+            
+            // Log details about each button
+            calculatorButtons.forEach((button, index) => {
+                const buttonText = button.textContent || button.innerText || '';
+                const buttonId = button.id || '';
+                const buttonOnclick = button.getAttribute('onclick') || '';
+                const buttonValue = button.getAttribute('value') || '';
+                const buttonClass = button.className || '';
+                
+                console.log(`Button ${index + 1}:`);
+                console.log(`  text: "${buttonText}"`);
+                if (buttonId) console.log(`  id: ${buttonId}`);
+                if (buttonOnclick) console.log(`  onclick: ${buttonOnclick}`);
+                if (buttonValue) console.log(`  value: ${buttonValue}`);
+                if (buttonClass) console.log(`  class: ${buttonClass}`);
+                console.log('  ---');
+            });
+            
+            console.log('=== JS DISCOVERY END ===');
+        }
+        
+        
+        function updateStatus(status, message) {
+            statusIndicator.className = `status ${status}`;
+            statusIndicator.textContent = message;
+        }
+        
+        function updateVariablesDisplay() {
+            if (interpreter && interpreter.variables) {
+                const vars = {};
+                for (const [key, value] of interpreter.variables) {
+                    vars[key] = value;
+                }
+                currentVariables.textContent = JSON.stringify(vars, null, 2);
+                document.getElementById('variables-section').style.display = 'block';
+            }
+        }
+        
+        // Initialize Rexx interpreter with streaming capabilities
+        function initializeInterpreter() {
+            try {
+                // Create composite output handler for multiple SAY destinations
+                const compositeHandler = CompositeOutputHandler.create({
+                    console: true,
+                    log: (text) => logMessage(`📤 SAY: ${text}`, 'output'),
+                    rpc: (text) => {
+                        // Send SAY output to controller immediately
+                        replyTarget.postMessage({
+                            type: 'rexx-say-output',
+                            source: role,
+                            target: controllerId,
+                            text: text,
+                            timestamp: Date.now()
+                        }, '*');
+                    }
+                });
+                
+                // Create interpreter with DOM interop enabled for worker
+                interpreter = new RexxInterpreterBuilder(null)
+                    .withDomInterop(true)
+                    .withOutputHandler(compositeHandler)
+                    .build();
+                
+                // Add streaming callback for CHECKPOINT function - send individual discoveries
+                interpreter.streamingProgressCallback = (progressData) => {
+                    // Send progress update to controller via parent broker (one per CHECKPOINT call)
+                    const messagePayload = {
+                        ...progressData,
+                        source: role,
+                        target: controllerId
+                    };
+                    
+                    replyTarget.postMessage(messagePayload, '*');
+                    
+                    // Log individual discoveries as they happen
+                    if (progressData.params && progressData.params.length >= 2) {
+                        const discoveryKey = progressData.params[0];
+                        const discoveryValue = progressData.params[1];
+                        
+                        if (discoveryKey && discoveryKey.startsWith('btn_')) {
+                            logMessage(`JS: 🔍 Discovery: ${discoveryKey} = ${discoveryValue}`, 'discovery');
+                        } else if (discoveryKey === 'start') {
+                            logMessage(`JS: 📤 Discovery: ${discoveryValue}`, 'discovery');  
+                        } else if (discoveryKey === 'buttons_found') {
+                            logMessage(`JS: 📤 Discovery: ${discoveryValue}`, 'discovery');
+                        } else if (progressData.variables.final_discovery && !completionLogged) {
+                            completionLogged = true;
+                            const btnVars = Object.keys(progressData.variables).filter(k => k.startsWith('btn_'));
+                            logMessage(`JS: ✅ Worker introspection complete: ${btnVars.length} buttons discovered`, 'success');
+                        }
+                    }
+                    
+                    updateVariablesDisplay();
+                };
+                
+                // Override CHECKPOINT to handle control queue
+                const originalCheckpoint = interpreter.builtInFunctions['CHECKPOINT'];
+                interpreter.builtInFunctions['CHECKPOINT'] = async (...params) => {
+                    // Call original CHECKPOINT to send progress
+                    const progressResult = await originalCheckpoint.call(interpreter, ...params);
+                    
+                    // Process any queued control messages
+                    while (controlQueue.length > 0) {
+                        const control = controlQueue.shift();
+                        logMessage(`JS: 🎛️ Processing control: ${control.action}`, 'control');
+                        
+                        switch (control.action) {
+                            case 'pause':
+                                updateStatus('paused', `Paused by controller: ${control.message || 'No message'}`);
+                                // Wait for resume signal
+                                await waitForResume();
+                                break;
+                            case 'abort':
+                                updateStatus('error', `Aborted by controller: ${control.message || 'No message'}`);
+                                throw new Error(`Execution aborted: ${control.message || 'Controller requested abort'}`);
+                            case 'modify':
+                                logMessage(`JS: ⚙️ Modifying execution: ${JSON.stringify(control)}`, 'modify');
+                                // Apply modifications to interpreter variables
+                                if (control.batch_size) {
+                                    interpreter.variables.set('batch_size', control.batch_size);
+                                    logMessage(`JS: Updated batch_size to ${control.batch_size}`, 'modify');
+                                }
+                                break;
+                        }
+                    }
+                    
+                    return progressResult;
+                };
+                
+                logMessage('JS: ✅ Rexx interpreter initialized with streaming support', 'success');
+                return true;
+            } catch (error) {
+                logMessage(`JS: ❌ Failed to initialize interpreter: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        function waitForResume() {
+            return new Promise((resolve) => {
+                const checkForResume = () => {
+                    const resumeControl = controlQueue.find(c => c.action === 'resume');
+                    if (resumeControl) {
+                        // Remove resume control from queue
+                        const index = controlQueue.indexOf(resumeControl);
+                        controlQueue.splice(index, 1);
+                        
+                        logMessage('JS: ▶️ Resumed by controller', 'control');
+                        updateStatus('executing', 'Execution resumed');
+                        resolve();
+                    } else {
+                        // Check again in 100ms
+                        setTimeout(checkForResume, 100);
+                    }
+                };
+                checkForResume();
+            });
+        }
+        
+        // Listen for execution requests, control messages, and function calls
+        window.addEventListener('message', async (event) => {
+            if (event.data.type === 'rexx-execution-request') {
+                await handleExecutionRequest(event.data);
+            } else if (event.data.type === 'rexx-control') {
+                handleControlMessage(event.data);
+            } else if (event.data.type === 'rexx-function-call') {
+                handleFunctionCall(event.data);
+            }
+        });
+        
+        function handleFunctionCall(callData) {
+            const { id, functionName, args, source } = callData;
+            
+            logMessage(`JS: 📞 Function call request: ${functionName}(${args ? args.join(', ') : ''})`, 'info');
+            
+            try {
+                let result;
+                
+                // Handle calculator functions
+                if (functionName === 'button_number' && typeof button_number === 'function') {
+                    result = button_number.apply(null, args || []);
+                    logMessage(`JS: ✅ Called button_number(${args ? args.join(', ') : ''}) = ${result}`, 'success');
+                } else if (functionName === 'plus_minus' && typeof plus_minus === 'function') {
+                    result = plus_minus.apply(null, args || []);
+                    logMessage(`JS: ✅ Called plus_minus() = ${result}`, 'success');
+                } else if (functionName === 'clear_all' && typeof clear_all === 'function') {
+                    result = clear_all.apply(null, args || []);
+                    logMessage(`JS: ✅ Called clear_all() = ${result}`, 'success');
+                } else if (functionName === 'clear_entry' && typeof clear_entry === 'function') {
+                    result = clear_entry.apply(null, args || []);
+                    logMessage(`JS: ✅ Called clear_entry() = ${result}`, 'success');
+                } else if (functionName === 'get_display') {
+                    // Special function to read the calculator display value
+                    const displayElement = document.getElementById('box');
+                    if (displayElement) {
+                        result = displayElement.value || displayElement.textContent || displayElement.innerText || '';
+                        logMessage(`JS: ✅ Read display value: "${result}"`, 'success');
+                    } else {
+                        throw new Error('Calculator display element not found');
+                    }
+                } else {
+                    throw new Error(`Function '${functionName}' not available or not callable`);
+                }
+                
+                // Send success response
+                replyTarget.postMessage({
+                    type: 'rexx-function-response',
+                    id: id,
+                    source: role,
+                    target: source,
+                    functionName: functionName,
+                    args: args,
+                    result: result,
+                    success: true,
+                    timestamp: Date.now()
+                }, '*');
+                
+            } catch (error) {
+                logMessage(`JS: ❌ Function call failed: ${error.message}`, 'error');
+                
+                // Send error response
+                replyTarget.postMessage({
+                    type: 'rexx-function-response',
+                    id: id,
+                    source: role,
+                    target: source,
+                    functionName: functionName,
+                    args: args,
+                    error: error.message,
+                    success: false,
+                    timestamp: Date.now()
+                }, '*');
+            }
+        }
+        
+        async function handleExecutionRequest(requestData) {
+            if (isExecuting) {
+                logMessage('JS:  ⚠️ Already executing - ignoring new request', 'warning');
+                return;
+            }
+            
+            const { id, rexxCode, params, streaming } = requestData;
+            currentExecutionId = id;
+            isExecuting = true;
+            completionLogged = false;  // Reset for new execution
+            lastDiscoveryMessage = '';
+            lastProgressCount = 0;
+            
+            logMessage('JS:  🚀 Received streaming execution request', 'info');
+            logMessage(`JS: 📋 Code length: ${rexxCode.length} chars`, 'info');
+            logMessage(`JS: ⚙️ Parameters: ${JSON.stringify(params || {})}`, 'info');
+            
+            // Show current script
+            currentScript.textContent = rexxCode;
+            document.getElementById('script-section').style.display = 'block';
+            
+            updateStatus('executing', 'Parsing and executing Rexx code...');
+            
+            try {
+                // Parse the Rexx code
+                const commands = parse(rexxCode);
+                logMessage(`JS: ✅ Parsed ${commands.length} commands`, 'success');
+                
+                // Execute with streaming support
+                updateStatus('executing', `Executing ${commands.length} commands with streaming...`);
+                await interpreter.run(commands);
+                
+                // Execution completed successfully
+                isExecuting = false;
+                currentExecutionId = null;
+                updateStatus('completed', 'Execution completed successfully');
+                
+                // Get final variables and output
+                const finalVars = {};
+                for (const [key, value] of interpreter.variables) {
+                    finalVars[key] = value;
+                }
+                
+                const finalResult = finalVars.processed || 'completed';
+                
+                logMessage('JS:  ✅ Execution completed successfully', 'success');
+                logMessage(`JS: 📊 Final result: ${finalResult}`, 'result');
+                
+                // Send completion response
+                replyTarget.postMessage({
+                    type: 'rexx-response',
+                    id: id,
+                    source: role,
+                    result: finalResult,
+                    variables: finalVars,
+                    output: interpreter.outputHandler?.outputLines || [],
+                    complete: true,
+                    timestamp: Date.now()
+                }, '*');
+                
+            } catch (error) {
+                // Execution failed
+                isExecuting = false;
+                currentExecutionId = null;
+                updateStatus('error', `Execution failed: ${error.message}`);
+                
+                logMessage(`JS: ❌ Execution failed: ${error.message}`, 'error');
+                
+                // Send error response
+                replyTarget.postMessage({
+                    type: 'rexx-response',
+                    id: id,
+                    source: role,
+                    error: error.message,
+                    complete: true,
+                    timestamp: Date.now()
+                }, '*');
+            }
+        }
+        
+        function handleControlMessage(controlData) {
+            if (!isExecuting || controlData.id !== currentExecutionId) {
+                logMessage('JS:  ⚠️ Received control message for non-active execution', 'warning');
+                return;
+            }
+            
+            logMessage(`JS: 🎛️ Received control: ${controlData.action}`, 'control');
+            
+            // Add control message to queue for processing during next CHECKPOINT
+            controlQueue.push(controlData);
+        }
+        
+        // Calculator components are now embedded directly in the HTML
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            if (initializeInterpreter()) {
+                updateStatus('waiting', 'Ready for streaming execution requests');
+                logMessage('JS:  ⚙️ Streaming Worker ready!', 'success');
+                logMessage('JS:  💡 Waiting for controller to send execution requests', 'info');
+                logMessage('JS:  🧮 Calculator application embedded and ready', 'success');
+            } else {
+                updateStatus('error', 'Failed to initialize Rexx interpreter');
+            }
+        });
+    </script>
+</body>
+</html>

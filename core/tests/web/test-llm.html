@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Mini LLM Demo</title></head>
+<body>
+<textarea id="input" rows="4" cols="50">Hello, my name is</textarea>
+<button id="run">Generate</button>
+<pre id="output"></pre>
+
+<script type="module">
+    import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers";
+
+    const generator = await pipeline("text-generation", "Xenova/distilgpt2");
+
+    document.getElementById("run").onclick = async () => {
+        const input = document.getElementById("input").value;
+        const result = await generator(input, { max_new_tokens: 30 });
+        document.getElementById("output").textContent = result[0].generated_text;
+    };
+</script>
+</body>
+</html>

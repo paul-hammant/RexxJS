@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rexx DOM Element Manager Test Harness</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .panel {
+            flex: 1;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        #rexx-script {
+            width: 100%;
+            height: 300px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        #output {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        #test-content {
+            border: 2px solid #007bff;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        .stale-trigger {
+            background-color: #dc3545;
+        }
+        
+        .stale-trigger:hover {
+            background-color: #c82333;
+        }
+        
+        input[type="text"], input[type="password"] {
+            padding: 5px;
+            margin: 5px;
+            width: 200px;
+        }
+        
+        .form-group {
+            margin: 10px 0;
+        }
+        
+        #stats {
+            background-color: #e9ecef;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rexx DOM Element Manager - Stale Element Testing</h1>
+    
+    <div class="container">
+        <div class="panel">
+            <h3>Rexx Script</h3>
+            <div style="margin-bottom: 10px;">
+                <label>Load Example: </label>
+                <select id="example-selector" onchange="loadExample(this.value)">
+                    <option value="with-retry">With RETRY_ON_STALE (Recovers from stale)</option>
+                    <option value="without-retry">Without RETRY_ON_STALE (Will fail on stale)</option>
+                    <option value="preserve-vars">With Variable Preservation</option>
+                    <option value="nested-queries">Nested Element Queries</option>
+                    <option value="collection-old-way">🔄 Collection: Old Index Way</option>
+                    <option value="collection-new-way">✨ Collection: DO...OVER Way</option>
+                    <option value="retry-collections">🛡️ Collection: DO...OVER + Retry</option>
+                </select>
+            </div>
+            <textarea id="rexx-script">
+-- Test DOM element handling with stale recovery
+LET button = DOM_GET selector="#testButton"
+DOM_ELEMENT_CLICK element=button
+
+-- Test RETRY_ON_STALE block
+RETRY_ON_STALE timeout=5000
+  LET form = DOM_GET selector="#testForm"
+  LET username = DOM_ELEMENT_QUERY element=form selector="#username"
+  LET password = DOM_ELEMENT_QUERY element=form selector="#password"
+  
+  DOM_ELEMENT_TYPE element=username text="testuser"
+  DOM_ELEMENT_TYPE element=password text="secret123"
+  
+  LET submit = DOM_ELEMENT_QUERY element=form selector="#submitBtn"
+  DOM_ELEMENT_CLICK element=submit
+END_RETRY
+
+SAY "Form submitted successfully!"
+            </textarea>
+            <div>
+                <button onclick="runRexxJSScript()">Run Script</button>
+                <button onclick="clearOutput()">Clear Output</button>
+            </div>
+            <div id="output"></div>
+            <div id="stats"></div>
+        </div>
+        
+        <div class="panel">
+            <h3>Test Controls</h3>
+            <button class="stale-trigger" onclick="makeFormStale()">Make Form Stale</button>
+            <button class="stale-trigger" onclick="removeButton()">Remove Button</button>
+            <button class="stale-trigger" onclick="rebuildForm()">Rebuild Form</button>
+            <button onclick="resetTestContent()">Reset Content</button>
+            
+            <h3>Test Content</h3>
+            <div id="test-content">
+                <button id="testButton" onclick="logClick('Button clicked')">Test Button</button>
+                
+                <form id="testForm" onsubmit="handleFormSubmit(event)">
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <input type="text" id="username" placeholder="Enter username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="password" placeholder="Enter password">
+                    </div>
+                    <button type="submit" id="submitBtn">Submit</button>
+                </form>
+                
+                <div id="dynamic-content">
+                    <p>Dynamic content area</p>
+                </div>
+                
+                <!-- Collection test buttons -->
+                <div class="test-collection" style="margin-top: 20px; border: 1px solid #ddd; padding: 10px;">
+                    <h4>Button Collection (for DO...OVER testing)</h4>
+                    <button onclick="logClick('Alpha clicked')">Alpha</button>
+                    <button onclick="logClick('Beta clicked')">Beta</button>
+                    <button onclick="logClick('Gamma clicked')">Gamma</button>
+                    <button onclick="logClick('Delta clicked')">Delta</button>
+                    <button onclick="logClick('Epsilon clicked')">Epsilon</button>
+                </div>
+            </div>
+            
+            <h3>Event Log</h3>
+            <div id="event-log" style="background-color: #f8f9fa; padding: 10px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+        </div>
+    </div>
+
+    <!-- Load the interpreter and DOM manager -->
+    <script src="../../src/dom-element-manager.js"></script>
+    <script src="../mocks/dom-rpc-client.js"></script>
+    <script src="../../src/dom-functions.js"></script>
+    <script src="../../src/parser.js"></script>
+    
+    <!-- Load required modular dependencies -->
+    <script src="../../src/interpreter-string-and-expression-processing.js"></script>
+    <script src="../../src/interpreter-variable-stack.js"></script>
+    <script src="../../src/interpreter-evaluation-utilities.js"></script>
+    <script src="../../src/interpreter-execution-context.js"></script>
+    <script src="../../src/interpreter-control-flow.js"></script>
+    <script src="../../src/interpreter-expression-value-resolution.js"></script>
+    <script src="../../src/interpreter-dom-manager.js"></script>
+    <script src="../../src/interpreter-error-handling.js"></script>
+    <script src="../../src/interpreter-parse-subroutine.js"></script>
+    <script src="../../src/interpreter-trace-formatting.js"></script>
+    
+    <!-- Load utility modules -->
+    <script src="../../src/utils.js"></script>
+    <script src="../../src/security.js"></script>
+    <script src="../../src/string-processing.js"></script>
+    
+    <!-- Load main interpreter -->
+    <script src="../../src/interpreter.js"></script>
+    
+    <script>
+        // Create Parser class wrapper for compatibility
+        class Parser {
+            parse(script) {
+                const commands = parse(script);
+                return {
+                    success: commands ? true : false,
+                    commands: commands,
+                    error: commands ? null : "Parse failed"
+                };
+            }
+        }
+        
+        let eventLog = [];
+        let interpreter = null;
+        let domManager = null;
+        
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            // Create browser DOM Address Sender that handles DOM operations locally
+            const domRPCClient = new BrowserDOMRpcClient();
+            
+            // Wrap it to add logging
+            const loggingRPCClient = {
+                send: async (namespace, method, params) => {
+                    logEvent(`RPC: ${namespace}.${method}(${JSON.stringify(params)})`);
+                    try {
+                        const result = await domRPCClient.send(namespace, method, params);
+                        logEvent(`RPC Result: ${JSON.stringify(result)}`);
+                        return result;
+                    } catch (error) {
+                        logEvent(`RPC Error: ${error.message}`);
+                        throw error;
+                    }
+                }
+            };
+            
+            // Initialize interpreter with DOM Address Sender
+            interpreter = new RexxInterpreter(loggingRPCClient);
+            
+            logEvent('Interpreter and DOM Address Sender initialized');
+            
+            // Load the first example
+            loadExample('with-retry');
+        });
+        
+        function logEvent(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            eventLog.push(`[${timestamp}] ${message}`);
+            const logDiv = document.getElementById('event-log');
+            if (logDiv) {
+                logDiv.textContent = eventLog.slice(-20).join('\n');
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
+        }
+        
+        function logClick(message) {
+            logEvent(`UI: ${message}`);
+        }
+        
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            logEvent(`Form submitted: username=${username}, password=${password.replace(/./g, '*')}`);
+            addOutput(`Form submitted with username: ${username}`);
+        }
+        
+        function makeFormStale() {
+            // Remove form to make elements stale, then recreate for retry testing
+            const form = document.getElementById('testForm');
+            if (form) {
+                form.remove();
+                logEvent('Form removed - elements are now stale');
+                
+                // Recreate form after a delay to allow retry testing
+                setTimeout(() => {
+                    const content = document.getElementById('test-content');
+                    const existingForm = document.getElementById('testForm');
+                    if (!existingForm) { // Only recreate if it doesn't exist
+                        const newForm = document.createElement('form');
+                        newForm.id = 'testForm';
+                        newForm.onsubmit = handleFormSubmit;
+                        newForm.innerHTML = `
+                            <div class="form-group">
+                                <label>Username:</label>
+                                <input type="text" id="username" placeholder="Enter username">
+                            </div>
+                            <div class="form-group">
+                                <label>Password:</label>
+                                <input type="password" id="password" placeholder="Enter password">
+                            </div>
+                            <button type="submit" id="submitBtn">Submit</button>
+                        `;
+                        content.appendChild(newForm);
+                        logEvent('Form recreated - retry operations can now succeed');
+                    }
+                }, 300);
+            }
+        }
+        
+        function removeButton() {
+            const button = document.getElementById('testButton');
+            if (button) {
+                button.remove();
+                logEvent('Button removed - element is now stale');
+            }
+        }
+        
+        function rebuildForm() {
+            const content = document.getElementById('test-content');
+            content.innerHTML = `
+                <button id="testButton" onclick="logClick('Button clicked')">Test Button</button>
+                
+                <form id="testForm" onsubmit="handleFormSubmit(event)">
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <input type="text" id="username" placeholder="Enter username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="password" placeholder="Enter password">
+                    </div>
+                    <button type="submit" id="submitBtn">Submit</button>
+                </form>
+                
+                <div id="dynamic-content">
+                    <p>Dynamic content area</p>
+                </div>
+            `;
+            logEvent('Content rebuilt - all elements restored');
+        }
+        
+        function resetTestContent() {
+            const content = document.getElementById('test-content');
+            content.innerHTML = `
+                <button id="testButton" onclick="logClick('Button clicked')">Test Button</button>
+                
+                <form id="testForm" onsubmit="handleFormSubmit(event)">
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <input type="text" id="username" placeholder="Enter username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="password" placeholder="Enter password">
+                    </div>
+                    <button type="submit" id="submitBtn">Submit</button>
+                </form>
+                
+                <div id="dynamic-content">
+                    <p>Dynamic content area</p>
+                </div>
+            `;
+            logEvent('Content reset to initial state');
+        }
+        
+        function addOutput(text) {
+            const output = document.getElementById('output');
+            output.textContent += text + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').textContent = '';
+            eventLog = [];
+            document.getElementById('event-log').textContent = '';
+            logEvent('Output cleared');
+        }
+        
+        // Example scripts
+        const examples = {
+            'with-retry': `-- Example WITH RETRY_ON_STALE - Recovers gracefully from stale elements
+-- Click "Make Form Stale" while this runs to see it recover!
+
+SAY "Starting form submission with retry protection..."
+
+RETRY_ON_STALE timeout=5000
+  LET form = DOM_GET selector="#testForm"
+  LET username = DOM_ELEMENT_QUERY element=form selector="#username"
+  LET password = DOM_ELEMENT_QUERY element=form selector="#password"
+  
+  SAY "Filling form fields..."
+  LET typed1 = DOM_ELEMENT_TYPE element=username text="testuser"
+  LET typed2 = DOM_ELEMENT_TYPE element=password text="secret123"
+  
+  LET submit = DOM_ELEMENT_QUERY element=form selector="#submitBtn"
+  LET clicked = DOM_ELEMENT_CLICK element=submit
+  SAY "Form actions completed inside retry block"
+END_RETRY
+
+SAY "Form submitted successfully with retry protection!"`,
+
+            'without-retry': `-- Example WITHOUT RETRY_ON_STALE - Will fail if elements go stale
+-- Click "Make Form Stale" during the 3 second pause!
+
+SAY "Starting WITHOUT retry protection..."
+
+LET form = DOM_GET selector="#testForm"
+LET username = DOM_ELEMENT_QUERY element=form selector="#username"
+LET password = DOM_ELEMENT_QUERY element=form selector="#password"
+
+SAY "Got form elements - CLICK 'Make Form Stale' NOW!"
+SAY "Waiting 3 seconds - make the form stale during this time..."
+
+-- Sleep for 3 seconds to give time to make form stale
+SLEEP ms=3000
+
+SAY "Now trying to type in the (possibly stale) form fields..."
+
+-- These operations will fail if you made the form stale
+DOM_ELEMENT_TYPE element=username text="testuser"
+DOM_ELEMENT_TYPE element=password text="secret123"
+
+LET submit = DOM_ELEMENT_QUERY element=form selector="#submitBtn"
+DOM_ELEMENT_CLICK element=submit
+
+SAY "Form submitted (without stale protection)"`,
+
+            'preserve-vars': `-- Example with variable preservation across retries
+LET attempt_count = 0
+LET last_error = ""
+
+RETRY_ON_STALE timeout=8000 PRESERVE attempt_count,last_error
+  LET attempt_count = attempt_count + 1
+  SAY "Attempt #" || attempt_count
+  
+  LET form = DOM_GET selector="#testForm"
+  LET username = DOM_ELEMENT_QUERY element=form selector="#username"
+  
+  -- This will preserve the attempt count even if retry happens
+  DOM_ELEMENT_TYPE element=username text="user_attempt_" || attempt_count
+  
+  LET password = DOM_ELEMENT_QUERY element=form selector="#password"
+  DOM_ELEMENT_TYPE element=password text="pass_" || attempt_count
+  
+  SAY "Filled form on attempt " || attempt_count
+END_RETRY
+
+SAY "Final attempt count: " || attempt_count`,
+
+            'nested-queries': `-- Example with nested element queries
+RETRY_ON_STALE timeout=5000
+  -- Start with the form container
+  LET form = DOM_GET selector="#testForm"
+  SAY "Found form container"
+  
+  -- Query within the form for better specificity
+  LET username = DOM_ELEMENT_QUERY element=form selector="#username"
+  LET password = DOM_ELEMENT_QUERY element=form selector="#password"
+  SAY "Found input fields within form"
+  
+  -- Get the submit button text before clicking
+  LET submit = DOM_ELEMENT_QUERY element=form selector="#submitBtn"
+  LET button_text = DOM_ELEMENT_TEXT element=submit
+  SAY "Submit button says: " || button_text
+  
+  -- Fill and submit
+  DOM_ELEMENT_TYPE element=username text="nested_test"
+  DOM_ELEMENT_TYPE element=password text="nested_pass"
+  DOM_ELEMENT_CLICK element=submit
+  
+  SAY "Nested query workflow completed!"
+END_RETRY`,
+
+            'collection-old-way': `-- OLD WAY: Index-centric DOM collection traversal (fragile)
+SAY "Testing multiple buttons with old index-based approach..."
+
+LET buttons = DOM_GET_ALL selector=".test-collection button"
+LET count = buttons.length
+SAY "Found " || count || " buttons to process"
+
+-- Traditional fragile index-based loop
+DO i = 1 TO count
+    LET button = buttons[i]
+    LET text = DOM_ELEMENT_TEXT element=button
+    SAY "Button " || i || " says: " || text
+    DOM_ELEMENT_CLICK element=button
+    SAY "Clicked button " || i
+END
+
+SAY "Old-style collection processing complete"`,
+
+            'collection-new-way': `-- NEW WAY: DO...OVER for elegant DOM collection traversal
+SAY "Testing multiple buttons with modern DO...OVER approach..."
+
+LET buttons = DOM_GET_ALL selector=".test-collection button"
+SAY "Found buttons collection, processing with DO...OVER..."
+
+-- Modern elegant iteration over collection
+DO button OVER buttons
+    LET text = DOM_ELEMENT_TEXT element=button
+    SAY "Processing button: " || text
+    DOM_ELEMENT_CLICK element=button
+    SAY "Clicked: " || text
+END
+
+SAY "Modern collection processing complete"`,
+
+            'retry-collections': `-- DO...OVER with RETRY_ON_STALE for robust collection processing
+SAY "Processing button collection with stale-element protection..."
+
+RETRY_ON_STALE timeout=8000
+    LET buttons = DOM_GET_ALL selector=".test-collection button"
+    SAY "Found button collection, processing safely..."
+    
+    DO button OVER buttons
+        LET text = DOM_ELEMENT_TEXT element=button
+        SAY "Processing: " || text
+        DOM_ELEMENT_CLICK element=button
+        SLEEP ms=200  -- Brief pause between clicks
+    END
+    
+    SAY "All buttons processed successfully with retry protection"
+END_RETRY`
+        };
+        
+        function loadExample(exampleKey) {
+            const script = examples[exampleKey];
+            if (script) {
+                document.getElementById('rexx-script').value = script;
+                const dropdown = document.getElementById('example-selector');
+                const selectedText = dropdown.options[dropdown.selectedIndex].text;
+                logEvent(`Loaded example: "${selectedText}"`);
+            }
+        }
+        
+        async function runRexxJSScript() {
+            const script = document.getElementById('rexx-script').value;
+            const output = document.getElementById('output');
+            
+            try {
+                const dropdown = document.getElementById('example-selector');
+                const selectedText = dropdown.options[dropdown.selectedIndex].text;
+                logEvent(`Starting script execution: "${selectedText}"`);
+                clearOutput();
+                
+                // Parse the script
+                const commands = parse(script);
+                
+                if (!commands) {
+                    addOutput(`Parse error: Failed to parse script`);
+                    logEvent(`Parse error: Failed to parse script`);
+                    return;
+                }
+                
+                // Debug: Log parsed commands
+                console.log('Parsed commands:', commands);
+                logEvent(`Parsed ${commands.length} commands`);
+                
+                // Override SAY to output to our div
+                interpreter.executeSayStatement = async function(sayCommand) {
+                    const expression = sayCommand.expression;
+                    
+                    // Check if the expression contains concatenation operators (||)
+                    if (expression.includes('||')) {
+                        // Handle as a concatenation expression
+                        const result = await this.evaluateConcatenation(expression);
+                        const output = String(result);
+                        addOutput(output);
+                        logEvent(`SAY: ${output}`);
+                        return;
+                    }
+                    
+                    // Parse the expression to handle multiple values and interpolation
+                    const outputParts = [];
+                    
+                    // Split on spaces but preserve quoted strings
+                    const parts = window.parseQuotedParts(expression);
+                    
+                    for (const part of parts) {
+                        if (part.startsWith('"') && part.endsWith('"')) {
+                            // Handle quoted string with potential interpolation
+                            const rawString = part.substring(1, part.length - 1);
+                            if (rawString.match(/\{[a-zA-Z_][a-zA-Z0-9_.]*\}/)) {
+                                // Interpolated string
+                                const interpolated = window.interpolateString(rawString);
+                                outputParts.push(interpolated);
+                            } else {
+                                // Simple string
+                                outputParts.push(rawString);
+                            }
+                        } else {
+                            // Variable or expression - resolve it
+                            const resolvedValue = await this.resolveValue(part);
+                            outputParts.push(String(resolvedValue));
+                        }
+                    }
+                    
+                    const output = outputParts.join(' ');
+                    addOutput(output);
+                    logEvent(`SAY: ${output}`);
+                };
+                
+                // Run the script
+                await interpreter.run(commands);
+                
+                logEvent('Script execution completed');
+                
+                // Clear stats display since we removed retry statistics
+                document.getElementById('stats').innerHTML = `
+                    <strong>Script completed successfully</strong><br>
+                    Element operations executed directly without automatic retry
+                `;
+                
+            } catch (error) {
+                addOutput(`Error: ${error.message}`);
+                logEvent(`Error: ${error.message}`);
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>

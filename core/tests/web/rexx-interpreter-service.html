@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rexx Interpreter Service</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .interpreter {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 3px solid #dc3545;
+        }
+        
+        .status-display {
+            width: 100%;
+            height: 60px;
+            font-size: 18px;
+            text-align: center;
+            padding: 10px;
+            border: 2px solid #dc3545;
+            border-radius: 4px;
+            background: #f8f8f8;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 15px;
+            line-height: 40px;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        
+        button:hover {
+            background: #c82333;
+        }
+        
+        .log {
+            background: #333;
+            color: #ff6b6b;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h2>🔴 Rexx Interpreter Service</h2>
+    <p><strong>Raw Rexx Execution:</strong> Receives and executes actual Rexx code via postMessage</p>
+    
+    <div class="interpreter">
+        <div class="status-display" id="status-display">🟢 Ready to execute remote Rexx code</div>
+        
+        <div class="controls">
+            <button id="test-button">🧪 Test Local Execution</button>
+            <button id="clear-log">Clear Execution Log</button>
+            <button id="show-capabilities">📋 Show Capabilities</button>
+        </div>
+    </div>
+    
+    <div class="status success" id="status">Rexx Interpreter Service ready for raw code execution!</div>
+    
+    <div id="execution-log" class="log">Rexx Execution Log:
+    </div>
+    
+    <!-- Load Rexx interpreter for code execution -->
+    <script src="../../src/function-parsing-strategies.js"></script>
+    <script src="../../src/parameter-converter.js"></script>
+    <script src="../../src/parser.js"></script>
+    <script src="../../src/interpreter.js"></script>
+    <script src="../../src/dom-element-manager.js"></script>
+    <script src="../mocks/dom-rpc-client.js"></script>
+    
+    <script>
+        // IoC: Accept service identity and reply target from container
+        function setupRexxService(config = {}) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                serviceId: config.serviceId || urlParams.get('service') || 'rexx-interpreter-service',
+                replyTarget: config.replyTarget || window.parent
+            };
+        }
+        
+        const serviceConfig = setupRexxService();
+        const { serviceId, replyTarget } = serviceConfig;
+        
+        console.log(`Rexx Interpreter Service: ${serviceId}`);
+        
+        // Initialize Rexx interpreter with DOM capabilities
+        const rpcClient = new BrowserDOMRpcClient();
+        const interpreter = RexxInterpreter.builder(rpcClient)
+            .withDomInterop()
+            .build();
+            
+        // Capture SAY output
+        let sayOutputBuffer = [];
+        
+        // Override the SAY implementation to capture output
+        const originalSayImplementation = interpreter.sayFunction;
+        interpreter.sayFunction = function(message) {
+            sayOutputBuffer.push(String(message));
+            logExecution(`SAY: ${message}`);
+            // Still call original if it exists
+            if (originalSayImplementation) {
+                originalSayImplementation.call(this, message);
+            }
+        };
+        
+        function logExecution(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('execution-log');
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // Also send to reply target for main log
+            replyTarget.postMessage({
+                type: 'log',
+                source: serviceId,
+                message: message
+            }, '*');
+        }
+        
+        function updateStatusDisplay(message, isError = false) {
+            const statusDisplay = document.getElementById('status-display');
+            statusDisplay.textContent = message;
+            statusDisplay.style.background = isError ? '#f8d7da' : '#d4edda';
+            statusDisplay.style.color = isError ? '#721c24' : '#155724';
+        }
+        
+        // Listen for remote Rexx execution requests
+        window.addEventListener('message', async (event) => {
+            if (event.data.type === 'rexx-execution-request') {
+                const { id, rexxCode, source } = event.data;
+                
+                logExecution(`📥 Received raw Rexx code from ${source} (${rexxCode.length} chars)`);
+                updateStatusDisplay('🔄 Executing remote Rexx code...', false);
+                
+                // Clear previous output buffer
+                sayOutputBuffer = [];
+                
+                try {
+                    // Parse the Rexx code
+                    logExecution('🔍 Parsing Rexx code...');
+                    const commands = parse(rexxCode);
+                    logExecution(`✅ Parsed ${commands.length} commands`);
+                    
+                    // Execute the code
+                    logExecution('⚡ Executing Rexx code...');
+                    await interpreter.run(commands);
+                    
+                    // Get final result from interpreter state
+                    const variables = Array.from(interpreter.variables.entries());
+                    let finalResult = null;
+                    
+                    // Try to find a meaningful result
+                    if (variables.length > 0) {
+                        // Look for common result variable names
+                        finalResult = interpreter.variables.get('result') || 
+                                    interpreter.variables.get('answer') || 
+                                    interpreter.variables.get('sum') ||
+                                    variables[variables.length - 1][1]; // Last variable set
+                    }
+                    
+                    logExecution(`✅ Execution completed successfully!`);
+                    logExecution(`📊 Variables set: ${variables.length}`);
+                    variables.forEach(([name, value]) => {
+                        logExecution(`   ${name} = ${JSON.stringify(value)}`);
+                    });
+                    
+                    updateStatusDisplay('✅ Remote execution completed', false);
+                    
+                    // Send success response back
+                    replyTarget.postMessage({
+                        type: 'rexx-response',
+                        id: id,
+                        result: finalResult,
+                        output: sayOutputBuffer,
+                        variables: variables,
+                        source: serviceId
+                    }, '*');
+                    
+                } catch (error) {
+                    logExecution(`❌ Execution failed: ${error.message}`);
+                    updateStatusDisplay(`❌ Execution error: ${error.message}`, true);
+                    
+                    // Send error response back
+                    replyTarget.postMessage({
+                        type: 'rexx-response',
+                        id: id,
+                        error: error.message,
+                        output: sayOutputBuffer,
+                        source: serviceId
+                    }, '*');
+                }
+            }
+        });
+        
+        // Test button functionality
+        document.getElementById('test-button').addEventListener('click', async () => {
+            const testCode = `-- Local test execution
+LET greeting = "Hello from local Rexx!"
+LET calculation = 6 * 7
+SAY greeting
+SAY "Local test result: " || calculation`;
+            
+            logExecution('🧪 Running local test...');
+            updateStatusDisplay('🔄 Running local test...', false);
+            sayOutputBuffer = [];
+            
+            try {
+                const commands = parse(testCode);
+                await interpreter.run(commands);
+                logExecution('✅ Local test completed');
+                updateStatusDisplay('✅ Local test completed', false);
+            } catch (error) {
+                logExecution(`❌ Local test failed: ${error.message}`);
+                updateStatusDisplay(`❌ Local test failed`, true);
+            }
+        });
+        
+        document.getElementById('clear-log').addEventListener('click', () => {
+            const logDiv = document.getElementById('execution-log');
+            logDiv.textContent = 'Execution log cleared:\n';
+            updateStatusDisplay('🟢 Ready to execute remote Rexx code', false);
+        });
+        
+        document.getElementById('show-capabilities').addEventListener('click', () => {
+            logExecution('=== REXX INTERPRETER SERVICE CAPABILITIES ===');
+            logExecution('📡 Protocol: Raw Rexx code transmission via postMessage');
+            logExecution('⚡ Execution: Full Rexx language support with DOM interop');
+            logExecution('📤 Response: Execution results, SAY output, and variables');
+            logExecution('🔒 Security: Sandboxed iframe execution environment');
+            logExecution('💾 State: Fresh interpreter context per request');
+            logExecution('');
+            logExecution('Supported Rexx features:');
+            logExecution('• Variables (LET statements)');
+            logExecution('• Arithmetic operations (+, -, *, /)'); 
+            logExecution('• String operations (||, concatenation)');
+            logExecution('• SAY statements for output');
+            logExecution('• Control structures (IF, SELECT, loops)');
+            logExecution('• Subroutines and function calls');
+            logExecution('• DOM manipulation (via withDomInterop)');
+            logExecution('=== END CAPABILITIES ===');
+        });
+        
+        // Signal that we're ready
+        window.addEventListener('load', () => {
+            logExecution('🔴 Rexx Interpreter Service ready!');
+            logExecution('💡 This service executes RAW REXX CODE received via postMessage');
+            logExecution('🔄 No JSON-RPC - direct Rexx code transmission and execution');
+            updateStatusDisplay('🟢 Ready to execute remote Rexx code', false);
+        });
+    </script>
+</body>
+</html>

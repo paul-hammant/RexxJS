@@ -1,0 +1,35 @@
+{
+  "name": "@rexxjs/excel-functions",
+  "version": "1.0.0",
+  "description": "Excel/Spreadsheet functions library for RexxJS REXX interpreter",
+  "main": "excel-functions.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [
+    "rexx",
+    "excel",
+    "spreadsheet",
+    "functions",
+    "interpreter"
+  ],
+  "author": "Paul Hammant",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "excel-functions.js",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/rexx-lite-rpc.git",
+    "directory": "extras/functions/excel"
+  }
+}

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rexx Interpreter App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .rexx-editor {
+            margin-bottom: 15px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #005a85;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            min-height: 60px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <h2>Rexx Script Interpreter</h2>
+    
+    <div class="rexx-editor">
+        <textarea id="rexx-script" placeholder="Enter your Rexx script here...">-- Test script demonstrating comprehensive RPC interface
+ADDRESS calculator
+
+-- Clear calculator first
+clear
+
+-- Comprehensive mathematical operations (hardcoded for browser compatibility)
+LET result1 = add x=20 y=22
+LET result2 = multiply x=42 y=2  
+LET result3 = subtract x=84 y=42
+
+-- Display final result with message  
+display value=42 message="Final calculation result"
+
+-- Also demonstrate button interface for comparison
+press button=2
+press button="+"
+press button=3
+press button="="
+LET button_result = getDisplay
+
+-- Store results for verification (test variable resolution)
+LET final_result = result3</textarea>
+    </div>
+    
+    <div class="controls">
+        <button id="run-script">Run Rexx Script</button>
+        <button id="clear-output">Clear Output</button>
+        <button id="security-test-button">🔓 Attempt to Break Out of Iframe</button>
+    </div>
+    
+    <div id="output" class="status info">Ready to execute Rexx scripts...</div>
+    
+    <!-- Load production parser and interpreter -->
+    <script src="../../src/function-parsing-strategies.js"></script>
+    <script src="../../src/parameter-converter.js"></script>
+    <script src="../../src/parser.js"></script>
+    
+    <!-- Load required modular dependencies -->
+    <script src="../../src/interpreter-string-and-expression-processing.js"></script>
+    <script src="../../src/interpreter-variable-stack.js"></script>
+    <script src="../../src/interpreter-evaluation-utilities.js"></script>
+    <script src="../../src/interpreter-execution-context.js"></script>
+    <script src="../../src/interpreter-control-flow.js"></script>
+    <script src="../../src/interpreter-expression-value-resolution.js"></script>
+    <script src="../../src/interpreter-dom-manager.js"></script>
+    <script src="../../src/interpreter-error-handling.js"></script>
+    <script src="../../src/interpreter-parse-subroutine.js"></script>
+    <script src="../../src/interpreter-trace-formatting.js"></script>
+    
+    <!-- Load utility modules -->
+    <script src="../../src/utils.js"></script>
+    <script src="../../src/security.js"></script>
+    <script src="../../src/string-processing.js"></script>
+    
+    <script src="../../src/interpreter.js"></script>
+    
+    <script>
+        // IoC: Accept client identity, service mappings, and reply target from container
+        function setupRexxClient(config = {}) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                clientId: config.clientId || urlParams.get('client') || 'rexx',
+                calculatorService: config.calculatorService || urlParams.get('calculator-service') || 'Calculator',
+                replyTarget: config.replyTarget || window.parent, // iframe context
+                requestTarget: config.requestTarget || config.replyTarget || window.parent
+            };
+        }
+        
+        const clientConfig = setupRexxClient();
+        const { clientId, calculatorService, replyTarget, requestTarget } = clientConfig;
+        
+        console.log(`Rexx client: ${clientId}`);
+        console.log(`Calculator service: ${calculatorService}`);
+        
+        class CrossIframeRpcClient {
+            constructor() {
+                this.pendingRequests = new Map();
+                this.requestId = 0;
+                
+                // IoC: Service configuration from container
+                this.serviceConfig = {
+                    'calculator': {
+                        expectedSource: calculatorService,    // Assigned by container
+                        responseType: 'rpc-response'
+                    }
+                };
+                
+                // Listen for responses from services
+                window.addEventListener('message', (event) => {
+                    if (event.data.type === 'rpc-response') {
+                        const { id, result, error, source } = event.data;
+                        
+                        // ✅ SECURITY: Validate source
+                        const expectedSource = this.serviceConfig['calculator'].expectedSource;
+                        if (source !== expectedSource) {
+                            console.warn(`🔒 SECURITY: Ignoring rpc-response from unexpected source. Expected '${expectedSource}', got '${source}'`);
+                            
+                            // Optionally reject the pending request with security error
+                            const pending = this.pendingRequests.get(id);
+                            if (pending) {
+                                this.pendingRequests.delete(id);
+                                pending.reject(new Error(`Security violation: Response from wrong source (expected '${expectedSource}', got '${source}')`));
+                            }
+                            return;
+                        }
+                        
+                        const pending = this.pendingRequests.get(id);
+                        if (pending) {
+                            this.pendingRequests.delete(id);
+                            if (error) {
+                                pending.reject(new Error(error));
+                            } else {
+                                pending.resolve(result);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            async send(namespace, method, params) {
+                return new Promise((resolve, reject) => {
+                    const id = ++this.requestId;
+                    
+                    // Store the promise handlers
+                    this.pendingRequests.set(id, { resolve, reject });
+                    
+                    // Send message to request target (which forwards to calculator)
+                    requestTarget.postMessage({
+                        type: 'rpc-request',
+                        id,
+                        namespace,
+                        method,
+                        params
+                    }, '*');
+                    
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        if (this.pendingRequests.has(id)) {
+                            this.pendingRequests.delete(id);
+                            reject(new Error(`RPC timeout: ${namespace}.${method}`));
+                        }
+                    }, 5000);
+                });
+            }
+        }
+        
+        const outputDiv = document.getElementById('output');
+        const scriptTextarea = document.getElementById('rexx-script');
+        
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            outputDiv.textContent += `[${timestamp}] ${message}\n`;
+            outputDiv.className = `status ${type}`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            
+            // Also send to reply target for main log
+            replyTarget.postMessage({
+                type: 'log',
+                source: clientId,        // Use assigned client identity
+                message: message
+            }, '*');
+        }
+        
+        document.getElementById('run-script').addEventListener('click', async () => {
+            const script = scriptTextarea.value.trim();
+            if (!script) {
+                logMessage('No script to execute!', 'error');
+                return;
+            }
+            
+            try {
+                logMessage('Parsing Rexx script...', 'info');
+                const commands = parse(script);
+                logMessage(`Parsed ${commands.length} commands successfully`, 'success');
+                
+                logMessage('Creating cross-iframe Address Sender...', 'info');
+                const rpcClient = new CrossIframeRpcClient();
+                
+                logMessage('Executing script...', 'info');
+                const interpreter = RexxInterpreter.builder(rpcClient)
+                    .withoutDomInterop()
+                    .build();
+                await interpreter.run(commands);
+                
+                logMessage('Script execution completed successfully!', 'success');
+                
+                // Display any variables that were set
+                const variables = Array.from(interpreter.variables.entries());
+                if (variables.length > 0) {
+                    logMessage('Variables set:', 'info');
+                    variables.forEach(([name, value]) => {
+                        logMessage(`  ${name} = ${JSON.stringify(value)}`, 'info');
+                    });
+                }
+                
+                // Check for assertion in this specific test case
+                if (script.includes('2 + 0 + 2 + 2 =')) {
+                    const result = interpreter.variables.get('final_result');
+                    if (result === 6) {
+                        logMessage('✅ ASSERTION PASSED: Result is 6 as expected!', 'success');
+                    } else {
+                        logMessage(`❌ ASSERTION FAILED: Expected 6, got ${result}`, 'error');
+                    }
+                }
+                
+            } catch (error) {
+                logMessage(`Script execution failed: ${error.message}`, 'error');
+                console.error('Rexx execution error:', error);
+            }
+        });
+        
+        document.getElementById('clear-output').addEventListener('click', () => {
+            outputDiv.textContent = 'Output cleared...\n';
+            outputDiv.className = 'status info';
+        });
+        
+        document.getElementById('security-test-button').addEventListener('click', () => {
+            logMessage('=== IFRAME SECURITY BREAKOUT TESTS ===', 'info');
+            const results = [];
+            
+            // Test 1: Try to access parent window directly
+            try {
+                const parentTitle = window.parent.document.title;
+                results.push('❌ SECURITY BREACH: Accessed parent document.title');
+                logMessage(`❌ BREACH: Got parent title: ${parentTitle}`, 'error');
+            } catch (e) {
+                results.push('✅ BLOCKED: parent.document access');
+                logMessage('✅ BLOCKED: parent.document access - ' + e.message, 'success');
+            }
+            
+            // Test 2: Try to access top window
+            try {
+                const topLocation = window.top.location.href;
+                results.push('❌ SECURITY BREACH: Accessed top.location');
+                logMessage(`❌ BREACH: Got top location: ${topLocation}`, 'error');
+            } catch (e) {
+                results.push('✅ BLOCKED: top.location access');
+                logMessage('✅ BLOCKED: top.location access - ' + e.message, 'success');
+            }
+            
+            // Test 3: Try to manipulate parent DOM
+            try {
+                const parentBody = window.parent.document.body;
+                parentBody.style.backgroundColor = 'red';
+                results.push('❌ SECURITY BREACH: Modified parent DOM');
+                logMessage('❌ BREACH: Modified parent DOM', 'error');
+            } catch (e) {
+                results.push('✅ BLOCKED: parent DOM manipulation');
+                logMessage('✅ BLOCKED: parent DOM manipulation - ' + e.message, 'success');
+            }
+            
+            // Test 4: Try to inject script into parent
+            try {
+                const script = window.parent.document.createElement('script');
+                script.innerHTML = 'alert("Iframe breakout!")';
+                window.parent.document.head.appendChild(script);
+                results.push('❌ SECURITY BREACH: Injected script into parent');
+                logMessage('❌ BREACH: Injected script into parent', 'error');
+            } catch (e) {
+                results.push('✅ BLOCKED: script injection');
+                logMessage('✅ BLOCKED: script injection - ' + e.message, 'success');
+            }
+            
+            // Test 5: Try to access parent window functions
+            try {
+                window.parent.alert('Iframe escaped!');
+                results.push('❌ SECURITY BREACH: Called parent.alert');
+                logMessage('❌ BREACH: Called parent.alert', 'error');
+            } catch (e) {
+                results.push('✅ BLOCKED: parent.alert access');
+                logMessage('✅ BLOCKED: parent.alert access - ' + e.message, 'success');
+            }
+            
+            // Test 6: Try to access sessionStorage
+            try {
+                sessionStorage.setItem('test', 'breakout');
+                const value = sessionStorage.getItem('test');
+                if (value) {
+                    results.push('⚠️ WARNING: sessionStorage accessible');
+                    logMessage('⚠️ WARNING: sessionStorage accessible', 'info');
+                } else {
+                    results.push('✅ BLOCKED: sessionStorage not accessible');
+                    logMessage('✅ BLOCKED: sessionStorage not accessible', 'success');
+                }
+            } catch (e) {
+                results.push('✅ BLOCKED: sessionStorage access');
+                logMessage('✅ BLOCKED: sessionStorage access - ' + e.message, 'success');
+            }
+            
+            // Test 7: Try to redirect current window (using assignment check instead of actual redirect)
+            try {
+                // Test if we can even access the location property for writing
+                const originalLocation = window.location.href;
+                const testLocation = 'https://evil.com';
+                
+                // Check if location assignment is allowed by testing property descriptor
+                const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+                if (locationDescriptor && locationDescriptor.set) {
+                    results.push('⚠️ WARNING: window.location assignment possible (not attempted)');
+                    logMessage('⚠️ WARNING: window.location writable - navigation blocked by NOT executing', 'info');
+                } else {
+                    results.push('✅ BLOCKED: window.location not writable');
+                    logMessage('✅ BLOCKED: window.location not writable', 'success');
+                }
+            } catch (e) {
+                results.push('✅ BLOCKED: window.location access');
+                logMessage('✅ BLOCKED: window.location access - ' + e.message, 'success');
+            }
+            
+            // Send summary to reply target
+            replyTarget.postMessage({
+                type: 'security-test-results',
+                source: clientId,        // Use assigned client identity
+                results: results
+            }, '*');
+            
+            logMessage('=== SECURITY TEST COMPLETE ===', 'info');
+        });
+        
+        // Signal that we're ready
+        window.addEventListener('load', () => {
+            logMessage('Rexx interpreter ready!', 'success');
+        });
+    </script>
+</body>
+</html>

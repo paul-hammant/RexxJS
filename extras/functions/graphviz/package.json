@@ -1,0 +1,25 @@
+{
+  "name": "rexxjs-graphviz-functions",
+  "version": "1.0.0",
+  "description": "A Graphviz functions library for RexxJS",
+  "main": "src/graphviz-functions.js",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "install:core": "cd ../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
+  "keywords": [
+    "rexx",
+    "rexxjs",
+    "graphviz",
+    "functions"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "graphviz-wasm": "^3.0.2"
+  }
+}

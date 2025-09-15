@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rexx-to-Rexx Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .rexx-editor {
+            margin-bottom: 15px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #c82333;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            min-height: 60px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <h2>Rexx-to-Rexx Client</h2>
+    <p><strong>Raw Rexx Transmission:</strong> Sends actual Rexx code over postMessage for remote execution</p>
+    
+    <div class="rexx-editor">
+        <textarea id="rexx-script" placeholder="Enter Rexx code to execute remotely...">-- Raw Rexx code sent over the wire for remote execution
+-- This demonstrates Rexx-to-Rexx communication without JSON-RPC
+
+-- Simple calculator operations
+LET a = 10
+LET b = 5
+
+-- Arithmetic operations  
+LET sum = a + b
+LET difference = a - b
+LET product = a * b
+LET quotient = a / b
+
+-- String operations
+LET greeting = "Hello from remote Rexx!"
+LET message = "Result: " || sum
+
+-- Output results
+SAY "Remote Rexx execution results:"
+SAY "10 + 5 = " || sum
+SAY "10 - 5 = " || difference  
+SAY "10 * 5 = " || product
+SAY "10 / 5 = " || quotient
+SAY greeting
+SAY message</textarea>
+    </div>
+    
+    <div class="controls">
+        <button id="send-rexx">📡 Send Rexx Code for Remote Execution</button>
+        <button id="clear-output">Clear Output</button>
+        <button id="test-simple">🧪 Test Simple Calculation</button>
+    </div>
+    
+    <div id="output" class="status info">Ready to send Rexx code for remote execution...</div>
+    
+    <!-- Load production parser and interpreter for local validation -->
+    <script src="../../src/function-parsing-strategies.js"></script>
+    <script src="../../src/parameter-converter.js"></script>
+    <script src="../../src/parser.js"></script>
+    
+    <!-- Load required modular dependencies -->
+    <script src="../../src/interpreter-string-and-expression-processing.js"></script>
+    <script src="../../src/interpreter-variable-stack.js"></script>
+    <script src="../../src/interpreter-evaluation-utilities.js"></script>
+    <script src="../../src/interpreter-execution-context.js"></script>
+    <script src="../../src/interpreter-control-flow.js"></script>
+    <script src="../../src/interpreter-expression-value-resolution.js"></script>
+    <script src="../../src/interpreter-dom-manager.js"></script>
+    <script src="../../src/interpreter-error-handling.js"></script>
+    <script src="../../src/interpreter-parse-subroutine.js"></script>
+    <script src="../../src/interpreter-trace-formatting.js"></script>
+    
+    <!-- Load utility modules -->
+    <script src="../../src/utils.js"></script>
+    <script src="../../src/security.js"></script>
+    <script src="../../src/string-processing.js"></script>
+    
+    <script src="../../src/interpreter.js"></script>
+    
+    <script>
+        // IoC: Accept client identity and service mappings from container
+        function setupRexxClient(config = {}) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                clientId: config.clientId || urlParams.get('client') || 'rexx-raw',
+                serviceId: config.serviceId || urlParams.get('service') || 'raw-rexx-calculator',
+                replyTarget: config.replyTarget || window.parent,
+                requestTarget: config.requestTarget || config.replyTarget || window.parent
+            };
+        }
+        
+        const clientConfig = setupRexxClient();
+        const { clientId, serviceId, replyTarget, requestTarget } = clientConfig;
+        
+        console.log(`Rexx-to-Rexx client: ${clientId}`);
+        console.log(`Target service: ${serviceId}`);
+        
+        const outputDiv = document.getElementById('output');
+        const scriptTextarea = document.getElementById('rexx-script');
+        
+        // Listen for responses from remote Rexx service
+        let pendingRequests = new Map();
+        let requestId = 0;
+        
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'rexx-response') {
+                const { id, result, error, output } = event.data;
+                
+                const pending = pendingRequests.get(id);
+                if (pending) {
+                    pendingRequests.delete(id);
+                    if (error) {
+                        pending.reject(new Error(error));
+                    } else {
+                        pending.resolve({ result, output });
+                    }
+                }
+            }
+        });
+        
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            outputDiv.textContent += `[${timestamp}] ${message}\n`;
+            outputDiv.className = `status ${type}`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            
+            // Also send to reply target for main log
+            replyTarget.postMessage({
+                type: 'log',
+                source: clientId,
+                message: message
+            }, '*');
+        }
+        
+        async function sendRexxCode(rexxCode) {
+            return new Promise((resolve, reject) => {
+                const id = ++requestId;
+                
+                // Store the promise handlers
+                pendingRequests.set(id, { resolve, reject });
+                
+                // Send raw Rexx code to remote interpreter
+                requestTarget.postMessage({
+                    type: 'rexx-execution-request',
+                    id,
+                    source: clientId,
+                    target: serviceId,
+                    rexxCode: rexxCode
+                }, '*');
+                
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (pendingRequests.has(id)) {
+                        pendingRequests.delete(id);
+                        reject(new Error(`Remote Rexx execution timeout`));
+                    }
+                }, 10000);
+            });
+        }
+        
+        document.getElementById('send-rexx').addEventListener('click', async () => {
+            const script = scriptTextarea.value.trim();
+            if (!script) {
+                logMessage('No Rexx code to send!', 'error');
+                return;
+            }
+            
+            try {
+                // Validate syntax locally before sending
+                logMessage('Validating Rexx syntax locally...', 'info');
+                const commands = parse(script);
+                logMessage(`✅ Syntax valid (${commands.length} commands)`, 'success');
+                
+                logMessage('📡 Sending raw Rexx code for remote execution...', 'info');
+                logMessage(`📤 Code length: ${script.length} characters`, 'info');
+                
+                const response = await sendRexxCode(script);
+                
+                logMessage('✅ Remote execution completed!', 'success');
+                if (response.output && response.output.length > 0) {
+                    logMessage('📥 Remote output:', 'info');
+                    response.output.forEach(line => {
+                        logMessage(`  ${line}`, 'info');
+                    });
+                }
+                
+                if (response.result) {
+                    logMessage(`📊 Final result: ${response.result}`, 'success');
+                }
+                
+            } catch (error) {
+                logMessage(`❌ Remote execution failed: ${error.message}`, 'error');
+                console.error('Remote Rexx execution error:', error);
+            }
+        });
+        
+        document.getElementById('test-simple').addEventListener('click', () => {
+            const simpleTest = `-- Calculator test using raw Rexx
+LET result1 = add(20, 22)
+LET result2 = multiply(result1, 2)  
+LET final_result = subtract(result2, 42)
+display value=final_result message="Raw Rexx calculation complete"`;
+            
+            scriptTextarea.value = simpleTest;
+            logMessage('📝 Loaded calculator test script', 'info');
+        });
+        
+        document.getElementById('clear-output').addEventListener('click', () => {
+            outputDiv.textContent = 'Output cleared...\n';
+            outputDiv.className = 'status info';
+        });
+        
+        // Signal that we're ready
+        window.addEventListener('load', () => {
+            logMessage('🔴 Rexx-to-Rexx client ready!', 'success');
+            logMessage('💡 This client sends RAW REXX CODE over postMessage', 'info');
+            logMessage('📡 No JSON-RPC translation - pure Rexx transmission', 'info');
+        });
+    </script>
+</body>
+</html>

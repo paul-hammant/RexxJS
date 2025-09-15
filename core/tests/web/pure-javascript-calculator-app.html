@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pure JavaScript Calculator App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .calculator {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        #display {
+            width: 100%;
+            height: 60px;
+            font-size: 24px;
+            text-align: right;
+            padding: 10px;
+            border: 2px solid #007cba;
+            border-radius: 4px;
+            background: #f8f8f8;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 15px;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        
+        button:hover {
+            background: #005a85;
+        }
+        
+        .calculator-buttons {
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            width: calc(100% + 24px);
+            margin-left: 0px;
+            padding: 0 10px;
+            border: 2px solid transparent;
+            box-sizing: border-box;
+        }
+        
+        .calc-btn {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 12px 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            margin: 0;
+            border-right: 1px solid transparent;
+            min-width: 0;
+        }
+        
+        .calc-btn:last-child {
+            border-right: none;
+        }
+        
+        .calc-btn:hover {
+            background: #005a85;
+        }
+        
+        .calc-btn.number {
+            background: #28a745;
+        }
+        
+        .calc-btn.number:hover {
+            background: #1e7e34;
+        }
+        
+        .calc-btn.operator {
+            background: #dc3545;
+        }
+        
+        .calc-btn.operator:hover {
+            background: #c82333;
+        }
+        
+        .log {
+            background: #333;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h2>Pure JavaScript Calculator App</h2>
+    
+    <div class="calculator">
+        <input type="text" id="display" value="0" readonly>
+        
+        <div class="controls">
+            <button id="test-button">Test: Calculate 42</button>
+            <button id="clear-button">Clear</button>
+            <button id="security-test-button">🔓 Attempt to Break Out of Iframe</button>
+        </div>
+        
+        <div class="calculator-buttons">
+            <button class="calc-btn number" data-button="0">0</button>
+            <button class="calc-btn number" data-button="1">1</button>
+            <button class="calc-btn number" data-button="2">2</button>
+            <button class="calc-btn number" data-button="3">3</button>
+            <button class="calc-btn number" data-button="4">4</button>
+            <button class="calc-btn number" data-button="5">5</button>
+            <button class="calc-btn number" data-button="6">6</button>
+            <button class="calc-btn number" data-button="7">7</button>
+            <button class="calc-btn number" data-button="8">8</button>
+            <button class="calc-btn number" data-button="9">9</button>
+            <button class="calc-btn operator" data-button="+">+</button>
+            <button class="calc-btn operator" data-button="-">-</button>
+            <button class="calc-btn operator" data-button="*">*</button>
+            <button class="calc-btn operator" data-button="/">/</button>
+            <button class="calc-btn operator" data-button="=">=</button>
+        </div>
+    </div>
+    
+    <div class="status success" id="status">Calculator app ready for RPC calls!</div>
+    
+    <div id="rpc-log" class="log">RPC Call Log:
+    </div>
+    
+    <!-- Load shared RPC framework -->
+    <script src="../rpc-framework.js"></script>
+    
+    <script>
+        // IoC: Accept service identity and reply target from container
+        function setupCalculatorService(config = {}) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                serviceId: config.serviceId || urlParams.get('service') || 'Calculator',
+                replyTarget: config.replyTarget || window.parent // iframe context
+            };
+        }
+        
+        const serviceConfig = setupCalculatorService();
+        const { serviceId, replyTarget } = serviceConfig;
+        
+        console.log(`Calculator service: ${serviceId}`);
+        
+        let currentValue = '0';
+        
+        function updateDisplay() {
+            document.getElementById('display').value = currentValue;
+        }
+        
+        function logRPC(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('rpc-log');
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // Also send to reply target for main log
+            replyTarget.postMessage({
+                type: 'log',
+                source: serviceId,        // Use assigned identity
+                message: message
+            }, '*');
+        }
+        
+        // RPC method implementations
+        const rpcMethodHandlers = {
+            add(params) {
+                const { x, y } = params;
+                const result = parseFloat(x) + parseFloat(y);
+                currentValue = String(result);
+                updateDisplay();
+                logRPC(`add(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            subtract(params) {
+                const { x, y } = params;
+                const result = parseFloat(x) - parseFloat(y);
+                currentValue = String(result);
+                updateDisplay();
+                logRPC(`subtract(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            multiply(params) {
+                const { x, y } = params;
+                const result = parseFloat(x) * parseFloat(y);
+                currentValue = String(result);
+                updateDisplay();
+                logRPC(`multiply(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            divide(params) {
+                const { x, y } = params;
+                if (parseFloat(y) === 0) {
+                    throw new Error('Division by zero');
+                }
+                const result = parseFloat(x) / parseFloat(y);
+                currentValue = String(result);
+                updateDisplay();
+                logRPC(`divide(${x}, ${y}) = ${result}`);
+                return result;
+            },
+            
+            setValue(params) {
+                const { value } = params;
+                currentValue = String(value);
+                updateDisplay();
+                logRPC(`setValue(${value})`);
+                return parseFloat(value);
+            },
+            
+            display(params) {
+                const { value, message } = params;
+                currentValue = String(value);
+                updateDisplay();
+                logRPC(`display: ${message || 'Result'} -> ${value}`);
+                return parseFloat(value);
+            },
+            
+            clear() {
+                currentValue = '0';
+                updateDisplay();
+                logRPC('Display cleared');
+                return 0;
+            },
+            
+            press(params) {
+                const { button } = params;
+                logRPC(`Button pressed: ${button}`);
+                
+                if (!this.calculatorState) {
+                    this.calculatorState = {
+                        accumulator: 0,
+                        pendingOperation: null,
+                        waitingForOperand: true
+                    };
+                }
+                
+                // Handle different button types
+                if (button === '=' || button === 'equals') {
+                    if (this.calculatorState.pendingOperation && !this.calculatorState.waitingForOperand) {
+                        const current = parseFloat(currentValue);
+                        let result = this.calculatorState.accumulator;
+                        
+                        switch (this.calculatorState.pendingOperation) {
+                            case '+':
+                                result = this.calculatorState.accumulator + current;
+                                break;
+                            case '-':
+                                result = this.calculatorState.accumulator - current;
+                                break;
+                            case '*':
+                                result = this.calculatorState.accumulator * current;
+                                break;
+                            case '/':
+                                result = this.calculatorState.accumulator / current;
+                                break;
+                        }
+                        
+                        currentValue = String(result);
+                        updateDisplay();
+                        this.calculatorState = { accumulator: 0, pendingOperation: null, waitingForOperand: true };
+                        logRPC(`Equals pressed, result: ${result}`);
+                        return result;
+                    }
+                    return parseFloat(currentValue);
+                } else if (['+', '-', '*', '/'].includes(button)) {
+                    const current = parseFloat(currentValue);
+                    
+                    if (this.calculatorState.pendingOperation && !this.calculatorState.waitingForOperand) {
+                        // Chain operations: complete previous operation first
+                        let result = this.calculatorState.accumulator;
+                        switch (this.calculatorState.pendingOperation) {
+                            case '+':
+                                result = this.calculatorState.accumulator + current;
+                                break;
+                            case '-':
+                                result = this.calculatorState.accumulator - current;
+                                break;
+                            case '*':
+                                result = this.calculatorState.accumulator * current;
+                                break;
+                            case '/':
+                                result = this.calculatorState.accumulator / current;
+                                break;
+                        }
+                        currentValue = String(result);
+                        updateDisplay();
+                        this.calculatorState.accumulator = result;
+                    } else {
+                        this.calculatorState.accumulator = current;
+                    }
+                    
+                    this.calculatorState.pendingOperation = button;
+                    this.calculatorState.waitingForOperand = true;
+                    logRPC(`Operation: ${button}, accumulator: ${this.calculatorState.accumulator}`);
+                    return button;
+                } else if (!isNaN(parseFloat(button))) {
+                    // Number button
+                    if (this.calculatorState.waitingForOperand) {
+                        currentValue = String(button);
+                        this.calculatorState.waitingForOperand = false;
+                    } else {
+                        currentValue += String(button);
+                    }
+                    updateDisplay();
+                    return parseFloat(button);
+                }
+                
+                return button;
+            },
+            
+            getDisplay() {
+                const result = parseFloat(currentValue);
+                logRPC(`getDisplay() = ${result}`);
+                return result;
+            }
+        };
+        
+        // Single source of method definitions (for JSON-RPC protocol only)
+        const methodDefinitions = {
+            add: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Add two numbers together', handler: rpcMethodHandlers.add },
+            subtract: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Subtract y from x', handler: rpcMethodHandlers.subtract },
+            multiply: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Multiply two numbers', handler: rpcMethodHandlers.multiply },
+            divide: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Divide x by y (y cannot be zero)', handler: rpcMethodHandlers.divide },
+            setValue: { params: { value: 'number' }, returns: 'number', description: 'Set the calculator display to a specific value', handler: rpcMethodHandlers.setValue },
+            display: { params: { value: 'number', message: 'string?' }, returns: 'number', description: 'Display value with optional message', handler: rpcMethodHandlers.display },
+            clear: { params: {}, returns: 'number', description: 'Clear the display and reset to 0', handler: rpcMethodHandlers.clear },
+            press: { params: { button: 'string|number' }, returns: 'any', description: 'Press a calculator button (number, operator, or equals)', handler: rpcMethodHandlers.press },
+            getDisplay: { params: {}, returns: 'number', description: 'Get the current display value', handler: rpcMethodHandlers.getDisplay }
+        };
+        
+        // Initialize RPC handler using shared framework
+        createRpcHandler({
+            serviceName: serviceId,
+            methods: methodDefinitions,
+            logFunction: logRPC
+        });
+        
+        // Test button functionality
+        document.getElementById('test-button').addEventListener('click', () => {
+            logRPC('Test button → calculate 6 * 7');
+            const result = rpcMethodHandlers.multiply({ x: 6, y: 7 });
+            logRPC('→ 42 (The Answer to Everything)');
+        });
+        
+        document.getElementById('clear-button').addEventListener('click', () => {
+            currentValue = '0';
+            updateDisplay();
+            logRPC('Display cleared');
+        });
+        
+        // Calculator button event handlers
+        document.querySelectorAll('.calc-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const buttonValue = button.getAttribute('data-button');
+                logRPC(`Calculator button pressed: ${buttonValue}`);
+                
+                // Use the existing press method which handles all the calculator logic
+                rpcMethodHandlers.press({ button: buttonValue });
+            });
+        });
+        
+        document.getElementById('security-test-button').addEventListener('click', () => {
+            logRPC('=== IFRAME SECURITY BREAKOUT TESTS ===');
+            const results = [];
+            
+            // Test 1: Try to access parent window directly
+            try {
+                const parentTitle = window.parent.document.title;
+                results.push('❌ SECURITY BREACH: Accessed parent document.title');
+                logRPC(`❌ BREACH: Got parent title: ${parentTitle}`);
+            } catch (e) {
+                results.push('✅ BLOCKED: parent.document access');
+                logRPC('✅ BLOCKED: parent.document access - ' + e.message);
+            }
+            
+            // Test 2: Try to access top window
+            try {
+                const topLocation = window.top.location.href;
+                results.push('❌ SECURITY BREACH: Accessed top.location');
+                logRPC(`❌ BREACH: Got top location: ${topLocation}`);
+            } catch (e) {
+                results.push('✅ BLOCKED: top.location access');
+                logRPC('✅ BLOCKED: top.location access - ' + e.message);
+            }
+            
+            // Test 3: Try to navigate parent window
+            try {
+                window.parent.location = 'https://evil.com';
+                results.push('❌ SECURITY BREACH: Navigated parent window');
+                logRPC('❌ BREACH: Navigated parent window');
+            } catch (e) {
+                results.push('✅ BLOCKED: parent navigation');
+                logRPC('✅ BLOCKED: parent navigation - ' + e.message);
+            }
+            
+            // Test 4: Try to access cookies
+            try {
+                const cookies = document.cookie;
+                if (cookies) {
+                    results.push('❌ SECURITY BREACH: Accessed cookies');
+                    logRPC(`❌ BREACH: Got cookies: ${cookies}`);
+                } else {
+                    results.push('✅ BLOCKED: No cookies accessible');
+                    logRPC('✅ BLOCKED: No cookies accessible');
+                }
+            } catch (e) {
+                results.push('✅ BLOCKED: Cookie access');
+                logRPC('✅ BLOCKED: Cookie access - ' + e.message);
+            }
+            
+            // Test 5: Try to access localStorage
+            try {
+                localStorage.setItem('test', 'value');
+                const value = localStorage.getItem('test');
+                if (value) {
+                    results.push('⚠️ WARNING: localStorage accessible (same-origin)');
+                    logRPC('⚠️ WARNING: localStorage accessible');
+                } else {
+                    results.push('✅ BLOCKED: localStorage not accessible');
+                    logRPC('✅ BLOCKED: localStorage not accessible');
+                }
+            } catch (e) {
+                results.push('✅ BLOCKED: localStorage access');
+                logRPC('✅ BLOCKED: localStorage access - ' + e.message);
+            }
+            
+            // Test 6: Check if popup opening is possible (without actually opening)
+            try {
+                // Test if window.open exists and is callable (without actually calling it)
+                if (typeof window.open === 'function') {
+                    results.push('⚠️ WARNING: window.open function exists (popups may be possible)');
+                    logRPC('⚠️ WARNING: window.open available - popup blocked by NOT executing');
+                } else {
+                    results.push('✅ BLOCKED: window.open function not available');
+                    logRPC('✅ BLOCKED: window.open function not available');
+                }
+            } catch (e) {
+                results.push('✅ BLOCKED: window.open access');
+                logRPC('✅ BLOCKED: window.open access - ' + e.message);
+            }
+            
+            // Test 7: Try to access other iframe
+            try {
+                const otherFrame = window.parent.document.getElementById('rexx-iframe');
+                if (otherFrame && otherFrame.contentWindow) {
+                    const otherDoc = otherFrame.contentWindow.document;
+                    results.push('❌ SECURITY BREACH: Accessed other iframe document');
+                    logRPC('❌ BREACH: Accessed other iframe document');
+                }
+            } catch (e) {
+                results.push('✅ BLOCKED: Cross-iframe access');
+                logRPC('✅ BLOCKED: Cross-iframe access - ' + e.message);
+            }
+            
+            // Send summary to reply target
+            replyTarget.postMessage({
+                type: 'security-test-results',
+                source: serviceId,        // Use assigned identity
+                results: results
+            }, '*');
+            
+            logRPC('=== SECURITY TEST COMPLETE ===');
+        });
+        
+        // Signal that we're ready
+        window.addEventListener('load', () => {
+            logRPC('JavaScript Calculator ready!');
+        });
+    </script>
+</body>
+</html>

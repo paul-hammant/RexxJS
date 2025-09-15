@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Instance Cross-iframe Test Harness</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 600px;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .iframe-container {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: white;
+            padding: 10px;
+        }
+        
+        .iframe-container h3 {
+            margin: 0 0 10px 0;
+            padding: 10px;
+            background: #333;
+            color: white;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .row1 {
+            z-index: 10;
+        }
+        
+        .row1 .iframe-container h3 {
+            background: #007cba;
+        }
+        
+        .row2 {
+            z-index: 9;
+        }
+        
+        .row2 .iframe-container h3 {
+            background: #28a745;
+        }
+        
+        .row3 {
+            z-index: 8;
+        }
+        
+        .row3 .iframe-container h3 {
+            background: #6f42c1;
+        }
+        
+        #mermaid-diagram {
+            z-index: 5;
+        }
+        
+        
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #333;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            border-radius: 4px;
+            min-height: 150px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .controls button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .controls button:hover {
+            background: #005a85;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        
+        .api-discovery-form {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 2px solid #007cba;
+        }
+        
+        .api-discovery-form h3 {
+            margin: 0 0 15px 0;
+            color: #007cba;
+            text-align: center;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            justify-content: center;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .form-group select {
+            padding: 8px;
+            border: 2px solid #007cba;
+            border-radius: 4px;
+            background: white;
+            font-size: 14px;
+            min-width: 200px;
+        }
+        
+        .introspect-button {
+            background: #28a745 !important;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px 20px;
+        }
+        
+        .introspect-button:hover {
+            background: #218838 !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multi-Instance Cross-iframe Service Test</h1>
+    <p><strong>IoC Pattern:</strong> Container assigns service identities. Each iframe receives its identity via URL parameters.</p>
+    
+    <div class="status info">
+        <strong>Service Topology:</strong><br>
+        • rexx-alpha → calculator-1 (Pure JavaScript)<br>
+        • rexx-gamma → calculatorC (Mostly Rexx with DOM Interop)<br>
+        • rexx-epsilon → raw-rexx-calculator (Raw Rexx Calculator)<br>
+        • All communication routed through this parent broker<br>
+        • JSON-RPC for calculators, Raw Rexx for interpreter service
+    </div>
+    
+    <div class="controls">
+        <button onclick="testCrossInstance()">Test Cross-Instance Communication</button>
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="showTopology()">Show Service Topology</button>
+    </div>
+    
+    <div class="api-discovery-form">
+        <h3>🔍 API Discovery</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="format-select">Format:</label>
+                <select id="format-select">
+                    <option value="LLM-FRIENDLY">LLM-FRIENDLY (JSON schema)</option>
+                    <option value="ENGLISH">ENGLISH (Human readable)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="protocol-select">Protocol:</label>
+                <select id="protocol-select">
+                    <option value="JSON-RPC">JSON-RPC (postMessage)</option>
+                    <option value="REXX">REXX (ADDRESS syntax)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <button onclick="invokeIntrospect()" class="introspect-button">📡 Invoke _introspect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Separate container for Mermaid diagram -->
+    <div style="margin-bottom: 30px;">
+        <h3 style="text-align: center; margin-bottom: 15px;">📊 Communication Flow For Blue Rexx Alpha Client <--> Calculator-1 row below</h3>
+        <div id="mermaid-diagram" style="width: 100%; background: white; border: 2px solid #007cba; border-radius: 8px; padding: 20px;">
+            <div class="mermaid">
+sequenceDiagram
+    participant Rexx as 🔵 Rexx Script<br/>(interpreter in iframe)
+    participant Marshal as 🔄 RPC Marshaller<br/>(ADDRESS handler in iframe)
+    participant Broker as ⚡ Message Broker<br/>(this page)
+    participant DeMarshal as 🔄 RPC DeMarshaller<br/>(JSON-RPC handler in iframe)
+    participant Calc1 as 🟦 Calculator-1 Logic<br/>(JavaScript functions)
+    participant CalcUI as 🎨 Calculator UI<br/>(DOM display & state)
+
+    Note over Rexx,CalcUI: Rexx-Alpha → Calculator-1 Communication Flow for "add" (same for div, mult, etc)
+
+    %% Complete calculation sequence from default script
+    Rexx->>+Marshal: ADDRESS calculator<br/>add x=20 y=22
+    Note over Rexx,Marshal: Rexx ADDRESS statement<br/>parsed and converted
+    Marshal->>+Broker: postMessage({<br/>type:"rpc-request", id:123,<br/>namespace:"calculator", method:"add",<br/>params:{x:20,y:22}})
+    Note over Marshal,Broker: ADDRESS command becomes<br/>full JSON-RPC postMessage structure
+    Note over Broker: Routing for client ID<br/>`rexx-alpha` → `calculator-1`
+    Broker->>+DeMarshal: postMessage({<br/>type:"rpc-request", id:123,<br/>namespace:"calculator", method:"add",<br/>params:{x:20,y:22}})
+    Note over Broker,DeMarshal: Broker forwards identical message<br/>via cross-iframe postMessage
+    DeMarshal->>+Calc1: add(20, 22)
+    Note over DeMarshal,Calc1: JSON-RPC call becomes<br/>JavaScript function call
+    Calc1->>+CalcUI: Update display with inputs<br/>DOM manipulation
+    Note over Calc1,CalcUI: JavaScript updates UI state<br/>and visual calculator display
+    Note over Calc1: JavaScript execution:<br/>add(20,22) = 42
+    Calc1->>CalcUI: Update display to show "42"<br/>JavaScript DOM manipulation
+    CalcUI-->>-Calc1: UI updated
+    Calc1-->>-DeMarshal: return 42
+    DeMarshal-->>-Broker: postMessage({<br/>type:"rpc-response", id:123,<br/>result:42})
+    Note over DeMarshal,Broker: Function result becomes<br/>JSON-RPC response
+    Note over Broker: Routing for response by service ID<br/>`calculator-1` → `rexx-alpha`
+    Broker-->>-Marshal: postMessage({<br/>type:"rpc-response", id:123,<br/>result:42})
+    Marshal-->>-Rexx: LET result1 = 42
+    Note over Marshal,Rexx: JSON response converted<br/>to Rexx variable assignment
+            </div>
+        </div>
+    </div>
+
+    <div class="container row1">
+        <div class="iframe-container">
+            <h3>Rexx Alpha Client<br><small>(./rexx-script-interpreter.html)</small></h3>
+            <iframe
+                id="rexx-alpha"
+                src="./rexx-script-interpreter.html?client=rexx-alpha&calculator-service=calculator-1"
+                sandbox="allow-scripts">
+            </iframe>
+        </div>
+
+        <div class="iframe-container">
+            <h3>Calculator Instance 1<br><small>(./pure-javascript-calculator-app.html)</small></h3>
+            <iframe
+                id="calculator-1"
+                src="./pure-javascript-calculator-app.html?service=calculator-1"
+                sandbox="allow-scripts">
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Separate container for Gamma-C Mermaid diagram -->
+    <div style="margin-bottom: 30px;">
+        <h3 style="text-align: center; margin-bottom: 15px;">📊 Communication Flow For Purple Rexx Gamma Client <--> Calculator-C row below</h3>
+        <div id="mermaid-diagram-gamma" style="width: 100%; background: white; border: 2px solid #6f42c1; border-radius: 8px; padding: 20px;">
+            <div class="mermaid">
+sequenceDiagram
+    participant Rexx as 🟣 Rexx Script<br/>(interpreter in iframe)
+    participant Marshal as 🔄 RPC Marshaller<br/>(ADDRESS handler in iframe)
+    participant Broker as ⚡ Message Broker<br/>(this page)
+    participant DeMarshal as 🔄 RPC DeMarshaller<br/>(JSON-RPC handler in iframe)
+    participant RexxCalc as 🟪 Calculator-C Logic<br/>(Rexx functions in iframe)
+    participant CalcUI as 🎨 Calculator UI<br/>(DOM display & state)
+
+    Note over Rexx,CalcUI: Rexx-Gamma → Calculator-C Communication Flow for "add" (JSON-RPC to Rexx backend)
+
+    %% Complete calculation sequence from default script
+    Rexx->>+Marshal: ADDRESS calculator<br/>add x=20 y=22
+    Note over Rexx,Marshal: Rexx ADDRESS statement<br/>parsed and converted
+    Marshal->>+Broker: postMessage({<br/>type:"rpc-request", id:456,<br/>namespace:"calculator", method:"add",<br/>params:{x:20,y:22}})
+    Note over Marshal,Broker: ADDRESS command becomes<br/>full JSON-RPC postMessage structure
+    Note over Broker: Routing for client ID<br/>`rexx-gamma` → `calculatorC`
+    Broker->>+DeMarshal: postMessage({<br/>type:"rpc-request", id:456,<br/>namespace:"calculator", method:"add",<br/>params:{x:20,y:22}})
+    Note over Broker,DeMarshal: Broker forwards identical message<br/>via cross-iframe postMessage
+    DeMarshal->>+RexxCalc: CALL add 20, 22
+    Note over DeMarshal,RexxCalc: JSON-RPC call becomes<br/>Rexx subroutine call
+    RexxCalc->>+CalcUI: Update display with inputs<br/>DOM manipulation
+    Note over RexxCalc,CalcUI: Rexx updates UI state<br/>and visual calculator display
+    Note over RexxCalc: Rexx execution:<br/>CALL add 20, 22<br/>RETURN 42
+    RexxCalc->>CalcUI: Update display to show "42"<br/>Rexx DOM manipulation
+    CalcUI-->>-RexxCalc: UI updated
+    RexxCalc-->>-DeMarshal: RETURN 42
+    DeMarshal-->>-Broker: postMessage({<br/>type:"rpc-response", id:456,<br/>result:42})
+    Note over DeMarshal,Broker: Rexx RETURN becomes<br/>JSON-RPC response
+    Note over Broker: Routing for response by service ID<br/>`calculatorC` → `rexx-gamma`
+    Broker-->>-Marshal: postMessage({<br/>type:"rpc-response", id:456,<br/>result:42})
+    Marshal-->>-Rexx: LET result1 = 42
+    Note over Marshal,Rexx: JSON response converted<br/>to Rexx variable assignment
+            </div>
+        </div>
+    </div>
+
+    <div class="container row2">
+        <div class="iframe-container">
+            <h3>Rexx Gamma Client<br><small>(./rexx-script-interpreter.html)</small></h3>
+            <iframe 
+                id="rexx-gamma" 
+                src="./rexx-script-interpreter.html?client=rexx-gamma&calculator-service=calculatorC"
+                sandbox="allow-scripts">
+            </iframe>
+        </div>
+        
+        <div class="iframe-container">
+            <h3>Calculator Instance C<br><small>(./mostly-rexx-calculator-app.html)</small></h3>
+            <iframe 
+                id="calculator-c" 
+                src="./mostly-rexx-calculator-app.html?service=calculatorC"
+                sandbox="allow-scripts">
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Separate container for Epsilon-RawCalc Mermaid diagram -->
+    <div style="margin-bottom: 30px;">
+        <h3 style="text-align: center; margin-bottom: 15px;">📊 Communication Flow For Red Rexx Epsilon Client <--> Raw Rexx Calculator row below</h3>
+        <div id="mermaid-diagram-epsilon" style="width: 100%; background: white; border: 2px solid #dc3545; border-radius: 8px; padding: 20px;">
+            <div class="mermaid">
+sequenceDiagram
+    participant Rexx as 🔴 Rexx Script<br/>(interpreter in iframe)
+    participant Marshal as 🔄 RPC Marshaller<br/>(Raw Rexx validator in iframe)
+    participant Broker as ⚡ Message Broker<br/>(this page)
+    participant RawHandler as 🔄 Raw Rexx Handler<br/>(receives raw Rexx in iframe)
+    participant CalcLogic as 🟥 Calculator Logic<br/>(Rexx functions in iframe)
+    participant CalcUI as 🎨 Calculator UI<br/>(DOM display & state)
+
+    Note over Rexx,CalcUI: Rexx-Epsilon → Raw Rexx Calculator Flow (Raw Rexx Transmission)
+
+    %% Raw Rexx transmission sequence
+    Rexx->>+Marshal: Raw Rexx Code:<br/>LET result1 = add(20, 22)<br/>LET final = subtract(result1, 2)
+    Note over Rexx,Marshal: Raw Rexx code<br/>validated locally
+    Marshal->>+Broker: postMessage({<br/>type:"rexx-execution-request", id:789,<br/>rexxCode:"LET result1 = add(20, 22)..."})
+    Note over Marshal,Broker: Raw Rexx code becomes<br/>execution request postMessage
+    Note over Broker: Routing for client ID<br/>`rexx-epsilon` → `raw-rexx-calculator`
+    Broker->>+RawHandler: postMessage({<br/>type:"rexx-execution-request", id:789,<br/>rexxCode:"LET result1 = add(20, 22)..."})
+    Note over Broker,RawHandler: Broker forwards raw Rexx<br/>via cross-iframe postMessage
+    RawHandler->>+CalcLogic: Parse & Execute:<br/>add(20, 22), subtract(42, 2)
+    Note over RawHandler,CalcLogic: Raw Rexx parsed and executed<br/>with calculator function context
+    CalcLogic->>+CalcUI: Update display: 20+22=42<br/>then 42-2=40
+    Note over CalcLogic,CalcUI: Calculator functions update<br/>visual display with each operation
+    CalcUI-->>-CalcLogic: UI updated
+    CalcLogic-->>-RawHandler: Final result: 40
+    RawHandler-->>-Broker: postMessage({<br/>type:"rexx-response", id:789,<br/>result:40, display:"40"})
+    Note over RawHandler,Broker: Execution result becomes<br/>response postMessage
+    Note over Broker: Routing for response by service ID<br/>`raw-rexx-calculator` → `rexx-epsilon`
+    Broker-->>-Marshal: postMessage({<br/>type:"rexx-response", id:789,<br/>result:40, display:"40"})
+    Marshal-->>-Rexx: Execution completed<br/>Final result: 40
+    Note over Marshal,Rexx: Raw Rexx execution completed<br/>with calculator result
+            </div>
+        </div>
+    </div>
+
+    <div class="container row3">
+        <div class="iframe-container">
+            <h3>Rexx Epsilon Client<br><small>(./rexx-to-rexx-client.html)</small></h3>
+            <iframe 
+                id="rexx-epsilon" 
+                src="./rexx-to-rexx-client.html?client=rexx-epsilon&service=raw-rexx-calculator"
+                sandbox="allow-scripts">
+            </iframe>
+        </div>
+        
+        <div class="iframe-container">
+            <h3>Raw Rexx Calculator Service<br><small>(./raw-rexx-calculator-service.html)</small></h3>
+            <iframe 
+                id="rexx-service" 
+                src="./raw-rexx-calculator-service.html?service=raw-rexx-calculator"
+                sandbox="allow-scripts">
+            </iframe>
+        </div>
+    </div>
+    
+    <div class="log" id="communication-log">Multi-Instance Communication Log:
+    </div>
+
+    <script>
+        const log = document.getElementById('communication-log');
+        let messageCount = 0;
+        
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            messageCount++;
+            log.textContent += `[${messageCount.toString().padStart(4, ' ')}] [${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            log.textContent = 'Communication Log cleared:\n';
+            messageCount = 0;
+        }
+        
+        function showTopology() {
+            logMessage('=== SERVICE TOPOLOGY ===');
+            logMessage('rexx-alpha (client) → calculator-1 (JavaScript service)');
+            logMessage('rexx-gamma (client) → calculatorC (Rexx service)');
+            logMessage('rexx-epsilon (client) → raw-rexx-calculator (Raw Rexx Calculator)');
+            logMessage('Broker routes messages based on source/target identity');
+            logMessage('=== END TOPOLOGY ===');
+        }
+        
+        // IoC Container: Service routing configuration
+        const serviceTopology = {
+            // Client → Service mappings
+            'rexx-alpha': {
+                iframe: 'rexx-alpha',
+                targetService: 'calculator-1'
+            },
+            'rexx-gamma': {
+                iframe: 'rexx-gamma',
+                targetService: 'calculatorC'
+            },
+            'rexx-epsilon': {
+                iframe: 'rexx-epsilon',
+                targetService: 'raw-rexx-calculator'
+            },
+            
+            // Service response routing
+            'calculator-1': {
+                iframe: 'calculator-1',
+                clientTarget: 'rexx-alpha'
+            },
+            'calculatorC': {
+                iframe: 'calculator-c',
+                clientTarget: 'rexx-gamma'
+            },
+            'raw-rexx-calculator': {
+                iframe: 'rexx-service',
+                clientTarget: 'rexx-epsilon'
+            }
+        };
+        
+        // Enhanced broker with instance-aware routing
+        window.addEventListener('message', (event) => {
+            const { type, source, namespace, target } = event.data;
+            
+            if (type === 'rexx-execution-request') {
+                // Handle raw Rexx code transmission
+                logMessage(`🔴 RAW REXX REQUEST: from=${source}, target=${event.data.target}, code length=${event.data.rexxCode.length}`);
+                logMessage(`🔴 ${source} → RAW REXX EXECUTION: ${event.data.rexxCode.substring(0, 100)}${event.data.rexxCode.length > 100 ? '...' : ''}`);
+                
+                // Route directly to target service
+                const targetServiceId = event.data.target;
+                const serviceConfig = serviceTopology[targetServiceId];
+                
+                if (serviceConfig) {
+                    const targetFrame = document.getElementById(serviceConfig.iframe);
+                    if (targetFrame?.contentWindow) {
+                        targetFrame.contentWindow.postMessage(event.data, '*');
+                        logMessage(`✅ ROUTED RAW REXX TO: ${targetServiceId} (iframe: ${serviceConfig.iframe})`);
+                    } else {
+                        logMessage(`❌ TARGET FRAME NOT READY: ${serviceConfig.iframe}`);
+                    }
+                } else {
+                    logMessage(`❌ ROUTING ERROR: Unknown service ${targetServiceId}`);
+                }
+                
+            } else if (type === 'rpc-request') {
+                logMessage(`📤 MSG RECEIVED: type=${type}, source=${source || 'undefined'}, namespace=${namespace}`);
+                logMessage(`📤 ${source || 'unknown'} → SERVICE: ${namespace}.${event.data.method}(${JSON.stringify(event.data.params)})`);
+                
+                // Get the source iframe to determine client identity
+                const sourceFrame = event.source;
+                let clientId = null;
+                
+                // Find which iframe sent this message
+                const alphaFrame = document.getElementById('rexx-alpha');
+                const gammaFrame = document.getElementById('rexx-gamma');
+                const epsilonFrame = document.getElementById('rexx-epsilon');
+                
+                logMessage(`🔍 DEBUG: alphaFrame=${!!alphaFrame}, gammaFrame=${!!gammaFrame}, epsilonFrame=${!!epsilonFrame}`);
+                logMessage(`🔍 DEBUG: sourceFrame comparison...`);
+                
+                if (sourceFrame === alphaFrame?.contentWindow) {
+                    clientId = 'rexx-alpha';
+                } else if (sourceFrame === gammaFrame?.contentWindow) {
+                    clientId = 'rexx-gamma';
+                } else if (sourceFrame === epsilonFrame?.contentWindow) {
+                    clientId = 'rexx-epsilon';
+                }
+                
+                if (clientId) {
+                    logMessage(`🔍 IDENTIFIED CLIENT: ${clientId}`);
+                    
+                    // Route to correct service instance based on client
+                    const clientConfig = serviceTopology[clientId];
+                    if (clientConfig) {
+                        const targetServiceId = clientConfig.targetService;
+                        const serviceConfig = serviceTopology[targetServiceId];
+                        logMessage(`🔍 TARGET SERVICE: ${targetServiceId}, config=${!!serviceConfig}`);
+                        
+                        if (serviceConfig) {
+                            const targetFrame = document.getElementById(serviceConfig.iframe);
+                            logMessage(`🔍 TARGET FRAME: ${serviceConfig.iframe}, element=${!!targetFrame}, contentWindow=${!!targetFrame?.contentWindow}`);
+                            
+                            if (targetFrame?.contentWindow) {
+                                targetFrame.contentWindow.postMessage(event.data, '*');
+                                logMessage(`✅ ROUTED TO: ${targetServiceId} (iframe: ${serviceConfig.iframe})`);
+                            } else {
+                                logMessage(`❌ TARGET FRAME NOT READY: ${serviceConfig.iframe}`);
+                            }
+                        } else {
+                            logMessage(`❌ ROUTING ERROR: Unknown service ${targetServiceId}`);
+                        }
+                    } else {
+                        logMessage(`❌ ROUTING ERROR: Unknown client ${clientId}`);
+                    }
+                } else {
+                    logMessage(`❌ ROUTING ERROR: Could not identify source iframe`);
+                }
+                
+            } else if (type === 'rpc-response') {
+                // Special handling for introspection and humanize responses
+                if (typeof event.data.result === 'object' && event.data.result?.service) {
+                    logMessage(`📥 ${source} → INTROSPECTION RESULT:`);
+                    logMessage(`    🤖 Machine Schema: ${JSON.stringify(event.data.result, null, 2)}`);
+                } else if (typeof event.data.result === 'string' && event.data.result.includes('Hi! I\'m')) {
+                    logMessage(`📥 ${source} → HUMANIZE RESULT:`);
+                    logMessage(`    👨 Human Documentation:\n${event.data.result}`);
+                } else {
+                    logMessage(`📥 ${source} → CLIENT: result=${event.data.result || 'error: ' + event.data.error}`);
+                }
+                
+                // Get the source iframe to determine service identity
+                const sourceFrame = event.source;
+                let serviceId = null;
+                
+                // Find which service iframe sent this message
+                if (sourceFrame === document.getElementById('calculator-1').contentWindow) {
+                    serviceId = 'calculator-1';
+                } else if (sourceFrame === document.getElementById('calculator-c').contentWindow) {
+                    serviceId = 'calculatorC';
+                } else if (sourceFrame === document.getElementById('rexx-service').contentWindow) {
+                    serviceId = 'raw-rexx-calculator';
+                }
+                
+                if (serviceId) {
+                    logMessage(`🔍 IDENTIFIED SERVICE: ${serviceId}`);
+                    
+                    // Route response back to correct client
+                    const serviceConfig = serviceTopology[serviceId];
+                    if (serviceConfig) {
+                        const targetClientId = serviceConfig.clientTarget;
+                        const clientConfig = serviceTopology[targetClientId];
+                        if (clientConfig) {
+                            const targetFrame = document.getElementById(clientConfig.iframe);
+                            targetFrame.contentWindow.postMessage(event.data, '*');
+                            logMessage(`🔄 ROUTED TO: ${targetClientId} (iframe: ${clientConfig.iframe})`);
+                        } else {
+                            logMessage(`❌ ROUTING ERROR: Unknown client ${targetClientId}`);
+                        }
+                    } else {
+                        logMessage(`❌ ROUTING ERROR: Unknown service ${serviceId}`);
+                    }
+                } else {
+                    logMessage(`❌ ROUTING ERROR: Could not identify service iframe`);
+                }
+                
+            } else if (type === 'rexx-response') {
+                // Handle raw Rexx execution responses
+                logMessage(`🔴 RAW REXX RESPONSE: from=${source}`);
+                if (event.data.error) {
+                    logMessage(`❌ Remote Rexx execution failed: ${event.data.error}`);
+                } else {
+                    logMessage(`✅ Remote Rexx execution completed`);
+                    if (event.data.output && event.data.output.length > 0) {
+                        logMessage(`📤 Output: ${event.data.output.join(', ')}`);
+                    }
+                    if (event.data.result !== null && event.data.result !== undefined) {
+                        logMessage(`📊 Result: ${event.data.result}`);
+                    }
+                }
+                
+                // Route response back to requesting client
+                const targetServiceId = event.data.source;
+                const serviceConfig = serviceTopology[targetServiceId];
+                
+                if (serviceConfig) {
+                    const targetClientId = serviceConfig.clientTarget;
+                    const clientConfig = serviceTopology[targetClientId];
+                    if (clientConfig) {
+                        const targetFrame = document.getElementById(clientConfig.iframe);
+                        if (targetFrame?.contentWindow) {
+                            targetFrame.contentWindow.postMessage(event.data, '*');
+                            logMessage(`🔄 ROUTED REXX RESPONSE TO: ${targetClientId} (iframe: ${clientConfig.iframe})`);
+                        }
+                    }
+                }
+                
+            } else if (type === 'log') {
+                logMessage(`💬 ${source}: ${event.data.message}`);
+                
+            } else if (type === 'security-test-results') {
+                logMessage(`🔒 ${source}: Security test completed`);
+                event.data.results.forEach(result => {
+                    logMessage(`    ${result}`);
+                });
+            }
+        });
+        
+        async function testCrossInstance() {
+            logMessage('=== TESTING CROSS-INSTANCE COMMUNICATION ===');
+            logMessage('This test verifies that:');
+            logMessage('1. rexx-alpha can only talk to calculator-1 (JavaScript)');
+            logMessage('2. rexx-gamma can only talk to calculatorC (Rexx)');
+            logMessage('3. rexx-epsilon can send raw Rexx to rexx-interpreter-service');
+            logMessage('4. Services respond with their assigned identities');
+            logMessage('5. Routing is enforced by the container/broker');
+            logMessage('6. Three different protocols work: JSON-RPC to JS, JSON-RPC to Rexx, Raw Rexx');
+            logMessage('');
+            logMessage('👆 Click "Run Rexx Script" in all three Rexx clients to see instance isolation!');
+        }
+
+        async function invokeIntrospect() {
+            const format = document.getElementById('format-select').value;
+            const protocol = document.getElementById('protocol-select').value;
+            
+            logMessage(`=== INVOKING _introspect(format: ${format}, protocol: ${protocol}) ===`);
+            logMessage(`Requesting ${format.toLowerCase()} documentation with ${protocol} examples from all calculator services...`);
+            
+            const services = ['calculator-1', 'calculatorC'];
+            
+            for (const serviceId of services) {
+                const serviceConfig = serviceTopology[serviceId];
+                if (serviceConfig) {
+                    const targetFrame = document.getElementById(serviceConfig.iframe);
+                    if (targetFrame?.contentWindow) {
+                        const formatIcon = format === 'LLM-FRIENDLY' ? '🤖' : '👨';
+                        const protocolIcon = protocol === 'JSON-RPC' ? '📡' : '📜';
+                        
+                        logMessage(`${formatIcon}${protocolIcon} Requesting from ${serviceId}...`);
+                        
+                        targetFrame.contentWindow.postMessage({
+                            type: 'rpc-request',
+                            id: Date.now() + Math.random(),
+                            namespace: 'calculator',
+                            method: '_introspect',
+                            params: { format: format, protocol: protocol }
+                        }, '*');
+                    }
+                }
+            }
+            
+            logMessage(`✅ _introspect(${format}, ${protocol}) requests sent. Watch for responses below.`);
+        }
+        
+        // Initialize
+        let loadedFrames = 0;
+        const totalFrames = 6;
+        
+        ['rexx-alpha', 'calculator-1', 'rexx-gamma', 'calculator-c', 'rexx-epsilon', 'rexx-service'].forEach(frameId => {
+            document.getElementById(frameId).onload = () => {
+                loadedFrames++;
+                logMessage(`✅ ${frameId} loaded`);
+                if (loadedFrames === totalFrames) {
+                    logMessage('🎉 All frames loaded - Multi-instance service mesh ready!');
+                    showTopology();
+                }
+            };
+        });
+    </script>
+    
+    <!-- Mermaid.js for rendering sequence diagram -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: { useMaxWidth: true },
+            sequence: { useMaxWidth: true }
+        });
+    </script>
+</body>
+</html>

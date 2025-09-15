@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.idea/
+
+core/test-results/
+core/playwright-report/
+core/debug-screenshot.png
+core/test-results.json
+core/tests/generated_images/
+
+# Binary build artifacts
+pkg-build/
+sea-build/
+rexx-linux-x64*
+rexx-standalone-cli.js
+core/src/rexxjs-sea-bundle.js
+core/src/rexxjs-cli.js
+
+# Temp files
+*.tmp

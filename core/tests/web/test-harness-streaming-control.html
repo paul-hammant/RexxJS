@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Rexx Procedure Control Test Harness</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 600px;
+            margin-bottom: 40px;
+        }
+        
+        .iframe-container {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: white;
+            padding: 10px;
+        }
+        
+        .iframe-container h3 {
+            margin: 0 0 10px 0;
+            padding: 10px;
+            background: #333;
+            color: white;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .controller h3 {
+            background: #007cba !important;
+        }
+        
+        .worker h3 {
+            background: #28a745 !important;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #333;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            border-radius: 4px;
+            min-height: 150px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .controls button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .controls button:hover {
+            background: #005a85;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>Streaming Rexx Procedure Control Test</h1>
+    <p><strong>Pattern:</strong> Controller monitors remote worker execution with real-time progress updates and interactive control</p>
+    
+    <div class="status info">
+        <strong>Streaming Control Flow:</strong><br>
+        • Controller sends parameterized remote script to Worker<br>
+        • Worker executes script with CHECKPOINT() calls for progress updates<br>
+        • Controller receives real-time variable state and can pause/resume/abort<br>
+        • All communication routed through this parent broker
+    </div>
+    
+    <div class="controls">
+        <button onclick="testStreamingControl()">Test Streaming Control</button>
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="showFlowDiagram()">Show Communication Flow</button>
+    </div>
+    
+    <div class="container">
+        <div class="iframe-container controller">
+            <h3>Streaming Controller<br><small>(streaming-controller.html)</small></h3>
+            <iframe 
+                id="controller-iframe" 
+                src="./streaming-controller.html?role=controller&worker=streaming-worker"
+                sandbox="allow-scripts allow-same-origin">
+            </iframe>
+        </div>
+        
+        <div class="iframe-container worker">
+            <h3>Streaming Worker<br><small>(streaming-worker.html)</small></h3>
+            <iframe 
+                id="worker-iframe" 
+                src="./streaming-worker.html?role=worker&controller=streaming-controller"
+                sandbox="allow-scripts allow-same-origin">
+            </iframe>
+        </div>
+    </div>
+    
+    <div class="log" id="communication-log">Streaming Control Communication Log:
+    </div>
+
+    <script>
+        const log = document.getElementById('communication-log');
+        let messageCount = 0;
+        
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            messageCount++;
+            log.textContent += `[${messageCount.toString().padStart(4, ' ')}] [${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            log.textContent = 'Communication Log cleared:\n';
+            messageCount = 0;
+        }
+        
+        function showFlowDiagram() {
+            logMessage('=== STREAMING CONTROL FLOW ===');
+            logMessage('1. Controller → Worker: Send parameterized remote script');
+            logMessage('2. Worker: Execute script with CHECKPOINT() calls');
+            logMessage('3. Worker → Controller: Real-time progress updates');
+            logMessage('4. Controller: Monitor variables, decide on control actions');
+            logMessage('5. Controller → Worker: Send control responses (continue/pause/abort/modify)');
+            logMessage('6. Worker: Handle control responses and continue/stop execution');
+            logMessage('=== END FLOW ===');
+        }
+        
+        // Service routing for streaming control
+        const routingConfig = {
+            'streaming-controller': {
+                iframe: 'controller-iframe',
+                target: 'streaming-worker'
+            },
+            'streaming-worker': {
+                iframe: 'worker-iframe',
+                target: 'streaming-controller'
+            }
+        };
+        
+        // Enhanced broker with streaming message routing
+        window.addEventListener('message', (event) => {
+            const { type, source, target } = event.data;
+            
+            if (type === 'rexx-execution-request') {
+                // Handle streaming execution request from controller to worker
+                logMessage(`🔄 STREAMING REQUEST: ${source} → ${target}`);
+                logMessage(`📋 Script length: ${event.data.rexxCode?.length || 0} chars`);
+                logMessage(`⚙️  Parameters: ${JSON.stringify(event.data.params || {})}`);
+                
+                const targetConfig = routingConfig[target];
+                if (targetConfig) {
+                    const targetFrame = document.getElementById(targetConfig.iframe);
+                    if (targetFrame?.contentWindow) {
+                        targetFrame.contentWindow.postMessage(event.data, '*');
+                        logMessage(`✅ ROUTED TO: ${target}`);
+                    } else {
+                        logMessage(`❌ TARGET FRAME NOT READY: ${target}`);
+                    }
+                } else {
+                    logMessage(`❌ ROUTING ERROR: Unknown target ${target}`);
+                }
+                
+            } else if (type === 'rexx-progress') {
+                // Handle progress updates from worker to controller
+                const variableCount = Object.keys(event.data.variables || {}).length;
+                logMessage(`📊 PROGRESS UPDATE: line=${event.data.line}, vars=${variableCount}`);
+                
+                // Show key variables
+                const vars = event.data.variables || {};
+                const keyVars = ['processed', 'total_records', 'batch_size', 'percent'];
+                const displayVars = {};
+                keyVars.forEach(key => {
+                    if (vars[key] !== undefined) displayVars[key] = vars[key];
+                });
+                
+                if (Object.keys(displayVars).length > 0) {
+                    logMessage(`📈 Key Variables: ${JSON.stringify(displayVars)}`);
+                }
+                
+                // Route to controller
+                const controllerFrame = document.getElementById('controller-iframe');
+                if (controllerFrame?.contentWindow) {
+                    controllerFrame.contentWindow.postMessage(event.data, '*');
+                }
+                
+            } else if (type === 'rexx-control') {
+                // Handle control messages from controller to worker
+                logMessage(`🎛️  CONTROL MESSAGE: action=${event.data.action}`);
+                if (event.data.message) {
+                    logMessage(`💬 Message: ${event.data.message}`);
+                }
+                
+                // Route to worker
+                const workerFrame = document.getElementById('worker-iframe');
+                if (workerFrame?.contentWindow) {
+                    workerFrame.contentWindow.postMessage(event.data, '*');
+                    logMessage(`🔄 Control routed to worker`);
+                }
+                
+            } else if (type === 'rexx-response') {
+                // Handle final execution response from worker to controller
+                logMessage(`✅ EXECUTION COMPLETE`);
+                if (event.data.error) {
+                    logMessage(`❌ Error: ${event.data.error}`);
+                } else {
+                    logMessage(`📊 Final result: ${event.data.result}`);
+                    if (event.data.output?.length > 0) {
+                        logMessage(`📤 Output: ${event.data.output.join(', ')}`);
+                    }
+                }
+                
+                // Route to controller
+                const controllerFrame = document.getElementById('controller-iframe');
+                if (controllerFrame?.contentWindow) {
+                    controllerFrame.contentWindow.postMessage(event.data, '*');
+                }
+                
+            } else if (type === 'rexx-function-call') {
+                // Handle function call requests from controller to worker
+                logMessage(`📞 FUNCTION CALL: ${event.data.functionName}(${event.data.args ? event.data.args.join(', ') : ''})`);
+                
+                // Route to worker
+                const workerFrame = document.getElementById('worker-iframe');
+                if (workerFrame?.contentWindow) {
+                    workerFrame.contentWindow.postMessage(event.data, '*');
+                    logMessage(`🔄 Function call routed to worker`);
+                } else {
+                    logMessage(`❌ Worker frame not ready for function call`);
+                }
+                
+            } else if (type === 'rexx-function-response') {
+                // Handle function call responses from worker to controller
+                if (event.data.success) {
+                    logMessage(`✅ FUNCTION RESULT: ${event.data.functionName} = ${event.data.result}`);
+                } else {
+                    logMessage(`❌ FUNCTION ERROR: ${event.data.functionName} failed: ${event.data.error}`);
+                }
+                
+                // Route to controller
+                const controllerFrame = document.getElementById('controller-iframe');
+                if (controllerFrame?.contentWindow) {
+                    controllerFrame.contentWindow.postMessage(event.data, '*');
+                }
+                
+            } else if (type === 'log') {
+                // Handle log messages from iframes
+                logMessage(`💬 ${source || 'iframe'}: ${event.data.message}`);
+                
+            } else {
+                // Handle other message types
+                logMessage(`📨 ${type}: ${source} → ${target || 'broker'}`);
+            }
+        });
+        
+        async function testStreamingControl() {
+            logMessage('=== TESTING STREAMING PROCEDURE CONTROL ===');
+            logMessage('This test verifies:');
+            logMessage('1. Controller can send parameterized remote scripts');
+            logMessage('2. Worker executes with CHECKPOINT() progress updates');
+            logMessage('3. Controller receives real-time variable state');
+            logMessage('4. Controller can pause, resume, abort, or modify execution');
+            logMessage('5. Bidirectional streaming control works correctly');
+            logMessage('');
+            logMessage('👆 Click "Execute Streaming Script" in Controller to start test!');
+        }
+        
+        // Initialize
+        let loadedFrames = 0;
+        const totalFrames = 2;
+        
+        ['controller-iframe', 'worker-iframe'].forEach(frameId => {
+            document.getElementById(frameId).onload = () => {
+                loadedFrames++;
+                logMessage(`✅ ${frameId.replace('-iframe', '')} loaded`);
+                if (loadedFrames === totalFrames) {
+                    logMessage('🎉 Both frames loaded - Streaming control mesh ready!');
+                    showFlowDiagram();
+                }
+            };
+        });
+    </script>
+</body>
+</html>

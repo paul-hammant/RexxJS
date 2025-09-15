@@ -1,0 +1,123 @@
+{
+  "test_suite": "REXX/JS linalg.eig",
+  "implementation": "JavaScript NumPy via REXX interpreter",
+  "total_tests": 7,
+  "successful_tests": 7,
+  "results": [
+    {
+      "name": "Identity 2x2",
+      "success": true,
+      "eigenvalues": [
+        1
+      ],
+      "eigenvectors": [
+        [
+          0.7071067811865476,
+          0.7071067811865476
+        ]
+      ],
+      "implementation": "REXX/JS via interpreter"
+    },
+    {
+      "name": "Simple diagonal",
+      "success": true,
+      "eigenvalues": [
+        3.9999999998988653,
+        3.0000000000758518
+      ],
+      "eigenvectors": [
+        [
+          0.000007542438871013585,
+          0.9999999999715559
+        ],
+        [
+          0.9999999999494326,
+          -0.00001005658516115015
+        ]
+      ],
+      "implementation": "REXX/JS via interpreter"
+    },
+    {
+      "name": "Symmetric 2x2",
+      "success": true,
+      "eigenvalues": [
+        3
+      ],
+      "eigenvectors": [
+        [
+          0.7071067811865475,
+          0.7071067811865475
+        ]
+      ],
+      "implementation": "REXX/JS via interpreter"
+    },
+    {
+      "name": "Symmetric 2x2 (variant)",
+      "success": true,
+      "eigenvalues": [
+        4
+      ],
+      "eigenvectors": [
+        [
+          0.7071067811865476,
+          0.7071067811865476
+        ]
+      ],
+      "implementation": "REXX/JS via interpreter"
+    },
+    {
+      "name": "Non-symmetric 2x2",
+      "success": true,
+      "eigenvalues": [
+        5.372281323269907,
+        -0.37228132326990615
+      ],
+      "eigenvectors": [
+        [
+          0.41597355791922797,
+          0.9093767091321497
+        ],
+        [
+          0.07256423985727191,
+          0.9973637406151962
+        ]
+      ],
+      "implementation": "REXX/JS via interpreter"
+    },
+    {
+      "name": "Symmetric 3x3",
+      "success": true,
+      "eigenvalues": [
+        5.414213562353499,
+        2.585786437636264
+      ],
+      "eigenvectors": [
+        [
+          0.5000006285425661,
+          0.7071058922920086,
+          0.5000006285425661
+        ],
+        [
+          0.49999868393218594,
+          -0.7071086423825997,
+          0.49999868393218677
+        ]
+      ],
+      "implementation": "REXX/JS via interpreter"
+    },
+    {
+      "name": "Nearly singular",
+      "success": true,
+      "eigenvalues": [
+        2.00005000125
+      ],
+      "eigenvectors": [
+        [
+          0.7070891032960636,
+          0.7071244586350899
+        ]
+      ],
+      "implementation": "REXX/JS via interpreter"
+    }
+  ]
+}

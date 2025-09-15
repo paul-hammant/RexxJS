@@ -1,0 +1,12 @@
+{
+  "name": "sympy-inspired-functions",
+  "version": "1.0.0",
+  "description": "SymPy-inspired symbolic math functions for RexxJS",
+  "main": "src/sympy-functions.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}

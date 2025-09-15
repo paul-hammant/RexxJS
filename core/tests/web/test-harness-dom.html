@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOM Automation Test Harness</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .script-panel, .target-panel {
+            flex: 1;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .script-panel {
+            background: #f8f9fa;
+        }
+        .target-panel {
+            background: #fff;
+        }
+        .controls {
+            margin-bottom: 15px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .form-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+        .form-section h3 {
+            margin-top: 0;
+        }
+        .form-row {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-row label {
+            min-width: 100px;
+        }
+        .form-row input, .form-row select {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .todo-list {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .todo-item.completed {
+            background: #d4edda;
+            text-decoration: line-through;
+        }
+        .todo-checkbox {
+            margin: 0;
+        }
+        .hidden {
+            display: none;
+        }
+        .visible {
+            display: block;
+        }
+        .highlighted {
+            background-color: yellow;
+        }
+        .success-message {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>DOM Automation Test Harness</h1>
+    <p>This harness demonstrates Rexx DOM automation capabilities. Write Rexx scripts to interact with the DOM elements on the right.</p>
+    
+    <div class="container">
+        <div class="script-panel">
+            <h3>Rexx Script</h3>
+            <div class="controls">
+                <button onclick="executeScript()">Execute Script</button>
+                <button onclick="clearLog()">Clear Log</button>
+                <button onclick="loadExample('basic')">Load Basic Example</button>
+                <button onclick="loadExample('form')">Load Form Example</button>
+                <button onclick="loadExample('todo')">Load Todo Example</button>
+            </div>
+            <textarea id="script" placeholder="-- Write your DOM automation Rexx script here
+-- Example:
+LET button_count = QUERY selector='button' operation='count'
+SAY 'Found ' || button_count || ' buttons on the page'
+
+CLICK selector='#demo-button'
+TYPE selector='#name-input' text='John Doe'"></textarea>
+            <h4>Execution Log</h4>
+            <div id="log" class="log"></div>
+        </div>
+        
+        <div class="target-panel">
+            <h3>DOM Target Area</h3>
+            
+            <!-- Demo Buttons -->
+            <div class="form-section">
+                <h3>Demo Buttons</h3>
+                <button id="demo-button" onclick="logAction('Demo button clicked!')">Demo Button</button>
+                <button id="hidden-button" class="hidden">Hidden Button</button>
+                <button id="show-hidden" onclick="showHidden()">Show Hidden Button</button>
+            </div>
+            
+            <!-- Form Elements -->
+            <div class="form-section">
+                <h3>Form Elements</h3>
+                <div class="form-row">
+                    <label for="name-input">Name:</label>
+                    <input type="text" id="name-input" name="firstName" placeholder="Enter your name">
+                </div>
+                <div class="form-row">
+                    <label for="email-input">Email:</label>
+                    <input type="email" id="email-input" name="email" placeholder="Enter your email">
+                </div>
+                <div class="form-row">
+                    <label for="country-select">Country:</label>
+                    <select id="country-select" name="country">
+                        <option value="">Select Country</option>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="UK">United Kingdom</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>
+                        <input type="checkbox" id="newsletter" name="newsletter" value="1"> Subscribe to newsletter
+                    </label>
+                </div>
+                <div class="form-row">
+                    <button id="submit-form" onclick="submitForm()">Submit Form</button>
+                    <button id="clear-form" onclick="clearForm()">Clear Form</button>
+                </div>
+            </div>
+            
+            <!-- Todo List -->
+            <div class="todo-list">
+                <h3>Todo List</h3>
+                <div class="todo-item">
+                    <input type="checkbox" class="todo-checkbox" id="todo1">
+                    <span class="todo-text">Learn Rexx DOM automation</span>
+                </div>
+                <div class="todo-item">
+                    <input type="checkbox" class="todo-checkbox" id="todo2">
+                    <span class="todo-text">Write DOM manipulation script</span>
+                </div>
+                <div class="todo-item completed">
+                    <input type="checkbox" class="todo-checkbox" id="todo3" checked>
+                    <span class="todo-text">Set up test harness</span>
+                </div>
+                <button onclick="addTodoItem()">Add Todo Item</button>
+            </div>
+            
+            <!-- Results Area -->
+            <div class="form-section">
+                <h3>Results</h3>
+                <div id="results" style="min-height: 100px; padding: 10px; border: 1px solid #ccc; background: white; border-radius: 4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include the RexxJS Rexx interpreter and output handlers -->
+    <script src="../../src/parser.js"></script>
+    <script src="../../src/interpreter.js"></script>
+    <script src="../../src/output/dom-output-handler.js"></script>
+    <script src="../mocks/dom-rpc-client.js"></script>
+    <script src="../../src/web/dom-test-harness.js"></script>
+    
+    <script>
+        // Initialize components using clean architecture
+        const rpcClient = new MockDOMRpcClient();
+        const domOutput = new DOMOutputHandler('log', 'results');
+        const interpreter = new RexxInterpreter(rpcClient, domOutput);
+        const harness = new DOMTestHarness('log', 'results');
+        
+        // Initialize the test harness
+        harness.initialize(interpreter);
+
+        // Use harness methods - these are just thin wrappers for backward compatibility
+        function logMessage(message) {
+            harness.logMessage(message);
+        }
+
+        function logAction(message) {
+            harness.logAction(message);
+        }
+
+        function clearLog() {
+            harness.clearLog();
+        }
+
+        async function executeScript() {
+            const scriptText = document.getElementById('script').value;
+            await harness.executeScript(scriptText);
+        }
+
+        function showHidden() {
+            harness.elementUtils.showElement('#hidden-button');
+        }
+
+        function submitForm() {
+            harness.formUtils.submitForm({
+                name: '#name-input',
+                email: '#email-input', 
+                country: '#country-select',
+                newsletter: '#newsletter'
+            });
+        }
+
+        function clearForm() {
+            harness.formUtils.clearForm([
+                '#name-input',
+                '#email-input', 
+                '#country-select',
+                '#newsletter'
+            ]);
+        }
+
+        function addTodoItem() {
+            harness.elementUtils.addTodoItem('.todo-list', `
+                <input type="checkbox" class="todo-checkbox" id="{{id}}">
+                <span class="todo-text">New todo item</span>
+            `);
+        }
+
+        function loadExample(type) {
+            const examples = {
+                basic: `-- Basic DOM querying and interaction
+LET button_count = QUERY selector="button" operation="count"
+SAY "Found " || button_count || " buttons on the page"
+
+LET name_input = QUERY selector="#name-input" operation="value"
+SAY "Current name input value: " || name_input
+
+-- Click the demo button
+CLICK selector="#demo-button"
+
+-- Type into the name field
+TYPE selector="#name-input" text="John Doe"
+
+-- Check if hidden button is visible
+LET is_hidden_visible = QUERY selector="#hidden-button" operation="visible"
+IF is_hidden_visible THEN
+    SAY "Hidden button is visible"
+ELSE
+    SAY "Hidden button is not visible"
+    -- Make it visible
+    CLICK selector="#show-hidden"
+    SAY "Made hidden button visible"
+ENDIF`,
+                
+                form: `-- Form automation example
+SAY "Starting form automation..."
+
+-- Fill out the form
+TYPE selector="#name-input" text="Jane Smith"
+TYPE selector="#email-input" text="jane.smith@example.com"
+SELECT_OPTION selector="#country-select" value="CA"
+
+-- Check the newsletter checkbox
+CLICK selector="#newsletter"
+
+-- Verify form data
+LET name = QUERY selector="#name-input" operation="value"
+LET email = QUERY selector="#email-input" operation="value"
+LET country = QUERY selector="#country-select" operation="value"
+LET newsletter_checked = QUERY selector="#newsletter" operation="attribute" attribute="checked"
+
+SAY "Form filled - Name: " || name || ", Email: " || email || ", Country: " || country
+SAY "Newsletter subscription: " || newsletter_checked
+
+-- Submit the form
+CLICK selector="#submit-form"`,
+                
+                todo: `-- Todo list automation
+SAY "Automating todo list..."
+
+-- Count todo items
+LET todo_count = QUERY selector=".todo-item" operation="count"
+SAY "Found " || todo_count || " todo items"
+
+-- Process each todo item
+DO i = 1 TO todo_count
+    LET item_selector = ".todo-item:nth-child(" || i || ")"
+    LET is_completed = QUERY selector=item_selector operation="has_class" class="completed"
+    
+    IF is_completed = false THEN
+        LET todo_text = QUERY selector=item_selector || " .todo-text" operation="text"
+        SAY "Processing incomplete todo: " || todo_text
+        
+        -- Check the checkbox to complete it
+        CLICK selector=item_selector || " .todo-checkbox"
+        
+        -- Add completed class
+        ADD_CLASS selector=item_selector class="completed"
+        
+        SAY "Completed todo: " || todo_text
+    ENDIF
+END
+
+-- Add a new todo item
+CLICK selector=".todo-list button"
+SAY "Added new todo item"
+
+-- Update the new item text
+LET new_items = QUERY selector=".todo-item:not(.completed)" operation="count"
+SAY "Now have " || new_items || " incomplete todo items"`
+            };
+            
+            if (examples[type]) {
+                harness.loadExample('script', examples[type], type);
+            }
+        }
+
+        // Initialize with basic example
+        loadExample('basic');
+        logMessage('DOM Test Harness ready. Try executing the example script or write your own!');
+    </script>
+</body>
+</html>

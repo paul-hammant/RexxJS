@@ -1,0 +1,56 @@
+{
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 2018,
+    "sourceType": "script"
+  },
+  "rules": {
+    "strict": ["error", "global"],
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "process",
+        "message": "process is not available in browser environments"
+      },
+      {
+        "name": "__dirname",
+        "message": "__dirname is not available in browser environments"
+      },
+      {
+        "name": "__filename",
+        "message": "__filename is not available in browser environments"
+      },
+      {
+        "name": "Buffer",
+        "message": "Buffer is not available in browser environments"
+      },
+      {
+        "name": "global",
+        "message": "Use window instead of global in browser environments"
+      }
+    ],
+    "no-restricted-modules": [
+      "error",
+      {
+        "patterns": ["fs", "path", "crypto", "os", "child_process", "cluster", "http", "https", "net", "stream", "tls", "tty", "url", "util", "vm", "zlib"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.js", "tests/**/*.spec.js"],
+      "env": {
+        "node": true,
+        "jest": true
+      },
+      "rules": {
+        "no-restricted-globals": "off",
+        "no-restricted-modules": "off"
+      }
+    }
+  ]
+}

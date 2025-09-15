@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 15px;
+            background-color: #f0f8ff;
+        }
+        
+        .header {
+            background: #007cba;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .config-section {
+            background: white;
+            border: 2px solid #007cba;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .config-section h4 {
+            margin: 0 0 10px 0;
+            color: #007cba;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .form-row label {
+            font-weight: bold;
+            min-width: 120px;
+        }
+        
+        .form-row input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            flex: 1;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 150px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        
+        .controls {
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        
+        button:hover {
+            background: #005a85;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .execute-btn {
+            background: #28a745;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px 20px;
+        }
+        
+        .execute-btn:hover {
+            background: #218838;
+        }
+        
+        .control-btn {
+            background: #dc3545;
+        }
+        
+        .control-btn:hover {
+            background: #c82333;
+        }
+        
+        .progress {
+            background: white;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            min-height: 100px;
+        }
+        
+        .progress h4 {
+            margin: 0 0 10px 0;
+            color: #28a745;
+        }
+        
+        .progress-info {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        
+        .log {
+            background: #333;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border-radius: 4px;
+            height: 150px;
+            overflow-y: auto;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h3>🎛️ Streaming Controller</h3>
+        <small>Monitors and controls remote Rexx procedure execution</small>
+    </div>
+    
+    <div class="config-section">
+        <h4>📋 Execution Configuration</h4>
+        <div class="form-row">
+            <label>Batch Size:</label>
+            <input type="number" id="batch-size" value="100" min="1" max="1000">
+        </div>
+        <div class="form-row">
+            <label>Total Records:</label>
+            <input type="number" id="total-records" value="2000" min="100" max="10000">
+        </div>
+        <div class="form-row">
+            <label>Progress Interval:</label>
+            <input type="number" id="progress-interval" value="200" min="10" max="1000">
+        </div>
+        <div class="form-row">
+            <label>Abort Threshold:</label>
+            <input type="number" id="abort-threshold" value="80" min="10" max="100">
+            <span>% (auto-abort when progress exceeds this)</span>
+        </div>
+    </div>
+    
+    <div class="config-section">
+        <h4>📝 Remote Script Template</h4>
+        <textarea id="script-template">SAY "Streaming demo with CHECKPOINT calls"
+
+-- First checkpoint
+SAY "Step 1"
+LET response1 = CHECKPOINT(1)
+SAY "Response 1:" response1.action
+
+-- Second checkpoint
+SAY "Step 2" 
+LET response2 = CHECKPOINT(2)
+SAY "Response 2:" response2.action
+
+-- Third checkpoint
+SAY "Step 3"
+LET response3 = CHECKPOINT(3)
+SAY "Response 3:" response3.action
+
+-- Fourth checkpoint  
+SAY "Step 4"
+LET response4 = CHECKPOINT(4)
+SAY "Response 4:" response4.action
+
+-- Fifth checkpoint
+SAY "Step 5"
+LET response5 = CHECKPOINT(5)
+SAY "Response 5:" response5.action
+
+SAY "Demo completed - 5 checkpoints called"</textarea>
+    </div>
+    
+    <div class="controls">
+        <button class="execute-btn" onclick="executeStreamingScript()" id="execute-btn">
+            🚀 Execute Streaming Script
+        </button>
+        <button class="control-btn" onclick="sendControlMessage('pause')" id="pause-btn" disabled>
+            ⏸️ Pause
+        </button>
+        <button class="control-btn" onclick="sendControlMessage('resume')" id="resume-btn" disabled>
+            ▶️ Resume
+        </button>
+        <button class="control-btn" onclick="sendControlMessage('abort')" id="abort-btn" disabled>
+            🛑 Abort
+        </button>
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="introspectCalculator()" style="background: #6f42c1;">
+            🔍 Enumerate Onclick Handlers
+        </button>
+        <button onclick="testFunctionCall()" style="background: #e83e8c;">
+            🧮 Test Function Call
+        </button>
+        <button onclick="executeCalculatorAutomation()" style="background: #28a745;">
+            🤖 Calculator Automation
+        </button>
+    </div>
+    
+    <div class="progress">
+        <h4>📊 Real-time Progress</h4>
+        <div class="progress-info" id="progress-info">Waiting for execution to start...</div>
+    </div>
+    
+    <div class="log" id="controller-log">Controller ready. Configure parameters and click Execute to start streaming control.
+    </div>
+
+    <!-- Load Rexx parser for script validation -->
+    <script src="../../src/parameter-converter.js"></script>
+    <script src="../../src/parser.js"></script>
+    
+    <script>
+        // IoC: Get configuration from URL parameters
+        function setupController() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return {
+                role: urlParams.get('role') || 'controller',
+                workerId: urlParams.get('worker') || 'streaming-worker',
+                replyTarget: window.parent
+            };
+        }
+        
+        const config = setupController();
+        const { role, workerId, replyTarget } = config;
+        
+        console.log(`Streaming Controller initialized: ${role} → ${workerId}`);
+        
+        const progressInfo = document.getElementById('progress-info');
+        const controllerLog = document.getElementById('controller-log');
+        
+        let isExecuting = false;
+        let currentExecutionId = null;
+        
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            controllerLog.textContent += `[${timestamp}] ${message}\n`;
+            controllerLog.scrollTop = controllerLog.scrollHeight;
+            
+            // Also send to parent for main log
+            replyTarget.postMessage({
+                type: 'log',
+                source: role,
+                message: message
+            }, '*');
+        }
+        
+        function clearLog() {
+            controllerLog.textContent = 'Controller log cleared.\n';
+        }
+        
+        function generateAPIAdvice(buttonFacts, totalButtons) {
+            const advice = [];
+            advice.push(`DISCOVERED APPLICATION API (${totalButtons} interactive elements):`);
+            advice.push('');
+            
+            // Simple listing of all discovered buttons
+            advice.push(`🔘 DISCOVERED BUTTONS (${buttonFacts.length} clickable elements):`);
+            buttonFacts.forEach(fact => {
+                const textMatch = fact.match(/text='(.+?)'/);
+                const onclickMatch = fact.match(/onclick=(.+?)(\s|$)/);
+                const selectorMatch = fact.match(/selector=([^\s].*?)(?:\s+(?:id=|val=|cls=)|$)/);
+                const idMatch = fact.match(/id=([^\s]+)/);
+                
+                if (selectorMatch) {
+                    let description = textMatch ? `"${textMatch[1]}"` : 'no text';
+                    let action = onclickMatch ? onclickMatch[1] : 'no onclick';
+                    let selector = selectorMatch[1];
+                    
+                    if (idMatch && idMatch[1]) {
+                        description += ` (id="${idMatch[1]}")`;
+                    }
+                    
+                    advice.push(`   • ${description} → ${action} → CLICK selector="${selector}"`);
+                }
+            });
+            advice.push('');
+            
+            advice.push('💡 USAGE PATTERN:');
+            advice.push('   1. To click button: CLICK selector="USE_SELECTOR_FROM_ABOVE"');
+            advice.push('   2. To read display: QUERY selector="display_selector" operation="text"');
+            
+            // Show example with actual selectors if available
+            const firstSelector = buttonFacts.length > 0 ? buttonFacts[0].match(/selector=([^\s]+)/) : null;
+            if (firstSelector) {
+                advice.push('');
+                advice.push('💡 EXAMPLE:');
+                advice.push(`   CLICK selector="${firstSelector[1]}"`);
+            }
+            
+            return advice;
+        }
+        
+        function updateButtons(executing) {
+            document.getElementById('execute-btn').disabled = executing;
+            document.getElementById('pause-btn').disabled = !executing;
+            document.getElementById('resume-btn').disabled = !executing;
+            document.getElementById('abort-btn').disabled = !executing;
+        }
+        
+        function substituteTemplate(template, params) {
+            let result = template;
+            for (const [key, value] of Object.entries(params)) {
+                const placeholder = `%${key.toUpperCase()}%`;
+                result = result.replaceAll(placeholder, value);
+            }
+            return result;
+        }
+        
+        async function executeStreamingScript() {
+            if (isExecuting) {
+                logMessage('⚠️ Execution already in progress', 'warning');
+                return;
+            }
+            
+            // Get configuration values
+            const batchSize = parseInt(document.getElementById('batch-size').value);
+            const totalRecords = parseInt(document.getElementById('total-records').value);
+            const progressInterval = parseInt(document.getElementById('progress-interval').value);
+            const template = document.getElementById('script-template').value;
+            
+            // Substitute template parameters
+            const params = {
+                BATCH_SIZE: batchSize,
+                TOTAL_RECORDS: totalRecords,
+                PROGRESS_INTERVAL: progressInterval
+            };
+            
+            const rexxCode = substituteTemplate(template, params);
+            
+            try {
+                // Validate script syntax
+                logMessage('🔍 Validating script syntax...', 'info');
+                const commands = parse(rexxCode);
+                logMessage(`✅ Syntax valid (${commands.length} commands)`, 'success');
+                
+                // Start execution
+                isExecuting = true;
+                currentExecutionId = Date.now();
+                updateButtons(true);
+                
+                logMessage('🚀 Starting streaming execution...', 'info');
+                logMessage(`📋 Config: batch=${batchSize}, total=${totalRecords}, interval=${progressInterval}`, 'info');
+                
+                progressInfo.textContent = `Executing...\nBatch size: ${batchSize}\nTotal records: ${totalRecords}\nProgress interval: ${progressInterval}\n\nWaiting for first progress update...`;
+                
+                // Send execution request to worker
+                replyTarget.postMessage({
+                    type: 'rexx-execution-request',
+                    id: currentExecutionId,
+                    source: role,
+                    target: workerId,
+                    rexxCode: rexxCode,
+                    streaming: true,
+                    params: params
+                }, '*');
+                
+            } catch (error) {
+                logMessage(`❌ Script validation failed: ${error.message}`, 'error');
+                isExecuting = false;
+                updateButtons(false);
+            }
+        }
+        
+        function sendControlMessage(action, additionalParams = {}) {
+            if (!isExecuting || !currentExecutionId) {
+                logMessage('⚠️ No active execution to control', 'warning');
+                return;
+            }
+            
+            const controlMessage = {
+                type: 'rexx-control',
+                id: currentExecutionId,
+                source: role,
+                target: workerId,
+                action: action,
+                timestamp: Date.now(),
+                ...additionalParams
+            };
+            
+            logMessage(`🎛️ Sending control: ${action}`, 'control');
+            
+            // Send control message via parent broker
+            replyTarget.postMessage(controlMessage, '*');
+        }
+        
+        async function introspectCalculator() {
+            if (isExecuting) {
+                logMessage('⚠️ Cannot introspect during execution', 'warning');
+                return;
+            }
+            
+            try {
+                // Read onclick enumeration script from external file
+                logMessage('📄 Loading DOM onclick enumerator script from dom-onclick-enumerator.rexx...', 'info');
+                const response = await fetch('/tests/web/dom-onclick-enumerator.rexx');
+                if (!response.ok) {
+                    throw new Error(`Failed to load script file: ${response.status} ${response.statusText}`);
+                }
+                let introspectionScript = await response.text();
+                logMessage(`✅ Script loaded (${introspectionScript.length} characters)`, 'success');
+                
+                // Substitute selector parameter for calculator
+                const targetSelector = '#calculator';
+                introspectionScript = introspectionScript.replaceAll('%TARGET_SELECTOR%', targetSelector);
+                logMessage(`🔧 Substituted %TARGET_SELECTOR% with '${targetSelector}'`, 'info');
+                
+                // Validate introspection script
+                logMessage('🔍 Starting DOM onclick enumeration...', 'info');
+                const commands = parse(introspectionScript);
+                logMessage(`✅ Introspection script valid (${commands.length} commands)`, 'success');
+                
+                // Execute introspection as streaming request
+                const executionId = Date.now();
+                isExecuting = true;
+                currentExecutionId = executionId;
+                updateButtons(true);
+                
+                progressInfo.textContent = 'ENUMERATING ONCLICK HANDLERS...\n\nDiscovering interactive elements and generating API documentation...';
+                
+                // Send introspection request to worker
+                replyTarget.postMessage({
+                    type: 'rexx-execution-request',
+                    id: executionId,
+                    source: role,
+                    target: workerId,
+                    rexxCode: introspectionScript,
+                    streaming: true,
+                    params: { introspection: true }
+                }, '*');
+                
+            } catch (error) {
+                logMessage(`❌ Introspection failed: ${error.message}`, 'error');
+                isExecuting = false;
+                updateButtons(false);
+            }
+        }
+        
+        async function testFunctionCall() {
+            if (isExecuting) {
+                logMessage('⚠️ Cannot make function calls during execution', 'warning');
+                return;
+            }
+            
+            logMessage('📞 Testing function call capability...', 'info');
+            
+            try {
+                // Test button_number function call
+                await callWorkerFunction('button_number', [5]);
+                await callWorkerFunction('button_number', ['+']);
+                await callWorkerFunction('button_number', [3]);
+                await callWorkerFunction('button_number', ['=']);
+                
+                // Read the display
+                await callWorkerFunction('get_display', []);
+                
+                logMessage('✅ Function call test completed', 'success');
+                
+            } catch (error) {
+                logMessage(`❌ Function call test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function callWorkerFunction(functionName, args = []) {
+            return new Promise((resolve, reject) => {
+                const callId = Date.now() + Math.random();
+                
+                // Store pending call
+                if (!window.pendingFunctionCalls) {
+                    window.pendingFunctionCalls = new Map();
+                }
+                
+                window.pendingFunctionCalls.set(callId, { resolve, reject, functionName });
+                
+                logMessage(`📞 Calling ${functionName}(${args.join(', ')})...`, 'info');
+                
+                // Send function call request via parent broker
+                replyTarget.postMessage({
+                    type: 'rexx-function-call',
+                    id: callId,
+                    source: role,
+                    target: workerId,
+                    functionName: functionName,
+                    args: args,
+                    timestamp: Date.now()
+                }, '*');
+                
+                // Set timeout for function call
+                setTimeout(() => {
+                    if (window.pendingFunctionCalls && window.pendingFunctionCalls.has(callId)) {
+                        window.pendingFunctionCalls.delete(callId);
+                        reject(new Error(`Function call timeout: ${functionName}`));
+                    }
+                }, 10000);
+            });
+        }
+        
+        async function executeCalculatorAutomation() {
+            if (isExecuting) {
+                logMessage('⚠️ Cannot execute automation during execution', 'warning');
+                return;
+            }
+            
+            try {
+                // Read calculator automation script from external file
+                logMessage('📄 Loading calculator automation script from calculator-automation.rexx...', 'info');
+                const response = await fetch('/tests/web/calculator-automation.rexx');
+                if (!response.ok) {
+                    throw new Error(`Failed to load script file: ${response.status} ${response.statusText}`);
+                }
+                const automationScript = await response.text();
+                logMessage(`✅ Automation script loaded (${automationScript.length} characters)`, 'success');
+                
+                // Validate automation script
+                logMessage('🤖 Starting calculator automation demo...', 'info');
+                const commands = parse(automationScript);
+                logMessage(`✅ Automation script valid (${commands.length} commands)`, 'success');
+                
+                // Execute automation as streaming request
+                const executionId = Date.now();
+                isExecuting = true;
+                currentExecutionId = executionId;
+                updateButtons(true);
+                
+                progressInfo.textContent = 'EXECUTING CALCULATOR AUTOMATION...\n\nRunning Rexx script with INTERPRET_JS calls to control calculator...';
+                
+                // Send automation request to worker
+                replyTarget.postMessage({
+                    type: 'rexx-execution-request',
+                    id: executionId,
+                    source: role,
+                    target: workerId,
+                    rexxCode: automationScript,
+                    streaming: true,
+                    params: { automation: true }
+                }, '*');
+                
+            } catch (error) {
+                logMessage(`❌ Calculator automation failed: ${error.message}`, 'error');
+                isExecuting = false;
+                updateButtons(false);
+            }
+        }
+        
+        // Listen for progress updates and responses
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'rexx-progress') {
+                handleProgressUpdate(event.data);
+            } else if (event.data.type === 'rexx-response') {
+                handleExecutionComplete(event.data);
+            } else if (event.data.type === 'rexx-say-output') {
+                handleSayOutput(event.data);
+            } else if (event.data.type === 'rexx-function-response') {
+                handleFunctionResponse(event.data);
+            }
+        });
+        
+        function handleSayOutput(sayData) {
+            logMessage(`📤 ${sayData.text}`, 'say-output');
+        }
+        
+        function handleFunctionResponse(responseData) {
+            const { id, functionName, args, result, success, error } = responseData;
+            
+            if (success) {
+                logMessage(`✅ ${functionName}(${args ? args.join(', ') : ''}) = ${result}`, 'function-result');
+            } else {
+                logMessage(`❌ ${functionName}(${args ? args.join(', ') : ''}) failed: ${error}`, 'function-error');
+            }
+            
+            // Resolve pending promise
+            if (window.pendingFunctionCalls && window.pendingFunctionCalls.has(id)) {
+                const pendingCall = window.pendingFunctionCalls.get(id);
+                window.pendingFunctionCalls.delete(id);
+                
+                if (success) {
+                    pendingCall.resolve(result);
+                } else {
+                    pendingCall.reject(new Error(error));
+                }
+            }
+        }
+        
+        function handleProgressUpdate(progressData) {
+            const { variables, params, line, timestamp } = progressData;
+            
+            // Handle individual discovery messages (one per CHECKPOINT call)
+            if (params && params.length >= 2) {
+                const discoveryKey = params[0];
+                const discoveryValue = params[1];
+                
+                if (discoveryKey && discoveryKey.startsWith('btn_')) {
+                    // Individual button discovery
+                    logMessage(`🔍 Button Discovery: ${discoveryKey} = ${discoveryValue}`, 'discovery');
+                } else if (discoveryKey === 'start') {
+                    logMessage(`🔍 Discovery: ${discoveryValue}`, 'discovery');
+                } else if (discoveryKey === 'buttons_found') {
+                    logMessage(`🔍 Discovery: ${discoveryValue}`, 'discovery');
+                } else if (discoveryKey === 'complete') {
+                    logMessage(`🔍 Discovery: ${discoveryValue}`, 'discovery');
+                    
+                    // Generate API advice when introspection is complete
+                    const buttonFacts = [];
+                    for (const [key, value] of Object.entries(variables)) {
+                        if (key.startsWith('btn_') && typeof value === 'string') {
+                            buttonFacts.push(value);
+                        }
+                    }
+                    
+                    if (buttonFacts.length > 0) {
+                        const advice = generateAPIAdvice(buttonFacts, variables.all_buttons || buttonFacts.length);
+                        logMessage(`📋 Generated API Advice:`, 'advice');
+                        advice.forEach(line => logMessage(`   ${line}`, 'advice'));
+                    }
+                }
+                
+                progressInfo.textContent = `ONCLICK ENUMERATION IN PROGRESS\n\nLatest Discovery: ${discoveryKey} = ${discoveryValue}\nLine: ${line}\nTimestamp: ${new Date(timestamp).toLocaleTimeString()}\n\nTotal Variables: ${Object.keys(variables).length}`;
+                return;
+            }
+            
+            // Handle regular progress updates (non-discovery)
+            const processed = variables.processed || 0;
+            const totalRecords = variables.total_records || 1;
+            const percent = variables.percent || 0;
+            const batchSize = variables.batch_size || 0;
+            
+            // Update progress display for regular (non-discovery) progress  
+            progressInfo.textContent = `REAL-TIME PROGRESS UPDATE\n\nLine: ${line}\nProcessed: ${processed}/${totalRecords} (${percent.toFixed(1)}%)\nBatch size: ${batchSize}\nTimestamp: ${new Date(timestamp).toLocaleTimeString()}\n\nVariable count: ${Object.keys(variables).length}\nParameters: ${JSON.stringify(params)}`;
+            
+            logMessage(`📊 Progress: ${processed}/${totalRecords} (${percent.toFixed(1)}%)`, 'progress');
+            
+            // Check for automatic abort condition
+            const abortThreshold = parseInt(document.getElementById('abort-threshold').value);
+            if (percent > abortThreshold) {
+                logMessage(`⚠️ Auto-abort triggered at ${percent.toFixed(1)}% (threshold: ${abortThreshold}%)`, 'control');
+                sendControlMessage('abort', { 
+                    message: `Automatic abort at ${percent.toFixed(1)}% threshold` 
+                });
+            }
+            
+            // Automatic pause at certain milestones for demo
+            if ((processed % 400 === 0) && processed > 0 && processed < totalRecords) {
+                logMessage(`🔄 Auto-pause for demo at ${processed} records`, 'control');
+                sendControlMessage('pause', { 
+                    message: `Demo pause at ${processed} records` 
+                });
+                
+                // Auto-resume after 2 seconds for demo  
+                setTimeout(() => {
+                    logMessage(`▶️ Auto-resume after demo pause`, 'control');
+                    sendControlMessage('resume', { 
+                        message: 'Demo pause complete' 
+                    });
+                }, 2000);
+            }
+        }
+        
+        function handleExecutionComplete(responseData) {
+            isExecuting = false;
+            currentExecutionId = null;
+            updateButtons(false);
+            
+            if (responseData.error) {
+                logMessage(`❌ Execution failed: ${responseData.error}`, 'error');
+                progressInfo.textContent = `EXECUTION FAILED\n\nError: ${responseData.error}\nTimestamp: ${new Date().toLocaleTimeString()}`;
+            } else {
+                logMessage(`✅ Execution completed successfully!`, 'success');
+                if (responseData.result !== null && responseData.result !== undefined) {
+                    logMessage(`📊 Final result: ${responseData.result}`, 'result');
+                }
+                if (responseData.output && responseData.output.length > 0) {
+                    logMessage(`📤 Output lines: ${responseData.output.length}`, 'result');
+                }
+                
+                progressInfo.textContent = `EXECUTION COMPLETED\n\nResult: ${responseData.result}\nOutput lines: ${responseData.output?.length || 0}\nTimestamp: ${new Date().toLocaleTimeString()}\n\n✅ Streaming control test successful!`;
+            }
+        }
+        
+        // Signal readiness
+        window.addEventListener('load', () => {
+            logMessage('🎛️ Streaming Controller ready!', 'success');
+            logMessage('💡 Configure parameters and click Execute to start', 'info');
+        });
+    </script>
+</body>
+</html>

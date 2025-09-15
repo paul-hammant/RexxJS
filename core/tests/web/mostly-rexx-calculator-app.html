@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mostly Rexx Calculator App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .calculator {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        #display {
+            width: 100%;
+            height: 60px;
+            font-size: 24px;
+            text-align: right;
+            padding: 10px;
+            border: 2px solid #007cba;
+            border-radius: 4px;
+            background: #f8f8f8;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 15px;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        
+        button:hover {
+            background: #005a85;
+        }
+        
+        .calculator-buttons {
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            width: calc(100% + 24px);
+            margin-left: 0px;
+            padding: 0 10px;
+            border: 2px solid transparent;
+            box-sizing: border-box;
+        }
+        
+        .calc-btn {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 12px 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            margin: 0;
+            border-right: 1px solid transparent;
+            min-width: 0;
+        }
+        
+        .calc-btn:last-child {
+            border-right: none;
+        }
+        
+        .calc-btn:hover {
+            background: #005a85;
+        }
+        
+        .calc-btn.number {
+            background: #28a745;
+        }
+        
+        .calc-btn.number:hover {
+            background: #1e7e34;
+        }
+        
+        .calc-btn.operator {
+            background: #dc3545;
+        }
+        
+        .calc-btn.operator:hover {
+            background: #c82333;
+        }
+        
+        .log {
+            background: #333;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h2>Mostly Rexx Calculator App</h2>
+    
+    <div class="calculator">
+        <input type="text" id="display" value="0" readonly>
+        
+        <div class="controls">
+            <button id="test-button">Test: Calculate 42</button>
+            <button id="clear-button">Clear</button>
+        </div>
+        
+        <div class="calculator-buttons">
+            <button class="calc-btn number" data-button="0">0</button>
+            <button class="calc-btn number" data-button="1">1</button>
+            <button class="calc-btn number" data-button="2">2</button>
+            <button class="calc-btn number" data-button="3">3</button>
+            <button class="calc-btn number" data-button="4">4</button>
+            <button class="calc-btn number" data-button="5">5</button>
+            <button class="calc-btn number" data-button="6">6</button>
+            <button class="calc-btn number" data-button="7">7</button>
+            <button class="calc-btn number" data-button="8">8</button>
+            <button class="calc-btn number" data-button="9">9</button>
+            <button class="calc-btn operator" data-button="+">+</button>
+            <button class="calc-btn operator" data-button="-">-</button>
+            <button class="calc-btn operator" data-button="*">*</button>
+            <button class="calc-btn operator" data-button="/">/</button>
+            <button class="calc-btn operator" data-button="=">=</button>
+        </div>
+    </div>
+    
+    <div class="status success" id="status">Calculator app ready for RPC calls!</div>
+    
+    <div id="rpc-log" class="log">RPC Call Log:
+    </div>
+    
+    <!-- Load Rexx interpreter for service implementation -->
+    <script src="../../src/function-parsing-strategies.js"></script>
+    <script src="../../src/parameter-converter.js"></script>
+    <script src="../../src/parser.js"></script>
+    
+    <!-- Load required modular dependencies -->
+    <script src="../../src/interpreter-string-and-expression-processing.js"></script>
+    <script src="../../src/interpreter-variable-stack.js"></script>
+    <script src="../../src/interpreter-evaluation-utilities.js"></script>
+    <script src="../../src/interpreter-execution-context.js"></script>
+    <script src="../../src/interpreter-control-flow.js"></script>
+    <script src="../../src/interpreter-expression-value-resolution.js"></script>
+    <script src="../../src/interpreter-dom-manager.js"></script>
+    <script src="../../src/interpreter-error-handling.js"></script>
+    <script src="../../src/interpreter-parse-subroutine.js"></script>
+    <script src="../../src/interpreter-trace-formatting.js"></script>
+    
+    <!-- Load utility modules -->
+    <script src="../../src/utils.js"></script>
+    <script src="../../src/security.js"></script>
+    <script src="../../src/string-processing.js"></script>
+    
+    <script src="../../src/interpreter.js"></script>
+    <script src="../../src/dom-element-manager.js"></script>
+    <script src="../mocks/dom-rpc-client.js"></script>
+    
+    <!-- Load shared RPC framework -->
+    <script src="../rpc-framework.js"></script>
+    
+    <script>
+        // IoC: Accept service identity and reply target from container
+        function setupCalculatorService(config = {}) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                serviceId: config.serviceId || urlParams.get('service') || 'Calculator',
+                replyTarget: config.replyTarget || window.parent, // iframe context
+                logTarget: config.logTarget || config.replyTarget || window.parent
+            };
+        }
+        
+        const serviceConfig = setupCalculatorService();
+        const { serviceId, replyTarget } = serviceConfig;
+        
+        console.log(`Calculator service: ${serviceId}`);
+        
+        // Initialize Rexx interpreter with DOM capabilities using builder pattern
+        const rpcClient = new BrowserDOMRpcClient();
+        const interpreter = RexxInterpreter.builder(rpcClient)
+            .withDomInterop()
+            .build();
+        
+        // CGI-style Rexx subroutines: stateless and ephemeral execution
+        // Each button click spawns a brand new Rexx execution context that runs and dies
+        // Persistence only through: interpreter.variables and DOM state
+        const rexxCalculatorSubroutines = `
+        ClearCalculator:
+            LET currentValue = 0
+            -- Log the clear action via Rexx
+            CALL LogMessage "Display cleared via Rexx subroutine"
+        RETURN
+        
+        SetDisplay:
+            ARG displayValue
+            LET currentValue = displayValue
+            -- Display update handled by Rexx UpdateDisplay subroutine
+        RETURN
+        
+        AddNumbers:
+            ARG x, y
+            LET result = x + y
+            LET currentValue = result
+            -- Log the operation via Rexx
+            CALL LogMessage "add(" || x || ", " || y || ") = " || result || " [via Rexx subroutine]"
+        RETURN
+        
+        SubtractNumbers:
+            ARG x, y
+            LET result = x - y
+            LET currentValue = result
+            -- Log the operation via Rexx
+            CALL LogMessage "subtract(" || x || ", " || y || ") = " || result || " [via Rexx subroutine]"
+        RETURN
+        
+        MultiplyNumbers:
+            ARG x, y
+            LET result = x * y
+            LET currentValue = result
+            -- Log the operation via Rexx
+            CALL LogMessage "multiply(" || x || ", " || y || ") = " || result || " [via Rexx subroutine]"
+        RETURN
+        
+        DivideNumbers:
+            ARG x, y
+            IF y = 0 THEN
+                SIGNAL ERROR NAME DivisionByZero
+            ENDIF
+            LET result = x / y
+            LET currentValue = result
+            -- Log the operation via Rexx
+            CALL LogMessage "divide(" || x || ", " || y || ") = " || result || " [via Rexx subroutine]"
+        RETURN
+        
+        DivisionByZero:
+            LET errorMessage = "Division by zero"
+            SIGNAL ERROR
+        RETURN
+        
+        HandleTestButton:
+            -- Test button: calculate 6 * 7
+            CALL MultiplyNumbers 6, 7
+            LET testResult = result
+            
+            -- Log the result via Rexx
+            CALL LogMessage "The Answer to Everything: " || result || " [via Rexx event loop]"
+        RETURN
+        
+        HandleClearButton:
+            CALL ClearCalculator
+            
+            -- Log the clear action via Rexx
+            CALL LogMessage "Display cleared [via Rexx event loop]"
+        RETURN
+        
+        UpdateDisplay:
+            -- Rexx-based display update function
+            -- Get current value, default to "0" if not set
+            LET displayValue = currentValue
+            IF displayValue = "" THEN
+                LET displayValue = "0"
+            ENDIF
+            
+            -- Set a flag that JavaScript can detect to update the display
+            LET displayUpdateNeeded = "true"
+            LET displayUpdateValue = displayValue
+        RETURN
+        
+        LogMessage:
+            -- Rexx-based logging function with clean ARG syntax
+            ARG message
+            
+            -- Set a flag that JavaScript can detect to log the message
+            LET logNeeded = "true"
+            LET logText = message
+        RETURN
+        
+        InitializeCalculatorState:
+            LET accumulator = 0
+            LET pendingOperation = ""
+            LET waitingForOperand = "YES"
+        RETURN
+        
+        PressButton:
+            ARG button
+            -- Debug log what button was pressed
+            CALL LogMessage "PressButton received button with length=" || LENGTH(button) || " value=[" || button || "]"
+            CALL LogMessage "Button comparison: equals-1?" || (button = "1") || " equals-plus?" || (button = "+")
+            
+            -- Initialize state if not set
+            IF accumulator = "" THEN
+                CALL InitializeCalculatorState
+            ENDIF
+            
+            -- Handle equals button
+            IF button = "=" | button = "equals" THEN
+                IF pendingOperation <> "" & waitingForOperand = "NO" THEN
+                    LET current = currentValue
+                    SELECT
+                        WHEN pendingOperation = "+" THEN
+                            LET result = accumulator + current
+                        WHEN pendingOperation = "-" THEN
+                            LET result = accumulator - current
+                        WHEN pendingOperation = "*" THEN
+                            LET result = accumulator * current
+                        WHEN pendingOperation = "/" THEN
+                            LET result = accumulator / current
+                        OTHERWISE
+                            LET result = current
+                    END
+                    CALL SetDisplay result
+                    CALL InitializeCalculatorState
+                    LET buttonResult = result
+                ELSE
+                    LET buttonResult = currentValue
+                ENDIF
+            -- Handle operation buttons
+            ELSEIF button = "+" | button = "-" | button = "*" | button = "/" THEN
+                LET current = currentValue
+                IF pendingOperation <> "" & waitingForOperand = "NO" THEN
+                    -- Chain operations
+                    SELECT
+                        WHEN pendingOperation = "+" THEN
+                            LET result = accumulator + current
+                        WHEN pendingOperation = "-" THEN
+                            LET result = accumulator - current
+                        WHEN pendingOperation = "*" THEN
+                            LET result = accumulator * current
+                        WHEN pendingOperation = "/" THEN
+                            LET result = accumulator / current
+                        OTHERWISE
+                            LET result = current
+                    END
+                    CALL SetDisplay result
+                    LET accumulator = result
+                ELSE
+                    LET accumulator = current
+                ENDIF
+                LET pendingOperation = button
+                LET waitingForOperand = "YES"
+                LET buttonResult = button
+            -- Handle number buttons (explicit check for digits)
+            ELSEIF button = "0" | button = "1" | button = "2" | button = "3" | button = "4" | button = "5" | button = "6" | button = "7" | button = "8" | button = "9" THEN
+                CALL LogMessage "Number button detected: " || button || " (waitingForOperand=" || waitingForOperand || ")"
+                IF waitingForOperand = "YES" THEN
+                    CALL SetDisplay button
+                    LET waitingForOperand = "NO"
+                    CALL LogMessage "Set display to: " || button
+                ELSE
+                    LET newValue = currentValue || button
+                    CALL SetDisplay newValue
+                    CALL LogMessage "Concatenated to: " || newValue
+                ENDIF
+                LET buttonResult = button
+            ELSE
+                CALL LogMessage "Unhandled button: " || button
+                LET buttonResult = button
+            ENDIF
+        RETURN
+        
+        GetApiSchema:
+            -- Signal to JavaScript to generate JSON schema from method definitions
+            LET apiSchema = "GENERATE_JSON_SCHEMA"
+        RETURN
+        
+        HandleRPCMessage:
+            -- Use global variables set by caller (avoid ARG issues)
+            LET messageType = rpcMessageType
+            LET messageId = rpcMessageId  
+            LET namespace = rpcNamespace
+            LET method = rpcMethod
+            LET paramsJson = rpcParams
+            
+            -- Process RPC request
+            
+            -- Route to appropriate handler
+            IF namespace = "calculator" THEN
+                SELECT
+                    WHEN method = "add" THEN
+                        -- Use pre-parsed parameters from JavaScript
+                        LET x = rpcParam1
+                        LET y = rpcParam2
+                        -- Calculate result
+                        LET rpcResult = x + y
+                        LET currentValue = rpcResult
+                        CALL UpdateDisplay
+                        LET rpcStatus = "success"
+                    WHEN method = "subtract" THEN
+                        LET x = rpcParam1
+                        LET y = rpcParam2
+                        LET rpcResult = x - y
+                        LET currentValue = rpcResult
+                        CALL UpdateDisplay
+                        LET rpcStatus = "success"
+                    WHEN method = "multiply" THEN
+                        LET x = rpcParam1
+                        LET y = rpcParam2
+                        LET rpcResult = x * y
+                        LET currentValue = rpcResult
+                        CALL UpdateDisplay
+                        LET rpcStatus = "success"
+                    WHEN method = "divide" THEN
+                        LET x = rpcParam1
+                        LET y = rpcParam2
+                        IF y = 0 THEN
+                            LET rpcStatus = "error"
+                            LET rpcError = "Division by zero"
+                        ELSE
+                            LET rpcResult = x / y
+                            LET currentValue = rpcResult
+                            CALL UpdateDisplay
+                            LET rpcStatus = "success"
+                        ENDIF
+                    WHEN method = "clear" THEN
+                        CALL ClearCalculator
+                        CALL UpdateDisplay
+                        LET rpcResult = 0
+                        LET rpcStatus = "success"
+                    WHEN method = "press" THEN
+                        LET button = rpcParam1
+                        CALL PressButton button
+                        LET rpcResult = currentValue
+                        LET rpcStatus = "success"
+                    WHEN method = "getDisplay" THEN
+                        LET rpcResult = currentValue
+                        LET rpcStatus = "success"
+                    WHEN method = "display" THEN
+                        LET displayValue = rpcParam1
+                        LET currentValue = displayValue
+                        CALL UpdateDisplay
+                        LET rpcResult = displayValue
+                        LET rpcStatus = "success"
+                    WHEN method = "setValue" THEN
+                        LET setValue = rpcParam1
+                        LET currentValue = setValue
+                        CALL UpdateDisplay
+                        LET rpcResult = setValue
+                        LET rpcStatus = "success"
+                    WHEN method = "_introspect" THEN
+                        -- Extract format and protocol parameters
+                        LET format = "LLM-FRIENDLY"  -- default
+                        LET protocol = "REXX"        -- default for Rexx calculator
+                        
+                        -- Check for format parameter (simplified parsing)
+                        IF FIND(rpcParams, "ENGLISH") > 0 THEN
+                            LET format = "ENGLISH"
+                        ENDIF
+                        IF FIND(rpcParams, "JSON-RPC") > 0 THEN
+                            LET protocol = "JSON-RPC"
+                        ENDIF
+                        
+                        -- Signal to JavaScript with parameters
+                        LET rpcResult = "GENERATE_INTROSPECTION:" || format || ":" || protocol
+                        LET rpcStatus = "success"
+                    OTHERWISE
+                        LET rpcResult = ""
+                        LET rpcStatus = "error"
+                        LET rpcError = "Unknown method: " || method
+                END
+            ELSE
+                LET rpcResult = ""
+                LET rpcStatus = "error"
+                LET rpcError = "Unknown namespace: " || namespace
+            ENDIF
+        RETURN
+        `;
+        
+        // Load subroutines into interpreter
+        interpreter.run(parse(rexxCalculatorSubroutines));
+        
+        function logRPC(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('rpc-log');
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // Also send to reply target for main log
+            replyTarget.postMessage({
+                type: 'log',
+                source: serviceId,
+                message: message
+            }, '*');
+        }
+        
+        // Initialize calculator state
+        interpreter.variables.set('currentValue', '0');
+        
+        // updateDisplay() function removed - now handled by Rexx UpdateDisplay subroutine
+        
+        // Single source of truth: method definitions
+        const methodDefinitions = {
+            add: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Add two numbers together' },
+            subtract: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Subtract y from x' },
+            multiply: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Multiply two numbers' },
+            divide: { params: { x: 'number', y: 'number' }, returns: 'number', description: 'Divide x by y (y cannot be zero)' },
+            setValue: { params: { value: 'number' }, returns: 'number', description: 'Set the calculator display to a specific value' },
+            display: { params: { value: 'number', message: 'string?' }, returns: 'number', description: 'Display value with optional message' },
+            clear: { params: {}, returns: 'number', description: 'Clear the display and reset to 0' },
+            press: { params: { button: 'string|number' }, returns: 'any', description: 'Press a calculator button (number, operator, or equals)' },
+            getDisplay: { params: {}, returns: 'number', description: 'Get the current display value' }
+        };
+        
+        // Convert method definitions to Rexx ADDRESS syntax format
+        function asRexxDescriptions(methodDefs) {
+            const rexxMethods = {};
+            
+            Object.entries(methodDefs).forEach(([methodName, def]) => {
+                // Convert params to Rexx ADDRESS syntax
+                const rexxParams = {};
+                Object.entries(def.params).forEach(([paramName, paramType]) => {
+                    rexxParams[paramName] = paramType;
+                });
+                
+                // Generate Rexx-style example
+                const paramExample = Object.keys(def.params).length > 0 
+                    ? ' ' + Object.keys(def.params).map(name => `${name}=value`).join(' ')
+                    : '';
+                
+                rexxMethods[methodName] = {
+                    params: rexxParams,
+                    returns: def.returns,
+                    description: def.description,
+                    syntax: `ADDRESS calculator; ${methodName}${paramExample}`
+                };
+            });
+            
+            return rexxMethods;
+        }
+
+        // Rexx-based RPC method handlers that delegate to the Rexx interpreter
+        async function callRexxMethod(method, params) {
+            // Prepare parameters for Rexx (improved parsing)
+            let paramString = '';
+            if (params) {
+                if (params.x !== undefined && params.y !== undefined) {
+                    // Ensure we get numeric values, not objects
+                    const x = parseFloat(params.x) || 0;
+                    const y = parseFloat(params.y) || 0;
+                    paramString = `${x} ${y}`;
+                } else if (params.value !== undefined) {
+                    const value = parseFloat(params.value) || params.value || 0;
+                    paramString = `${value}`;
+                } else if (params.button !== undefined) {
+                    paramString = `${params.button}`;
+                } else if (params.format !== undefined || params.protocol !== undefined) {
+                    // Handle _introspect parameters
+                    const format = params.format || 'LLM-FRIENDLY';
+                    const protocol = params.protocol || 'REXX';
+                    paramString = `${format} ${protocol}`;
+                }
+            }
+            
+            // Parse parameters in JavaScript instead of relying on Rexx WORD function
+            let param1 = '', param2 = '';
+            if (paramString) {
+                const parts = paramString.split(' ');
+                param1 = parts[0] || '';
+                param2 = parts[1] || '';
+            }
+            
+            // Handle _introspect entirely in JavaScript to avoid Rexx parsing issues
+            if (method === '_introspect') {
+                const format = params.format || 'LLM-FRIENDLY';
+                const protocol = params.protocol || 'REXX';
+                
+                if (format === 'LLM-FRIENDLY') {
+                    // Generate JSON schema
+                    const result = {
+                        service: serviceId,
+                        version: '1.0.0',
+                        namespace: 'calculator',
+                        supportedProtocols: ["JSON-RPC", "REXX"]
+                    };
+
+                    // Add usage examples based on protocol preference
+                    if (protocol === "JSON-RPC") {
+                        result.usage = {
+                            protocol: "JSON-RPC postMessage",
+                            example: `{"type":"rpc-request","namespace":"calculator","method":"add","params":{"x":10,"y":5}}`
+                        };
+                        result.methods = methodDefinitions;
+
+                    } else if (protocol === "REXX") {
+                        result.usage = {
+                            protocol: "Rexx ADDRESS",
+                            example: `ADDRESS calculator; add x=10 y=5`
+                        };
+                        result.methods = asRexxDescriptions(methodDefinitions);
+                    }
+                    return result;
+                } else if (format === 'ENGLISH') {
+                    // Generate human text
+                    let humanText = `Hi! I'm ${serviceId}, a Mostly Rexx calculator service.\n\nHere's what I can help you with:\n\n`;
+                    
+                    Object.entries(methodDefinitions).forEach(([methodName, def]) => {
+                        const paramList = Object.entries(def.params)
+                            .map(([name, type]) => `${name}: ${type}`)
+                            .join(', ');
+                        humanText += `• ${methodName}(${paramList}) → ${def.returns}\n`;
+                        humanText += `  ${def.description}\n\n`;
+                    });
+                    
+                    // Add usage examples based on protocol preference
+                    if (protocol === "JSON-RPC") {
+                        humanText += `📡 JSON-RPC Usage: {"type":"rpc-request","namespace":"calculator","method":"methodName","params":{"x":10,"y":5}}`;
+                    } else if (protocol === "REXX") {
+                        humanText += `📜 Rexx ADDRESS Usage: ADDRESS calculator; methodName x=value y=value`;
+                    }
+                    
+                    return humanText;
+                }
+            }
+            
+            // Call Rexx RPC handler - set parameters directly due to ARG issues
+            const rexxScript = `
+                LET rpcMessageType = "rpc-request"
+                LET rpcMessageId = "temp"
+                LET rpcNamespace = "calculator"  
+                LET rpcMethod = "${method}"
+                LET rpcParams = "${paramString}"
+                LET rpcParam1 = "${param1}"
+                LET rpcParam2 = "${param2}"
+                LET rpcServiceId = "${serviceId}"
+                CALL HandleRPCMessage
+            `;
+            await interpreter.run(parse(rexxScript));
+            
+            // Get results from Rexx
+            const status = interpreter.getVariable('rpcStatus');
+            const resultRaw = interpreter.getVariable('rpcResult');
+            const errorMsg = interpreter.getVariable('rpcError');
+            
+            if (status === 'success') {
+                // Convert to number if possible for other methods
+                return parseFloat(resultRaw) || resultRaw;
+            } else {
+                throw new Error(errorMsg || `RPC error: ${method}`);
+            }
+        }
+
+        // Create method handlers for the shared framework
+        Object.entries(methodDefinitions).forEach(([methodName, definition]) => {
+            methodDefinitions[methodName].handler = async (params) => {
+                return await callRexxMethod(methodName, params);
+            };
+        });
+        
+        // Initialize RPC handler using shared framework
+        createRpcHandler({
+            serviceName: serviceId,
+            methods: methodDefinitions,
+            logFunction: logRPC
+        });
+        
+        // Minimal JavaScript event listeners - just set data attributes for Rexx polling
+        document.getElementById('test-button').addEventListener('click', () => {
+            document.getElementById('test-button').dataset.clicked = 'true';
+            logRPC('Test button → Rexx event loop');
+        });
+        
+        document.getElementById('clear-button').addEventListener('click', () => {
+            document.getElementById('clear-button').dataset.clicked = 'true';
+            logRPC('Clear button → Rexx event loop');
+        });
+        
+        // Calculator button event handlers - direct RPC call approach
+        let calculatorState = {
+            accumulator: 0,
+            pendingOperation: null,
+            waitingForOperand: true
+        };
+        
+        function updateDisplay(value) {
+            document.getElementById('display').value = String(value);
+            interpreter.variables.set('currentValue', String(value));
+        }
+        
+        function handlePress(button) {
+            // Handle equals button
+            if (button === '=' || button === 'equals') {
+                if (calculatorState.pendingOperation && !calculatorState.waitingForOperand) {
+                    const current = parseFloat(document.getElementById('display').value);
+                    let result = calculatorState.accumulator;
+                    
+                    switch (calculatorState.pendingOperation) {
+                        case '+':
+                            result = calculatorState.accumulator + current;
+                            break;
+                        case '-':
+                            result = calculatorState.accumulator - current;
+                            break;
+                        case '*':
+                            result = calculatorState.accumulator * current;
+                            break;
+                        case '/':
+                            result = calculatorState.accumulator / current;
+                            break;
+                    }
+                    
+                    updateDisplay(result);
+                    calculatorState = { accumulator: 0, pendingOperation: null, waitingForOperand: true };
+                    logRPC(`Equals pressed, result: ${result}`);
+                    return result;
+                }
+                return parseFloat(document.getElementById('display').value);
+            } else if (['+', '-', '*', '/'].includes(button)) {
+                const current = parseFloat(document.getElementById('display').value);
+                
+                if (calculatorState.pendingOperation && !calculatorState.waitingForOperand) {
+                    // Chain operations: complete previous operation first
+                    let result = calculatorState.accumulator;
+                    switch (calculatorState.pendingOperation) {
+                        case '+':
+                            result = calculatorState.accumulator + current;
+                            break;
+                        case '-':
+                            result = calculatorState.accumulator - current;
+                            break;
+                        case '*':
+                            result = calculatorState.accumulator * current;
+                            break;
+                        case '/':
+                            result = calculatorState.accumulator / current;
+                            break;
+                    }
+                    updateDisplay(result);
+                    calculatorState.accumulator = result;
+                } else {
+                    calculatorState.accumulator = current;
+                }
+                
+                calculatorState.pendingOperation = button;
+                calculatorState.waitingForOperand = true;
+                logRPC(`Operation: ${button}, accumulator: ${calculatorState.accumulator}`);
+                return button;
+            } else if (!isNaN(parseFloat(button))) {
+                // Number button
+                if (calculatorState.waitingForOperand) {
+                    updateDisplay(button);
+                    calculatorState.waitingForOperand = false;
+                } else {
+                    updateDisplay(document.getElementById('display').value + button);
+                }
+                return parseFloat(button);
+            }
+            
+            return button;
+        }
+        
+        document.querySelectorAll('.calc-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const buttonValue = button.getAttribute('data-button');
+                logRPC(`Calculator button pressed: ${buttonValue}`);
+                handlePress(buttonValue);
+            });
+        });
+        
+        
+        // Start the Rexx event loop in a non-blocking way
+        async function startRexxEventLoop() {
+            logRPC('Starting Rexx event loop (250ms polling)...');
+            
+            // Start the event loop - but we need to be careful not to block the main thread
+            // For now, we'll use a periodic check instead of a continuous loop
+            setInterval(async () => {
+                try {
+                    // Direct JavaScript event polling instead of relying on Rexx INTERPRET
+                    const testButton = document.getElementById('test-button');
+                    const clearButton = document.getElementById('clear-button');
+                    
+                    // Check test button
+                    if (testButton?.dataset?.clicked === 'true') {
+                        testButton.dataset.clicked = 'false';
+                        logRPC('Test button event → HandleTestButton');
+                        const rexxScript = `
+                            CALL HandleTestButton
+                            CALL UpdateDisplay
+                        `;
+                        await interpreter.run(parse(rexxScript));
+                        
+                        // Display update handled in the main Rexx script above
+                    }
+                    
+                    // Check clear button
+                    if (clearButton?.dataset?.clicked === 'true') {
+                        clearButton.dataset.clicked = 'false';
+                        logRPC('Clear button event → HandleClearButton');
+                        const rexxScript = `
+                            CALL HandleClearButton
+                            CALL UpdateDisplay
+                        `;
+                        await interpreter.run(parse(rexxScript));
+                        
+                        // Display update handled in the main Rexx script above
+                    }
+                    
+                    // Check calculator buttons
+                    const calcButtons = document.querySelectorAll('.calc-btn');
+                    for (const calcButton of calcButtons) {
+                        if (calcButton?.dataset?.clicked === 'true') {
+                            const buttonValue = calcButton.dataset.buttonValue;
+                            calcButton.dataset.clicked = 'false';
+                            logRPC(`Calculator button ${buttonValue} event → PressButton`);
+                            const rexxScript = `
+                                CALL PressButton "${buttonValue}"
+                                CALL UpdateDisplay
+                            `;
+                            await interpreter.run(parse(rexxScript));
+                        }
+                    }
+                    
+                    // Check for display update requests from Rexx
+                    const displayUpdateNeeded = interpreter.variables.get('displayUpdateNeeded');
+                    if (displayUpdateNeeded === 'true') {
+                        const displayValue = interpreter.variables.get('displayUpdateValue') || '0';
+                        document.getElementById('display').value = displayValue;
+                        // Clear the flag
+                        interpreter.variables.set('displayUpdateNeeded', 'false');
+                        logRPC(`Display: ${displayValue}`);
+                    }
+                    
+                    // Check for log requests from Rexx
+                    const logNeeded = interpreter.getVariable('logNeeded');
+                    if (logNeeded === 'true') {
+                        const logMessage = interpreter.getVariable('logText') || '';
+                        logRPC(logMessage);
+                        // Clear the flag
+                        interpreter.variables.set('logNeeded', 'false');
+                    }
+                    
+                } catch (error) {
+                    logRPC(`⚠ Polling error: ${error.message}`);
+                }
+            }, 250); // Poll every 250ms - reasonable balance
+        }
+        
+        // Signal that we're ready
+        window.addEventListener('load', () => {
+            logRPC('Calculator ready!');
+            // Start the Rexx event loop after a brief delay
+            setTimeout(startRexxEventLoop, 1000);
+        });
+    </script>
+</body>
+</html>

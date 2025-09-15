@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NumPy via PyOdide - Browser Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+        }
+        .output {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .loading { background: #fff3cd; }
+        .ready { background: #d4edda; }
+    </style>
+</head>
+<body>
+    <h1>🧮 NumPy via PyOdide Browser Test</h1>
+    <p><strong>Real NumPy</strong> running in your browser with 100% compatibility!</p>
+
+    <div id="status" class="status loading">🔄 Loading dependencies...</div>
+
+    <h2>Test Controls</h2>
+    <button onclick="testBasicFunctions()" disabled id="basicBtn">Test Basic Functions</button>
+    <button onclick="testEigenvalues()" disabled id="eigenBtn">Test Eigenvalues</button>
+    <button onclick="testComplexEigenvalues()" disabled id="complexBtn">Test Complex Eigenvalues</button>
+    <button onclick="testLargeMatrix()" disabled id="largeBtn">Test Large Matrix</button>
+
+    <h2>Output Log</h2>
+    <div id="output"></div>
+
+    <!-- Load dependencies in order -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+    <script src="../../addresses/pyodide/src/pyodide-address.js"></script>
+    <script src="numpy.js"></script>
+
+    <script>
+        let initialized = false;
+
+        function log(message, type = 'output') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = `output ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function initialize() {
+            try {
+                log('🚀 Initializing PyOdide and NumPy...', 'output');
+                
+                const start = Date.now();
+                await numpy.initializePyodide();
+                const initTime = Date.now() - start;
+                
+                log(`✅ PyOdide initialized in ${initTime}ms`, 'success');
+                
+                // Update UI
+                document.getElementById('status').innerHTML = '✅ Ready for NumPy operations';
+                document.getElementById('status').className = 'status ready';
+                
+                // Enable buttons
+                document.getElementById('basicBtn').disabled = false;
+                document.getElementById('eigenBtn').disabled = false;
+                document.getElementById('complexBtn').disabled = false;
+                document.getElementById('largeBtn').disabled = false;
+                
+                initialized = true;
+                
+            } catch (error) {
+                log(`❌ Initialization failed: ${error.message}`, 'error');
+                document.getElementById('status').innerHTML = '❌ PyOdide unavailable';
+                document.getElementById('status').className = 'status error';
+            }
+        }
+
+        async function testBasicFunctions() {
+            if (!initialized) return;
+            
+            try {
+                log('🧪 Testing basic NumPy functions...', 'output');
+                
+                // Test array creation
+                const zeros = await numpy.zeros([2, 3]);
+                log(`zeros([2,3]): ${JSON.stringify(zeros)}`, 'success');
+                
+                const ones = await numpy.ones([3]);
+                log(`ones([3]): ${JSON.stringify(ones)}`, 'success');
+                
+                const eye = await numpy.eye(3);
+                log(`eye(3): ${JSON.stringify(eye)}`, 'success');
+                
+                // Test mathematical functions
+                const sinResult = await numpy.sin([0, Math.PI/2, Math.PI]);
+                log(`sin([0, π/2, π]): [${sinResult.map(x => x.toFixed(4)).join(', ')}]`, 'success');
+                
+            } catch (error) {
+                log(`❌ Basic functions failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEigenvalues() {
+            if (!initialized) return;
+            
+            try {
+                log('🎯 Testing eigenvalue computation...', 'output');
+                
+                const matrix = [[4, 1], [1, 3]];
+                log(`Matrix: ${JSON.stringify(matrix)}`, 'output');
+                
+                const eigenvals = await numpy.eigvals(matrix);
+                log(`Eigenvalues: [${eigenvals.map(x => x.toFixed(6)).join(', ')}]`, 'success');
+                
+                // Test full eigendecomposition
+                const eig = await numpy.eig(matrix);
+                log(`EIG eigenvalues: [${eig.eigenvalues.map(x => x.toFixed(6)).join(', ')}]`, 'success');
+                log('✅ Real NumPy eigenvalue computation successful!', 'success');
+                
+            } catch (error) {
+                log(`❌ Eigenvalue test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testComplexEigenvalues() {
+            if (!initialized) return;
+            
+            try {
+                log('🌀 Testing complex eigenvalue computation...', 'output');
+                
+                // Rotation matrix with pure imaginary eigenvalues
+                const rotationMatrix = [[0, -1], [1, 0]];
+                log(`Rotation matrix: ${JSON.stringify(rotationMatrix)}`, 'output');
+                
+                const eigenvals = await numpy.eigvals(rotationMatrix);
+                log(`Complex eigenvalues: ${JSON.stringify(eigenvals)}`, 'success');
+                log('✅ NumPy found complex eigenvalues that JS approximation would miss!', 'success');
+                
+            } catch (error) {
+                log(`❌ Complex eigenvalue test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLargeMatrix() {
+            if (!initialized) return;
+            
+            try {
+                log('📏 Testing large matrix operations...', 'output');
+                
+                // Test 8x8 identity matrix (beyond JS implementation limit)
+                const largeIdentity = await numpy.eye(8);
+                log(`8x8 identity matrix created (64 elements)`, 'success');
+                
+                const det = await numpy.det(largeIdentity);
+                log(`det(8x8 identity): ${det}`, 'success');
+                
+                log('✅ Large matrix operations successful (no 4x4 limit)!', 'success');
+                
+            } catch (error) {
+                log(`❌ Large matrix test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-initialize when page loads
+        window.addEventListener('load', () => {
+            log('🌐 Browser NumPy test page loaded', 'output');
+            log('🔗 Using existing PyOdide ADDRESS infrastructure', 'output');
+            initialize();
+        });
+    </script>
+</body>
+</html>

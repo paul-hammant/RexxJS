@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>REQUIRE Node.js Wrapper Test Harness</title>
+    <script src="../src/interpreter.js"></script>
+</head>
+<body>
+    <h1>REQUIRE Node.js Module Wrapper Test</h1>
+    <div id="log"></div>
+    
+    <script>
+        // Initialize interpreter for Node.js-style testing
+        window.interpreter = new RexxInterpreter();
+        
+        // Mock Node.js environment detection
+        if (typeof process === 'undefined') {
+            // Create minimal process object for testing
+            window.process = {
+                versions: { node: '16.0.0' },
+                env: { NODE_ENV: 'test' }
+            };
+        }
+        
+        // Mock require function for browser testing
+        if (typeof require === 'undefined') {
+            window.require = function(moduleName) {
+                // Mock some test modules
+                if (moduleName === './test-nodejs-module.js') {
+                    return {
+                        calculateSum: (numbers) => numbers.reduce((a, b) => a + b, 0),
+                        findLength: (data) => data.length
+                    };
+                }
+                
+                if (moduleName === 'lodash') {
+                    return {
+                        chunk: (array, size) => {
+                            const result = [];
+                            for (let i = 0; i < array.length; i += size) {
+                                result.push(array.slice(i, i + size));
+                            }
+                            return result;
+                        }
+                    };
+                }
+                
+                throw new Error(`Module not found: ${moduleName}`);
+            };
+        }
+        
+        // Console logging for visibility
+        const log = document.getElementById('log');
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const div = document.createElement('div');
+            div.textContent = args.join(' ');
+            log.appendChild(div);
+        };
+        
+        console.log('Test harness ready for Node.js module wrapping tests');
+    </script>
+</body>
+</html>

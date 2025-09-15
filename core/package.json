@@ -1,0 +1,40 @@
+{
+  "name": "rexxjs",
+  "version": "0.1.0",
+  "description": "A lightweight, embeddable JavaScript interpreter for the Rexx programming language with unified file system and application addressing capabilities.",
+  "main": "src/index.js",
+  "bin": {
+    "rexx": "./src/rexx"
+  },
+  "scripts": {
+    "test": "jest && ./rexxt tests/dogfood/*",
+    "test:coverage": "jest --coverage",
+    "test:web": "PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/web --project=chromium",
+    "build": "webpack",
+    "build:dev": "webpack --mode=development",
+    "build:watch": "webpack --watch",
+    "bundle": "node src/create-bundle.js",
+    "prepare": "npm run bundle"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "@playwright/test": "^1.55.0",
+    "babel-loader": "^10.0.0",
+    "http-server": "^14.1.1",
+    "jest": "^29.7.0",
+    "jsdom": "^26.1.0",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
+  },
+  "dependencies": {
+    "canvas": "^3.2.0",
+    "d3": "^7.9.0",
+    "d3-array": "^3.2.4",
+    "d3-scale": "^4.0.2",
+    "d3-selection": "^3.0.0",
+    "sqlite3": "^5.1.7"
+  }
+}
