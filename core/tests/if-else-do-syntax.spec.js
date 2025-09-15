@@ -255,4 +255,352 @@ describe('IF ELSE DO Syntax Parsing', () => {
     expect(interpreter.getVariable('test1')).toBe(2);
     expect(interpreter.getVariable('test2')).toBe(4);
   });
+
+  it('should handle deeply nested IF ELSE DO with complex conditions', async () => {
+    const script = `
+      LET data = "complex_test"
+      LET level = 1
+      
+      IF LENGTH(data) > 0 THEN DO
+        IF UPPER(data) = UPPER("complex_test") THEN DO
+          IF level = 1 THEN DO
+            LET result = "match_level_1"
+          END
+          ELSE DO
+            LET result = "match_other_level" 
+          END
+        END
+        ELSE DO
+          IF level > 0 THEN DO
+            LET result = "no_match_positive_level"
+          END
+          ELSE DO
+            LET result = "no_match_zero_level"
+          END
+        END
+      END
+      ELSE DO
+        LET result = "empty_data"
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('result')).toBe('match_level_1');
+  });
+
+  it('should handle IF ELSE DO with multiple DO OVER loops and complex logic', async () => {
+    const script = `
+      LET process_type = "full"
+      LET total_processed = 0
+      
+      IF process_type = "full" THEN DO
+        LET first_batch = ["item1", "item2", "item3"]
+        DO item OVER first_batch
+          LET total_processed = total_processed + 1
+        END
+        
+        LET second_batch = ["item4", "item5"]
+        DO item OVER second_batch  
+          LET total_processed = total_processed + 1
+          LET last_processed = item
+        END
+        
+        IF total_processed > 4 THEN DO
+          LET status = "complete_batch"
+        END
+        ELSE DO
+          LET status = "partial_batch"
+        END
+      END
+      ELSE DO
+        LET quick_items = ["quick1", "quick2"]
+        DO item OVER quick_items
+          LET total_processed = total_processed + 1
+        END
+        LET status = "quick_process"
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('total_processed')).toBe(5);
+    expect(interpreter.getVariable('status')).toBe('complete_batch');
+    expect(interpreter.getVariable('last_processed')).toBe('item5');
+  });
+
+  it('should handle IF ELSE DO with mixed DO types and INTERPRET', async () => {
+    const script = `
+      LET operation = "calculate"
+      LET base_value = 10
+      
+      IF operation = "calculate" THEN DO
+        DO multiplier = 2 TO 4
+          LET current = base_value * multiplier
+        END
+        
+        LET commands = ["LET extra = 100", "LET bonus = extra + 50"]
+        DO cmd OVER commands
+          INTERPRET cmd
+        END
+        
+        IF current > 30 THEN DO
+          INTERPRET "LET final_result = current + bonus"
+        END
+        ELSE DO
+          INTERPRET "LET final_result = current"
+        END
+      END
+      ELSE DO
+        LET final_result = 0
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('current')).toBe(40); // 10 * 4
+    expect(interpreter.getVariable('bonus')).toBe(150); // 100 + 50
+    expect(interpreter.getVariable('final_result')).toBe(190); // 40 + 150
+  });
+
+  it('should handle complex conditional chains with function calls', async () => {
+    const script = `
+      LET input_text = "Test String 123"
+      LET mode = "analyze"
+      
+      IF mode = "analyze" THEN DO
+        IF LENGTH(input_text) > 10 THEN DO
+          LET upper_text = UPPER(input_text)
+          IF INCLUDES(upper_text, "STRING") THEN DO
+            LET analysis = "contains_string"
+          END
+          ELSE DO
+            LET analysis = "long_no_string"
+          END
+        END
+        ELSE DO
+          IF LENGTH(input_text) > 5 THEN DO
+            LET analysis = "medium_length"
+          END
+          ELSE DO
+            LET analysis = "short_length"
+          END
+        END
+        
+        IF analysis = "contains_string" THEN DO
+          LET final_category = "string_found"
+        END
+        ELSE DO
+          LET final_category = "other"
+        END
+      END
+      ELSE DO
+        LET final_category = "no_analysis"
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('analysis')).toBe('contains_string');
+    expect(interpreter.getVariable('final_category')).toBe('string_found');
+    expect(interpreter.getVariable('upper_text')).toBe('TEST STRING 123');
+  });
+
+  it('should handle IF ELSE DO with complex DO loop nesting and variables', async () => {
+    const script = `
+      LET matrix_size = 3
+      LET operation_mode = "process"
+      
+      IF operation_mode = "process" THEN DO
+        LET overall_sum = 0
+        
+        DO row = 1 TO matrix_size
+          LET row_total = 0
+          
+          DO col = 1 TO matrix_size
+            LET cell_value = row * col
+            LET row_total = row_total + cell_value
+          END
+          
+          LET overall_sum = overall_sum + row_total
+        END
+        
+        IF overall_sum > 30 THEN DO
+          LET result_category = "high_sum"
+        END
+        ELSE DO
+          LET result_category = "low_sum"
+        END
+      END
+      ELSE DO
+        LET result_category = "no_processing"
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    // Row sums should be [6, 12, 18] (1*1+1*2+1*3=6, 2*1+2*2+2*3=12, 3*1+3*2+3*3=18)
+    expect(interpreter.getVariable('overall_sum')).toBe(36); // 6 + 12 + 18
+    expect(interpreter.getVariable('result_category')).toBe('high_sum');
+  });
+
+  it('should handle IF ELSE DO with error conditions and recovery', async () => {
+    const script = `
+      LET input_value = "invalid"
+      LET backup_value = 42
+      
+      IF IS_NUMBER(input_value) THEN DO
+        LET processed_value = input_value * 2
+        LET status = "success"
+      END
+      ELSE DO
+        IF IS_NUMBER(backup_value) THEN DO
+          LET processed_value = backup_value * 2
+          LET status = "fallback_success"
+        END
+        ELSE DO
+          LET processed_value = 0
+          LET status = "total_failure"
+        END
+      END
+      
+      IF status = "fallback_success" THEN DO
+        LET final_message = "Used backup value: " || processed_value
+      END
+      ELSE DO
+        IF status = "success" THEN DO
+          LET final_message = "Original value worked: " || processed_value
+        END
+        ELSE DO
+          LET final_message = "All failed"
+        END
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('processed_value')).toBe(84); // 42 * 2
+    expect(interpreter.getVariable('status')).toBe('fallback_success');
+    expect(interpreter.getVariable('final_message')).toBe('Used backup value: 84');
+  });
+
+  it('should handle extreme nesting with multiple branching paths', async () => {
+    const script = `
+      LET config = "advanced"
+      LET priority = 5
+      LET category = "urgent"
+      
+      IF config = "advanced" THEN DO
+        IF priority > 3 THEN DO
+          IF category = "urgent" THEN DO
+            LET tasks = ["task1", "task2", "task3"]
+            LET task_count = 0
+            LET last_result = ""
+            
+            DO task OVER tasks
+              LET task_count = task_count + 1
+              IF task = "task2" THEN DO
+                LET last_result = "special_" || task
+              END
+              ELSE DO
+                LET last_result = "normal_" || task
+              END
+            END
+            
+            LET final_status = "urgent_advanced_complete"
+          END
+          ELSE DO
+            IF category = "normal" THEN DO
+              LET final_status = "normal_advanced"
+            END
+            ELSE DO
+              LET final_status = "other_advanced"
+            END
+          END
+        END
+        ELSE DO
+          LET final_status = "low_priority_advanced"
+        END
+      END
+      ELSE DO
+        IF config = "basic" THEN DO
+          LET final_status = "basic_mode"
+        END
+        ELSE DO
+          LET final_status = "unknown_config"
+        END
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('final_status')).toBe('urgent_advanced_complete');
+    expect(interpreter.getVariable('task_count')).toBe(3);
+    expect(interpreter.getVariable('last_result')).toBe('normal_task3');
+  });
+
+  it('should handle IF ELSE DO with mathematical expressions and comparisons', async () => {
+    const script = `
+      LET x = 15
+      LET y = 7
+      LET operation = "complex"
+      
+      IF operation = "complex" THEN DO
+        LET sum = x + y
+        LET product = x * y
+        
+        IF sum > 20 THEN DO
+          IF product > 100 THEN DO
+            LET math_result = "high_both"
+          END
+          ELSE DO
+            LET math_result = "high_sum_low_product"
+          END
+        END
+        ELSE DO
+          IF product > 50 THEN DO
+            LET math_result = "low_sum_high_product"
+          END
+          ELSE DO
+            LET math_result = "low_both"
+          END
+        END
+        
+        IF math_result = "high_both" THEN DO
+          LET calc_count = 0
+          LET last_calc = 0
+          DO factor = 2 TO 4
+            LET calc_result = (x + y) * factor
+            LET calc_count = calc_count + 1
+            LET last_calc = calc_result
+          END
+          LET final_calc = "calculations_complete"
+        END
+        ELSE DO
+          LET final_calc = "simple_calculation"
+        END
+      END
+      ELSE DO
+        LET math_result = "no_operation"
+        LET final_calc = "skipped"
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('sum')).toBe(22); // 15 + 7
+    expect(interpreter.getVariable('product')).toBe(105); // 15 * 7
+    expect(interpreter.getVariable('math_result')).toBe('high_both');
+    expect(interpreter.getVariable('calc_count')).toBe(3); // 2, 3, 4
+    expect(interpreter.getVariable('last_calc')).toBe(88); // 22*4
+    expect(interpreter.getVariable('final_calc')).toBe('calculations_complete');
+  });
 });
