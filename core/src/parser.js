@@ -1021,14 +1021,47 @@ function parseIfStatement(tokens, startIndex) {
       throw new Error(`Missing END for IF THEN DO statement at line ${tokens[startIndex].lineNumber}`);
     }
     
+    // Check for ELSE DO after the END
+    let elseCommands = [];
+    let nextIndex = currentIndex + 1;  // Skip past END
+    
+    if (nextIndex < tokens.length && tokens[nextIndex].content.match(/^ELSE\s+DO\s*$/i)) {
+      // Found ELSE DO, parse the else block
+      nextIndex++; // Skip past ELSE DO
+      let nestedDoCount = 0;
+      
+      while (nextIndex < tokens.length) {
+        const line = tokens[nextIndex].content;
+        
+        if (line.match(/^DO\s/i)) {
+          nestedDoCount++;
+        } else if (line.match(/^END\s*$/i)) {
+          if (nestedDoCount === 0) {
+            // Found the matching END for ELSE DO
+            nextIndex++; // Skip past END
+            break;
+          } else {
+            nestedDoCount--;
+          }
+        }
+        
+        // Parse nested statement
+        const result = parseStatement(tokens, nextIndex);
+        if (result.command) {
+          elseCommands.push(result.command);
+        }
+        nextIndex = result.nextIndex;
+      }
+    }
+    
     return {
       command: addLineNumber({
         type: 'IF',
         condition: condition,
         thenCommands: thenCommands,
-        elseCommands: []
+        elseCommands: elseCommands
       }, tokens[startIndex]),
-      nextIndex: currentIndex + 1  // Skip past END
+      nextIndex: nextIndex
     };
   }
   

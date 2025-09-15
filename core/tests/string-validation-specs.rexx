@@ -10,35 +10,36 @@ REQUIRE "./src/expectations-address.js"
 
 // ============= SETUP SECTION =============
 
-SAY "🧮 Math Operations Test Suite Starting..."
+SAY "📝 String Validation Test Suite Starting..."
 LET test_count = 0
 LET pass_count = 0
 LET fail_count = 0
 
 // Shared test data
-LET pi = 3.14159
-LET e = 2.71828
-LET test_numbers = [1, 2, 3, 4, 5, -1, -2, 0]
+LET test_string = "Hello World"
+LET empty_string = ""
+LET numeric_string = "12345"
+LET mixed_string = "Test123"
 
 // ============= ARGUMENT PARSING =============
 
 PARSE ARG target_describe .
-IF LENGTH(target_describe) = 0 THEN DO
-  LET target_describe = "all"
-END
 
 // ============= EXECUTION CONTROLLER =============
 
-IF target_describe = "all" THEN DO
-  LET all_subroutines = SUBROUTINES()
-  DO subroutineName OVER all_subroutines
-    IF RIGHT(subroutineName, 5) = "TESTS" THEN DO
-      INTERPRET "CALL " || subroutineName
-    END
+IF LENGTH(target_describe) = 0 THEN DO
+  // No arguments provided - run all subroutines ending in Test
+  LET test_subroutines = SUBROUTINES(".*Test$")
+  DO subroutineName OVER test_subroutines
+    INTERPRET "CALL " || subroutineName
   END
 END
 ELSE DO
-  INTERPRET "CALL " || target_describe
+  // Specific test name provided - run only matching tests
+  LET matching_tests = SUBROUTINES(target_describe)
+  DO subroutineName OVER matching_tests
+    INTERPRET "CALL " || subroutineName
+  END
 END
 
 // Final summary handled by TestRexxInterpreter
@@ -46,78 +47,63 @@ EXIT 0
 
 // ============= Tests =============
 
-BasicArithmeticTests:
-  CALL START_DESCRIBE "Basic Arithmetic Operations"
+StringLengthTest:
+  CALL START_DESCRIBE "String Length Validation"
   
-  // Setup local test data
-  LET x = 10
-  LET y = 5
-  LET zero = 0
-  
-  CALL START_TEST "should add positive numbers correctly"
-  ADDRESS EXPECTATIONS "{x + y} should be 15"
+  CALL START_TEST "should calculate length of normal string"
+  LET string_len = LENGTH(test_string)
+  ADDRESS EXPECTATIONS "{string_len} should be 11"
   CALL PASS
   
-  CALL START_TEST "should subtract numbers correctly"
-  ADDRESS EXPECTATIONS "{x - y} should be 5"
+  CALL START_TEST "should handle empty string length"
+  LET empty_len = LENGTH(empty_string)
+  ADDRESS EXPECTATIONS "{empty_len} should be 0"
   CALL PASS
   
-  CALL START_TEST "should multiply numbers correctly"
-  ADDRESS EXPECTATIONS "{x * y} should be 50"
+  CALL START_TEST "should calculate length of numeric string"
+  LET numeric_len = LENGTH(numeric_string)
+  ADDRESS EXPECTATIONS "{numeric_len} should be 5"
   CALL PASS
   
-  CALL START_TEST "should divide numbers correctly"
-  ADDRESS EXPECTATIONS "{x / y} should be 2"
-  CALL PASS
-  
-  CALL START_TEST "should handle integer division"
-  LET result = x % y  // Integer division in REXX
-  ADDRESS EXPECTATIONS "{result} should be 0"
-  CALL PASS
-  
-  CALL START_TEST "should handle addition with zero"
-  ADDRESS EXPECTATIONS "{x + zero} should be 10"
+  CALL START_TEST "should calculate length of mixed string"
+  LET mixed_len = LENGTH(mixed_string)
+  ADDRESS EXPECTATIONS "{mixed_len} should be 7"
   CALL PASS
   
   CALL END_DESCRIBE
 RETURN
 
-AdvancedMathTests:
-  CALL START_DESCRIBE "Advanced Mathematical Functions"
+StringCaseTest:
+  CALL START_DESCRIBE "String Case Conversion"
   
-  LET base = 2
-  LET exponent = 3
-  LET negative = -7
+  LET lower_text = "hello world"
+  LET upper_text = "HELLO WORLD"
+  LET mixed_case = "Hello World"
   
-  CALL START_TEST "should handle absolute values"
-  ADDRESS EXPECTATIONS "{ABS(negative)} should be 7"
+  CALL START_TEST "should convert to uppercase"
+  LET upper_result = UPPER(lower_text)
+  ADDRESS EXPECTATIONS "{upper_result} should be HELLO WORLD"
   CALL PASS
   
-  CALL START_TEST "should calculate power correctly"
-  LET power_result = base ** exponent
-  ADDRESS EXPECTATIONS "{power_result} should be 8"
+  CALL START_TEST "should convert to lowercase"
+  LET lower_result = LOWER(upper_text)
+  ADDRESS EXPECTATIONS "{lower_result} should be hello world"
   CALL PASS
   
-  CALL START_TEST "should handle square operations"
-  LET square = 4 * 4
-  ADDRESS EXPECTATIONS "{square} should be 16"
+  CALL START_TEST "should handle mixed case to upper"
+  LET mixed_upper = UPPER(mixed_case)
+  ADDRESS EXPECTATIONS "{mixed_upper} should be HELLO WORLD"
   CALL PASS
   
-  CALL START_TEST "should work with mathematical constants"
-  ADDRESS EXPECTATIONS "{pi} should be greater than 3"
-  CALL PASS
-  
-  ADDRESS EXPECTATIONS "{pi} should be less than 4"
-  CALL PASS
-  
-  CALL START_TEST "should compare constants correctly"
-  ADDRESS EXPECTATIONS "{pi} should be greater than {e}"
+  CALL START_TEST "should handle mixed case to lower"
+  LET mixed_lower = LOWER(mixed_case)
+  ADDRESS EXPECTATIONS "{mixed_lower} should be hello world"
   CALL PASS
   
   CALL END_DESCRIBE
 RETURN
 
-EdgeCaseTests:
+EdgeCaseTest:
   CALL START_DESCRIBE "Edge Cases and Error Handling"
   
   LET large_number = 999999
@@ -156,7 +142,7 @@ EdgeCaseTests:
   CALL END_DESCRIBE
 RETURN
 
-ConstantValidationTests:
+ConstantValidationTest:
   CALL START_DESCRIBE "Mathematical Constants Validation"
   
   CALL START_TEST "should validate PI approximation"
