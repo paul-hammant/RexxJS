@@ -56,6 +56,7 @@ class TestRexxInterpreter extends RexxInterpreter {
       
       if (subroutineName) {
         const upperSubroutine = subroutineName.toUpperCase();
+        
         if (upperSubroutine === 'PASS' || upperSubroutine === 'FAIL') {
           // Extract arguments from the params or arguments
           const args = command.arguments || (command.params ? [command.params.value] : []);
@@ -85,7 +86,6 @@ class TestRexxInterpreter extends RexxInterpreter {
     
     // Check if this is a test subroutine (ends with 'Test')
     if (uppercaseSubroutine.endsWith('TEST')) {
-      console.log(`[DEBUG] Test subroutine called: ${subroutine}`);
       // Count this as a test execution
       this.handleTestSubroutineCall(subroutine);
     }

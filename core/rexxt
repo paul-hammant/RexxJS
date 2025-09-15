@@ -770,6 +770,37 @@ async function main() {
   }
 }
 
+function camelCaseToEnglish(camelCaseStr) {
+  return camelCaseStr
+    // Add space before uppercase letters that follow lowercase letters or digits
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    // Handle sequences of uppercase letters (like "XMLHttpRequest" -> "XML Http Request")
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+    .trim();
+}
+
+function extractTestNamesFromFile(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const testNames = [];
+    
+    // Look for subroutine definitions that end with 'Test:'
+    const lines = content.split('\n');
+    for (const line of lines) {
+      const match = line.match(/^(\w+Test):/);
+      if (match) {
+        const testName = match[1];
+        const englishName = camelCaseToEnglish(testName);
+        testNames.push(englishName);
+      }
+    }
+    
+    return testNames;
+  } catch (error) {
+    return [];
+  }
+}
+
 function generateHierarchyFromResults(allTestResults) {
   const hierarchy = [];
   
@@ -780,6 +811,56 @@ function generateHierarchyFromResults(allTestResults) {
       tags: fileResult.tags,
       children: []
     };
+    
+    // Add individual tests as children if they exist
+    if (fileResult.tests && fileResult.tests.length > 0) {
+      fileNode.children = fileResult.tests.map(test => ({
+        type: 'test',
+        name: test.name || 'Unnamed Test',
+        passed: test.passed !== false, // Default to true unless explicitly false
+        status: test.passed !== false ? 'passed' : 'failed',
+        error: test.error || null,
+        startTime: test.startTime || null,
+        endTime: test.endTime || null,
+        output: test.output || []
+      }));
+    } else {
+      // If no individual test data, create virtual test entries based on totalTests
+      if (fileResult.totalTests > 0) {
+        // Try to extract test subroutine names from the source file
+        const testNames = extractTestNamesFromFile(fileResult.file);
+        
+        if (testNames.length >= fileResult.totalTests) {
+          // Use actual test names from source
+          for (let i = 0; i < fileResult.totalTests; i++) {
+            fileNode.children.push({
+              type: 'test',
+              name: testNames[i] || `Test ${i + 1}`,
+              passed: i < fileResult.passedTests,
+              status: i < fileResult.passedTests ? 'passed' : 'failed',
+              error: null,
+              startTime: null,
+              endTime: null,
+              output: []
+            });
+          }
+        } else {
+          // Fall back to generic names
+          for (let i = 0; i < fileResult.totalTests; i++) {
+            fileNode.children.push({
+              type: 'test',
+              name: `Test ${i + 1}`,
+              passed: i < fileResult.passedTests,
+              status: i < fileResult.passedTests ? 'passed' : 'failed',
+              error: null,
+              startTime: null,
+              endTime: null,
+              output: []
+            });
+          }
+        }
+      }
+    }
 
     hierarchy.push(fileNode);
   }

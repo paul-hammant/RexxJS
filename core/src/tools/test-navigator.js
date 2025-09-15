@@ -332,10 +332,19 @@ class TestNavigator {
       let fileTotal = 0;
       
       if (file.children) {
-        for (const suite of file.children) {
-          filePassed += suite.passed || 0;
-          fileFailed += suite.failed || 0;
-          fileTotal += (suite.passed || 0) + (suite.failed || 0);
+        for (const child of file.children) {
+          if (child.type === 'test') {
+            if (child.passed) {
+              filePassed += 1;
+            } else {
+              fileFailed += 1;
+            }
+            fileTotal += 1;
+          } else if (child.type === 'suite') {
+            filePassed += child.passed || 0;
+            fileFailed += child.failed || 0;
+            fileTotal += (child.passed || 0) + (child.failed || 0);
+          }
         }
       }
       
@@ -352,27 +361,41 @@ class TestNavigator {
         expanded: isExpanded
       });
       
-      // Add suites if file is expanded
+      // Add tests or suites if file is expanded
       if (isExpanded && file.children) {
-        for (const suite of file.children) {
-          if (suite.type === 'suite') {
-            const suiteKey = `${fileKey}:${suite.name}`;
+        for (const child of file.children) {
+          if (child.type === 'test' && this.shouldShowTest(child)) {
+            // Direct test under file
+            items.push({
+              type: 'test',
+              name: child.name,
+              passed: child.passed,
+              failed: !child.passed,
+              output: child.output,
+              error: child.error,
+              startTime: child.startTime,
+              endTime: child.endTime,
+              depth: 1
+            });
+          } else if (child.type === 'suite') {
+            // Suite containing tests
+            const suiteKey = `${fileKey}:${child.name}`;
             const suiteExpanded = this.expandedNodes.has(suiteKey);
             
             items.push({
               type: 'suite',
-              name: suite.name,
+              name: child.name,
               path: suiteKey,
-              passed: suite.passed || 0,
-              failed: suite.failed || 0,
-              total: (suite.passed || 0) + (suite.failed || 0),
+              passed: child.passed || 0,
+              failed: child.failed || 0,
+              total: (child.passed || 0) + (child.failed || 0),
               depth: 1,
               expanded: suiteExpanded
             });
             
             // Add tests if suite is expanded
-            if (suiteExpanded && suite.children) {
-              for (const test of suite.children) {
+            if (suiteExpanded && child.children) {
+              for (const test of child.children) {
                 if (test.type === 'test' && this.shouldShowTest(test)) {
                   items.push({
                     type: 'test',
@@ -456,7 +479,7 @@ class TestNavigator {
       if (item.type === 'file') {
         icon = item.expanded ? '📂' : '📄';
         const statusColor = item.failed > 0 ? Colors.red : Colors.green;
-        status = ` ${Colors.dim}[${item.tags ? item.tags.join(', ') : ''}] (${statusColor}${item.passed}${Colors.reset}${Colors.dim}/${item.total})${Colors.reset}`;
+        status = ` ${Colors.dim}[${item.tags && item.tags.length > 0 ? item.tags.join(', ') : ''}] (${statusColor}${item.passed}${Colors.reset}${Colors.dim}/${item.total})${Colors.reset}`;
       } else if (item.type === 'suite') {
         icon = item.expanded ? '📂' : '📁';
         const statusColor = item.failed > 0 ? Colors.red : Colors.green;
