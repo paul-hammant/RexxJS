@@ -1,5 +1,5 @@
 /**
- * Assertions REXX Demo Tests
+ * Expectations REXX Demo Tests
  * 
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
@@ -8,10 +8,10 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-describe('RexxJS Assertions Demo Script', () => {
+describe('RexxJS Expectations Demo Script', () => {
   
-  test('should run assertions demo script successfully', async () => {
-    const scriptPath = path.join(__dirname, 'scripts/simple-assertions-demo.js');
+  test('should run expectations demo script successfully', async () => {
+    const scriptPath = path.join(__dirname, 'scripts/simple-expectations-demo.js');
     const nodeCmd = 'node';
     
     const result = await new Promise((resolve, reject) => {
@@ -52,8 +52,8 @@ describe('RexxJS Assertions Demo Script', () => {
     // Verify the script ran successfully
     expect(result.code).toBe(0);
     
-    // Verify key assertion messages appear in output
-    expect(result.stdout).toContain('RexxJS Assertions Demo');
+    // Verify key expectation messages appear in output
+    expect(result.stdout).toContain('RexxJS Expectations Demo');
     expect(result.stdout).toContain('✓ Literal number equality passed');
     expect(result.stdout).toContain('✓ Age validation passed');
     expect(result.stdout).toContain('✓ Name contains check passed');
@@ -61,15 +61,15 @@ describe('RexxJS Assertions Demo Script', () => {
     expect(result.stdout).toContain('✓ Nested property equality passed');
     expect(result.stdout).toContain('✓ Deep nested property check passed');
     expect(result.stdout).toContain('✓ Negated equality check passed');
-    expect(result.stdout).toContain('All Assertions Passed!');
+    expect(result.stdout).toContain('All Expectations Passed!');
     
-    // Verify no assertion failures occurred
+    // Verify no expectation failures occurred
     expect(result.stdout).not.toContain('AssertionError');
     expect(result.stdout).not.toContain('Expected');
     expect(result.stdout).not.toContain('but was');
   }, 15000);
   
-  test('should handle assertion failures gracefully', () => {
+  test('should handle expectation failures gracefully', () => {
     // Use JavaScript approach since REXX REQUIRE has path issues
     const { ADDRESS_EXPECTATIONS_HANDLER, ExpectationError } = require('../src/expectations-address');
     
@@ -87,7 +87,7 @@ describe('RexxJS Assertions Demo Script', () => {
       user: { name: "Bob", age: 42, scores: [100, 95, 88] }
     };
     
-    // Test context-based assertions
+    // Test context-based expectations
     let result1 = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user.name} should be "Bob"', context: testContext });
     expect(result1.success).toBe(true);
     
@@ -97,7 +97,7 @@ describe('RexxJS Assertions Demo Script', () => {
     let result3 = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user.scores} should contain 100', context: testContext });
     expect(result3.success).toBe(true);
     
-    // Verify all assertions passed
+    // Verify all expectations passed
     expect(result1.operation).toBe('EXPECTATION');
     expect(result2.operation).toBe('EXPECTATION');
     expect(result3.operation).toBe('EXPECTATION');

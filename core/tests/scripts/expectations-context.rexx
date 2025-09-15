@@ -10,7 +10,7 @@ SAY "Testing context variables..."
 // Define test data
 LET user = {"name": "Bob", "age": 42, "scores": [100, 95, 88]}
 
-// Test context-based assertions
+// Test context-based expectations
 ADDRESS EXPECTATIONS "{user.name} should be 'Bob'"
 SAY "✓ Context name check passed"
 

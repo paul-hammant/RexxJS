@@ -1,16 +1,16 @@
 #!/usr/bin/env ./rexxt
 /*
- * RexxJS Assertions Multi-line Demo Script  
+ * RexxJS Expectations Multi-line Demo Script  
  * 
  * This demonstrates the traditional multi-line ADDRESS style:
  * - ADDRESS EXPECT on one line
- * - Followed by multiple assertion strings (without ADDRESS EXPECT prefix)
+ * - Followed by multiple expectation strings (without ADDRESS EXPECT prefix)
  *
  * This .rexx script is invoked by a JS test in <root>/tests/ by node, and
  * as such the current dir will be <root> and the REQUIRE a few lines below
  * is versus that dir.
  * 
- * All assertions are designed to pass. You could temporarily change one
+ * All expectations are designed to pass. You could temporarily change one
  * to see a failure, but don't commit that.
  * 
  * Copyright (c) 2025 Paul Hammant
@@ -19,7 +19,7 @@
 
 REQUIRE "./src/expectations-address.js"
 
-SAY "=== RexxJS Multi-line Assertions Demo ==="
+SAY "=== RexxJS Multi-line Expectations Demo ==="
 SAY ""
 
 // Define test data  
@@ -49,7 +49,7 @@ SAY "Testing context variables with multi-line ADDRESS style..."
 // Traditional REXX multi-line ADDRESS style
 ADDRESS EXPECTATIONS
 
-// Context-based assertions (no ADDRESS EXPECT prefix needed)
+// Context-based expectations (no ADDRESS EXPECT prefix needed)
 "{user.name} should be 'Bob'"
 SAY "✓ Context name check passed"
 
@@ -68,7 +68,7 @@ SAY "✓ Age range check passed"
 SAY ""
 SAY "Testing various data types..."
 
-// More assertions without ADDRESS EXPECT prefix
+// More expectations without ADDRESS EXPECT prefix
 "{temperature} should be 25"
 SAY "✓ Temperature equality check passed"
 
@@ -139,7 +139,7 @@ SAY "✓ Null value check passed"
 SAY "✓ Defined value check passed"
 
 SAY ""
-SAY "=== All Multi-line Assertions Passed! ==="
+SAY "=== All Multi-line Expectations Passed! ===
 SAY "RexxJS multi-line ADDRESS EXPECTATIONS style is working correctly."
 
 EXIT 0

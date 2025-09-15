@@ -1,25 +1,25 @@
 #!/usr/bin/env ./rexxt
 /*
- * RexxJS Assertions Demo Script
- * Demonstrates the Plain English Assertion DSL in a real REXX script
+ * RexxJS Expectations Demo Script
+ * Demonstrates the Plain English Expectation DSL in a real REXX script
  *
  * This .rexx script is invoked by a JS test in <root>/tests/ by node, and
  * as such the current dir will be <root> and the REQUIRE a few lines below
  * is versus that dir.
  * 
- * For this script. all assertions are going to pass. Yout could temporarily change one
+ * For this script. all expectations are going to pass. You could temporarily change one
  * to see a failure, but don't commit that.
  *
- * Also, all assertions are one-liners: ADDRESS EXPECTATIONS "<assertion>"
+ * Also, all expectations are one-liners: ADDRESS EXPECTATIONS "<expectation>"
  * 
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */
 
-// Load the assertions ADDRESS library
+// Load the expectations ADDRESS library
 REQUIRE "./src/expectations-address.js"
 
-SAY "=== RexxJS Assertions Demo ==="
+SAY "=== RexxJS Expectations Demo ==="
 SAY ""
 
 // Test data setup
@@ -42,7 +42,7 @@ LET user_profile = <<JSON
 }
 JSON
 
-SAY "Testing basic number assertions..."
+SAY "Testing basic number expectations..."
 
 // Basic number tests
 ADDRESS EXPECTATIONS "{25} should be 25"
@@ -55,7 +55,7 @@ ADDRESS EXPECTATIONS "{user_age} should be at least 21"
 SAY "✓ Legal age check passed"
 
 SAY ""
-SAY "Testing string assertions..."
+SAY "Testing string expectations..."
 
 // String tests
 ADDRESS EXPECTATIONS "{user_name} should contain 'John'"
@@ -68,7 +68,7 @@ ADDRESS EXPECTATIONS '{"password123"} should match /^[a-zA-Z0-9]+$/'
 SAY "✓ Password pattern check passed"
 
 SAY ""
-SAY "Testing array assertions..."
+SAY "Testing array expectations..."
 
 // Array tests  
 ADDRESS EXPECTATIONS "{scores} should be an array"
@@ -84,7 +84,7 @@ ADDRESS EXPECTATIONS "{scores} should not be empty"
 SAY "✓ Array not empty check passed"
 
 SAY ""
-SAY "Testing object and nested property assertions..."
+SAY "Testing object and nested property expectations..."
 
 // Object and nested property tests
 ADDRESS EXPECTATIONS "{user_profile} should be an object"
@@ -109,14 +109,14 @@ ADDRESS EXPECTATIONS "{user_profile.settings.theme} should be 'dark'"
 SAY "✓ Deep nested property check passed"
 
 SAY ""
-SAY "Testing basic value assertions..."
+SAY "Testing basic value expectations..."
 
 // Basic value tests (avoiding DOM-dependent type checking)
 ADDRESS EXPECTATIONS "{user_profile.settings} should be defined"
 SAY "✓ Defined value check passed"
 
 SAY ""
-SAY "Testing negation assertions..."
+SAY "Testing negation expectations..."
 
 // Negation tests
 ADDRESS EXPECTATIONS "{user_age} should not be 30"
@@ -132,7 +132,7 @@ ADDRESS EXPECTATIONS "{user_profile.active} should not be falsy"
 SAY "✓ Negated falsy check passed"
 
 SAY ""
-SAY "Testing range and comparison assertions..."
+SAY "Testing range and comparison expectations..."
 
 // Range and comparison tests
 ADDRESS EXPECTATIONS "{user_age} should be between 20 and 40"
@@ -147,8 +147,8 @@ ADDRESS EXPECTATIONS "{max_score} should be at most 100"
 SAY "✓ Maximum value check passed"
 
 SAY ""
-SAY "=== All Assertions Passed! ==="
-SAY "RexxJS Assertions ADDRESS library is working correctly."
+SAY "=== All Expectations Passed! ==="
+SAY "RexxJS Expectations ADDRESS library is working correctly."
 
 // Return success code
 EXIT 0

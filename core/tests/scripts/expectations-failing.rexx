@@ -5,7 +5,7 @@
 
 REQUIRE "./src/expectations-address.js"
 
-SAY "Testing failing assertion..."
+SAY "Testing failing expectation..."
 
 // This should fail - using literal values to avoid variable issues
 ADDRESS EXPECTATIONS

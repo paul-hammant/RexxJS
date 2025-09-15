@@ -1,8 +1,8 @@
 #!/usr/bin/env ./rexxt
 
 /**
- * Simple RexxJS Assertions Demo (JavaScript version for testing)
- * This demonstrates how the assertions work in a script context
+ * Simple RexxJS Expectations Demo (JavaScript version for testing)
+ * This demonstrates how the expectations work in a script context
  * 
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
@@ -10,7 +10,7 @@
 
 const { ADDRESS_EXPECTATIONS_HANDLER } = require('../../src/expectations-address');
 
-console.log('=== RexxJS Assertions Demo ===\n');
+console.log('=== RexxJS Expectations Demo ===\n');
 
 // Test data
 const testData = {
@@ -30,9 +30,9 @@ const testData = {
   }
 };
 
-async function runAssertions() {
+async function runExpectations() {
   try {
-    console.log('Testing basic number assertions...');
+    console.log('Testing basic number expectations...');
     
     // Basic tests
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{25} should be 25' });
@@ -41,7 +41,7 @@ async function runAssertions() {
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user_age} should be greater than 18', context: testData });
     console.log('✓ Age validation passed');
     
-    console.log('\nTesting string assertions...');
+    console.log('\nTesting string expectations...');
     
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user_name} should contain "John"', context: testData });
     console.log('✓ Name contains check passed');
@@ -49,7 +49,7 @@ async function runAssertions() {
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{"hello@example.com"} should contain "@"' });
     console.log('✓ Email format check passed');
     
-    console.log('\nTesting array assertions...');
+    console.log('\nTesting array expectations...');
     
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{scores} should be an array', context: testData });
     console.log('✓ Array type check passed');
@@ -60,7 +60,7 @@ async function runAssertions() {
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{scores} should contain 95', context: testData });
     console.log('✓ Array contains check passed');
     
-    console.log('\nTesting object and nested property assertions...');
+    console.log('\nTesting object and nested property expectations...');
     
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user_profile.name} should be "Alice Smith"', context: testData });
     console.log('✓ Nested property equality passed');
@@ -71,7 +71,7 @@ async function runAssertions() {
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user_profile.settings.theme} should be "dark"', context: testData });
     console.log('✓ Deep nested property check passed');
     
-    console.log('\nTesting negation assertions...');
+    console.log('\nTesting negation expectations...');
     
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user_age} should not be 30', context: testData });
     console.log('✓ Negated equality check passed');
@@ -79,15 +79,15 @@ async function runAssertions() {
     await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{user_profile.active} should not be falsy', context: testData });
     console.log('✓ Negated falsy check passed');
     
-    console.log('\n=== All Assertions Passed! ===');
-    console.log('RexxJS Assertions ADDRESS library is working correctly.');
+    console.log('\n=== All Expectations Passed! ===');
+    console.log('RexxJS Expectations ADDRESS library is working correctly.');
     
     process.exit(0);
     
   } catch (error) {
-    console.error('Assertion failed:', error.message);
+    console.error('Expectation failed:', error.message);
     process.exit(1);
   }
 }
 
-runAssertions();
+runExpectations();

@@ -1,5 +1,5 @@
 /**
- * Assertions REXX Integration Tests
+ * Expectations REXX Integration Tests
  * 
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
@@ -8,7 +8,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-describe('RexxJS Assertions Integration Tests', () => {
+describe('RexxJS Expectations Integration Tests', () => {
   const rexxExecutable = path.join(__dirname, '../rexx');
   const scriptsDir = path.join(__dirname, 'scripts');
   
@@ -42,11 +42,11 @@ describe('RexxJS Assertions Integration Tests', () => {
     });
   }
 
-  test('assertions-demo.rexx should execute successfully with all assertions passing', async () => {
-    const result = await runRexxScript('assertions-demo.rexx');
+  test('expectations-demo.rexx should execute successfully with all expectations passing', async () => {
+    const result = await runRexxScript('expectations-demo.rexx');
     
     // Debug output
-    console.log('assertions-demo.rexx exit code:', result.code);
+    console.log('expectations-demo.rexx exit code:', result.code);
     if (result.stderr) {
       console.log('STDERR:', result.stderr);
     }
@@ -55,8 +55,8 @@ describe('RexxJS Assertions Integration Tests', () => {
     expect(result.code).toBe(0);
     expect(result.stderr).toBe('');
     
-    // Verify key assertion success messages appear
-    expect(result.stdout).toContain('=== RexxJS Assertions Demo ===');
+    // Verify key expectation success messages appear
+    expect(result.stdout).toContain('=== RexxJS Expectations Demo ===');
     expect(result.stdout).toContain('✓ Literal number equality passed');
     expect(result.stdout).toContain('✓ Age validation passed');
     expect(result.stdout).toContain('✓ Name contains check passed');
@@ -64,7 +64,7 @@ describe('RexxJS Assertions Integration Tests', () => {
     expect(result.stdout).toContain('✓ Nested property equality passed');
     expect(result.stdout).toContain('✓ Deep nested property check passed');
     expect(result.stdout).toContain('✓ Negated equality check passed');
-    expect(result.stdout).toContain('=== All Assertions Passed! ===');
+    expect(result.stdout).toContain('=== All Expectations Passed! ===');
     
     // Should not contain any failure indicators
     expect(result.stdout).not.toContain('AssertionError');
@@ -73,11 +73,11 @@ describe('RexxJS Assertions Integration Tests', () => {
     expect(result.stderr).not.toContain('Error');
   }, 20000);
 
-  test('assertions-multiline.rexx should execute successfully with multi-line ADDRESS pattern', async () => {
-    const result = await runRexxScript('assertions-multiline.rexx');
+  test('expectations-multiline.rexx should execute successfully with multi-line ADDRESS pattern', async () => {
+    const result = await runRexxScript('expectations-multiline.rexx');
     
     // Debug output
-    console.log('assertions-multiline.rexx exit code:', result.code);
+    console.log('expectations-multiline.rexx exit code:', result.code);
     if (result.stderr) {
       console.log('STDERR:', result.stderr);
     }
@@ -86,8 +86,8 @@ describe('RexxJS Assertions Integration Tests', () => {
     expect(result.code).toBe(0);
     expect(result.stderr).toBe('');
     
-    // Verify key assertion success messages appear
-    expect(result.stdout).toContain('=== RexxJS Multi-line Assertions Demo ===');
+    // Verify key expectation success messages appear
+    expect(result.stdout).toContain('=== RexxJS Multi-line Expectations Demo ===');
     expect(result.stdout).toContain('✓ Context name check passed');
     expect(result.stdout).toContain('✓ Context age check passed');
     expect(result.stdout).toContain('✓ Context array contains check passed');
@@ -95,7 +95,7 @@ describe('RexxJS Assertions Integration Tests', () => {
     expect(result.stdout).toContain('✓ Config theme check passed');
     expect(result.stdout).toContain('✓ Email validation passed');
     expect(result.stdout).toContain('✓ Number type check passed');
-    expect(result.stdout).toContain('=== All Multi-line Assertions Passed! ===');
+    expect(result.stdout).toContain('=== All Multi-line Expectations Passed! ===');
     
     // Should not contain any failure indicators
     expect(result.stdout).not.toContain('AssertionError');
@@ -104,37 +104,37 @@ describe('RexxJS Assertions Integration Tests', () => {
     expect(result.stderr).not.toContain('Error');
   }, 20000);
 
-  test('assertions-failing.rexx demonstrates REXX ADDRESS assertion behavior', async () => {
-    const result = await runRexxScript('assertions-failing.rexx');
+  test('expectations-failing.rexx demonstrates REXX ADDRESS expectation behavior', async () => {
+    const result = await runRexxScript('expectations-failing.rexx');
     
     // Debug output
-    console.log('assertions-failing.rexx exit code:', result.code);
+    console.log('expectations-failing.rexx exit code:', result.code);
     console.log('STDOUT:', result.stdout);
     if (result.stderr) {
       console.log('STDERR:', result.stderr);
     }
     
-    // The script should exit with a non-zero code due to the failing assertion.
+    // The script should exit with a non-zero code due to the failing expectation.
     expect(result.code).not.toBe(0);
 
-    // The stderr should contain the assertion failure message.
+    // The stderr should contain the expectation failure message.
     expect(result.stderr).toContain('10 (number) expected, but 5 (number) encountered');
     
     // Should start execution
-    expect(result.stdout).toContain('Testing failing assertion...');
+    expect(result.stdout).toContain('Testing failing expectation...');
     
-    // Should not see the message after the failing assertion
+    // Should not see the message after the failing expectation
     expect(result.stdout).not.toContain('This should not appear');
   }, 20000);
 
-  test('modified assertions-demo.rexx demonstrates assertion processing', async () => {
-    // Test what happens when we modify the demo script to have a failing assertion
+  test('modified expectations-demo.rexx demonstrates expectation processing', async () => {
+    // Test what happens when we modify the demo script to have a failing expectation
     const fs = require('fs');
-    const originalPath = path.join(scriptsDir, 'assertions-demo.rexx');
-    const testPath = path.join(scriptsDir, 'assertions-demo-failing-test.rexx');
+    const originalPath = path.join(scriptsDir, 'expectations-demo.rexx');
+    const testPath = path.join(scriptsDir, 'expectations-demo-failing-test.rexx');
     
     try {
-      // Read original script and modify one assertion to fail
+      // Read original script and modify one expectation to fail
       const originalContent = fs.readFileSync(originalPath, 'utf8');
       const modifiedContent = originalContent.replace(
         'ADDRESS EXPECTATIONS "{user_name} should contain \'John\'"',
@@ -145,7 +145,7 @@ describe('RexxJS Assertions Integration Tests', () => {
       fs.writeFileSync(testPath, modifiedContent);
       
       // Run the modified script
-      const result = await runRexxScript('assertions-demo-failing-test.rexx');
+      const result = await runRexxScript('expectations-demo-failing-test.rexx');
       
       // Debug output
       console.log('Modified demo script exit code:', result.code);
@@ -153,14 +153,14 @@ describe('RexxJS Assertions Integration Tests', () => {
         console.log('STDERR:', result.stderr);
       }
       
-      // The script should exit with a non-zero code due to the failing assertion.
+      // The script should exit with a non-zero code due to the failing expectation.
       expect(result.code).not.toBe(0);
       expect(result.stderr).toContain('something that contains Eeeee expected, but John Doe encountered');
       
       // Should start execution
-      expect(result.stdout).toContain('=== RexxJS Assertions Demo ===');
+      expect(result.stdout).toContain('=== RexxJS Expectations Demo ===');
       
-      // The assertion library should be loaded and execute, but the message is not in stdout.
+      // The expectation library should be loaded and execute, but the message is not in stdout.
       // Let's remove this check as it's not reliable.
       
     } finally {
