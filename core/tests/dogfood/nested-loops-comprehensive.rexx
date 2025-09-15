@@ -6,20 +6,31 @@
 /* @test-tags nested-loops, control-flow, comprehensive, dogfood */
 /* @description Comprehensive Nested Loops Test - Multiple Loop Patterns */
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Comprehensive Nested Loops Test Suite Starting..."
 SAY "🔄 Testing various nested loop patterns and combinations"
 
-/* ============= NESTED LOOP TESTS ============= */
-CALL SimpleNestedLoopsTest
-CALL TripleNestedLoopsTest
-CALL NestedLoopsWithArraysTest
-CALL MultiplicationTableTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
+
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ Comprehensive Nested Loops Tests Complete"
 SAY "📊 All nested loop patterns executed successfully"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= SIMPLE NESTED LOOPS ============= */

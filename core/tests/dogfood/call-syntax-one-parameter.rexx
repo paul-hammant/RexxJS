@@ -3,20 +3,34 @@
 // Copyright (c) 2025 Paul Hammant
 // Licensed under the MIT License
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
+
+/* @test-tags call-syntax, one-parameter, functions, dogfood */
+/* @description CALL Syntax Test - One Parameter Functions */
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Test Suite Starting (One Parameter)..."
 SAY "Testing: CALL FUNCTION_NAME param0"
 
-/* ============= STRING FUNCTIONS ============= */
-CALL StringFunctionTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
 
-/* ============= MATH FUNCTIONS ============= */
-CALL MathFunctionTest
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ CALL Syntax One Parameter Tests Complete"
 SAY "📝 Note: CALL syntax allows functions to be invoked as procedures"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= STRING FUNCTION TESTS ============= */

@@ -6,16 +6,30 @@
 /* @test-tags call-syntax, simple-demo, educational, dogfood */
 /* @description Simple CALL Syntax Demonstration - Function vs CALL Differences */
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Simple CALL Syntax Demonstration Starting..."
 SAY "📝 Comparing function() syntax vs CALL syntax"
 
-/* ============= MAIN DEMONSTRATION ============= */
-CALL CallSyntaxTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
+
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ Simple CALL Syntax Demonstration Complete"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= CALL SYNTAX DEMO ============= */

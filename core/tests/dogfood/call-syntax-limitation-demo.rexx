@@ -6,14 +6,28 @@
 /* @test-tags call-syntax, limitations, educational, dogfood */
 /* @description CALL Syntax Limitations Demonstration - Built-in Functions vs Subroutines */
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Limitations Demonstration Starting..."
 SAY "🔍 Exploring REXX CALL syntax and current implementation limitations"
 
-/* ============= TESTS ============= */
-CALL CallSyntaxLimitationTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
+
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
+
 
 SAY "✅ CALL Syntax Limitations Demonstration Complete"
 SAY ""

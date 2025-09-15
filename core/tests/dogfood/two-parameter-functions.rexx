@@ -3,20 +3,34 @@
 // Copyright (c) 2025 Paul Hammant
 // Licensed under the MIT License
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
+
+/* @test-tags functions, two-parameter, string-functions, math-functions, dogfood */
+/* @description Two Parameter Function Test - Functions with Parentheses */
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Two Parameter Function Test Suite Starting..."
 SAY "Focus: Testing functions WITH parentheses (reliable syntax)"
 
-/* ============= STRING FUNCTIONS ============= */
-CALL StringFunctionTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
 
-/* ============= MATH FUNCTIONS ============= */  
-CALL MathFunctionTest
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ Two Parameter Function Tests Complete"
 SAY "📝 Note: Functions with parentheses work reliably across all implementations"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= STRING FUNCTION TESTS ============= */

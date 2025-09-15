@@ -6,26 +6,27 @@
 /* @test-tags call-syntax, three-parameter, functions, dogfood */
 /* @description CALL FUNCTION_NAME Syntax Tests - Three Parameter Functions */
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Test Suite Starting (Three Parameters)..."
 SAY "Testing: CALL FUNCTION_NAME param0 param1 param2"
 
-/* ============= STRING FUNCTIONS ============= */
-CALL StringFunctionTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
 
-/* ============= MATH FUNCTIONS ============= */
-CALL MathFunctionTest
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
 
-/* ============= LOGIC FUNCTIONS ============= */
-CALL LogicFunctionTest
-
-/* ============= VALIDATION FUNCTIONS ============= */
-CALL ValidationFunctionTest
-
-/* ============= REGEX FUNCTIONS ============= */
-CALL RegexFunctionTest
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ CALL Syntax Three Parameter Tests Complete"
 SAY "📝 Note: CALL syntax allows functions to be invoked as procedures with multiple parameters"

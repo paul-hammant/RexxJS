@@ -6,27 +6,35 @@
 /* @test-tags call-syntax, comprehensive, functions, dogfood */
 /* @description Comprehensive CALL FUNCTION_NAME Syntax Tests - All Parameter Counts */
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Comprehensive CALL Syntax Test Suite Starting..."
 SAY "Testing: CALL FUNCTION_NAME param0 [param1] [param2]"
 SAY "Demonstrates REXX procedure call syntax for function invocation"
 
-/* ============= ONE PARAMETER FUNCTIONS ============= */
-CALL OneParameterTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
 
-/* ============= TWO PARAMETER FUNCTIONS ============= */
-CALL TwoParameterTest
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
 
-/* ============= THREE PARAMETER FUNCTIONS ============= */
-CALL ThreeParameterTest
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ Comprehensive CALL Syntax Tests Complete"
 SAY "📋 Summary: CALL syntax allows functions to be invoked as procedures"
 SAY "   • Results are stored in the RESULT special variable"
 SAY "   • Syntax: CALL FUNCTION_NAME param1 param2 ..."
 SAY "   • Alternative to function(param1, param2) syntax"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= ONE PARAMETER FUNCTION TESTS ============= */

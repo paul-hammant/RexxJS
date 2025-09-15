@@ -6,20 +6,31 @@
 /* @test-tags call-syntax, two-parameter, functions, dogfood */
 /* @description CALL FUNCTION_NAME Syntax Tests - Two Parameter Functions */
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Test Suite Starting (Two Parameters)..."
 SAY "Testing: CALL FUNCTION_NAME param0 param1"
 
-/* ============= STRING FUNCTIONS ============= */
-CALL StringFunctionTest
+// Shared test data
+LET test_count = 0
+LET pass_count = 0
 
-/* ============= MATH FUNCTIONS ============= */  
-CALL MathFunctionTest
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
+
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ CALL Syntax Two Parameter Tests Complete"
 SAY "📝 Note: CALL syntax allows functions to be invoked as procedures with multiple parameters"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= STRING FUNCTION TESTS ============= */

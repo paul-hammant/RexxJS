@@ -3,21 +3,29 @@
 // Copyright (c) 2025 Paul Hammant
 // Licensed under the MIT License
 
-REQUIRE "expectations-address"
+REQUIRE "./src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Function Parentheses Test Suite Starting..."
 
-/* ============= ONE PARAMETER FUNCTIONS ============= */
-CALL OneParameterTest
+// Shared test data  
+LET test_count = 0
+LET pass_count = 0
 
-/* ============= TWO PARAMETER FUNCTIONS ============= */
-CALL TwoParameterTest
+// ============= ARGUMENT PARSING =============
+PARSE ARG target_describe .
 
-/* ============= THREE PARAMETER FUNCTIONS ============= */
-CALL ThreeParameterTest
+// ============= EXECUTION CONTROLLER =============
+// rexxt automatically passes .*Test$ when no arguments provided
+LET matching_tests = SUBROUTINES(target_describe)
+DO subroutineName OVER matching_tests
+  // Each test subroutine execution counts as one test
+  ADDRESS EXPECTATIONS "TEST_COUNT"
+  INTERPRET "CALL " || subroutineName
+END
 
 SAY "✅ Function Parentheses Tests Complete"
+// Final summary handled by TestRexxInterpreter
 EXIT 0
 
 /* ============= ONE PARAMETER FUNCTION TESTS ============= */
