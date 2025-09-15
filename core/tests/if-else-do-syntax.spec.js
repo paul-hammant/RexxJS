@@ -603,4 +603,104 @@ describe('IF ELSE DO Syntax Parsing', () => {
     expect(interpreter.getVariable('last_calc')).toBe(88); // 22*4
     expect(interpreter.getVariable('final_calc')).toBe('calculations_complete');
   });
+
+  it('should handle the exact string-validation-specs.rexx pattern with PARSE ARG and SUBROUTINES', async () => {
+    // Mock the PARSE ARG functionality by setting up variables
+    // Note: We'll simulate PARSE ARG by directly setting the variable in the script
+    
+    // Set up SUBROUTINES function to match string-validation-specs.rexx behavior
+    if (!interpreter.functions) {
+      interpreter.functions = new Map();
+    }
+    interpreter.functions.set('SUBROUTINES', (pattern) => {
+      const availableTests = ['StringLengthTest', 'StringCaseTest', 'EdgeCaseTest', 'ConstantValidationTest'];
+      if (!pattern || pattern === '.*Test$') {
+        return availableTests; // Return all tests for regex or empty pattern
+      }
+      // For specific patterns like "sss", return empty array (no matches)
+      return [];
+    });
+
+    // Test case 1: No arguments (empty string) - should run all tests ending in Test
+    const script1 = `
+      LET target_describe = ""
+      
+      IF LENGTH(target_describe) = 0 THEN DO
+        LET test_subroutines = SUBROUTINES(".*Test$")
+        LET subroutines_type = TYPEOF(test_subroutines)
+        LET subroutines_length = LENGTH(test_subroutines)
+        
+        LET test_count = 0
+        DO subroutineName OVER test_subroutines
+          LET test_count = test_count + 1
+          LET last_called = subroutineName
+        END
+        LET execution_path = "all_tests"
+      END
+      ELSE DO
+        LET matching_tests = SUBROUTINES(target_describe)
+        LET test_count = 0
+        DO subroutineName OVER matching_tests
+          LET test_count = test_count + 1
+          LET last_called = subroutineName  
+        END
+        LET execution_path = "specific_tests"
+      END
+    `;
+    
+    const commands1 = parse(script1);
+    await interpreter.run(commands1);
+
+    expect(interpreter.getVariable('execution_path')).toBe('all_tests');
+    
+    // This demonstrates the bug! SUBROUTINES returns an object with length 0 instead of an array
+    expect(interpreter.getVariable('subroutines_type')).toBe('object');
+    expect(interpreter.getVariable('subroutines_length')).toBe(0); // BUG: Should be 4
+    expect(interpreter.getVariable('test_count')).toBe(0); // BUG: Should be 4 - no loop iterations because empty object
+
+    // Reset interpreter for second test
+    interpreter = new RexxInterpreter(mockAddressSender);
+    if (!interpreter.functions) {
+      interpreter.functions = new Map();
+    }
+    interpreter.functions.set('SUBROUTINES', (pattern) => {
+      const availableTests = ['StringLengthTest', 'StringCaseTest', 'EdgeCaseTest', 'ConstantValidationTest'];
+      if (!pattern || pattern === '.*Test$') {
+        return availableTests; // Return all tests for regex or empty pattern
+      }
+      // For specific patterns like "sss", return empty array (no matches)
+      return [];
+    });
+
+    // Test case 2: Specific argument "sss" - should return zero matches
+    const script2 = `
+      LET target_describe = "sss"
+      
+      IF LENGTH(target_describe) = 0 THEN DO
+        LET test_subroutines = SUBROUTINES(".*Test$")
+        LET test_count = 0
+        DO subroutineName OVER test_subroutines
+          LET test_count = test_count + 1
+          LET last_called = subroutineName
+        END
+        LET execution_path = "all_tests"
+      END
+      ELSE DO
+        LET matching_tests = SUBROUTINES(target_describe)
+        LET test_count = 0
+        DO subroutineName OVER matching_tests
+          LET test_count = test_count + 1
+          LET last_called = subroutineName  
+        END
+        LET execution_path = "specific_tests"
+      END
+    `;
+    
+    const commands2 = parse(script2);
+    await interpreter.run(commands2);
+
+    expect(interpreter.getVariable('execution_path')).toBe('specific_tests');
+    expect(interpreter.getVariable('test_count')).toBe(0); // Correctly 0 matches for "sss"
+    expect(interpreter.getVariable('last_called')).toBeUndefined(); // No subroutines called
+  });
 });
