@@ -4774,6 +4774,117 @@ describe('Rexx-lite Interpreter', () => {
           expect(typeof result[0]).toBe('string');
         }
       });
+
+      it('should support regex pattern matching with SUBROUTINES', async () => {
+        const interpreter = new Interpreter(addressSender);
+        
+        // Define test subroutines with different naming patterns
+        await interpreter.run(parse(`
+          StringLengthTest:
+            RETURN "string length test"
+          StringCaseTest:
+            RETURN "string case test"
+          EdgeCaseTest:
+            RETURN "edge case test"
+          HelperFunction:
+            RETURN "helper function"
+          ValidateInput:
+            RETURN "validate input"
+          ProcessDataTest:
+            RETURN "process data test"
+        `));
+        
+        const script = `
+          LET testSubs = SUBROUTINES(".*Test$")
+          LET functionSubs = SUBROUTINES(".*Function$")
+          LET allSubs = SUBROUTINES()
+          LET noMatch = SUBROUTINES(".*XYZ$")
+        `;
+        
+        await interpreter.run(parse(script));
+        
+        const testResult = interpreter.getVariable('testSubs');
+        const functionResult = interpreter.getVariable('functionSubs');
+        const allResult = interpreter.getVariable('allSubs');
+        const noMatchResult = interpreter.getVariable('noMatch');
+        
+        // Test regex pattern .*Test$ should match subroutines ending with "Test"
+        expect(Array.isArray(testResult)).toBe(true);
+        expect(testResult).toContain('STRINGLENGTHTEST');
+        expect(testResult).toContain('STRINGCASETEST');
+        expect(testResult).toContain('EDGECASETEST');
+        expect(testResult).toContain('PROCESSDATATEST');
+        expect(testResult).not.toContain('HELPERFUNCTION');
+        expect(testResult).not.toContain('VALIDATEINPUT');
+        
+        // Test regex pattern .*Function$ should match subroutines ending with "Function"
+        expect(Array.isArray(functionResult)).toBe(true);
+        expect(functionResult).toContain('HELPERFUNCTION');
+        expect(functionResult).not.toContain('STRINGLENGTHTEST');
+        expect(functionResult).not.toContain('VALIDATEINPUT');
+        
+        // Test all subroutines
+        expect(Array.isArray(allResult)).toBe(true);
+        expect(allResult.length).toBeGreaterThan(4);
+        
+        // Test no matches
+        expect(Array.isArray(noMatchResult)).toBe(true);
+        expect(noMatchResult.length).toBe(0);
+      });
+
+      it('should handle complex regex patterns in SUBROUTINES', async () => {
+        const interpreter = new Interpreter(addressSender);
+        
+        await interpreter.run(parse(`
+          TestSetup:
+            RETURN "test setup"
+          TestCleanup:
+            RETURN "test cleanup"
+          TestValidation:
+            RETURN "test validation"
+          SetupHelper:
+            RETURN "setup helper"
+          CleanupUtil:
+            RETURN "cleanup util"
+          ValidationTest:
+            RETURN "validation test"
+        `));
+        
+        const script = `
+          LET testPrefix = SUBROUTINES("^Test.*")
+          LET testSuffix = SUBROUTINES(".*Test$")
+          LET setupPattern = SUBROUTINES(".*Setup.*")
+          LET validationPattern = SUBROUTINES(".*[Vv]alidation.*")
+        `;
+        
+        await interpreter.run(parse(script));
+        
+        const testPrefixResult = interpreter.getVariable('testPrefix');
+        const testSuffixResult = interpreter.getVariable('testSuffix');
+        const setupResult = interpreter.getVariable('setupPattern');
+        const validationResult = interpreter.getVariable('validationPattern');
+        
+        // Test ^Test.* pattern (starts with Test)
+        expect(testPrefixResult).toContain('TESTSETUP');
+        expect(testPrefixResult).toContain('TESTCLEANUP');
+        expect(testPrefixResult).toContain('TESTVALIDATION');
+        expect(testPrefixResult).not.toContain('SETUPHELPER');
+        expect(testPrefixResult).not.toContain('VALIDATIONTEST');
+        
+        // Test .*Test$ pattern (ends with Test)
+        expect(testSuffixResult).toContain('VALIDATIONTEST');
+        expect(testSuffixResult).not.toContain('TESTSETUP');
+        expect(testSuffixResult).not.toContain('SETUPHELPER');
+        
+        // Test .*Setup.* pattern (contains Setup)
+        expect(setupResult).toContain('TESTSETUP');
+        expect(setupResult).toContain('SETUPHELPER');
+        expect(setupResult).not.toContain('TESTCLEANUP');
+        
+        // Test case insensitive validation pattern
+        expect(validationResult).toContain('TESTVALIDATION');
+        expect(validationResult).toContain('VALIDATIONTEST');
+      });
     });
     });
   });

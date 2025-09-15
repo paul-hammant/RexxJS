@@ -1272,14 +1272,29 @@ class RexxInterpreter {
       // Reflection functions
       'SUBROUTINES': (pattern = null) => {
         const allSubroutines = Array.from(this.subroutines.keys());
-        const patternUpper = (pattern === null || pattern === undefined) ? null : String(pattern).toUpperCase().trim();
+        const patternStr = (pattern === null || pattern === undefined) ? null : String(pattern).trim();
 
         const results = allSubroutines
             .map(name => name.trim().toUpperCase())
             .filter(name => {
               if (name.length === 0) return false;
-              if (patternUpper === null || patternUpper === '') return true;
-              return name.includes(patternUpper);
+              if (patternStr === null || patternStr === '') return true;
+              
+              // Check if pattern contains regex metacharacters
+              const regexChars = /[.*+?^${}()|[\]\\]/;
+              if (regexChars.test(patternStr)) {
+                // Treat as regex pattern (case-insensitive)
+                try {
+                  const regex = new RegExp(patternStr, 'i');
+                  return regex.test(name);
+                } catch (e) {
+                  // If regex is invalid, fall back to substring matching
+                  return name.includes(patternStr.toUpperCase());
+                }
+              } else {
+                // Simple substring matching (original behavior)
+                return name.includes(patternStr.toUpperCase());
+              }
             });
         return results;
       },
