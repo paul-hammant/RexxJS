@@ -994,22 +994,16 @@ function parseIfStatement(tokens, startIndex) {
     let currentIndex = startIndex + 1;
     let nestedDoCount = 0;
     
-    // Find matching END, handling nested DO/END pairs
+    // Find matching END - let parseStatement handle nested DO/END pairs
     while (currentIndex < tokens.length) {
       const line = tokens[currentIndex].content;
       
-      if (line.match(/^DO\s/i)) {
-        nestedDoCount++;
-      } else if (line.match(/^END\s*$/i)) {
-        if (nestedDoCount === 0) {
-          // Found the matching END for this IF THEN DO
-          break;
-        } else {
-          nestedDoCount--;
-        }
+      if (line.match(/^END\s*$/i)) {
+        // Found the matching END for this IF THEN DO
+        break;
       }
       
-      // Parse nested statement
+      // Parse nested statement (parseStatement will handle DO/END pairs internally)
       const result = parseStatement(tokens, currentIndex);
       if (result.command) {
         thenCommands.push(result.command);
@@ -1033,19 +1027,13 @@ function parseIfStatement(tokens, startIndex) {
       while (nextIndex < tokens.length) {
         const line = tokens[nextIndex].content;
         
-        if (line.match(/^DO\s/i)) {
-          nestedDoCount++;
-        } else if (line.match(/^END\s*$/i)) {
-          if (nestedDoCount === 0) {
-            // Found the matching END for ELSE DO
-            nextIndex++; // Skip past END
-            break;
-          } else {
-            nestedDoCount--;
-          }
+        if (line.match(/^END\s*$/i)) {
+          // Found the matching END for ELSE DO
+          nextIndex++; // Skip past END
+          break;
         }
         
-        // Parse nested statement
+        // Parse nested statement (parseStatement will handle DO/END pairs internally)
         const result = parseStatement(tokens, nextIndex);
         if (result.command) {
           elseCommands.push(result.command);
