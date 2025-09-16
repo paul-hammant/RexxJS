@@ -1,6 +1,6 @@
 /*!
- * duckdb-wasm-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"dependencies":{"@duckdb/duckdb-wasm":"^1.28.0"}}
+ * rexxjs/duckdb-wasm-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
+ * @rexxjs-meta {"namespace":"rexxjs","dependencies":{"@duckdb/duckdb-wasm":"^1.28.0"},"envVars":[]}
  */
 /**
  * DuckDB-WASM ADDRESS Library - Provides an in-process analytical database via ADDRESS interface
@@ -77,6 +77,7 @@ function DUCKDB_WASM_ADDRESS_MAIN() {
         description: 'In-process analytical database via DuckDB-WASM',
         provides: {
             addressTarget: 'duckdb',
+            handlerFunction: 'ADDRESS_DUCKDB_WASM_HANDLER',
             commandSupport: true,
             methodSupport: true
         },

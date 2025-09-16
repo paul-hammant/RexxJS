@@ -1,3 +1,7 @@
+/*!
+ * rexxjs/gemini-pro-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
+ * @rexxjs-meta {"namespace":"rexxjs","dependencies":{},"envVars":["GOOGLE_API_KEY"]}
+ */
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
 /**
@@ -25,6 +29,7 @@ function GEMINI_PRO_ADDRESS_MAIN() {
     description: 'Google Gemini Pro API integration via ADDRESS CHECKPOINT interface',
     provides: {
       addressTarget: 'gemini-pro',
+      handlerFunction: 'ADDRESS_GEMINI_PRO_HANDLER',
       commandSupport: false, // We only support method-style calls for CHECKPOINT
       methodSupport: true
     },

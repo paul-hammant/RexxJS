@@ -1,3 +1,7 @@
+/*!
+ * rexxjs/claude-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
+ * @rexxjs-meta {"namespace":"rexxjs","dependencies":{},"envVars":["ANTHROPIC_API_KEY"]}
+ */
 /**
  * Claude API ADDRESS Library - Provides AI chat operations via ADDRESS interface
  * This is an ADDRESS target library, not a functions library
@@ -44,6 +48,7 @@ function CLAUDE_ADDRESS_MAIN() {
     description: 'Anthropic Claude API integration via ADDRESS interface',
     provides: {
       addressTarget: 'claude',
+      handlerFunction: 'ADDRESS_CLAUDE_HANDLER',
       commandSupport: true,  // Indicates support for command-string style
       methodSupport: true    // Also supports method-call style for convenience
     },

@@ -1,3 +1,7 @@
+/*!
+ * rexxjs/openai-chat-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
+ * @rexxjs-meta {"namespace":"rexxjs","dependencies":{},"envVars":["OPENAI_API_KEY"]}
+ */
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
 /**
@@ -55,6 +59,7 @@ function OPENAI_CHAT_ADDRESS_MAIN() {
         description: 'OpenAI Chat Completions API integration via ADDRESS CHECKPOINT interface.',
         provides: {
             addressTarget: 'openai-chat',
+            handlerFunction: 'ADDRESS_OPENAI_CHAT_HANDLER',
             commandSupport: true,
             methodSupport: true
         },
