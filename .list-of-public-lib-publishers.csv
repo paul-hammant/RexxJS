@@ -1,6 +1,7 @@
-Organization,Repository,Versions URL,Last_Updated,Status
-com.example-org,https://github.com/example-dot-com/placeholder-lib,https://raw.githubusercontent.com/example-dot-com/placeholder-lib/main/rexxjs-versions.json,2024-12-15,active
-io.test-libs-co,https://github.com/test-organization/math-utils,https://raw.githubusercontent.com/test-organization/math-utils/main/versions.json,2024-11-20,active
-uk.co.bigcad-publisher,https://github.com/bigcad-uk/graphics-toolkit,https://raw.githubusercontent.com/bigcad-uk/graphics-toolkit/main/versions.json,2024-10-10,active
-org.dev-testing,https://github.com/dev-testing-llc/scipy-interp,https://raw.githubusercontent.com/dev-testing-llc/scipy-interp/main/versions.json,2025-01-01,active
-me.stealthyme,https://github.com/stealthy-me/secret-lib,https://stealthyme.me/.rexx-versions.json,2024-12-31,inactive
+organization,verified_domain,github_org,contact_email,status
+rexxjs,rexxjs.org,RexxJS,paul@hammant.org,active
+com.paulhammant,paulhammant.com,paul-hammant,paul@hammant.org,active
+com.example,example.com,example-dot-com,rexxjs-contact@example.com,active
+com.test,test.com,test-organization,rexxjs-contact@test.com,active
+uk.co.bigcad,bigcad.co.uk,bigcad-uk,rexxjs-contact@bigcad.co.uk,active
+org.devtesting,devtesting.org,dev-testing-llc,rexxjs-contact@devtesting.org,active

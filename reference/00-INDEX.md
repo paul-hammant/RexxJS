@@ -231,13 +231,14 @@ Execution in Node.js environments (desktop, server, docker-style container or VM
 - Test-driven development patterns
 - Quality assurance and debugging support
 
-### 🔄 [REQUIRE Statement](32-require-statement.md)
+### 🔄 [REQUIRE Statement](33-require-statement.md)
 - Detailed REQUIRE statement syntax and semantics
+- Registry-based library loading with namespace verification
 - Dynamic loading patterns and best practices
 - Dependency management and version control
 - Library development and publishing guidelines
 
-### 💻 [REPL Guide](33-repl-guide.md)
+### 💻 [REPL Guide](34-repl-guide.md)
 - Interactive RexxJS development environment
 - REPL-specific features and commands
 - Debugging and exploration techniques
@@ -245,13 +246,13 @@ Execution in Node.js environments (desktop, server, docker-style container or VM
 
 ## Reference Materials
 
-### 📚 [Function Reference](34-function-reference.md)
+### 📚 [Function Reference](35-function-reference.md)
 - Comprehensive cross-reference catalog (400+ functions)
 - Implementation status and environment compatibility
 - Function availability by category and use case
 - Cross-reference index for all built-in functions
 
-### 🧪 [Testing with rexxt](35-testing-rexxt.md)
+### 🧪 [Testing with rexxt](32-testing-rexxt.md)
 - Native test runner for RexxJS code
 - Execution-based testing without formal suites
 - ADDRESS EXPECTATIONS integration patterns

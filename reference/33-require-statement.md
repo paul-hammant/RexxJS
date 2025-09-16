@@ -103,7 +103,22 @@ The system will try:
 1. Local file (if path-like)
 2. GitHub raw URL: `https://raw.githubusercontent.com/rexx-libs/{name}/main/lib/{name}.js`
 
-### 3. Dependency Management
+### 3. Registry Loading
+
+Load verified libraries from the RexxJS registry using namespaced names:
+
+```rexx
+REQUIRE "registry:rexxjs/system-address"        // Official RexxJS library
+REQUIRE "registry:com.google--ai/gemini-pro-address"  // Vendor library with subdomain
+REQUIRE "registry:com.paulhammant/custom-address"     // Personal domain library
+```
+
+Registry syntax: `registry:namespace/library-name` where:
+- `namespace` is either `domain` or `domain--subdomain`  
+- Libraries must be registered in `.list-of-public-lib-publishers.csv`
+- Domain ownership verification required for registration
+
+### 4. Dependency Management
 
 Libraries can have dependencies that are automatically loaded:
 
@@ -173,7 +188,29 @@ LET scatter = R_SCATTER x=[1,2,3,4] y=[2,4,1,5] title="Scatter Plot"
 SHOW scatter
 ```
 
-### Example 5: Semantic DATABASE Names
+### Example 5: Registry Library Loading
+
+```rexx
+// Load official RexxJS libraries from registry
+REQUIRE "registry:rexxjs/system-address"
+REQUIRE "registry:rexxjs/jq-address" as="JSON"
+
+// Load vendor-specific libraries  
+REQUIRE "registry:com.anthropic/claude-address" as="AI"
+REQUIRE "registry:com.google--ai/gemini-pro-address" as="Gemini"
+
+// Use the loaded libraries
+ADDRESS system
+"ls -al *.rexx"
+
+ADDRESS JSON  
+LET result = filter data=json_data query=".items[].name"
+
+ADDRESS AI
+LET response = chat message="Explain quantum computing" model="claude-3"
+```
+
+### Example 6: Semantic DATABASE Names
 
 ```rexx
 // Load databases with meaningful names

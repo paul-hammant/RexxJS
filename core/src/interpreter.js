@@ -2996,6 +2996,11 @@ class RexxInterpreter {
   }
 
   async loadSingleLibrary(libraryName) {
+    // Check if it's a registry: prefixed library
+    if (libraryName.startsWith('registry:')) {
+      return await this.requireRegistryLibrary(libraryName.substring(9)); // Remove 'registry:' prefix
+    }
+
     // Original single library loading logic
     const env = this.detectEnvironment();
     switch (env) {
@@ -3571,6 +3576,116 @@ class RexxInterpreter {
       
     } catch (error) {
       throw new Error(`Failed to load ${libraryName} in Node.js: ${error.message}`);
+    }
+  }
+
+  async requireRegistryLibrary(namespacedLibrary) {
+    // Parse namespace/library format: "rexxjs/system-address" or "com.google--ai/gemini-pro-address"
+    const parts = namespacedLibrary.split('/');
+    if (parts.length !== 2) {
+      throw new Error(`Invalid registry library format: ${namespacedLibrary}. Expected: namespace/library-name`);
+    }
+    
+    const [namespace, libraryName] = parts;
+    
+    // Split namespace on -- to get domain and subdomain
+    const [domain, subdomain] = namespace.split('--');
+    
+    // Load the publisher registry
+    const registryUrl = 'https://raw.githubusercontent.com/RexxJS/RexxJS/refs/heads/main/.list-of-public-lib-publishers.csv';
+    const publisherInfo = await this.lookupPublisher(domain, registryUrl);
+    
+    if (!publisherInfo) {
+      throw new Error(`Unknown namespace '${domain}' not found in registry. Publishers must be registered in .list-of-public-lib-publishers.csv`);
+    }
+    
+    // Construct the library URL based on the publisher info
+    const libraryUrl = this.constructRegistryLibraryUrl(publisherInfo, libraryName, subdomain);
+    
+    // Load the library using existing GitHub-style loading
+    console.log(`📦 Loading registry library: ${namespacedLibrary} from ${libraryUrl}`);
+    return await this.loadLibraryFromUrl(libraryUrl, namespacedLibrary);
+  }
+
+  async lookupPublisher(domain, registryUrl) {
+    try {
+      const response = await fetch(registryUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch registry: ${response.status}`);
+      }
+      
+      const csvText = await response.text();
+      const lines = csvText.trim().split('\n');
+      const headers = lines[0].split(',');
+      
+      // Find the organization column
+      const orgIndex = headers.findIndex(h => h.toLowerCase().includes('organization'));
+      if (orgIndex === -1) {
+        throw new Error('Registry CSV missing organization column');
+      }
+      
+      // Look for matching domain
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        if (values[orgIndex] === domain) {
+          // Return publisher info object
+          const publisherInfo = {};
+          headers.forEach((header, index) => {
+            publisherInfo[header.toLowerCase().trim()] = values[index]?.trim() || '';
+          });
+          return publisherInfo;
+        }
+      }
+      
+      return null; // Domain not found
+    } catch (error) {
+      throw new Error(`Failed to lookup publisher registry: ${error.message}`);
+    }
+  }
+
+  constructRegistryLibraryUrl(publisherInfo, libraryName, subdomain) {
+    // For now, assume libraries are in RexxJS repo under extras/
+    // Later this could be enhanced to support external repos
+    const baseUrl = 'https://raw.githubusercontent.com/RexxJS/RexxJS/refs/heads/main/extras';
+    
+    // Determine library type and path
+    let libraryPath;
+    if (libraryName.includes('-address')) {
+      // ADDRESS library
+      const addressName = libraryName.replace('-address', '');
+      libraryPath = `addresses/${addressName}/${addressName}-address.js`;
+    } else if (libraryName.includes('-functions')) {
+      // Functions library  
+      const functionType = libraryName.replace('-functions', '');
+      libraryPath = `functions/${functionType}/${functionType}-functions.js`;
+    } else {
+      // Generic library path
+      libraryPath = `libraries/${libraryName}/${libraryName}.js`;
+    }
+    
+    return `${baseUrl}/${libraryPath}`;
+  }
+
+  async loadLibraryFromUrl(url, libraryName) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch library: ${response.status} ${response.statusText}`);
+      }
+      
+      const libraryCode = await response.text();
+      
+      // Execute the library code in global scope
+      eval(libraryCode);
+      
+      // Register the library functions
+      this.registerLibraryFunctions(libraryName);
+      
+      console.log(`✓ Loaded registry library: ${libraryName}`);
+      return true;
+      
+    } catch (error) {
+      throw new Error(`Failed to load registry library ${libraryName}: ${error.message}`);
     }
   }
 
