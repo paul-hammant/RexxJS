@@ -1,6 +1,6 @@
-Organization,Repository,Versions URL,Last Updated,Status
-com.example-org-leet-llm,https://github.com/example/placeholder-lib,https://raw.githubusercontent.com/example/placeholder-lib/main/versions.json,2024-12-15,broken
-io.test-libs,https://github.com/test-organization/math-utils,https://raw.githubusercontent.com/test-organization/math-utils/main/versions.json,2024-11-20,development
-uk.co.demo-publisher-bigcad,https://github.com/demo-org/graphics-toolkit,https://raw.githubusercontent.com/demo-org/graphics-toolkit/main/versions.json,2024-10-10,placeholder
-org.dev-testing-agentic-selenium,https://github.com/dev-testing/scipy-interp,https://raw.githubusercontent.com/dev-testing/scipy-interp/main/versions.json,2025-01-01,testing
-me.stealth-mode,https://github.com/stealth-me/secret-lib,https://raw.githubusercontent.com/stealth-me/secret-lib/main/versions.json,2024-12-31,unavailable
+Organization,Repository,Versions URL,Last_Updated,Status
+com.example-org,https://github.com/example-dot-com/placeholder-lib,https://raw.githubusercontent.com/example-dot-com/placeholder-lib/main/rexxjs-versions.json,2024-12-15,active
+io.test-libs-co,https://github.com/test-organization/math-utils,https://raw.githubusercontent.com/test-organization/math-utils/main/versions.json,2024-11-20,active
+uk.co.bigcad-publisher,https://github.com/bigcad-uk/graphics-toolkit,https://raw.githubusercontent.com/bigcad-uk/graphics-toolkit/main/versions.json,2024-10-10,active
+org.dev-testing,https://github.com/dev-testing-llc/scipy-interp,https://raw.githubusercontent.com/dev-testing-llc/scipy-interp/main/versions.json,2025-01-01,active
+me.stealthyme,https://github.com/stealthy-me/secret-lib,https://stealthyme.me/.rexx-versions.json,2024-12-31,inactive
