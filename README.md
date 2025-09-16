@@ -4,6 +4,8 @@ A lightweight, embeddable REXX interpreter for JavaScript environments, with com
 
 The aim is to implement as much of 1979's Rexx as possible, with the likely exception of PULL that'd seek user input - ordinarily that'd map to something coming from STDIN, but there's no such thing in the DOM.
 
+A blog entry I did when making this repo public: [Starting RexxJS](https://paulhammant.com/2025/09/15/starting-rexxjs/)
+    
 Compatibility with other REXX implementations: RexxJS does not claim compatibility
 
 ### Retro features are back in 2025
