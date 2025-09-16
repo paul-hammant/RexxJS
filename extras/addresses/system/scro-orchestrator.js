@@ -42,12 +42,12 @@ function log(operation, details) {
   logActivity('DEPLOYMENT', operation, details);
 }
 const RemoteShellHandler = require('./remote-shell-handler');
-const ContainerHandler = require('./container-handler');
+const PodmanHandler = require('./podman-handler');
 
 class SCROOrchestrator {
   constructor() {
     this.remoteShell = new RemoteShellHandler();
-    this.container = new ContainerHandler();
+    this.container = new PodmanHandler();
     this.deploymentCounter = 0;
     this.activeDeployments = new Map();
     this.defaultBinaryPath = null;
@@ -930,7 +930,16 @@ ${script}
     // Setup listener for CHECKPOINT messages from remote script
     checkpoint.listener = (message) => {
       try {
-        const checkpointData = JSON.parse(message);
+        const messageData = JSON.parse(message);
+        
+        // Handle remote REQUIRE requests
+        if (messageData.type === 'rexx-require' && messageData.subtype === 'require_request') {
+          this.handleRemoteRequire(messageData.data, checkpoint);
+          return;
+        }
+        
+        // Handle regular checkpoint updates
+        const checkpointData = messageData.checkpointId ? messageData : { checkpointId, ...messageData };
         if (checkpointData.checkpointId === checkpointId) {
           // Update checkpoint with remote progress
           checkpoint.results.push({
@@ -967,6 +976,117 @@ ${script}
     }
   }
   
+  async handleRemoteRequire(requireData, checkpoint) {
+    // Handle remote REQUIRE request from remote script via CHECKPOINT channel
+    const { libraryName, requireId } = requireData;
+    
+    log('remote_require_request', { libraryName, requireId });
+    
+    try {
+      // Resolve library using orchestrator's local environment
+      const libraryCode = await this.resolveLibraryForRemote(libraryName);
+      
+      // Send library code back to remote via CHECKPOINT response
+      const response = {
+        type: 'rexx-require-response',
+        requireId: requireId,
+        success: true,
+        libraryCode: libraryCode,
+        libraryName: libraryName,
+        timestamp: Date.now()
+      };
+      
+      // Send response via checkpoint transport
+      this.sendCheckpointResponse(response, checkpoint);
+      
+      log('remote_require_fulfilled', { libraryName, requireId, codeLength: libraryCode.length });
+      
+    } catch (error) {
+      // Send error response
+      const errorResponse = {
+        type: 'rexx-require-response',
+        requireId: requireId,
+        success: false,
+        error: error.message,
+        libraryName: libraryName,
+        timestamp: Date.now()
+      };
+      
+      this.sendCheckpointResponse(errorResponse, checkpoint);
+      
+      log('remote_require_failed', { libraryName, requireId, error: error.message });
+    }
+  }
+
+  async resolveLibraryForRemote(libraryName) {
+    // Resolve library code that will be sent to remote system
+    
+    // For local files, read and return content
+    if (libraryName.startsWith('./') || libraryName.startsWith('../')) {
+      const resolvedPath = path.resolve(libraryName);
+      if (fs.existsSync(resolvedPath)) {
+        return fs.readFileSync(resolvedPath, 'utf8');
+      }
+      throw new Error(`Local library file not found: ${libraryName}`);
+    }
+    
+    // For Node.js modules, try to read the source file
+    if (!libraryName.includes('/') && !libraryName.startsWith('http')) {
+      try {
+        const modulePath = require.resolve(libraryName);
+        return fs.readFileSync(modulePath, 'utf8');
+      } catch (error) {
+        // If Node.js module not found, fall through to other methods
+      }
+    }
+    
+    // For GitHub or remote libraries, use existing library resolution
+    const https = require('https');
+    
+    // Convert library name to GitHub URL if needed
+    let libraryUrl;
+    if (libraryName.startsWith('http')) {
+      libraryUrl = libraryName;
+    } else {
+      // Assume GitHub repository format: user/repo or user/repo/path
+      const githubBase = 'https://raw.githubusercontent.com/hammant/rexx-functions/main/';
+      libraryUrl = `${githubBase}${libraryName}.js`;
+    }
+    
+    return new Promise((resolve, reject) => {
+      https.get(libraryUrl, (response) => {
+        let data = '';
+        response.on('data', (chunk) => data += chunk);
+        response.on('end', () => {
+          if (response.statusCode === 200) {
+            resolve(data);
+          } else {
+            reject(new Error(`Failed to fetch ${libraryName}: HTTP ${response.statusCode}`));
+          }
+        });
+      }).on('error', (error) => {
+        reject(new Error(`Network error fetching ${libraryName}: ${error.message}`));
+      });
+    });
+  }
+
+  sendCheckpointResponse(response, checkpoint) {
+    // Send response back to remote system via checkpoint transport
+    const responseMessage = JSON.stringify(response);
+    
+    if (this.progressSocket) {
+      // Send via WebSocket
+      this.progressSocket.send(responseMessage);
+    } else if (checkpoint.transport === 'http') {
+      // Send via HTTP (would need HTTP endpoint setup)
+      // For now, log that we'd send it
+      log('checkpoint_response_http', { response: response });
+    } else {
+      // For testing, just log the response
+      log('checkpoint_response_sent', { response: response });
+    }
+  }
+
   cleanupCheckpointListener(checkpointId) {
     // Cleanup checkpoint listener and resources
     const checkpoint = this.activeCheckpoints.get(checkpointId);

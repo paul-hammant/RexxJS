@@ -3000,6 +3000,11 @@ class RexxInterpreter {
     if (libraryName.startsWith('registry:')) {
       return await this.requireRegistryLibrary(libraryName.substring(9)); // Remove 'registry:' prefix
     }
+    
+    // SCRO: Check if we're in remote orchestrated context and should request via CHECKPOINT
+    if (this.isRemoteOrchestrated() && !this.isBuiltinLibrary(libraryName)) {
+      return await this.requireViaCheckpoint(libraryName);
+    }
 
     // Original single library loading logic
     const env = this.detectEnvironment();
@@ -3471,6 +3476,193 @@ class RexxInterpreter {
 
   detectEnvironment() {
     return utils.detectEnvironment();
+  }
+
+  // SCRO: Remote REQUIRE functionality using CHECKPOINT communication
+  isRemoteOrchestrated() {
+    // Check if we're in a remote orchestrated context
+    // This is indicated by specific environment variables or context flags
+    return (
+      // Check for SCRO_REMOTE environment variable
+      (typeof process !== 'undefined' && process.env && process.env.SCRO_REMOTE === 'true') ||
+      // Check for remote orchestration context variable
+      this.variables.has('SCRO_REMOTE') ||
+      // Check for CHECKPOINT callback indicating remote orchestration
+      (this.streamingProgressCallback && this.variables.has('SCRO_ORCHESTRATION_ID'))
+    );
+  }
+
+  isBuiltinLibrary(libraryName) {
+    // Built-in libraries that should never be requested remotely
+    const builtinLibraries = [
+      'string-functions', 'math-functions', 'json-functions', 'array-functions',
+      'date-time-functions', 'url-functions', 'random-functions', 'regex-functions',
+      'validation-functions', 'file-functions', 'statistics-functions', 'logic-functions',
+      'cryptography-functions', 'dom-functions', 'data-functions', 'probability-functions'
+    ];
+    
+    return builtinLibraries.includes(libraryName) || 
+           libraryName.startsWith('./') || 
+           libraryName.startsWith('../');
+  }
+
+  async requireViaCheckpoint(libraryName) {
+    // Send REQUIRE request via CHECKPOINT communication channel
+    const requireId = `require_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Send CHECKPOINT request for library
+    const requestData = {
+      type: 'require_request',
+      libraryName: libraryName,
+      requireId: requireId,
+      timestamp: Date.now()
+    };
+    
+    // Use CHECKPOINT to request the library from orchestrator
+    const checkpointResult = this.sendCheckpointMessage('require_request', requestData);
+    
+    // Wait for library response via CHECKPOINT
+    const libraryResponse = await this.waitForCheckpointResponse(requireId, 30000); // 30 second timeout
+    
+    if (!libraryResponse || !libraryResponse.success) {
+      throw new Error(`Remote REQUIRE failed for ${libraryName}: ${libraryResponse?.error || 'timeout'}`);
+    }
+    
+    // Execute the library code received from orchestrator
+    await this.executeRemoteLibraryCode(libraryName, libraryResponse.libraryCode);
+    
+    return true;
+  }
+
+  sendCheckpointMessage(type, data) {
+    // Send message via existing CHECKPOINT mechanism
+    const messageData = {
+      type: 'rexx-require',
+      subtype: type,
+      timestamp: Date.now(),
+      data: data,
+      line: this.currentLineNumber || 0
+    };
+    
+    // Use existing CHECKPOINT communication channels
+    if (this.streamingProgressCallback) {
+      this.streamingProgressCallback(messageData);
+    } else if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+      window.parent.postMessage(messageData, '*');
+    }
+    
+    return messageData;
+  }
+
+  async waitForCheckpointResponse(requireId, timeoutMs = 30000) {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve({ success: false, error: 'timeout' });
+      }, timeoutMs);
+      
+      const messageHandler = (event) => {
+        if (event.data && 
+            event.data.type === 'rexx-require-response' && 
+            event.data.requireId === requireId) {
+          cleanup();
+          resolve(event.data);
+        }
+      };
+      
+      const cleanup = () => {
+        clearTimeout(timeout);
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('message', messageHandler);
+        }
+      };
+      
+      // Listen for response
+      if (typeof window !== 'undefined') {
+        window.addEventListener('message', messageHandler);
+      } else {
+        // In Node.js context, we'd need a different mechanism
+        // For now, return no_communication_channel error immediately
+        cleanup();
+        resolve({ success: false, error: 'no_communication_channel' });
+        return;
+      }
+    });
+  }
+
+  async executeRemoteLibraryCode(libraryName, libraryCode) {
+    // Execute the library code received from the orchestrator
+    const env = this.detectEnvironment();
+    
+    try {
+      if (env === 'nodejs') {
+        // Use VM for safe execution in Node.js
+        const vm = require('vm');
+        const context = {
+          module: { exports: {} },
+          exports: {},
+          require: require,
+          console: console,
+          Buffer: Buffer,
+          process: process,
+          global: global,
+          __dirname: __dirname,
+          __filename: __filename
+        };
+        
+        vm.createContext(context);
+        vm.runInContext(libraryCode, context);
+        
+        // Register any exported functions
+        this.registerRemoteLibraryExports(libraryName, context.module.exports);
+        
+      } else {
+        // Browser environment - use eval with isolated scope
+        const context = {
+          window: typeof window !== 'undefined' ? window : {},
+          document: typeof document !== 'undefined' ? document : {},
+          console: console
+        };
+        
+        // Create isolated execution context
+        const wrappedCode = `
+          (function(window, document, console) {
+            ${libraryCode}
+          })(context.window, context.document, context.console);
+        `;
+        
+        eval(wrappedCode);
+        
+        // Register any global exports that were created
+        this.registerRemoteLibraryExports(libraryName, context.window);
+      }
+      
+      // Cache as loaded
+      this.libraryCache.set(libraryName, { loaded: true, code: libraryCode });
+      
+    } catch (error) {
+      throw new Error(`Failed to execute remote library ${libraryName}: ${error.message}`);
+    }
+  }
+
+  registerRemoteLibraryExports(libraryName, exports) {
+    // Register functions and ADDRESS handlers from remotely loaded library
+    if (exports && typeof exports === 'object') {
+      // Initialize functions if not already done
+      if (!this.functions) {
+        this.functions = this.getFunctions();
+      }
+      
+      // Register regular functions
+      for (const [name, func] of Object.entries(exports)) {
+        if (typeof func === 'function' && !name.startsWith('_')) {
+          this.functions[name] = func;
+        }
+      }
+      
+      // Detect and register ADDRESS targets
+      this.detectAndRegisterAddressTargets(libraryName);
+    }
   }
 
   async requireNodeJS(libraryName) {

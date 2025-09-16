@@ -7,12 +7,14 @@
  */
 
 const RemoteShellHandler = require('./remote-shell-handler');
-const ContainerHandler = require('./container-handler');
+const PodmanHandler = require('./podman-handler');
+const DockerHandler = require('./docker-handler');
 const SCROOrchestrator = require('./scro-orchestrator');
 
 module.exports = {
   RemoteShellHandler,
-  ContainerHandler,
+  PodmanHandler,
+  DockerHandler,
   SCROOrchestrator,
   
   // Factory functions for easy integration
@@ -21,8 +23,13 @@ module.exports = {
     return handler.initialize(config).then(() => handler);
   },
   
-  createContainerHandler: (config = {}) => {
-    const handler = new ContainerHandler();
+  createPodmanHandler: (config = {}) => {
+    const handler = new PodmanHandler();
+    return handler.initialize(config).then(() => handler);
+  },
+  
+  createDockerHandler: (config = {}) => {
+    const handler = new DockerHandler();
     return handler.initialize(config).then(() => handler);
   },
   
@@ -40,9 +47,13 @@ module.exports = {
       handlers.remote_shell = await module.exports.createRemoteShellHandler(config.remoteShell);
     }
     
-    // Container handler  
-    if (config.enableContainer !== false) {
-      handlers.container = await module.exports.createContainerHandler(config.container);
+    // Container handlers (user can choose podman, docker, or both)
+    if (config.enablePodman !== false) {
+      handlers.podman = await module.exports.createPodmanHandler(config.podman);
+    }
+    
+    if (config.enableDocker !== false) {
+      handlers.docker = await module.exports.createDockerHandler(config.docker);
     }
     
     // Deployment orchestrator
