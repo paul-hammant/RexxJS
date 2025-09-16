@@ -3501,9 +3501,17 @@ class RexxInterpreter {
       'cryptography-functions', 'dom-functions', 'data-functions', 'probability-functions'
     ];
     
-    return builtinLibraries.includes(libraryName) || 
-           libraryName.startsWith('./') || 
-           libraryName.startsWith('../');
+    // Check for built-in libraries
+    if (builtinLibraries.includes(libraryName)) {
+      return true;
+    }
+    
+    // Check for local file paths (relative paths)
+    if (libraryName.startsWith('./') || libraryName.startsWith('../')) {
+      return true;
+    }
+    
+    return false;
   }
 
   async requireViaCheckpoint(libraryName) {
@@ -3577,16 +3585,23 @@ class RexxInterpreter {
         }
       };
       
-      // Listen for response
-      if (typeof window !== 'undefined') {
-        window.addEventListener('message', messageHandler);
-      } else {
-        // In Node.js context, we'd need a different mechanism
-        // For now, return no_communication_channel error immediately
+      // Check if we have any communication channels available
+      const hasWindowChannel = typeof window !== 'undefined' && window.parent && window.parent !== window;
+      const hasStreamingChannel = this.streamingProgressCallback != null;
+      
+      if (!hasWindowChannel && !hasStreamingChannel) {
         cleanup();
         resolve({ success: false, error: 'no_communication_channel' });
         return;
       }
+      
+      // Listen for response via window messaging
+      if (hasWindowChannel) {
+        window.addEventListener('message', messageHandler);
+      }
+      
+      // For streaming callback, we need a different mechanism
+      // For now, just rely on timeout since full orchestration setup isn't implemented
     });
   }
 
@@ -3648,15 +3663,19 @@ class RexxInterpreter {
   registerRemoteLibraryExports(libraryName, exports) {
     // Register functions and ADDRESS handlers from remotely loaded library
     if (exports && typeof exports === 'object') {
-      // Initialize functions if not already done
+      // Initialize functions registry if not already done
       if (!this.functions) {
-        this.functions = this.getFunctions();
+        this.functions = {};
       }
       
       // Register regular functions
       for (const [name, func] of Object.entries(exports)) {
         if (typeof func === 'function' && !name.startsWith('_')) {
           this.functions[name] = func;
+          // Also add to built-in functions for global access
+          if (this.builtInFunctions && typeof this.builtInFunctions === 'object') {
+            this.builtInFunctions[name] = func;
+          }
         }
       }
       

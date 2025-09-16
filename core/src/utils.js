@@ -57,7 +57,17 @@ function isBuiltinLibrary(libraryName) {
     'r-signal-functions', 'r-summary-functions', 'r-timeseries-functions'
   ];
   
-  return builtinLibraries.includes(libraryName);
+  // Check for built-in libraries
+  if (builtinLibraries.includes(libraryName)) {
+    return true;
+  }
+  
+  // Check for local file paths (relative paths)
+  if (libraryName.startsWith('./') || libraryName.startsWith('../')) {
+    return true;
+  }
+  
+  return false;
 }
 
 /**

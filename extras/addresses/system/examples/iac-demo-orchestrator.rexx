@@ -15,7 +15,7 @@ SAY "Creating Debian container and deploying RexxJS for SQLite testing..."
 SAY ""
 
 /* Configure the deployment handler for CHECKPOINT communication */
-REQUIRE "../scro-orchestrator.js"
+REQUIRE "../deployment-orchestrator.js"
 
 ADDRESS DEPLOYMENT
 "INITIALIZE enableProgressCallbacks=true transportType=websocket port=8080"

@@ -1,5 +1,5 @@
 #!/usr/bin/env node src/rexx
-/* SCRO Infrastructure Demo - Podman Container Script
+/* Infrastructure Demo - Podman Container Script
  * 
  * This script demonstrates:
  * 1. Creating a Debian container with podman
@@ -10,17 +10,17 @@
  * The remote script will CHECKPOINT back to this orchestrator with progress
  */
 
-SAY "=== SCRO Infrastructure Demo with Podman Container ==="
+SAY "=== Infrastructure Demo with Podman Container ==="
 SAY "Creating Debian container with podman and deploying RexxJS for SQLite testing..."
 SAY ""
 
-/* Configure the SCRO orchestrator for CHECKPOINT communication */
-REQUIRE "../scro-orchestrator.js"
+/* Configure the deployment orchestrator for CHECKPOINT communication */
+REQUIRE "../deployment-orchestrator.js"
 
-ADDRESS SCRO
+ADDRESS DEPLOYMENT
 "INITIALIZE enableProgressCallbacks=true transportType=websocket port=8080"
 
-SAY "✓ SCRO orchestrator initialized with CHECKPOINT communication"
+SAY "✓ Deployment orchestrator initialized with CHECKPOINT communication"
 
 /* Step 1: Setup podman container with RexxJS binary */
 SAY "Step 1: Setting up podman container..."
@@ -104,7 +104,7 @@ SAY "=== Remote Script Completed Successfully ==="
 REMOTE_SCRIPT
 
 /* Execute the remote script with progress monitoring */
-ADDRESS SCRO
+ADDRESS DEPLOYMENT
 "EXECUTE_REMOTE script=" || CHR(34) || remote_script || CHR(34) || " target=" || container_name || " progress=true container_runtime=podman"
 
 IF RC = 0 THEN DO

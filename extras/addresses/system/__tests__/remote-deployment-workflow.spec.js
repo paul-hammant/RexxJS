@@ -9,8 +9,8 @@
 const fs = require('fs');
 const path = require('path');
 const RemoteShellHandler = require('../../extras/addresses/system/remote-shell-handler');
-const ContainerHandler = require('../../extras/addresses/system/container-handler');
-const SCROOrchestrator = require('../../extras/addresses/system/scro-orchestrator');
+const PodmanHandler = require('../../extras/addresses/system/podman-handler');
+const DeploymentOrchestrator = require('../../extras/addresses/system/deployment-orchestrator');
 
 // Mock child_process for testing
 jest.mock('child_process');
@@ -50,9 +50,9 @@ describe('Remote Deployment Workflow', () => {
     fs.statSync.mockReturnValue({ size: 1024 });
 
     // Initialize handlers
-    orchestrator = new SCROOrchestrator();
+    orchestrator = new DeploymentOrchestrator();
     remoteShellHandler = new RemoteShellHandler();
-    containerHandler = new ContainerHandler();
+    containerHandler = new PodmanHandler();
 
     mockContext = {
       variables: new Map([

@@ -96,14 +96,16 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
         break;
         
       case 'status':
-        resultPromise = Promise.resolve({
+        const statusResult = {
           service: 'sqlite',
           version: '3.x',
           database: db.filename || ':memory:',
           methods: ['execute', 'run', 'query', 'close', 'status'],
           timestamp: new Date().toISOString(),
           success: true
-        });
+        };
+        // Debug: console.log('SQLite STATUS result:', JSON.stringify(statusResult, null, 2));
+        resultPromise = Promise.resolve(statusResult);
         break;
         
       default:
@@ -168,14 +170,16 @@ function handleSQLCommand(db, sqlCommand) {
         if (err) {
           reject(new Error(`INSERT failed: ${err.message}`));
         } else {
-          resolve({
+          const result = {
             operation: 'INSERT',
             sql: sql,
             rowsAffected: this.changes,
             lastInsertId: this.lastID,
             success: true,
             timestamp: new Date().toISOString()
-          });
+          };
+          // Debug: console.log('SQLite INSERT result:', JSON.stringify(result, null, 2));
+          resolve(result);
         }
       });
     }
@@ -313,6 +317,9 @@ function formatSQLResultForREXX(result) {
       SQLCODE: 0  // SQL-specific success code
     }
   };
+  
+  // Debug: console.log('formatSQLResultForREXX input:', JSON.stringify(result, null, 2));
+  // Debug: console.log('formatSQLResultForREXX output:', JSON.stringify(rexxResult, null, 2));
   
   return rexxResult;
 }
