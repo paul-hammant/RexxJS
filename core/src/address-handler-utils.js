@@ -193,14 +193,54 @@ function createErrorResponse(error, operation = null, metadata = {}) {
 
 /**
  * Log ADDRESS handler activity with consistent format
+ * Enhanced with EFS2-style colored progress reporting
  * 
  * @param {string} handlerName - Name of the ADDRESS handler
  * @param {string} operation - Operation being performed
  * @param {Object} details - Additional details to log
- * @param {string} level - Log level (info, warn, error)
+ * @param {string} level - Log level (info, warn, error, progress, success)
  */
 function logActivity(handlerName, operation, details = {}, level = 'info') {
   const timestamp = new Date().toISOString();
+  
+  // EFS2-inspired colored progress reporting
+  if (level === 'progress' && details.host) {
+    // Format: [hostname]: Task N - description (EFS2 pattern)
+    const taskInfo = details.taskNumber ? `Task ${details.taskNumber} - ` : '';
+    const message = `${details.host}: ${taskInfo}${operation}`;
+    
+    // Use blue for progress (matching EFS2 pattern)
+    if (typeof process !== 'undefined' && process.stdout && process.stdout.isTTY) {
+      console.log(`\x1b[34m${message}\x1b[0m`); // Blue text
+    } else {
+      console.log(message);
+    }
+    return;
+  }
+  
+  if (level === 'success' && details.host) {
+    // Green for success (matching EFS2 pattern)
+    const message = `${details.host}: ${operation}`;
+    if (typeof process !== 'undefined' && process.stdout && process.stdout.isTTY) {
+      console.log(`\x1b[32m${message}\x1b[0m`); // Green text
+    } else {
+      console.log(message);
+    }
+    return;
+  }
+  
+  if (level === 'error' && details.host) {
+    // Red for errors (matching EFS2 pattern)
+    const message = `${details.host}: Error - ${operation}`;
+    if (typeof process !== 'undefined' && process.stderr && process.stderr.isTTY) {
+      console.error(`\x1b[31m${message}\x1b[0m`); // Red text
+    } else {
+      console.error(message);
+    }
+    return;
+  }
+  
+  // Fallback to original JSON logging for non-progress messages
   const logEntry = {
     timestamp,
     handler: handlerName,
@@ -332,6 +372,132 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * Create a Rockferry-inspired resource with Spec + Status pattern
+ * Provides consistent resource lifecycle management across all handlers
+ * 
+ * @param {string} kind - Resource kind (e.g., 'Machine', 'Container', 'Volume')
+ * @param {string} id - Unique resource identifier
+ * @param {Object} spec - Desired resource specification
+ * @param {Object} status - Current resource status (optional)
+ * @param {Object} annotations - Key-value metadata (optional)
+ * @param {Object} owner - Owner reference (optional)
+ * @returns {Object} Standardized resource object
+ */
+function createResource(kind, id, spec, status = {}, annotations = {}, owner = null) {
+  return {
+    kind,
+    id,
+    spec,
+    status: {
+      phase: 'pending',
+      lastUpdated: new Date().toISOString(),
+      ...status
+    },
+    annotations,
+    owner,
+    metadata: {
+      created: new Date().toISOString(),
+      version: 1
+    }
+  };
+}
+
+/**
+ * Update resource status with reconciliation tracking
+ * Rockferry-inspired status management
+ * 
+ * @param {Object} resource - Resource object to update
+ * @param {Object} newStatus - New status to merge
+ * @param {string} phase - New phase (optional)
+ * @returns {Object} Updated resource
+ */
+function updateResourceStatus(resource, newStatus, phase = null) {
+  resource.status = {
+    ...resource.status,
+    ...newStatus,
+    lastUpdated: new Date().toISOString()
+  };
+  
+  if (phase) {
+    resource.status.phase = phase;
+  }
+  
+  resource.metadata.version++;
+  return resource;
+}
+
+/**
+ * Enhanced progress reporting for multi-host operations
+ * EFS2-inspired parallel execution tracking
+ * 
+ * @param {string} handlerName - Handler performing the operation
+ * @param {Array} hosts - Array of host identifiers
+ * @param {Function} operation - Async operation to perform on each host
+ * @param {Object} options - Execution options
+ * @returns {Array} Results from all hosts
+ */
+async function executeOnHosts(handlerName, hosts, operation, options = {}) {
+  const { parallel = false, taskDescription = 'operation' } = options;
+  const results = [];
+  let taskNumber = 0;
+  
+  if (parallel) {
+    // EFS2-style parallel execution
+    const promises = hosts.map(async (host, index) => {
+      try {
+        logActivity(handlerName, `Starting ${taskDescription}`, { 
+          host, 
+          taskNumber: index + 1 
+        }, 'progress');
+        
+        const result = await operation(host);
+        
+        logActivity(handlerName, `Completed ${taskDescription}`, { 
+          host 
+        }, 'success');
+        
+        return { host, success: true, result };
+      } catch (error) {
+        logActivity(handlerName, `Failed ${taskDescription}: ${error.message}`, { 
+          host 
+        }, 'error');
+        
+        return { host, success: false, error: error.message };
+      }
+    });
+    
+    return await Promise.all(promises);
+  } else {
+    // Sequential execution with progress reporting
+    for (const host of hosts) {
+      taskNumber++;
+      try {
+        logActivity(handlerName, `Starting ${taskDescription}`, { 
+          host, 
+          taskNumber 
+        }, 'progress');
+        
+        const result = await operation(host);
+        
+        logActivity(handlerName, `Completed ${taskDescription}`, { 
+          host 
+        }, 'success');
+        
+        results.push({ host, success: true, result });
+      } catch (error) {
+        logActivity(handlerName, `Failed ${taskDescription}: ${error.message}`, { 
+          host 
+        }, 'error');
+        
+        results.push({ host, success: false, error: error.message });
+      }
+    }
+  }
+  
+  return results;
+}
+
 // Alias for backward compatibility
 const validateVariables = validateContext;
 
@@ -347,7 +513,11 @@ if (typeof module !== 'undefined' && module.exports) {
     createErrorResponse,
     logActivity,
     parseCommand,
-    wrapHandler
+    wrapHandler,
+    // New Rockferry/EFS2-inspired utilities
+    createResource,
+    updateResourceStatus,
+    executeOnHosts
   };
 } else if (typeof window !== 'undefined') {
   // Browser environment - attach to global window
@@ -360,7 +530,11 @@ if (typeof module !== 'undefined' && module.exports) {
     createErrorResponse,
     logActivity,
     parseCommand,
-    wrapHandler
+    wrapHandler,
+    // New Rockferry/EFS2-inspired utilities
+    createResource,
+    updateResourceStatus,
+    executeOnHosts
   };
   
   window.AddressHandlerUtils = AddressHandlerUtils;
@@ -369,4 +543,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.interpolateMessage = interpolateMessage;
   window.createResponse = createResponse;
   window.createErrorResponse = createErrorResponse;
+  window.createResource = createResource;
+  window.executeOnHosts = executeOnHosts;
 }

@@ -12,7 +12,10 @@ const {
   createResponse,
   createErrorResponse,
   parseCommand,
-  wrapHandler
+  wrapHandler,
+  createResource,
+  updateResourceStatus,
+  executeOnHosts
 } = require('../src/address-handler-utils');
 
 describe('Address Handler Utilities', () => {
@@ -495,6 +498,266 @@ describe('Address Handler Utilities', () => {
         success: true,
         result: { logged: 'User Bob performed login' }
       });
+    });
+  });
+
+  describe('executeOnHosts (EFS2-inspired)', () => {
+    let originalConsoleLog;
+    let originalConsoleError;
+    let logOutput;
+    let errorOutput;
+
+    beforeEach(() => {
+      // Capture console output for testing progress reporting
+      logOutput = [];
+      errorOutput = [];
+      originalConsoleLog = console.log;
+      originalConsoleError = console.error;
+      console.log = (msg) => logOutput.push(msg);
+      console.error = (msg) => errorOutput.push(msg);
+    });
+
+    afterEach(() => {
+      console.log = originalConsoleLog;
+      console.error = originalConsoleError;
+    });
+
+    test('should execute operation on single host successfully', async () => {
+      const mockOperation = jest.fn().mockResolvedValue('success');
+      
+      const results = await executeOnHosts('TEST', ['host1'], mockOperation, {
+        taskDescription: 'test operation'
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({
+        host: 'host1',
+        success: true,
+        result: 'success'
+      });
+      expect(mockOperation).toHaveBeenCalledWith('host1');
+      
+      // Check progress reporting output (EFS2-style)
+      expect(logOutput.some(msg => msg.includes('host1: Task 1 - Starting test operation'))).toBe(true);
+      expect(logOutput.some(msg => msg.includes('host1: Completed test operation'))).toBe(true);
+    });
+
+    test('should execute operation on multiple hosts sequentially', async () => {
+      const hosts = ['server1', 'server2', 'server3'];
+      const mockOperation = jest.fn()
+        .mockResolvedValueOnce('result1')
+        .mockResolvedValueOnce('result2')
+        .mockResolvedValueOnce('result3');
+      
+      const results = await executeOnHosts('TEST', hosts, mockOperation, {
+        parallel: false,
+        taskDescription: 'deploy service'
+      });
+
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({ host: 'server1', success: true, result: 'result1' });
+      expect(results[1]).toEqual({ host: 'server2', success: true, result: 'result2' });
+      expect(results[2]).toEqual({ host: 'server3', success: true, result: 'result3' });
+
+      // Verify sequential execution
+      expect(mockOperation).toHaveBeenNthCalledWith(1, 'server1');
+      expect(mockOperation).toHaveBeenNthCalledWith(2, 'server2');
+      expect(mockOperation).toHaveBeenNthCalledWith(3, 'server3');
+
+      // Check EFS2-style task numbering
+      expect(logOutput.some(msg => msg.includes('server1: Task 1 - Starting deploy service'))).toBe(true);
+      expect(logOutput.some(msg => msg.includes('server2: Task 2 - Starting deploy service'))).toBe(true);
+      expect(logOutput.some(msg => msg.includes('server3: Task 3 - Starting deploy service'))).toBe(true);
+    });
+
+    test('should execute operation on multiple hosts in parallel', async () => {
+      const hosts = ['web1', 'web2', 'web3'];
+      let callOrder = [];
+      const mockOperation = jest.fn().mockImplementation(async (host) => {
+        callOrder.push(`start-${host}`);
+        await new Promise(resolve => setTimeout(resolve, 10));
+        callOrder.push(`end-${host}`);
+        return `result-${host}`;
+      });
+      
+      const results = await executeOnHosts('WEB', hosts, mockOperation, {
+        parallel: true,
+        taskDescription: 'restart nginx'
+      });
+
+      expect(results).toHaveLength(3);
+      results.forEach((result, index) => {
+        expect(result).toEqual({
+          host: hosts[index],
+          success: true,
+          result: `result-${hosts[index]}`
+        });
+      });
+
+      // In parallel mode, all should start before any complete
+      expect(callOrder.filter(call => call.startsWith('start-'))).toHaveLength(3);
+      expect(mockOperation).toHaveBeenCalledTimes(3);
+    });
+
+    test('should handle operation failures gracefully', async () => {
+      const hosts = ['good-server', 'bad-server', 'another-good'];
+      const mockOperation = jest.fn()
+        .mockResolvedValueOnce('success')
+        .mockRejectedValueOnce(new Error('Connection timeout'))
+        .mockResolvedValueOnce('success');
+      
+      const results = await executeOnHosts('TEST', hosts, mockOperation, {
+        taskDescription: 'health check'
+      });
+
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({ host: 'good-server', success: true, result: 'success' });
+      expect(results[1]).toEqual({ host: 'bad-server', success: false, error: 'Connection timeout' });
+      expect(results[2]).toEqual({ host: 'another-good', success: true, result: 'success' });
+
+      // Check EFS2-style error reporting
+      expect(errorOutput.some(msg => msg.includes('bad-server: Error - Failed health check'))).toBe(true);
+    });
+  });
+
+  describe('createResource (Rockferry-inspired)', () => {
+    test('should create resource with basic spec and default status', () => {
+      const resource = createResource('Machine', 'vm-001', {
+        cpu: 2,
+        memory: '4GB',
+        os: 'ubuntu'
+      });
+
+      expect(resource).toMatchObject({
+        kind: 'Machine',
+        id: 'vm-001',
+        spec: {
+          cpu: 2,
+          memory: '4GB',
+          os: 'ubuntu'
+        },
+        status: {
+          phase: 'pending'
+        },
+        annotations: {},
+        owner: null,
+        metadata: {
+          version: 1
+        }
+      });
+
+      expect(resource.status.lastUpdated).toBeDefined();
+      expect(resource.metadata.created).toBeDefined();
+    });
+
+    test('should create resource with custom status and annotations', () => {
+      const resource = createResource('Container', 'nginx-001', 
+        { image: 'nginx:latest', port: 80 },
+        { phase: 'running', pid: 1234 },
+        { 'app.kubernetes.io/name': 'nginx' },
+        { kind: 'Pod', id: 'pod-123' }
+      );
+
+      expect(resource).toMatchObject({
+        kind: 'Container',
+        id: 'nginx-001',
+        spec: { image: 'nginx:latest', port: 80 },
+        status: { phase: 'running', pid: 1234 },
+        annotations: { 'app.kubernetes.io/name': 'nginx' },
+        owner: { kind: 'Pod', id: 'pod-123' }
+      });
+    });
+  });
+
+  describe('updateResourceStatus (Rockferry-inspired)', () => {
+    test('should update resource status and increment version', async () => {
+      const resource = createResource('Machine', 'vm-001', { cpu: 2 });
+      const originalVersion = resource.metadata.version;
+      const originalTimestamp = resource.status.lastUpdated;
+      
+      // Small delay to ensure timestamp changes
+      await new Promise(resolve => setTimeout(resolve, 1));
+      
+      const updatedResource = updateResourceStatus(resource, {
+        state: 'running',
+        ip: '192.168.1.100'
+      }, 'active');
+
+      expect(updatedResource.status.phase).toBe('active');
+      expect(updatedResource.status.state).toBe('running');
+      expect(updatedResource.status.ip).toBe('192.168.1.100');
+      expect(updatedResource.metadata.version).toBe(originalVersion + 1);
+      expect(updatedResource.status.lastUpdated).not.toBe(originalTimestamp);
+    });
+
+    test('should preserve existing status fields when updating', () => {
+      const resource = createResource('Container', 'app-001', { image: 'app:v1' });
+      resource.status.pid = 5678;
+      resource.status.startTime = '2025-01-16T10:00:00Z';
+
+      const updatedResource = updateResourceStatus(resource, {
+        memory: '256MB',
+        cpu: '0.5'
+      });
+
+      expect(updatedResource.status.pid).toBe(5678);
+      expect(updatedResource.status.startTime).toBe('2025-01-16T10:00:00Z');
+      expect(updatedResource.status.memory).toBe('256MB');
+      expect(updatedResource.status.cpu).toBe('0.5');
+      expect(updatedResource.status.phase).toBe('pending');
+    });
+  });
+
+  describe('Integration: executeOnHosts with createResource', () => {
+    test('should manage resources across multiple hosts', async () => {
+      // Capture console output
+      let logOutput = [];
+      const originalConsoleLog = console.log;
+      console.log = (msg) => logOutput.push(msg);
+      
+      const hosts = ['node1', 'node2', 'node3'];
+      const resources = new Map();
+      
+      const deployOperation = async (host) => {
+        const resource = createResource('Service', `nginx-${host}`, {
+          host,
+          image: 'nginx:latest',
+          replicas: 1
+        });
+        
+        // Simulate deployment phases (Rockferry-style)
+        updateResourceStatus(resource, { state: 'pulling' }, 'deploying');
+        await new Promise(resolve => setTimeout(resolve, 5));
+        
+        updateResourceStatus(resource, { 
+          state: 'running', 
+          port: 8080,
+          healthCheck: 'passing'
+        }, 'active');
+        
+        resources.set(host, resource);
+        return resource;
+      };
+
+      const results = await executeOnHosts('NGINX', hosts, deployOperation, {
+        parallel: true,
+        taskDescription: 'deploying nginx service'
+      });
+
+      expect(results).toHaveLength(3);
+      expect(results.every(r => r.success)).toBe(true);
+      
+      // Check that resources were created for each host (Rockferry-style)
+      hosts.forEach(host => {
+        expect(resources.has(host)).toBe(true);
+        const resource = resources.get(host);
+        expect(resource.status.phase).toBe('active');
+        expect(resource.status.state).toBe('running');
+        expect(resource.metadata.version).toBe(3); // Created + 2 updates
+      });
+
+      // Cleanup
+      console.log = originalConsoleLog;
     });
   });
 });

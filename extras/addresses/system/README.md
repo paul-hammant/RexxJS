@@ -1,6 +1,26 @@
-# System ADDRESS Library for RexxJS
+# System ADDRESS Library - SCRO (Source-Controlled Remote Orchestration) 
 
-This library provides system-level operations for RexxJS through the ADDRESS mechanism, allowing REXX programs to interact with the operating system, execute shell commands, and perform file operations.
+This library provides system-level operations and SCRO (Source-Controlled Remote Orchestration) capabilities for RexxJS. SCRO enhances traditional Infrastructure as Code with bidirectional communication, minimal remote dependencies, and progressive orchestration.
+
+## SCRO vs Traditional Infrastructure as Code
+
+**Traditional IaC** (Ansible, Terraform, etc.):
+- ✅ Source-controlled automation (vs manual processes)
+- ❌ Limited or no real-time feedback from remote systems  
+- ❌ Heavy remote dependencies (Python, agents, etc.)
+- ❌ Version conflicts between tools and target systems
+
+**SCRO (Enhanced IaC)**:
+- ✅ Source-controlled automation
+- ✅ **Bidirectional CHECKPOINT communication** for real-time progress
+- ✅ **Minimal remote dependencies** (50MB self-contained binary)
+- ✅ **Runtime consistency** (same RexxJS everywhere)
+- ✅ **Clean deployment cycle** (deploy, execute, cleanup)
+- ✅ **Progressive orchestration** with cross-system state coordination
+
+## Core System Operations
+
+This library also provides fundamental system operations through the ADDRESS mechanism, allowing REXX programs to interact with the operating system, execute shell commands, and perform file operations.
 
 ## Quick Start
 
