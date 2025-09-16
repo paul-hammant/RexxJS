@@ -18,7 +18,9 @@ module.exports = {
       "stream": false,
       "util": false,
       "path": false,
-      "fs": false
+      "fs": false,
+      "vm": false,
+      "https": false
     }
   },
   module: {
