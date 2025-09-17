@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -e
+
 cd core/
 npx jest
 ./rexxt tests/dogfood/*

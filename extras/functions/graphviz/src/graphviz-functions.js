@@ -38,12 +38,12 @@ async function loadWASM() {
         throw new Error('graphviz-wasm is not loaded. Make sure to include it in your environment.');
     }
 
-    console.log("Loading graphviz-wasm...");
+
     wasmLoadingPromise = graphviz.loadWASM();
 
     await wasmLoadingPromise;
 
-    console.log("graphviz-wasm loaded successfully.");
+    
     wasmLoaded = true;
     wasmLoadingPromise = null;
 }
@@ -102,8 +102,10 @@ const GRAPHVIZ_FUNCTIONS_META = {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = GRAPHVIZ_FUNCTIONS;
     if (typeof global !== 'undefined') {
-        Object.assign(global, GRAPHVIZ_FUNCTIONS);
+        global.GRAPHVIZ_FUNCTIONS = GRAPHVIZ_FUNCTIONS;
+        global.GRAPHVIZ_FUNCTIONS_META = GRAPHVIZ_FUNCTIONS_META;
     }
 } else if (typeof window !== 'undefined') {
-    Object.assign(window, GRAPHVIZ_FUNCTIONS);
+    window.GRAPHVIZ_FUNCTIONS = GRAPHVIZ_FUNCTIONS;
+    window.GRAPHVIZ_FUNCTIONS_META = GRAPHVIZ_FUNCTIONS_META;
 }
