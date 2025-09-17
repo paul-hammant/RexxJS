@@ -2,5 +2,10 @@
 cd core/
 npx jest
 ./rexxt tests/dogfood/*
-cd../extras/functions/excel
-npx jest
+
+# Iterate over each subdirectory in extras/functions and run tests
+for dir in ../extras/functions/*/; do
+  cd "$dir"
+  npx jest
+  cd -
+done
