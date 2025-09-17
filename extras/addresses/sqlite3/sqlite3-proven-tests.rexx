@@ -4,7 +4,7 @@
 // Following exact patterns from simple-sqlite-test.rexx with proper assertions
 
 REQUIRE "./src/expectations-address.js"
-REQUIRE "../extras/addresses/sqlite3/sqlite-address.js"
+REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
 
 SAY "🗄️ SQLite3 ADDRESS Handler Tests"
 
