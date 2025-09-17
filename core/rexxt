@@ -85,6 +85,7 @@ function showHelp() {
   console.log(`  ${Colors.green}--verbose, -v${Colors.reset}                 - Verbose output`);
   console.log(`  ${Colors.green}--verbose-output${Colors.reset}              - Show all SAY output from scripts`);
   console.log(`  ${Colors.green}--live-output${Colors.reset}                 - Show SAY output in real-time without debug info`);
+  console.log(`  ${Colors.green}--show-passing-expectations${Colors.reset}   - Show detailed info for passing expectations`);
   console.log(`  ${Colors.green}--rerun-failures-with-verbose${Colors.reset}  - Rerun failed tests with verbose output`);
   console.log(`  ${Colors.green}--timeout <ms>${Colors.reset}                - Test timeout (default: 30000)`);
   console.log(`  ${Colors.green}--help, -h${Colors.reset}                    - Show this help`);
@@ -346,7 +347,7 @@ async function runTestFile(filePath, options = {}) {
     
     // Pass .*Test$ as default argument when no script arguments provided
     const scriptArgs = options.scriptArgs && options.scriptArgs.length > 0 ? options.scriptArgs : ['.*Test$'];
-    const interpreter = new TestRexxInterpreter(testAddressSender, {}, outputHandler, scriptArgs);
+    const interpreter = new TestRexxInterpreter(testAddressSender, {}, outputHandler, scriptArgs, options);
     await interpreter.run(commands, rexxCode, filePath);
     
     // Read actual expectation count from temp file
@@ -466,6 +467,7 @@ async function main() {
     verbose: false,
     verboseOutput: args.includes('--verbose-output'),
     liveOutput: args.includes('--live-output'),
+    showPassingExpectations: args.includes('--show-passing-expectations'),
     rerunFailuresWithVerbose: args.includes('--rerun-failures-with-verbose'),
     timeout: 30000,
     runAndNavigate: args.includes('--run-and-navigate'),

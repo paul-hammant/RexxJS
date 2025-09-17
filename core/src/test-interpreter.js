@@ -7,8 +7,11 @@
 const { RexxInterpreter } = require('./interpreter.js');
 
 class TestRexxInterpreter extends RexxInterpreter {
-  constructor(addressSender, variables = {}, outputHandler = null, commandLineArgs = []) {
+  constructor(addressSender, variables = {}, outputHandler = null, commandLineArgs = [], options = {}) {
     super(addressSender, variables, outputHandler);
+    
+    // Store test runner options
+    this.testOptions = options;
     
     // Set up command line arguments for PARSE ARG
     this.variables.set('ARG.0', commandLineArgs.length.toString());

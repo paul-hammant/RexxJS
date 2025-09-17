@@ -774,13 +774,37 @@ const ExpectationsEngine = {
       // Count this successful expectation execution for rexxt
       this.incrementExpectationCount();
       
+      // Helper function to format values for display
+      const formatValue = (value) => {
+        if (value === null) return 'null';
+        if (value === undefined) return 'undefined';
+        if (typeof value === 'string') return `"${value}"`;
+        if (typeof value === 'object') return JSON.stringify(value);
+        return String(value);
+      };
+      
+      // Get detailed expectation info for success messages
+      const expectationInfo = `"${expression}" → and was`;
+      
+      // Check if we should show passing expectations (only if flag is set)
+      let shouldShowPassing = false;
+      if (sourceContext && sourceContext.interpreter && sourceContext.interpreter.testOptions) {
+        shouldShowPassing = sourceContext.interpreter.testOptions.showPassingExpectations;
+      }
+      
+      // Only output success message if flag is set
+      if (shouldShowPassing) {
+        console.log(`  ✓ ${expectationInfo}`);
+      }
+      
       return {
         success: true,
-        message: 'Expectation passed',
+        message: shouldShowPassing ? `Expectation passed: ${expectationInfo}` : '',
         actual,
         expected,
         matcher: parsed.matcher.key,
-        negated: parsed.negated
+        negated: parsed.negated,
+        expectationText: expression
       };
       
     } catch (error) {
@@ -943,11 +967,18 @@ function ADDRESS_EXPECTATIONS_HANDLER(commandOrMethod, params = {}, sourceContex
     if (params && (params.expression || params.expectation || params.context)) {
       // Definitely method-call style
       const result = ExpectationsEngine.executeExpectation(params.expression || params.expectation, params.context || {}, sourceContext);
+      
+      // Check if we should show passing expectations (only if flag is set)
+      let shouldShowPassing = false;
+      if (sourceContext && sourceContext.interpreter && sourceContext.interpreter.testOptions) {
+        shouldShowPassing = sourceContext.interpreter.testOptions.showPassingExpectations;
+      }
+      
       return Promise.resolve({
         operation: 'EXPECTATION',
         success: true,
         result: result,
-        message: 'Expectation passed',
+        message: shouldShowPassing ? `Expectation passed: ${result.message || 'method call'}` : '',
         timestamp: new Date().toISOString()
       });
     }
@@ -1011,13 +1042,21 @@ function ADDRESS_EXPECTATIONS_HANDLER(commandOrMethod, params = {}, sourceContex
         break;
     }
     
-    return resultPromise.then(result => ({
-      operation: 'EXPECTATION',
-      success: true,
-      result: result,
-      message: result.message || 'Expectation completed',
-      timestamp: new Date().toISOString()
-    })).catch(error => {
+    return resultPromise.then(result => {
+      // Check if we should show passing expectations (only if flag is set)
+      let shouldShowPassing = false;
+      if (sourceContext && sourceContext.interpreter && sourceContext.interpreter.testOptions) {
+        shouldShowPassing = sourceContext.interpreter.testOptions.showPassingExpectations;
+      }
+      
+      return {
+        operation: 'EXPECTATION',
+        success: true,
+        result: result,
+        message: result.message,
+        timestamp: new Date().toISOString()
+      };
+    }).catch(error => {
       return {
         operation: 'EXPECTATION',
         success: false,
