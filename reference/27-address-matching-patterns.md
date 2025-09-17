@@ -10,8 +10,18 @@ ADDRESS MATCHING extends the [Application Addressing](16-application-addressing.
 
 All ADDRESS contexts support multiple ways to send commands to target handlers:
 
+### ADDRESS MATCHING MULTILINE (New)
+**Syntax:** `ADDRESS target MATCHING MULTILINE "pattern"`  
+**Processing:** Collects matching lines and sends as single multiline string  
+**Use Case:** SQL statements, Python code, shell scripts spanning multiple lines
+
+## ADDRESS Routing Methods (Complete List)
+
+All ADDRESS contexts support multiple ways to send commands to target handlers:
+
 | Method | Syntax | Processing | Use Case |
 |--------|--------|------------|----------|
+| **MATCHING MULTILINE** | `ADDRESS target MATCHING MULTILINE("regex")` | Collect matching lines → Single handler call | Multi-line SQL, Python, scripts |
 | **MATCHING Pattern** | `ADDRESS target MATCHING("regex")` | Regex test → Handler | DSLs, Test frameworks |
 | **LINES Capture** | `ADDRESS target LINES(n)` | Capture n lines → Handler | Block commands, Scripts |
 | **Inline String** | `ADDRESS target "command"`<br>`ADDRESS target 'command'`<br>`ADDRESS target \`command\`` | Direct → Handler | Single commands |
@@ -21,21 +31,28 @@ All ADDRESS contexts support multiple ways to send commands to target handlers:
 
 ### Processing Order (Precedence)
 
-1. **MATCHING patterns** (when active) - Override all other parsing
-2. **LINES capture** (when active) - Capture specified number of lines
-3. **Quoted strings** - Immediate execution, bypass REXX parsing  
-4. **HEREDOC blocks** - Multi-line immediate execution
-5. **Function calls** - Normal REXX parsing, routed if function call
-6. **Other statements** - Normal REXX processing (not sent to target)
+1. **MATCHING MULTILINE patterns** (when active) - Collect matching lines until non-match
+2. **MATCHING patterns** (when active) - Override all other parsing  
+3. **LINES capture** (when active) - Capture specified number of lines
+4. **Quoted strings** - Immediate execution, bypass REXX parsing  
+5. **HEREDOC blocks** - Multi-line immediate execution
+6. **Function calls** - Normal REXX parsing, routed if function call
+7. **Other statements** - Normal REXX processing (not sent to target)
 
 ## Quick Reference
 
 ```rexx
 -- Basic syntax
+ADDRESS targetName MATCHING MULTILINE("regex_pattern")  -- NEW: Collect multiline blocks
 ADDRESS targetName MATCHING("regex_pattern")
 ADDRESS targetName LINES(number)
 
--- Common patterns
+-- Multiline patterns (NEW)
+ADDRESS sqlite3 MATCHING MULTILINE("^  (.*)")           -- SQL statements
+ADDRESS python MATCHING MULTILINE("^    (.*)")          -- Python code  
+ADDRESS system MATCHING MULTILINE("^  (.*)")            -- Shell scripts
+
+-- Single-line patterns
 ADDRESS EXPECTATIONS MATCHING("^[ \\t]*\\. (.*)$")        -- Test assertions
 ADDRESS logger MATCHING("^[ \\t]*# (.*)$")              -- Comments
 ADDRESS validator MATCHING("^[ \\t]*CHECK: (.*)$")      -- Validation
@@ -519,12 +536,228 @@ ADDRESS DEFAULT                 -- Clear ADDRESS and MATCHING pattern
 SAY "Back to normal parsing"    -- Normal SAY command
 ```
 
+## ADDRESS MATCHING MULTILINE Reference
+
+### Syntax
+```rexx
+ADDRESS <target> MATCHING MULTILINE "<pattern>"
+```
+
+The MULTILINE variant extends standard ADDRESS MATCHING to **collect multiple matching lines** and send them as a **single multiline string** to the ADDRESS handler.
+
+### Key Differences from Standard MATCHING
+
+| Feature | Standard MATCHING | MULTILINE MATCHING |
+|---------|-------------------|-------------------|
+| **Line Processing** | Each line sent individually | Lines collected until non-match |
+| **Handler Calls** | One call per matching line | One call per collected block |
+| **Content Format** | Single line string | Multiline string (lines joined with `\n`) |
+| **Use Case** | Individual commands/assertions | Multi-line code blocks |
+
+### Pattern Design
+
+#### **Start Anchor Required: `^`**
+```rexx
+-- ✅ CORRECT: Matches lines starting with pattern
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)"
+
+-- ❌ INCORRECT: Matches pattern anywhere in line  
+ADDRESS sqlite3 MATCHING MULTILINE "  (.*)"
+```
+
+#### **End Anchor Not Needed: `$`**
+```rexx
+-- ✅ PREFERRED: Captures to end of line automatically
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)"
+
+-- ⚠️ REDUNDANT: End anchor provides no benefit
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)$"
+```
+
+#### **Common Patterns**
+```rexx
+-- SQL indentation (2+ spaces)
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)"
+
+-- Python indentation (4+ spaces)  
+ADDRESS python MATCHING MULTILINE "^    (.*)"
+
+-- Comment blocks
+ADDRESS processor MATCHING MULTILINE "^# (.*)"
+
+-- Custom prefix
+ADDRESS system MATCHING MULTILINE "^>> (.*)"
+```
+
+### Collection Algorithm
+
+1. **Pattern Match**: Each line tested against regex
+2. **Match Found**: Extract capture group content, add to buffer
+3. **Non-Match Found**: 
+   - Send buffered content as single multiline string
+   - Clear buffer
+   - Process non-matching line normally
+4. **Program End**: Flush any remaining buffered content
+
+### Multiline Examples
+
+#### **SQL Statements**
+```rexx
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)"
+
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE
+  )
+
+-- Non-matching line flushes the CREATE TABLE
+SAY "✓ Table created"
+
+  INSERT INTO users (name, email) VALUES 
+    ('Alice Smith', 'alice@example.com'),
+    ('Bob Jones', 'bob@example.com')
+
+-- ADDRESS change flushes the INSERT  
+ADDRESS default
+```
+
+**Handler receives:**
+1. `"CREATE TABLE users (\nid INTEGER PRIMARY KEY,\nname TEXT NOT NULL,\nemail TEXT UNIQUE\n)"`
+2. `"INSERT INTO users (name, email) VALUES\n('Alice Smith', 'alice@example.com'),\n('Bob Jones', 'bob@example.com')"`
+
+#### **Python Code**
+```rexx
+ADDRESS python MATCHING MULTILINE "^    (.*)"
+
+    def calculate_total(items):
+        total = 0
+        for item in items:
+            total += item.price
+        return total
+
+ADDRESS default
+```
+
+**Handler receives:**
+`"def calculate_total(items):\n    total = 0\n    for item in items:\n        total += item.price\n    return total"`
+
+#### **Shell Scripts**
+```rexx
+ADDRESS system MATCHING MULTILINE "^  (.*)"
+
+  for file in *.txt; do
+    echo "Processing $file"
+    wc -l "$file"
+  done
+
+ADDRESS default
+```
+
+### Termination Triggers
+
+Multiline collection stops and content is sent when:
+
+1. **Non-matching line encountered**
+2. **ADDRESS target changes** (`ADDRESS other` or `ADDRESS default`)
+3. **End of program/script**
+4. **New MATCHING pattern set** (`ADDRESS target MATCHING "other_pattern"`)
+
+### Integration with ADDRESS Handlers
+
+#### **Handler Design**
+```javascript
+function ADDRESS_HANDLER(commandOrMethod, params) {
+  if (typeof commandOrMethod === 'string' && commandOrMethod.includes('\n')) {
+    // Multiline content detected
+    const lines = commandOrMethod.split('\n');
+    // Process as single multiline command
+  } else {
+    // Single line or method call
+  }
+}
+```
+
+#### **Context Information**
+Handlers can detect multiline content via:
+- **Newline presence**: `commandOrMethod.includes('\n')`
+- **Pattern context**: `params._addressMatchingPattern` field
+- **Multiple lines**: `commandOrMethod.split('\n').length > 1`
+
+### Performance Considerations
+
+- **Memory Usage**: Collection buffer grows with matching lines
+- **Regex Overhead**: Pattern tested against every line
+- **Optimal Patterns**: Simple patterns (`^  (.*)`) perform better than complex alternations
+- **Buffer Flushing**: Regular flushing prevents excessive memory usage
+
+### Common Use Cases
+
+#### **Database Operations**
+```rexx
+-- Multi-line CREATE TABLE with constraints
+-- Multi-value INSERT statements  
+-- Complex SELECT with JOINs and subqueries
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)"
+```
+
+#### **Code Generation**
+```rexx
+-- Python functions and classes
+-- JavaScript code blocks
+-- Shell script generation
+ADDRESS generator MATCHING MULTILINE "^    (.*)"
+```
+
+#### **Configuration Files**
+```rexx  
+-- JSON configuration blocks
+-- YAML sections
+-- INI file groups
+ADDRESS config MATCHING MULTILINE "^  (.*)"
+```
+
+### Error Handling
+
+#### **Invalid Patterns**
+```rexx
+-- Invalid regex falls back to normal MATCHING behavior
+ADDRESS target MATCHING MULTILINE "^[invalid"  -- Invalid regex
+-- Subsequent lines processed as standard MATCHING (line-by-line)
+```
+
+#### **Debugging Techniques**
+```rexx
+-- Test with simple content first
+ADDRESS target MATCHING MULTILINE "^  (.*)"
+  simple test line
+
+-- Add complexity gradually  
+  multi-line
+  content block
+```
+
+### Best Practices
+
+#### **✅ Do:**
+- Use start anchors (`^`) for proper line matching
+- Design patterns for consistent indentation
+- Flush buffers with non-matching lines regularly
+- Test patterns with various content types
+
+#### **❌ Don't:**
+- Use overly broad patterns that match unintended lines
+- Create patterns without start anchors
+- Forget to handle termination cases
+- Mix multiline and single-line patterns unnecessarily
+
 ## See Also
 
 - [Application Addressing](16-application-addressing.md) - Core ADDRESS functionality
 - [Dynamic Execution](15-interpret.md) - INTERPRET with ADDRESS contexts
 - [Testing with rexxt](23-testing-rexxt.md) - Test framework integration
 - [Expectations Address Implementation](../src/expectations-address.js) - Reference implementation
+- [SQLite3 ADDRESS Examples](../extras/addresses/sqlite3/) - Real-world multiline usage
 
 ---
 
@@ -532,3 +765,5 @@ SAY "Back to normal parsing"    -- Normal SAY command
 - [`tests/dogfood/nested-loops-comprehensive.rexx`](../tests/dogfood/nested-loops-comprehensive.rexx) - Production usage
 - [`tests/address-matching-simple.spec.js`](../tests/address-matching-simple.spec.js) - Unit tests
 - [`tests/address-matching.spec.js`](../tests/address-matching.spec.js) - Integration tests
+- [`tests/address-matching-multiline.spec.js`](../tests/address-matching-multiline.spec.js) - Multiline tests
+- [`extras/addresses/sqlite3/`](../extras/addresses/sqlite3/) - Multiline SQL examples

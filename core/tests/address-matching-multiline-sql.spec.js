@@ -77,24 +77,12 @@ describe('ADDRESS MATCHING with multiline SQL statements', () => {
       
       await executeRexxCode(rexxCode);
       
-      // Should receive each line as a separate call  
-      expect(mockSQLHandler).toHaveBeenCalledTimes(3);
+      // Should receive one multiline call (consistent with ADDRESS MATCHING behavior)
+      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
       
-      // Verify each fragment is received individually
-      expect(mockSQLHandler).toHaveBeenNthCalledWith(1,
-        'CREATE TABLE test (', 
-        expect.objectContaining({ _addressMatchingPattern: '  (.*)' }),
-        expect.anything()
-      );
-      
-      expect(mockSQLHandler).toHaveBeenNthCalledWith(2,
-        'id INTEGER PRIMARY KEY,', 
-        expect.objectContaining({ _addressMatchingPattern: '  (.*)' }),
-        expect.anything()
-      );
-      
-      expect(mockSQLHandler).toHaveBeenNthCalledWith(3,
-        'name TEXT', 
+      // Verify the complete multiline content is received
+      expect(mockSQLHandler).toHaveBeenCalledWith(
+        'CREATE TABLE test (\nid INTEGER PRIMARY KEY,\nname TEXT', 
         expect.objectContaining({ _addressMatchingPattern: '  (.*)' }),
         expect.anything()
       );
@@ -114,29 +102,11 @@ describe('ADDRESS MATCHING with multiline SQL statements', () => {
       
       await executeRexxCode(rexxCode);
       
-      // Should receive 4 separate calls (ignoring blank lines)
-      expect(mockSQLHandler).toHaveBeenCalledTimes(4);
+      // Should receive 1 multiline call collecting all SQL statements
+      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
       
-      expect(mockSQLHandler).toHaveBeenNthCalledWith(1,
-        'CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)', 
-        expect.anything(),
-        expect.anything()
-      );
-      
-      expect(mockSQLHandler).toHaveBeenNthCalledWith(2,
-        "INSERT INTO products (name) VALUES ('Widget')", 
-        expect.anything(),
-        expect.anything()
-      );
-      
-      expect(mockSQLHandler).toHaveBeenNthCalledWith(3,
-        "INSERT INTO products (name) VALUES ('Gadget')", 
-        expect.anything(),
-        expect.anything()
-      );
-      
-      expect(mockSQLHandler).toHaveBeenNthCalledWith(4,
-        'SELECT COUNT(*) FROM products', 
+      expect(mockSQLHandler).toHaveBeenCalledWith(
+        "CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)\nINSERT INTO products (name) VALUES ('Widget')\nINSERT INTO products (name) VALUES ('Gadget')\nSELECT COUNT(*) FROM products", 
         expect.anything(),
         expect.anything()
       );
@@ -155,22 +125,18 @@ describe('ADDRESS MATCHING with multiline SQL statements', () => {
       
       await executeRexxCode(rexxCode);
       
-      // Should only receive 3 calls (blank lines ignored)
-      expect(mockSQLHandler).toHaveBeenCalledTimes(3);
+      // Should receive 1 multiline call (blank lines ignored)
+      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
       
-      const receivedFragments = sqlCalls.map(call => call.fragment);
-      expect(receivedFragments).toEqual([
-        'CREATE TABLE test (id INTEGER)',
-        'INSERT INTO test VALUES (1)',
-        'SELECT * FROM test'
-      ]);
+      const receivedContent = sqlCalls[0].fragment;
+      expect(receivedContent).toBe('CREATE TABLE test (id INTEGER)\nINSERT INTO test VALUES (1)\nSELECT * FROM test');
     });
   });
 
-  describe('SQL fragment accumulation contract', () => {
-    test('demonstrates the need for fragment accumulation in SQL handlers', async () => {
-      // This test documents that SQL handlers need to accumulate fragments
-      // when they receive incomplete SQL from ADDRESS MATCHING
+  describe('Complete SQL statement delivery', () => {
+    test('demonstrates that ADDRESS MATCHING delivers complete multiline SQL', async () => {
+      // This test documents that ADDRESS MATCHING with indentation patterns
+      // delivers complete multiline content to SQL handlers
       
       const rexxCode = `
         ADDRESS sqlengine MATCHING("  (.*)")
@@ -184,21 +150,23 @@ describe('ADDRESS MATCHING with multiline SQL statements', () => {
       
       await executeRexxCode(rexxCode);
       
-      // Handler receives 4 fragment calls
-      expect(mockSQLHandler).toHaveBeenCalledTimes(4);
+      // Handler receives 1 complete multiline call
+      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
       
-      // Each fragment by itself would be invalid SQL
-      const fragments = sqlCalls.map(call => call.fragment);
-      expect(fragments[0]).toBe('CREATE TABLE complex_table (');  // Incomplete
-      expect(fragments[1]).toBe('id INTEGER PRIMARY KEY,');        // Invalid alone
-      expect(fragments[2]).toBe('name TEXT NOT NULL,');            // Invalid alone  
-      expect(fragments[3]).toBe('created_at TEXT DEFAULT CURRENT_TIMESTAMP'); // Invalid alone
+      // The complete SQL is delivered as a single multiline string
+      const receivedSQL = sqlCalls[0].fragment;
+      expect(receivedSQL).toContain('CREATE TABLE complex_table (');
+      expect(receivedSQL).toContain('id INTEGER PRIMARY KEY,');
+      expect(receivedSQL).toContain('name TEXT NOT NULL,');
+      expect(receivedSQL).toContain('created_at TEXT DEFAULT CURRENT_TIMESTAMP');
       
-      // But when accumulated, they form valid SQL:
-      const completeSQL = fragments.join(' ') + ')';
-      expect(completeSQL).toContain('CREATE TABLE complex_table');
-      expect(completeSQL).toContain('id INTEGER PRIMARY KEY');
-      expect(completeSQL).toContain('created_at TEXT DEFAULT CURRENT_TIMESTAMP');
+      // Verify it's properly formatted as multiline
+      const lines = receivedSQL.split('\n');
+      expect(lines.length).toBe(4);
+      expect(lines[0]).toBe('CREATE TABLE complex_table (');
+      expect(lines[1]).toBe('id INTEGER PRIMARY KEY,');
+      expect(lines[2]).toBe('name TEXT NOT NULL,');
+      expect(lines[3]).toBe('created_at TEXT DEFAULT CURRENT_TIMESTAMP');
     });
   });
 });

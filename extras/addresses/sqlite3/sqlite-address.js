@@ -69,6 +69,16 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
     
     const db = global._sqliteConnection;
     
+    // Handle ADDRESS MATCHING pattern with multi-line input
+    if (typeof commandOrMethod === 'string' && params && params._addressMatchingPattern) {
+      return handleMatchingPatternSQL(db, commandOrMethod, params._addressMatchingPattern)
+        .then(result => formatSQLResultForREXX(result))
+        .catch(error => {
+          const formattedError = formatSQLErrorForREXX(error);
+          throw new Error(error.message);
+        });
+    }
+    
     // Handle command-string style (traditional Rexx ADDRESS)
     if (typeof commandOrMethod === 'string' && !params) {
       return handleSQLCommand(db, commandOrMethod)
@@ -76,6 +86,21 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
         .catch(error => {
           const formattedError = formatSQLErrorForREXX(error);
           throw new Error(error.message); // Preserve original error throwing behavior
+        });
+    }
+    
+    // Handle ADDRESS MATCHING multiline input 
+    if (typeof commandOrMethod === 'string' && params && params._addressMatchingPattern) {
+      console.log('DEBUG: MATCHING pattern received:');
+      console.log('  commandOrMethod:', JSON.stringify(commandOrMethod));
+      console.log('  pattern:', params._addressMatchingPattern);
+      console.log('  contains newlines:', commandOrMethod.includes('\n'));
+      
+      return handleMatchingPatternSQL(db, commandOrMethod, params._addressMatchingPattern)
+        .then(result => formatSQLResultForREXX(result))
+        .catch(error => {
+          const formattedError = formatSQLErrorForREXX(error);
+          throw new Error(error.message);
         });
     }
     
@@ -129,6 +154,58 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
     }
     throw error;
   }
+}
+
+// Handle ADDRESS MATCHING multiline input (should receive complete SQL with newlines)
+function handleMatchingPatternSQL(db, multilineSQL, matchingPattern) {
+  return new Promise((resolve, reject) => {
+    console.log('DEBUG: Processing multiline SQL:', JSON.stringify(multilineSQL));
+    
+    // Clean up the SQL (remove extra whitespace, but preserve structure)
+    const cleanSQL = multilineSQL.trim();
+    
+    if (!cleanSQL) {
+      resolve({
+        operation: 'EMPTY',
+        success: true,
+        message: 'Empty SQL from matching pattern',
+        pattern: matchingPattern,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    
+    // Execute the multiline SQL directly
+    db.run(cleanSQL, function(err) {
+      if (err) {
+        reject(new Error(`SQL execution failed: ${err.message}`));
+      } else {
+        const result = {
+          operation: detectSQLOperation(cleanSQL),
+          success: true,
+          sql: cleanSQL,
+          pattern: matchingPattern,
+          source: 'matching_pattern',
+          rowsAffected: this.changes || 0,
+          lastInsertId: this.lastID || null,
+          timestamp: new Date().toISOString()
+        };
+        resolve(result);
+      }
+    });
+  });
+}
+
+// Helper function to detect SQL operation type
+function detectSQLOperation(sql) {
+  const upperSQL = sql.toUpperCase().trim();
+  if (upperSQL.startsWith('CREATE TABLE')) return 'CREATE_TABLE';
+  if (upperSQL.startsWith('INSERT')) return 'INSERT';
+  if (upperSQL.startsWith('SELECT')) return 'SELECT';
+  if (upperSQL.startsWith('UPDATE')) return 'UPDATE';
+  if (upperSQL.startsWith('DELETE')) return 'DELETE';
+  if (upperSQL.startsWith('DROP')) return 'DROP_TABLE';
+  return 'EXECUTE';
 }
 
 // Handle direct SQL command strings

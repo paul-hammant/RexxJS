@@ -333,6 +333,41 @@ describe('DO variable OVER array loops', () => {
       expect(output).toContain('Object processed');
     });
 
+    test('should access properties of objects in array', async () => {
+      // Set up array of objects manually
+      interpreter.variables.set('rows', [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]);
+      
+      const script = `
+        DO row OVER rows
+          SAY "ID: " || row.id || ", Name: " || row.name
+        END
+      `;
+      
+      await interpreter.run(parse(script));
+      const output = outputHandler.getOutput();
+      expect(output).toContain('ID: 1, Name: Alice');
+      expect(output).toContain('ID: 2, Name: Bob');
+    });
+
+    test('should iterate over array that is a property of an object', async () => {
+      // Set up object with array property (like RESULT.rows in SQLite)
+      interpreter.variables.set('RESULT', { 
+        success: true, 
+        rows: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }] 
+      });
+      
+      const script = `
+        DO row OVER RESULT.rows
+          SAY "ID: " || row.id || ", Name: " || row.name
+        END
+      `;
+      
+      await interpreter.run(parse(script));
+      const output = outputHandler.getOutput();
+      expect(output).toContain('ID: 1, Name: Alice');
+      expect(output).toContain('ID: 2, Name: Bob');
+    });
+
     test('should support variable references in array expression', async () => {
       // Set up array manually
       interpreter.variables.set('testArray', ['value1', 'value2']);

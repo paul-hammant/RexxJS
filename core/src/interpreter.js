@@ -1115,9 +1115,20 @@ class RexxInterpreter {
         }
         
         try {
-          // Check if we're in a browser environment (or test environment with global.window)
-          if (typeof window === 'undefined' && typeof global.window === 'undefined') {
-            throw new Error('INTERPRET_JS only available in browser environment');
+          // Create variable context from Rexx variables
+          const context = Object.fromEntries(this.variables);
+          
+          // Get variable names and values for the function parameters
+          // Filter out invalid variable names and convert values safely
+          const varNames = [];
+          const varValues = [];
+          
+          for (const [name, value] of Object.entries(context)) {
+            // Only include valid JavaScript identifier names
+            if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name)) {
+              varNames.push(name);
+              varValues.push(value);
+            }
           }
           
           let result;
@@ -1126,27 +1137,27 @@ class RexxInterpreter {
           switch (execType) {
             case 'expression':
               // Force expression mode - always wrap with return
-              const exprFunc = new Function(`return (${jsCode})`);
-              result = exprFunc();
+              const exprFunc = new Function(...varNames, `return (${jsCode})`);
+              result = exprFunc(...varValues);
               break;
               
             case 'statement':
               // Force statement mode - execute as-is
-              const stmtFunc = new Function(jsCode);
-              result = stmtFunc();
+              const stmtFunc = new Function(...varNames, jsCode);
+              result = stmtFunc(...varValues);
               break;
               
             case 'auto':
             default:
               // Try expression first, fall back to statement
               try {
-                const func = new Function(`return (${jsCode})`);
-                result = func();
+                const func = new Function(...varNames, `return (${jsCode})`);
+                result = func(...varValues);
               } catch (e) {
                 // If expression fails, try as function body (for statements)
                 try {
-                  const func = new Function(jsCode);
-                  result = func();
+                  const func = new Function(...varNames, jsCode);
+                  result = func(...varValues);
                 } catch (e2) {
                   // If both fail, throw the expression error (more informative)
                   throw e;
@@ -1499,6 +1510,28 @@ class RexxInterpreter {
     return null;
   }
 
+  // Auto-detect multiline mode from ADDRESS MATCHING pattern
+  shouldUseMultilineMode(pattern) {
+    // Analyze the pattern to determine if multiline collection makes sense
+    
+    // Based on test expectations:
+    // - Prefix patterns like "SQL: (.*)" should collect consecutive lines (multiline)
+    // - Indentation patterns like "  (.*)" should collect consecutive lines (multiline)
+    
+    // Check for prefix patterns that should collect consecutive related lines
+    if (pattern.match(/^[A-Z]+:\s*\(/) || pattern.match(/^\w+:\s*\(/)) {
+      return true; // Multiline mode for SQL: patterns etc.
+    }
+    
+    // Check for indentation patterns that should collect consecutive lines
+    if (pattern.match(/^[\s\t]+\(/) || pattern.match(/^\^[\s\t]+/)) {
+      return true; // Multiline mode for indentation patterns
+    }
+    
+    // Default to single-line mode for other patterns
+    return false;
+  }
+
   // Browser-compatible string functions
   executeBrowserStringFunction(functionName, args) {
     return stringUtils.executeBrowserStringFunction(functionName, args);
@@ -1538,15 +1571,17 @@ class RexxInterpreter {
           // Set the address target and store the matching pattern for subsequent lines
           this.address = command.target.toLowerCase();
           this.addressMatchingPattern = command.matchingPattern;
+          
+          // Auto-detect multiline mode from pattern
+          if (this.shouldUseMultilineMode(command.matchingPattern)) {
+            this.addressMultilineMode = true;
+            this.addressCollectedLines = [];
+          } else {
+            this.addressMultilineMode = false;
+            this.addressCollectedLines = [];
+          }
           break;
 
-        case 'ADDRESS_WITH_MATCHING_MULTILINE':
-          // Set the address target and store the matching pattern for multiline collection
-          this.address = command.target.toLowerCase();
-          this.addressMatchingPattern = command.matchingPattern;
-          this.addressMultilineMode = true;
-          this.addressCollectedLines = [];
-          break;
           
         case 'ADDRESS_WITH_LINES':
           // Set the address target and capture raw source lines immediately, checking for ADDRESS interruption

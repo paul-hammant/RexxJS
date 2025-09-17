@@ -219,18 +219,6 @@ function parseStatement(tokens, startIndex) {
     }
   }
   
-  // ADDRESS command with MATCHING MULTILINE parameter
-  const addressMatchingMultilineMatch = line.match(/^ADDRESS\s+(\w+)\s+MATCHING\s+MULTILINE\s+(["`'])(.*?)\2$/i);
-  if (addressMatchingMultilineMatch) {
-    return {
-      command: addLineNumber({ 
-        type: 'ADDRESS_WITH_MATCHING_MULTILINE', 
-        target: addressMatchingMultilineMatch[1],
-        matchingPattern: addressMatchingMultilineMatch[3]
-      }, token),
-      nextIndex: startIndex + 1
-    };
-  }
 
   // ADDRESS command with MATCHING parameter
   const addressMatchingMatch = line.match(/^ADDRESS\s+(\w+)\s+MATCHING\((["`'])(.*?)\2\)$/i);

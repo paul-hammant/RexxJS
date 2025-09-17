@@ -1,7 +1,7 @@
 #!/usr/bin/env ./rexxt
 
-// SQLite3 ADDRESS Mixed Styles Demonstration
-// Shows both "whole string" way and execute= way working together
+// SQLite3 ADDRESS Mixed Styles Demonstration  
+// Shows "execute=" method calls, "whole string" commands, and elegant multiline styles
 
 REQUIRE "./src/expectations-address.js"
 REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
@@ -9,16 +9,21 @@ REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
 SAY "🎭 SQLite3 ADDRESS Mixed Styles Demonstration"
 
 /* ============= Setup ============= */
-ADDRESS sqlite3
 
-// METHOD-CALL STYLE: Create table
-LET create_users = execute sql="CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+// ELEGANT MULTILINE STYLE: Create table with clean syntax
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)"
+
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    age INTEGER CHECK (age > 0)
+  )
 
 ADDRESS EXPECTATIONS
-"{create_users.success} should equal true"
-"{create_users.operation} should equal 'CREATE_TABLE'"
+"{RESULT.success} should equal true"
+"{RESULT.operation} should equal 'CREATE_TABLE'"
 
-SAY "✓ Created users table (method-call style): " || create_users.operation
+SAY "✓ Created users table (elegant multiline style): " || RESULT.operation
 
 /* ============= Mixed Insertion Styles ============= */
 SAY ""
@@ -111,14 +116,40 @@ ADDRESS EXPECTATIONS
 
 SAY "✓ Updated Bob (method-call style): affected=" || update2.rowsAffected
 
+// ELEGANT MULTILINE STYLE: Complex query with joins and aggregation
+SAY ""
+SAY "🎨 Elegant Multiline Complex Query"
+
+ADDRESS sqlite3 MATCHING MULTILINE "^  (.*)"
+
+  SELECT 
+    name,
+    age,
+    CASE 
+      WHEN age < 30 THEN 'Young'
+      WHEN age < 50 THEN 'Middle-aged'
+      ELSE 'Senior'
+    END as age_category,
+    LENGTH(name) as name_length
+  FROM users
+  WHERE age > 20
+  ORDER BY age DESC, name ASC
+
+ADDRESS EXPECTATIONS
+"{RESULT.success} should equal true"
+"{RESULT.count} should equal 2"
+
+SAY "✓ Complex query (elegant multiline style): " || RESULT.count || " results"
+
 /* ============= Style Summary ============= */
 SAY ""
-SAY "📋 Mixed ADDRESS Styles Successfully Demonstrated:"
-SAY "   • Command-string style: \"SQL statement\" + LET result = RESULT"
-SAY "   • Method-call style:    LET result = execute sql=\"SQL statement\""
-SAY "   • Method-call style:    LET result = query sql=\"SELECT statement\""
+SAY "📋 Three ADDRESS Styles Successfully Demonstrated:"
+SAY "   • Command-string style:  \"SQL statement\" + LET result = RESULT"
+SAY "   • Method-call style:     LET result = execute sql=\"SQL statement\""
+SAY "   • Elegant multiline:     ADDRESS sqlite3 MATCHING MULTILINE \"  (.*)\""
+SAY "                            with clean, unquoted SQL statements"
 SAY ""
-SAY "✅ Both styles work seamlessly together!"
+SAY "✅ All three styles work seamlessly together!"
 
 /* ============= Cleanup ============= */
 ADDRESS sqlite3

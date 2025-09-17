@@ -41,7 +41,7 @@ describe('ADDRESS MATCHING MULTILINE functionality', () => {
 
   describe('Basic multiline collection', () => {
     test('should collect matching lines and send as multiline string', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "  (.*)"
+      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
 
   line one
   line two
@@ -57,7 +57,7 @@ ADDRESS default`;
     });
 
     test('should handle multiple multiline blocks separated by non-matching lines', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "  (.*)"
+      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
 
   line one
   line two
@@ -78,7 +78,7 @@ ADDRESS default`;
     });
 
     test('should flush remaining lines when ADDRESS changes', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "  (.*)"
+      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
 
   line one
   line two
@@ -94,7 +94,7 @@ ADDRESS default`;
     });
 
     test('should flush remaining lines at end of program', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "  (.*)"
+      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
 
   line one
   line two
@@ -108,7 +108,7 @@ ADDRESS default`;
     });
 
     test('should handle empty content gracefully', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "  (.*)"
+      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
 ADDRESS default`;
       
       await executeRexxCode(rexxCode);
@@ -120,7 +120,7 @@ ADDRESS default`;
 
   describe('Pattern matching behavior', () => {
     test('should only collect lines that match the pattern', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "SQL: (.*)"
+      const rexxCode = `ADDRESS testhandler MATCHING("SQL: (.*)")
 
 SQL: CREATE TABLE test (id INTEGER)
 SQL: INSERT INTO test VALUES (1)
@@ -139,7 +139,7 @@ ADDRESS default`;
     });
 
     test('should handle patterns without capture groups', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "PREFIX: .*"
+      const rexxCode = `ADDRESS testhandler MATCHING("PREFIX: .*")
 
 PREFIX: line one
 PREFIX: line two
@@ -159,7 +159,7 @@ ADDRESS default`;
 
   describe('Context and metadata', () => {
     test('should pass correct context with multiline pattern', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING MULTILINE "  (.*)"
+      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
 
   line one
   line two

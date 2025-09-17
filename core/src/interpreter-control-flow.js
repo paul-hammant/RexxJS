@@ -293,6 +293,11 @@ async function executeOverLoop(loopSpec, bodyCommands, resolveValueFn, runComman
     throw new Error('DO OVER: Array cannot be null or undefined');
   }
   
+  // Enhanced Array.isArray() guard with better error message
+  if (typeof arrayValue === 'object' && arrayValue !== null && !Array.isArray(arrayValue) && arrayValue.length === undefined && Object.keys(arrayValue).length === 0) {
+    throw new Error(`DO OVER: Expected array or iterable object, but got empty object ${JSON.stringify(arrayValue)}`);
+  }
+  
   // Handle strings (convert to character array)
   if (typeof arrayValue === 'string') {
     const chars = arrayValue.split('');
