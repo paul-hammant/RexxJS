@@ -2535,8 +2535,8 @@ class RexxInterpreter {
             this.variables.set('RC', result.success ? 0 : (result.errorCode || 1));
             // Only set RESULT if the ADDRESS target explicitly provides output
             // Don't overwrite RESULT for operations like EXPECTATIONS that shouldn't affect it
-            if (result.output !== undefined && this.address !== 'expectations') {
-              this.variables.set('RESULT', result.output);
+            if (this.address !== 'expectations') {
+              this.variables.set('RESULT', result);
             }
             if (!result.success && result.errorMessage) {
               this.variables.set('ERRORTEXT', result.errorMessage);
@@ -2621,8 +2621,8 @@ class RexxInterpreter {
             this.variables.set('RC', result.success ? 0 : (result.errorCode || 1));
             // Only set RESULT if the ADDRESS target explicitly provides output
             // Don't overwrite RESULT for operations like EXPECTATIONS that shouldn't affect it
-            if (result.output !== undefined && this.address !== 'expectations') {
-              this.variables.set('RESULT', result.output);
+            if (this.address !== 'expectations') {
+              this.variables.set('RESULT', result);
             }
             if (!result.success && result.errorMessage) {
               this.variables.set('ERRORTEXT', result.errorMessage);
