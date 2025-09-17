@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .idea/
+.claude/
 
 core/test-results/
 core/playwright-report/
