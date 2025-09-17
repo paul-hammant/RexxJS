@@ -1874,7 +1874,7 @@ class RexxInterpreter {
               const addressTarget = this.addressTargets.get(this.address);
               
               // If we have an ADDRESS target and the variable name matches a method
-              if (addressTarget && addressTarget.handler && 
+              if (addressTarget && addressTarget.handler &&
                   addressTarget.methods && addressTarget.methods.includes(command.expression.name.toLowerCase())) {
                 
                 try {
@@ -3667,7 +3667,7 @@ class RexxInterpreter {
           if (typeof handlerFunction === 'function') {
             this.addressTargets.set(targetName, {
               handler: handlerFunction,
-              methods: methodsObject,
+              methods: Object.keys(methodsObject),
               metadata: {
                 libraryName: libraryName,
                 libraryMetadata: metadata,
@@ -3696,7 +3696,7 @@ class RexxInterpreter {
         if (typeof handlerFunction === 'function') {
           this.addressTargets.set(targetName, {
             handler: handlerFunction,
-            methods: methodsObject,
+            methods: Object.keys(methodsObject),
             metadata: {
               libraryName: libraryName,
               exportName: exportName
