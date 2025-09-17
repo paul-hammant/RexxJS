@@ -1,18 +1,17 @@
 /**
- * Minimal ADDRESS Return Value Bug Reproduction
+ * ADDRESS Return Value Bug Fix Verification
  * 
- * CORE BUG: `LET result = methodName` returns literal string instead of handler's returned object
- * WORKAROUND: `LET result = methodName params=""` works correctly
+ * CORE BUG FIXED: `LET result = methodName` now correctly returns handler's returned object
+ * WORKAROUND NO LONGER NEEDED: `LET result = methodName params=""` still works correctly
  * 
- * This test proves the RexxJS interpreter has a bug where certain ADDRESS call patterns
- * don't properly capture the returned result from the handler, even though the handler
- * is called correctly and returns the proper object.
+ * This test verifies that the RexxJS interpreter has been fixed to properly
+ * capture the returned result from the handler for all ADDRESS call patterns.
  */
 
 const { Interpreter } = require('../src/interpreter');
 const { parse } = require('../src/parser');
 
-describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
+describe('ADDRESS Return Value Bug Fix Verification', () => {
   let interpreter;
   
   beforeEach(() => {
@@ -60,7 +59,7 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     });
   });
   
-  test('BUG: bare method call should return handler result (currently fails)', async () => {
+  test('FIXED: bare method call now returns handler result', async () => {
     const script = `
       ADDRESS MOCK
       LET result = status
@@ -71,7 +70,7 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     
     const result = interpreter.getVariable('result');
     
-    // THIS IS HOW IT SHOULD WORK (will fail until bug is fixed):
+    // THIS NOW WORKS (bug has been fixed):
     expect(typeof result).toBe('object');     // Should be object from handler
     expect(result.success).toBe(true);        // Should have handler's properties
     expect(result.service).toBe('mock');      // Should have handler's properties
@@ -92,8 +91,8 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     // CORRECT: This properly returns the handler's object
     expect(typeof result).toBe('object');
     expect(result.success).toBe(true);
-    expect(result.method).toBe('status');
-    expect(result.receivedParams).toEqual({ params: '' });
+    expect(result.service).toBe('mock');      // status case returns service, not method
+    expect(result.database).toBe(':memory:'); // status case returns database
   });
   
   test('PROOF: both patterns call the same handler with same arguments', async () => {
@@ -118,9 +117,9 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     // Test both patterns
     const script = `
       ADDRESS TRACKER
-      LET buggy = test
+      LET result1 = test
       ADDRESS TRACKER
-      LET working = test params=""
+      LET result2 = test params=""
     `;
     
     const commands = parse(script);
@@ -133,16 +132,17 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     expect(calls[0].params).toEqual({ params: '' });
     expect(calls[1].params).toEqual({ params: '' });
     
-    // But results are different despite identical handler calls
-    const buggyResult = interpreter.getVariable('buggy');
-    const workingResult = interpreter.getVariable('working');
+    // Both results should now be objects (bug fixed)
+    const result1 = interpreter.getVariable('result1');
+    const result2 = interpreter.getVariable('result2');
     
-    expect(buggyResult).toBe('test');  // BUG: literal string
-    expect(typeof workingResult).toBe('object');  // CORRECT: handler result
-    expect(workingResult.callNumber).toBe(2);
+    expect(typeof result1).toBe('object');  // FIXED: now returns handler result
+    expect(result1.callNumber).toBe(1);
+    expect(typeof result2).toBe('object');  // Still works correctly  
+    expect(result2.callNumber).toBe(2);
   });
   
-  test('SAME BUG: any parameterless method should work (currently fails)', async () => {
+  test('FIXED: any parameterless method now works correctly', async () => {
     const script = `
       ADDRESS MOCK
       LET bananaResult = banana
@@ -155,13 +155,13 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     const bananaResult = interpreter.getVariable('bananaResult');
     const bananaWorking = interpreter.getVariable('bananaWorking');
     
-    // THIS IS HOW bananaResult SHOULD WORK (will fail until bug is fixed):
+    // THIS NOW WORKS (bug has been fixed):
     expect(typeof bananaResult).toBe('object');    // Should be object from handler
     expect(bananaResult.success).toBe(true);       // Should have handler's properties
     expect(bananaResult.fruit).toBe('yellow');     // Should have handler's properties
     expect(bananaResult.calories).toBe(105);       // Should have handler's properties
     
-    // Workaround still works for any method
+    // Both patterns now work correctly
     expect(typeof bananaWorking).toBe('object');
     expect(bananaWorking.success).toBe(true);
     expect(bananaWorking.fruit).toBe('yellow');

@@ -63,6 +63,13 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
             operation: 'EXECUTE',
             rowsAffected: 1
           });
+
+        case 'query':
+          return Promise.resolve({
+            success: true,
+            operation: 'QUERY',
+            rows: []
+          });
           
         default:
           return Promise.resolve(commandOrMethod);
@@ -154,8 +161,10 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     const commands = parse(testScript);
     await interpreter.run(commands);
     
-    // Verify failing patterns return literal strings
-    expect(interpreter.getVariable('fail1')).toBe('status');
+    // Verify ALL patterns now return objects (bug fixed)
+    const fail1 = interpreter.getVariable('fail1');
+    expect(typeof fail1).toBe('object');  // FIXED: now returns handler result
+    expect(fail1.success).toBe(true);
     
     // Verify working patterns return objects
     const work1 = interpreter.getVariable('work1');
@@ -232,11 +241,12 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     console.log('Result bare:', resultBare);
     console.log('Result with params:', resultWithParams);
     
-    // This proves the bug: same handler call, different interpreter behavior
-    expect(typeof resultBare).toBe('string'); // BUG: should be object
-    expect(resultBare).toBe('status'); // BUG: literal string instead of handler result
+    // Bug is now fixed: both handlers work the same
+    expect(typeof resultBare).toBe('object'); // FIXED: now returns object
+    expect(resultBare.success).toBe(true); // FIXED: now has handler properties
+    expect(resultBare.callNumber).toBe(1);
     
-    expect(typeof resultWithParams).toBe('object'); // CORRECT: handler result
+    expect(typeof resultWithParams).toBe('object'); // Still works correctly
     expect(resultWithParams.success).toBe(true);
     expect(resultWithParams.callNumber).toBe(2);
   });

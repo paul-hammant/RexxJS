@@ -1753,8 +1753,25 @@ class RexxInterpreter {
             // Expression assignment: LET var = expr
             let result;
             
+            // Special case: ADDRESS context with bare method call (e.g., LET result = status)
+            // Should be treated as a function call through the ADDRESS handler
+            if (command.expression.type === 'VARIABLE' && 
+                this.address !== 'default') {
+              const addressTarget = this.addressTargets.get(this.address);
+              if (addressTarget && addressTarget.handler) {
+                // Convert the variable reference to a function call and route through ADDRESS handler
+                const funcCall = {
+                  type: 'FUNCTION_CALL',
+                  command: command.expression.name,
+                  params: { params: '' }  // Empty params to match working pattern
+                };
+                result = await this.executeFunctionCall(funcCall);
+              } else {
+                result = await this.evaluateExpression(command.expression);
+              }
+            }
             // Special case: RESULT() with no parameters should be treated as RESULT variable reference
-            if (command.expression.type === 'FUNCTION_CALL' && 
+            else if (command.expression.type === 'FUNCTION_CALL' && 
                 command.expression.command === 'RESULT' && 
                 Object.keys(command.expression.params || {}).length === 0) {
               result = this.variables.get('RESULT');
