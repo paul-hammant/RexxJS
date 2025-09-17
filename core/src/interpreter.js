@@ -465,6 +465,10 @@ class RexxInterpreter {
     this.addressLinesBuffer = [];
     this.addressLinesStartLine = 0;
     
+    // ADDRESS MATCHING MULTILINE functionality
+    this.addressMultilineMode = false;
+    this.addressCollectedLines = [];
+    
     // ADDRESS target registry for REQUIRE'd service libraries
     this.addressTargets = new Map(); // targetName -> { handler: function, methods: object, metadata: object }
     
@@ -1484,6 +1488,14 @@ class RexxInterpreter {
         // If handled but no jump, continue execution
       }
     }
+    
+    // Flush any remaining multiline content at end of execution
+    if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+      const multilineContent = this.addressCollectedLines.join('\n');
+      await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+      this.addressCollectedLines = [];
+    }
+    
     return null;
   }
 
@@ -1498,6 +1510,12 @@ class RexxInterpreter {
     
     switch (command.type) {
         case 'ADDRESS':
+          // Flush any pending multiline content before changing address
+          if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+            const multilineContent = this.addressCollectedLines.join('\n');
+            await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+          }
+          
           this.address = command.target.toLowerCase();
           // Clear matching pattern and lines state when switching to default or new target
           if (this.address === 'default') {
@@ -1505,6 +1523,8 @@ class RexxInterpreter {
             this.addressLinesCount = 0;
             this.addressLinesBuffer = [];
             this.addressLinesStartLine = 0;
+            this.addressMultilineMode = false;
+            this.addressCollectedLines = [];
           }
           break;
           
@@ -1518,6 +1538,14 @@ class RexxInterpreter {
           // Set the address target and store the matching pattern for subsequent lines
           this.address = command.target.toLowerCase();
           this.addressMatchingPattern = command.matchingPattern;
+          break;
+
+        case 'ADDRESS_WITH_MATCHING_MULTILINE':
+          // Set the address target and store the matching pattern for multiline collection
+          this.address = command.target.toLowerCase();
+          this.addressMatchingPattern = command.matchingPattern;
+          this.addressMultilineMode = true;
+          this.addressCollectedLines = [];
           break;
           
         case 'ADDRESS_WITH_LINES':
@@ -1580,24 +1608,47 @@ class RexxInterpreter {
                 const regex = new RegExp(this.addressMatchingPattern);
                 const match = regex.exec(originalLine);
                 if (match) {
-                  // Extract expectation content (remove the matched prefix)
-                  let expectationLine = originalLine;
+                  // Extract content (remove the matched prefix)
+                  let extractedContent = originalLine;
                   
-                  // If the pattern has capture groups, use the first capture group as the expectation
+                  // If the pattern has capture groups, use the first capture group as the content
                   if (match.length > 1) {
-                    expectationLine = match[1].trim();
+                    extractedContent = match[1].trim();
                   } else {
                     // Otherwise, remove the matched portion and trim
-                    expectationLine = originalLine.replace(regex, '').trim();
+                    extractedContent = originalLine.replace(regex, '').trim();
                   }
                   
-                  // Send just the expectation part to the handler
-                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: expectationLine });
+                  if (this.addressMultilineMode) {
+                    // Collect lines for multiline processing
+                    if (extractedContent) {
+                      this.addressCollectedLines.push(extractedContent);
+                    }
+                  } else {
+                    // Regular ADDRESS MATCHING - send immediately
+                    if (extractedContent) {
+                      await this.executeQuotedString({ type: 'QUOTED_STRING', value: extractedContent });
+                    }
+                  }
                   break;
+                } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+                  // Line doesn't match - send collected multiline content and reset
+                  const multilineContent = this.addressCollectedLines.join('\n');
+                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+                  
+                  // Reset multiline collection
+                  this.addressCollectedLines = [];
                 }
               } catch (error) {
                 // If regex is invalid, fall through to normal label processing
               }
+            } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+              // Empty line encountered - send collected multiline content and reset
+              const multilineContent = this.addressCollectedLines.join('\n');
+              await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+              
+              // Reset multiline collection
+              this.addressCollectedLines = [];
             }
           }
           
@@ -1680,24 +1731,47 @@ class RexxInterpreter {
                 const regex = new RegExp(this.addressMatchingPattern);
                 const match = regex.exec(originalLine);
                 if (match) {
-                  // Extract expectation content (remove the matched prefix)
-                  let expectationLine = originalLine;
+                  // Extract content (remove the matched prefix)
+                  let extractedContent = originalLine;
                   
-                  // If the pattern has capture groups, use the first capture group as the expectation
+                  // If the pattern has capture groups, use the first capture group as the content
                   if (match.length > 1) {
-                    expectationLine = match[1].trim();
+                    extractedContent = match[1].trim();
                   } else {
                     // Otherwise, remove the matched portion and trim
-                    expectationLine = originalLine.replace(regex, '').trim();
+                    extractedContent = originalLine.replace(regex, '').trim();
                   }
                   
-                  // Send just the expectation part to the handler
-                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: expectationLine });
+                  if (this.addressMultilineMode) {
+                    // Collect lines for multiline processing
+                    if (extractedContent) {
+                      this.addressCollectedLines.push(extractedContent);
+                    }
+                  } else {
+                    // Regular ADDRESS MATCHING - send immediately
+                    if (extractedContent) {
+                      await this.executeQuotedString({ type: 'QUOTED_STRING', value: extractedContent });
+                    }
+                  }
                   break;
+                } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+                  // Line doesn't match - send collected multiline content and reset
+                  const multilineContent = this.addressCollectedLines.join('\n');
+                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+                  
+                  // Reset multiline collection
+                  this.addressCollectedLines = [];
                 }
               } catch (error) {
                 // If regex is invalid, fall through to normal function call processing
               }
+            } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+              // Empty line encountered - send collected multiline content and reset
+              const multilineContent = this.addressCollectedLines.join('\n');
+              await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+              
+              // Reset multiline collection
+              this.addressCollectedLines = [];
             }
           }
           
@@ -1965,11 +2039,51 @@ class RexxInterpreter {
         default:
           // Handle unrecognized commands in ADDRESS context with MATCHING pattern
           if (this.address !== 'default' && this.addressMatchingPattern) {
-            // Treat the unmatched command as a line to be processed with the matching pattern
             const line = this.reconstructCommandAsLine(command);
             if (line.trim()) {
-              // Convert to QUOTED_STRING and execute it through the address handler  
-              await this.executeQuotedString({ type: 'QUOTED_STRING', value: line });
+              // Test if this line matches the address pattern
+              try {
+                const regex = new RegExp(this.addressMatchingPattern);
+                const match = regex.exec(line);
+                
+                if (match) {
+                  // Extract the matched content (use capture group if available)
+                  let extractedContent;
+                  if (match.length > 1) {
+                    extractedContent = match[1].trim();
+                  } else {
+                    extractedContent = line.replace(regex, '').trim();
+                  }
+                  
+                  if (this.addressMultilineMode) {
+                    // Collect lines for multiline processing
+                    if (extractedContent) {
+                      this.addressCollectedLines.push(extractedContent);
+                    }
+                  } else {
+                    // Regular ADDRESS MATCHING - send immediately
+                    if (extractedContent) {
+                      await this.executeQuotedString({ type: 'QUOTED_STRING', value: extractedContent });
+                    }
+                  }
+                } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+                  // Line doesn't match - send collected multiline content and reset
+                  const multilineContent = this.addressCollectedLines.join('\n');
+                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+                  
+                  // Reset multiline collection
+                  this.addressCollectedLines = [];
+                }
+              } catch (error) {
+                // If regex is invalid, skip this line
+              }
+            } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
+              // Empty line encountered - send collected multiline content and reset
+              const multilineContent = this.addressCollectedLines.join('\n');
+              await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
+              
+              // Reset multiline collection
+              this.addressCollectedLines = [];
             }
           }
           break;
