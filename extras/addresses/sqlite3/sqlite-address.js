@@ -91,10 +91,10 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
     
     // Handle ADDRESS MATCHING multiline input 
     if (typeof commandOrMethod === 'string' && params && params._addressMatchingPattern) {
-      console.log('DEBUG: MATCHING pattern received:');
-      console.log('  commandOrMethod:', JSON.stringify(commandOrMethod));
-      console.log('  pattern:', params._addressMatchingPattern);
-      console.log('  contains newlines:', commandOrMethod.includes('\n'));
+      // console.log('DEBUG: MATCHING pattern received:');
+      // console.log('  commandOrMethod:', JSON.stringify(commandOrMethod));
+      // console.log('  pattern:', params._addressMatchingPattern);
+      // console.log('  contains newlines:', commandOrMethod.includes('\n'));
       
       return handleMatchingPatternSQL(db, commandOrMethod, params._addressMatchingPattern)
         .then(result => formatSQLResultForREXX(result))
@@ -159,7 +159,7 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
 // Handle ADDRESS MATCHING multiline input (should receive complete SQL with newlines)
 function handleMatchingPatternSQL(db, multilineSQL, matchingPattern) {
   return new Promise((resolve, reject) => {
-    console.log('DEBUG: Processing multiline SQL:', JSON.stringify(multilineSQL));
+    // console.log('DEBUG: Processing multiline SQL:', JSON.stringify(multilineSQL));
     
     // Clean up the SQL (remove extra whitespace, but preserve structure)
     const cleanSQL = multilineSQL.trim();
@@ -175,24 +175,47 @@ function handleMatchingPatternSQL(db, multilineSQL, matchingPattern) {
       return;
     }
     
-    // Execute the multiline SQL directly
-    db.run(cleanSQL, function(err) {
-      if (err) {
-        reject(new Error(`SQL execution failed: ${err.message}`));
-      } else {
-        const result = {
-          operation: detectSQLOperation(cleanSQL),
-          success: true,
-          sql: cleanSQL,
-          pattern: matchingPattern,
-          source: 'matching_pattern',
-          rowsAffected: this.changes || 0,
-          lastInsertId: this.lastID || null,
-          timestamp: new Date().toISOString()
-        };
-        resolve(result);
-      }
-    });
+    // Execute the multiline SQL - use same logic as handleSQLCommand
+    const upperSQL = cleanSQL.toUpperCase();
+    
+    if (upperSQL.startsWith('SELECT')) {
+      // Use db.all for SELECT statements to get rows
+      db.all(cleanSQL, (err, rows) => {
+        if (err) {
+          reject(new Error(`SELECT failed: ${err.message}`));
+        } else {
+          resolve({
+            operation: 'SELECT',
+            sql: cleanSQL,
+            rows: rows,
+            count: rows.length,
+            success: true,
+            pattern: matchingPattern,
+            source: 'matching_pattern',
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+    } else {
+      // Use db.run for non-SELECT statements
+      db.run(cleanSQL, function(err) {
+        if (err) {
+          reject(new Error(`SQL execution failed: ${err.message}`));
+        } else {
+          const result = {
+            operation: detectSQLOperation(cleanSQL),
+            success: true,
+            sql: cleanSQL,
+            pattern: matchingPattern,
+            source: 'matching_pattern',
+            rowsAffected: this.changes || 0,
+            lastInsertId: this.lastID || null,
+            timestamp: new Date().toISOString()
+          };
+          resolve(result);
+        }
+      });
+    }
   });
 }
 
