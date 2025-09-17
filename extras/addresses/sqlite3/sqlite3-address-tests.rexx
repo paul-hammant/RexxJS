@@ -9,7 +9,7 @@
 REQUIRE "./src/expectations-address.js"
 
 // Load SQLite3 ADDRESS handler globally for all tests
-REQUIRE "../extras/addresses/sqlite3/sqlite-address.js"
+REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🗄️ SQLite3 ADDRESS Handler Integration Tests Starting..."

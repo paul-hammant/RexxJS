@@ -4,7 +4,7 @@
 // Copyright (c) 2025 Paul Hammant
 
 REQUIRE "./src/expectations-address.js"
-REQUIRE "../extras/addresses/sqlite3/sqlite-address.js"
+REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
 
 SAY "🗄️ Simple SQLite3 Test"
 

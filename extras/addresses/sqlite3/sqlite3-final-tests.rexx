@@ -4,7 +4,7 @@
 // This demonstrates all the features requested: proper assertions, row iteration, data types
 
 REQUIRE "./src/expectations-address.js"
-REQUIRE "../extras/addresses/sqlite3/sqlite-address.js"
+REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
 
 SAY "🗄️ SQLite3 ADDRESS Handler Final Tests"
 SAY "Based on proven working patterns from successful tests"

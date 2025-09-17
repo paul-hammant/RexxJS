@@ -4,7 +4,7 @@
 // Shows both "whole string" way and execute= way working together
 
 REQUIRE "./src/expectations-address.js"
-REQUIRE "../extras/addresses/sqlite3/sqlite-address.js"
+REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
 
 SAY "🎭 SQLite3 ADDRESS Mixed Styles Demonstration"
 
@@ -37,8 +37,7 @@ SAY "✓ Inserted Alice (method-call style): id=" || user1.lastInsertId
 
 // COMMAND-STRING STYLE INSERT  
 ADDRESS sqlite3
-"INSERT INTO users (name, age) VALUES ('Bob', 30)"
-LET user2 = RESULT
+LET user2 = execute sql="INSERT INTO users (name, age) VALUES ('Bob', 30)"
 
 ADDRESS EXPECTATIONS
 "{user2.success} should equal true"

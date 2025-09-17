@@ -4,7 +4,7 @@
 // Uses proven patterns that actually work
 
 REQUIRE "./src/expectations-address.js"
-REQUIRE "../extras/addresses/sqlite3/sqlite-address.js"
+REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"
 
 SAY "🗄️ SQLite3 ADDRESS Handler - WORKING Final Tests"
 

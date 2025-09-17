@@ -277,41 +277,16 @@ function handleClose(db) {
 }
 
 // ADDRESS target methods metadata
-const ADDRESS_SQLITE3_METHODS = {
-  execute: {
-    description: "Execute a SQL statement",
-    params: ["sql"],
-    returns: "object with execution details"
-  },
-  run: {
-    description: "Run a SQL statement (alias for execute)",
-    params: ["sql"],
-    returns: "object with execution details"
-  },
-  query: {
-    description: "Execute a parameterized SQL query",
-    params: ["sql", "params"],
-    returns: "object with query results"
-  },
-  close: {
-    description: "Close the database connection",
-    params: [],
-    returns: "object with close status"
-  },
-  status: {
-    description: "Get database service status",
-    params: [],
-    returns: "object with service information"
-  }
-};
+const ADDRESS_SQLITE3_METHODS = ["execute", "run", "query", "close", "status"];
 
 // Format SQL result for proper REXX variable handling
 function formatSQLResultForREXX(result) {
   // Set up result object with standard REXX fields
-  // Don't set 'output' field so interpreter uses full result for RESULT variable
+  // Set 'output' field to the full result so interpreter puts it in RESULT variable
   const rexxResult = {
     ...result, // Preserve original result structure (including operation, success, etc.)
     errorCode: 0,
+    output: result, // This ensures RESULT variable gets the full result object
     // Request interpreter to set domain-specific variables
     rexxVariables: {
       SQLCODE: 0  // SQL-specific success code
