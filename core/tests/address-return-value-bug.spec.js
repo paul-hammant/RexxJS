@@ -64,6 +64,14 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
             rowsAffected: 1
           });
           
+        case 'query':
+          return Promise.resolve({
+            success: true,
+            operation: 'QUERY',
+            count: 0,
+            rows: []
+          });
+          
         default:
           return Promise.resolve(commandOrMethod);
       }
@@ -80,8 +88,8 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     });
   });
   
-  test('demonstrates the ADDRESS return value bug', async () => {
-    // Test Case 1: Bare method call (SHOULD work but currently fails due to bug)
+  test('demonstrates the ADDRESS return value bug is now FIXED', async () => {
+    // Test Case 1: Bare method call (now works correctly - bug is fixed!)
     const buggyScript = `
       ADDRESS MOCK
       LET result1 = status
@@ -94,10 +102,10 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     console.log('Result1 (should be object):', result1);
     console.log('Result1 type:', typeof result1);
     
-    // THIS IS HOW IT SHOULD WORK (will fail until bug is fixed):
-    expect(typeof result1).toBe('object');  // Should be object, not string
-    expect(result1.success).toBe(true);     // Should have handler's properties
-    expect(result1.service).toBe('mock');   // Should have handler's properties
+    // THIS NOW WORKS CORRECTLY (bug is fixed!):
+    expect(typeof result1).toBe('object');  // ✅ Now returns object
+    expect(result1.success).toBe(true);     // ✅ Has handler's properties
+    expect(result1.service).toBe('mock');   // ✅ Has handler's properties
     
     // Test Case 2: Method call with empty params (WORKS - returns object)  
     const workingScript = `
@@ -138,14 +146,14 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     expect(result3.rowsAffected).toBe(1);
   });
   
-  test('documents the specific failing vs working patterns', async () => {
+  test('documents that all patterns now work correctly (bug fixed)', async () => {
     const testScript = `
       ADDRESS MOCK
       
-      // FAILING PATTERNS (return literal strings instead of objects):
+      // ALL PATTERNS NOW WORK (bug is fixed!):
       LET fail1 = status
       
-      // WORKING PATTERNS (return proper objects):
+      // THESE PATTERNS ALWAYS WORKED:
       LET work1 = status params=""
       LET work2 = execute sql="SELECT 1"
       LET work3 = query sql="SELECT * FROM users"
@@ -154,8 +162,11 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     const commands = parse(testScript);
     await interpreter.run(commands);
     
-    // Verify failing patterns return literal strings
-    expect(interpreter.getVariable('fail1')).toBe('status');
+    // Verify patterns now work correctly (bug is fixed!)
+    const fail1 = interpreter.getVariable('fail1');
+    expect(typeof fail1).toBe('object');
+    expect(fail1.success).toBe(true);
+    expect(fail1.service).toBe('mock');
     
     // Verify working patterns return objects
     const work1 = interpreter.getVariable('work1');
@@ -171,7 +182,7 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     expect(work3.success).toBe(true);
   });
   
-  test('shows that ADDRESS handler IS called correctly for both patterns', async () => {
+  test('shows that both patterns now work correctly (bug fixed)', async () => {
     // This test proves the handler receives correct arguments in both cases
     // The bug is NOT in the handler - it's in how the interpreter captures the result
     
@@ -232,9 +243,9 @@ describe('ADDRESS Return Value Bug Reproduction', () => {
     console.log('Result bare:', resultBare);
     console.log('Result with params:', resultWithParams);
     
-    // This proves the bug: same handler call, different interpreter behavior
-    expect(typeof resultBare).toBe('string'); // BUG: should be object
-    expect(resultBare).toBe('status'); // BUG: literal string instead of handler result
+    // This proves the bug is FIXED: both now work correctly
+    expect(typeof resultBare).toBe('object'); // FIXED: now returns object
+    expect(resultBare.success).toBe(true);     // FIXED: handler result
     
     expect(typeof resultWithParams).toBe('object'); // CORRECT: handler result
     expect(resultWithParams.success).toBe(true);

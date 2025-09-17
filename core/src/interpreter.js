@@ -1758,6 +1758,48 @@ class RexxInterpreter {
                 command.expression.command === 'RESULT' && 
                 Object.keys(command.expression.params || {}).length === 0) {
               result = this.variables.get('RESULT');
+            } 
+            // Special case: ADDRESS method call - check if we're in ADDRESS context and expression is a simple variable
+            else if (command.expression.type === 'VARIABLE' && 
+                     this.address && this.address !== 'default') {
+              const addressTarget = this.addressTargets.get(this.address);
+              
+              // If we have an ADDRESS target and the variable name matches a method
+              if (addressTarget && addressTarget.handler && 
+                  addressTarget.methods && addressTarget.methods.includes(command.expression.name.toLowerCase())) {
+                
+                try {
+                  // Execute as ADDRESS method call with empty params (parameterless call)
+                  const params = { params: '' };
+                  const context = Object.fromEntries(this.variables);
+                  if (this.addressMatchingPattern) {
+                    context._addressMatchingPattern = this.addressMatchingPattern;
+                  }
+                  const sourceContext = this.currentLineNumber ? {
+                    lineNumber: this.currentLineNumber,
+                    sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
+                    sourceFilename: this.sourceFilename || '',
+                    interpreter: this
+                  } : null;
+                  
+                  // Call the ADDRESS handler directly
+                  result = await addressTarget.handler(command.expression.name, params, sourceContext);
+                  
+                  // Update standard REXX variables like RC
+                  if (result && typeof result === 'object') {
+                    this.variables.set('RC', result.success ? 0 : (result.errorCode || 1));
+                    if (!result.success && result.errorMessage) {
+                      this.variables.set('ERRORTEXT', result.errorMessage);
+                    }
+                  }
+                } catch (error) {
+                  // If ADDRESS method call fails, fall back to normal expression evaluation
+                  result = await this.evaluateExpression(command.expression);
+                }
+              } else {
+                // Not an ADDRESS method or no ADDRESS target, evaluate normally
+                result = await this.evaluateExpression(command.expression);
+              }
             } else {
               result = await this.evaluateExpression(command.expression);
             }
@@ -1773,7 +1815,50 @@ class RexxInterpreter {
             if (command.isQuotedString) {
               resolvedValue = command.value;
             } else {
-              resolvedValue = await this.resolveValue(command.value);
+              // Check if we're in an ADDRESS context and the value could be an ADDRESS method call
+              if (this.address && this.address !== 'default' && typeof command.value === 'string') {
+                const addressTarget = this.addressTargets.get(this.address);
+                
+                // If we have an ADDRESS target and the value looks like a method name
+                if (addressTarget && addressTarget.handler && 
+                    addressTarget.methods && addressTarget.methods.includes(command.value.toLowerCase())) {
+                  
+                  try {
+                    // Execute as ADDRESS method call with empty params (parameterless call)
+                    const params = { params: '' };
+                    const context = Object.fromEntries(this.variables);
+                    if (this.addressMatchingPattern) {
+                      context._addressMatchingPattern = this.addressMatchingPattern;
+                    }
+                    const sourceContext = this.currentLineNumber ? {
+                      lineNumber: this.currentLineNumber,
+                      sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
+                      sourceFilename: this.sourceFilename || '',
+                      interpreter: this
+                    } : null;
+                    
+                    // Call the ADDRESS handler directly
+                    resolvedValue = await addressTarget.handler(command.value, params, sourceContext);
+                    
+                    // Update standard REXX variables like RC
+                    if (resolvedValue && typeof resolvedValue === 'object') {
+                      this.variables.set('RC', resolvedValue.success ? 0 : (resolvedValue.errorCode || 1));
+                      if (!resolvedValue.success && resolvedValue.errorMessage) {
+                        this.variables.set('ERRORTEXT', resolvedValue.errorMessage);
+                      }
+                    }
+                  } catch (error) {
+                    // If ADDRESS method call fails, fall back to normal variable resolution
+                    resolvedValue = await this.resolveValue(command.value);
+                  }
+                } else {
+                  // Not an ADDRESS method, resolve normally
+                  resolvedValue = await this.resolveValue(command.value);
+                }
+              } else {
+                // Not in ADDRESS context, resolve normally
+                resolvedValue = await this.resolveValue(command.value);
+              }
             }
             
             // Handle JSON parsing for object/array literals in LET assignments

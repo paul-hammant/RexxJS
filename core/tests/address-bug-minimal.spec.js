@@ -92,11 +92,11 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     // CORRECT: This properly returns the handler's object
     expect(typeof result).toBe('object');
     expect(result.success).toBe(true);
-    expect(result.method).toBe('status');
-    expect(result.receivedParams).toEqual({ params: '' });
+    expect(result.service).toBe('mock');
+    expect(result.database).toBe(':memory:');
   });
   
-  test('PROOF: both patterns call the same handler with same arguments', async () => {
+  test('FIXED: both patterns now work correctly and call handler with same arguments', async () => {
     let callCount = 0;
     const calls = [];
     
@@ -133,12 +133,13 @@ describe('ADDRESS Return Value Bug - Minimal Reproduction', () => {
     expect(calls[0].params).toEqual({ params: '' });
     expect(calls[1].params).toEqual({ params: '' });
     
-    // But results are different despite identical handler calls
+    // Now both results work correctly (bug is fixed!)
     const buggyResult = interpreter.getVariable('buggy');
     const workingResult = interpreter.getVariable('working');
     
-    expect(buggyResult).toBe('test');  // BUG: literal string
-    expect(typeof workingResult).toBe('object');  // CORRECT: handler result
+    expect(typeof buggyResult).toBe('object');  // FIXED: now returns object
+    expect(buggyResult.callNumber).toBe(1);     // FIXED: handler result
+    expect(typeof workingResult).toBe('object'); // CORRECT: handler result
     expect(workingResult.callNumber).toBe(2);
   });
   
