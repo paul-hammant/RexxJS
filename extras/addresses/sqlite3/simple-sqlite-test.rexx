@@ -10,11 +10,11 @@ SAY "🗄️ Simple SQLite3 Test"
 
 // Test 1: Status check with expectations
 ADDRESS sqlite3
-LET status_result = status
+"status"
 
 ADDRESS EXPECTATIONS
-"{status_result.success} should equal true"
-"{status_result.service} should equal 'sqlite'"
+"{RESULT.success} should equal true"
+"{RESULT.service} should equal 'sqlite'"
 
 SAY "✓ Status check passed"
 

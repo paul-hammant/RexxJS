@@ -80,7 +80,20 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
     }
     
     // Handle command-string style (traditional Rexx ADDRESS)
-    if (typeof commandOrMethod === 'string' && !params) {
+    if (typeof commandOrMethod === 'string' && (!params || !params._addressMatchingPattern)) {
+      // Handle special status command as string
+      if (commandOrMethod.toLowerCase().trim() === 'status') {
+        const statusResult = {
+          service: 'sqlite',
+          version: '3.x',
+          database: db.filename || ':memory:',
+          methods: ['execute', 'run', 'query', 'close', 'status'],
+          timestamp: new Date().toISOString(),
+          success: true
+        };
+        return Promise.resolve(formatSQLResultForREXX(statusResult));
+      }
+      
       return handleSQLCommand(db, commandOrMethod)
         .then(result => formatSQLResultForREXX(result))
         .catch(error => {
