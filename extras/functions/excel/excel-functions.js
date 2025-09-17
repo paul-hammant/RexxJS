@@ -530,13 +530,6 @@ const excelFunctions = {
   },
 
   // Date Functions
-  'TODAY': () => {
-    try {
-      return new Date().toISOString().split('T')[0];
-    } catch (e) {
-      return '';
-    }
-  },
 
   'NOW': () => {
     try {
