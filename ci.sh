@@ -182,7 +182,7 @@ done
 
 # Print final statistics
 echo ""
-echo "🏁 CI PIPELINE SUMMARY"
+echo "::group::🏁 CI PIPELINE SUMMARY"
 echo "======================"
 echo ""
 echo "📊 Jest Test Results:"
@@ -224,6 +224,7 @@ if [ ${#SKIPPED_MODULES[@]} -gt 0 ]; then
   done
   echo ""
 fi
+echo "::endgroup::"
 
 # Final status
 if [ "$TOTAL_JEST_FAILED" -eq 0 ]; then
