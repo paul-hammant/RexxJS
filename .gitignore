@@ -11,7 +11,7 @@ core/test-results.json
 core/tests/generated_images/
 
 # Binary build artifacts
-pkg-build/
+pkg-build/node_modules/
 sea-build/
 rexx-linux-x64*
 rexx-standalone-cli.js

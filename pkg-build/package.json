@@ -1,0 +1,22 @@
+{
+  "name": "rexxjs-standalone",
+  "version": "1.0.0",
+  "description": "RexxJS Standalone Executable",
+  "main": "cli.js",
+  "bin": {
+    "rexx": "./cli.js"
+  },
+  "pkg": {
+    "targets": [
+      "node18-linux-x64"
+    ],
+    "assets": [
+      "src/**/*",
+      "system-address.js"
+    ],
+    "scripts": "src/**/*.js"
+  },
+  "dependencies": {
+    "pkg": "^5.8.1"
+  }
+}
