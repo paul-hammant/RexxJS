@@ -9,7 +9,7 @@ describe('NumPy via PyOdide REXX Integration', () => {
   beforeAll(async () => {
     // Check if PyOdide is available
     try {
-      require('../../addresses/pyodide/src/pyodide-address');
+      require('../../../addresses/pyodide/src/pyodide-address');
       pyodideAvailable = true;
       console.log('✅ PyOdide ADDRESS available for REXX tests');
     } catch (error) {

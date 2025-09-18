@@ -19,6 +19,7 @@ extract_jest_stats() {
   local output="$1"
   local module="$2"
   local module_path="$3"
+  local temp_file="$4"
   
   # Extract test suites from Jest output
   local suites_line=$(echo "$output" | grep -E "Test Suites:" | tail -1)
@@ -65,6 +66,12 @@ extract_jest_stats() {
   TOTAL_JEST_PASSED=$((TOTAL_JEST_PASSED + passed_tests))
   TOTAL_JEST_FAILED=$((TOTAL_JEST_FAILED + failed_tests))
   
+  # Output temp file content if there were failures
+  if [ "$failed_tests" -gt 0 ] && [ -f "$temp_file" ]; then
+    echo "❌ Test failures in $module:"
+    cat "$temp_file"
+  fi
+  
   if [ -n "$duration" ]; then
     JEST_MODULES+=("$module_path: $passed_tests/$total_tests tests ($duration)")
   else
@@ -77,6 +84,7 @@ extract_rexxt_stats() {
   local output="$1"
   local module="$2"
   local module_path="$3"
+  local temp_file="$4"
   
   # Extract files, tests, and expectations from rexxt summary
   local files=$(echo "$output" | grep "test sources executed" | sed -E 's/.*([0-9]+) test sources executed.*/\1/' | tail -1)
@@ -94,6 +102,12 @@ extract_rexxt_stats() {
   if [ "$files" -gt 0 ]; then
     REXXT_MODULES+=("$module_path: $files files, $tests tests, $expectations expectations")
   fi
+  
+  # Check for rexxt failures (look for error patterns in output)
+  if echo "$output" | grep -q -E "(Error|FAIL|failed|exception)" && [ -f "$temp_file" ]; then
+    echo "❌ Rexxt failures in $module:"
+    cat "$temp_file"
+  fi
 }
 
 echo "🚀 Starting CI pipeline..."
@@ -102,15 +116,15 @@ echo "========================="
 # Run core tests
 echo "📦 Running core tests..."
 cd core/
-echo "Running Jest tests..."
-CORE_JEST_OUTPUT=$(npx jest 2>&1)
-echo "$CORE_JEST_OUTPUT"
-extract_jest_stats "$CORE_JEST_OUTPUT" "core" "$(pwd)"
+CORE_JEST_TEMP=$(mktemp)
+CORE_JEST_OUTPUT=$(npx jest 2>&1 | tee "$CORE_JEST_TEMP")
+extract_jest_stats "$CORE_JEST_OUTPUT" "core" "$(pwd)" "$CORE_JEST_TEMP"
+rm -f "$CORE_JEST_TEMP"
 
-echo "Running rexxt tests..."
-CORE_REXXT_OUTPUT=$(./rexxt tests/dogfood/* 2>&1)
-echo "$CORE_REXXT_OUTPUT"
-extract_rexxt_stats "$CORE_REXXT_OUTPUT" "core/dogfood" "$(pwd)"
+CORE_REXXT_TEMP=$(mktemp)
+CORE_REXXT_OUTPUT=$(./rexxt tests/dogfood/* 2>&1 | tee "$CORE_REXXT_TEMP")
+extract_rexxt_stats "$CORE_REXXT_OUTPUT" "core/dogfood" "$(pwd)" "$CORE_REXXT_TEMP"
+rm -f "$CORE_REXXT_TEMP"
 cd ..
 
 echo ""
@@ -127,16 +141,16 @@ for dir in extras/functions/*/; do
         echo "  🧪 Testing $dirname/$subdirname..."
         cd "$subdir"
         if [ -f "package.json" ]; then
-          echo "  Running Jest tests for $dirname/$subdirname..."
-          MODULE_JEST_OUTPUT=$(npm test 2>&1)
-          echo "$MODULE_JEST_OUTPUT"
-          extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname/$subdirname" "$(pwd)"
+          MODULE_JEST_TEMP=$(mktemp)
+          MODULE_JEST_OUTPUT=$(npm test 2>&1 | tee "$MODULE_JEST_TEMP")
+          extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname/$subdirname" "$(pwd)" "$MODULE_JEST_TEMP"
+          rm -f "$MODULE_JEST_TEMP"
         fi
         if ls *test.rexx 1> /dev/null 2>&1; then
-          echo "  Running rexxt tests for $dirname/$subdirname..."
-          MODULE_REXXT_OUTPUT=$(../../../core/rexxt *test.rexx 2>&1)
-          echo "$MODULE_REXXT_OUTPUT"
-          extract_rexxt_stats "$MODULE_REXXT_OUTPUT" "$dirname/$subdirname" "$(pwd)"
+          MODULE_REXXT_TEMP=$(mktemp)
+          MODULE_REXXT_OUTPUT=$(../../../core/rexxt *test.rexx 2>&1 | tee "$MODULE_REXXT_TEMP")
+          extract_rexxt_stats "$MODULE_REXXT_OUTPUT" "$dirname/$subdirname" "$(pwd)" "$MODULE_REXXT_TEMP"
+          rm -f "$MODULE_REXXT_TEMP"
         fi
         cd - > /dev/null
       fi
@@ -147,16 +161,16 @@ for dir in extras/functions/*/; do
     # Skip empty directories
     if [ "$(ls -A .)" ]; then
       echo "  🧪 Testing $dirname..."
-      echo "  Running Jest tests for $dirname..."
-      MODULE_JEST_OUTPUT=$(npx jest 2>&1)
-      echo "$MODULE_JEST_OUTPUT"
-      extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname" "$(pwd)"
+      MODULE_JEST_TEMP=$(mktemp)
+      MODULE_JEST_OUTPUT=$(npx jest 2>&1 | tee "$MODULE_JEST_TEMP")
+      extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname" "$(pwd)" "$MODULE_JEST_TEMP"
+      rm -f "$MODULE_JEST_TEMP"
       
       if ls *test.rexx 1> /dev/null 2>&1; then
-        echo "  Running rexxt tests for $dirname..."
-        MODULE_REXXT_OUTPUT=$(../../core/rexxt *test.rexx 2>&1)
-        echo "$MODULE_REXXT_OUTPUT"
-        extract_rexxt_stats "$MODULE_REXXT_OUTPUT" "$dirname" "$(pwd)"
+        MODULE_REXXT_TEMP=$(mktemp)
+        MODULE_REXXT_OUTPUT=$(../../core/rexxt *test.rexx 2>&1 | tee "$MODULE_REXXT_TEMP")
+        extract_rexxt_stats "$MODULE_REXXT_OUTPUT" "$dirname" "$(pwd)" "$MODULE_REXXT_TEMP"
+        rm -f "$MODULE_REXXT_TEMP"
       fi
     else
       echo "  ⏭️  Skipping empty directory: $dirname"
