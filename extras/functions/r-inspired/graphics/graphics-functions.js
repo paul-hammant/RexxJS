@@ -482,6 +482,11 @@ const rGraphicsFunctions = {
     }
   },
 
+  // Alias for SCATTER (common alternative spelling)
+  'SCATTEPLOT': (x, y, options = {}) => {
+    return rGraphicsFunctions.SCATTER(x, y, options);
+  },
+
   // Specialized Plots
   'QQPLOT': (x, y = null, options = {}) => {
     try {
@@ -1394,7 +1399,7 @@ rGraphicsFunctions.PAIRS = (data, options = {}) => {
           const xValues = cleanMatrix.map(row => row[j]); // Column j for x-axis
           const yValues = cleanMatrix.map(row => row[i]); // Row i for y-axis
           
-          const scatterData = rGraphicsFunctions.SCATTEPLOT(xValues, yValues, {
+          const scatterData = rGraphicsFunctions.SCATTER(xValues, yValues, {
             main: `${colNames[i]} vs ${colNames[j]}`,
             xlab: colNames[j],
             ylab: colNames[i],

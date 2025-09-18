@@ -431,7 +431,7 @@ describe('NumPy-inspired Functions - Rexx Integration Tests', () => {
 // Additional test suite for mathematical edge cases
 describe('NumPy Linear Algebra Edge Cases', () => {
   let interpreter;
-  const numpyFunctions = require('./numpy');
+  const numpyFunctions = require('../numpy');
   
   beforeEach(() => {
     interpreter = new RexxInterpreter(null, {

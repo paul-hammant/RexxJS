@@ -192,6 +192,10 @@ sympyFunctions.SYMPY_FUNCTIONS_MAIN = () => ({
 // Export for both Node.js and browser environments
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { 
+    sympyFunctions: {
+      ...sympyFunctions,
+      __internal__: { Expr, Symbol, Num, Add, Mul, Pow }
+    },
     ...sympyFunctions,
     SYMPY_FUNCTIONS_MAIN: sympyFunctions.SYMPY_FUNCTIONS_MAIN
   };

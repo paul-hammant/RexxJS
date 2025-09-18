@@ -4,6 +4,7 @@ dist/
 .claude/
 
 core/test-results/
+test-results.json
 core/playwright-report/
 core/debug-screenshot.png
 core/test-results.json

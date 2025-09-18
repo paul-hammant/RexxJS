@@ -264,7 +264,18 @@ function meshgrid(...vectors) {
 }
 
 function split(arr, indices_or_sections, axis = 0) {
+  // Handle string input (for REXX compatibility)
+  if (typeof arr === 'string') {
+    try {
+      arr = JSON.parse(arr);
+    } catch (e) {
+      throw new Error('split: invalid array format');
+    }
+  }
+  
   const s = shape(arr);
+  
+  // Handle 1D arrays
   if (s.length === 1 && axis === 0) {
     if (typeof indices_or_sections === 'number') {
       const sections = indices_or_sections;
@@ -288,7 +299,63 @@ function split(arr, indices_or_sections, axis = 0) {
       return result;
     }
   }
-  throw new Error('split: only 1D arrays supported');
+  
+  // Handle 2D arrays
+  if (s.length === 2) {
+    if (axis === 0) {
+      // Split along rows
+      if (typeof indices_or_sections === 'number') {
+        const sections = indices_or_sections;
+        const sectionSize = Math.ceil(arr.length / sections);
+        const result = [];
+        for (let i = 0; i < sections; i++) {
+          const start = i * sectionSize;
+          const end = Math.min(start + sectionSize, arr.length);
+          result.push(arr.slice(start, end));
+        }
+        return result;
+      } else {
+        const indices = Array.isArray(indices_or_sections) ? indices_or_sections : [indices_or_sections];
+        const result = [];
+        let start = 0;
+        for (const idx of indices) {
+          result.push(arr.slice(start, idx));
+          start = idx;
+        }
+        result.push(arr.slice(start));
+        return result;
+      }
+    } else if (axis === 1) {
+      // Split along columns
+      if (typeof indices_or_sections === 'number') {
+        const sections = indices_or_sections;
+        const cols = s[1];
+        const sectionSize = Math.ceil(cols / sections);
+        const result = [];
+        for (let i = 0; i < sections; i++) {
+          const start = i * sectionSize;
+          const end = Math.min(start + sectionSize, cols);
+          const section = arr.map(row => row.slice(start, end));
+          result.push(section);
+        }
+        return result;
+      } else {
+        const indices = Array.isArray(indices_or_sections) ? indices_or_sections : [indices_or_sections];
+        const result = [];
+        let start = 0;
+        for (const idx of indices) {
+          const section = arr.map(row => row.slice(start, idx));
+          result.push(section);
+          start = idx;
+        }
+        const section = arr.map(row => row.slice(start));
+        result.push(section);
+        return result;
+      }
+    }
+  }
+  
+  throw new Error(`split: unsupported array shape ${s} or axis ${axis}`);
 }
 
 function hsplit(arr, indices_or_sections) {
@@ -779,6 +846,15 @@ function solve(A, b) {
 
 function slogdet(matrix) {
   // Sign and log determinant
+  // Handle string input (for REXX compatibility)
+  if (typeof matrix === 'string') {
+    try {
+      matrix = JSON.parse(matrix);
+    } catch (e) {
+      throw new Error('slogdet: invalid matrix format');
+    }
+  }
+  
   const n = matrix.length;
   if (n !== matrix[0].length) throw new Error('slogdet: matrix must be square');
   
@@ -857,10 +933,57 @@ function eig(matrix) {
   // Simple implementation for small matrices only
   if (n > 4) throw new Error('eig: only supports matrices up to 4x4');
   
+  // For 2x2 matrices, use direct analytical solution
+  if (n === 2) {
+    const a = matrix[0][0];
+    const b = matrix[0][1];
+    const c = matrix[1][0];
+    const d = matrix[1][1];
+    
+    // Characteristic polynomial: λ² - (a+d)λ + (ad-bc) = 0
+    const trace = a + d;
+    const det = a * d - b * c;
+    const discriminant = trace * trace - 4 * det;
+    
+    if (discriminant >= 0) {
+      const sqrt_disc = Math.sqrt(discriminant);
+      const lambda1 = (trace + sqrt_disc) / 2;
+      const lambda2 = (trace - sqrt_disc) / 2;
+      
+      eigenvalues.push(lambda1, lambda2);
+      
+      // Find eigenvectors
+      // For eigenvalue λ, solve (A - λI)v = 0
+      for (const lambda of [lambda1, lambda2]) {
+        let eigenvector;
+        if (Math.abs(b) > 1e-10) {
+          // Use second row: cv₁ + (d-λ)v₂ = 0
+          eigenvector = [d - lambda, -c];
+        } else if (Math.abs(c) > 1e-10) {
+          // Use first row: (a-λ)v₁ + bv₂ = 0
+          eigenvector = [-b, a - lambda];
+        } else {
+          // Diagonal matrix
+          eigenvector = eigenvalues.indexOf(lambda) === 0 ? [1, 0] : [0, 1];
+        }
+        
+        // Normalize
+        const norm = Math.sqrt(eigenvector.reduce((s, v) => s + v * v, 0));
+        if (norm > 1e-10) {
+          eigenvector = eigenvector.map(v => v / norm);
+        }
+        eigenvectors.push(eigenvector);
+      }
+      
+      return { eigenvalues, eigenvectors };
+    }
+  }
+  
+  // For other matrices or complex eigenvalues, fall back to power iteration
   for (let iter = 0; iter < n; iter++) {
     const { eigenvalue, eigenvector } = _powerIteration(A, 100, 1e-10);
     
-    if (Math.abs(eigenvalue) < 1e-10) break;
+    if (Math.abs(eigenvalue) < 1e-8) break; // Relaxed tolerance
     
     eigenvalues.push(eigenvalue);
     eigenvectors.push(eigenvector);
@@ -878,7 +1001,9 @@ function eig(matrix) {
 
 function _powerIteration(matrix, maxIter = 100, tol = 1e-10) {
   const n = matrix.length;
-  let v = new Array(n).fill(1);
+  // Start with a more diverse initial vector to avoid finding the same eigenvector
+  let v = new Array(n).fill(0);
+  v[0] = 1; // Start with [1, 0, 0, ...] instead of [1, 1, 1, ...]
   let eigenvalue = 0;
   
   for (let iter = 0; iter < maxIter; iter++) {
@@ -969,6 +1094,15 @@ function eigvals(matrix) {
 }
 
 function pinv(matrix, rcond = 1e-15) {
+  // Handle string input (for REXX compatibility)
+  if (typeof matrix === 'string') {
+    try {
+      matrix = JSON.parse(matrix);
+    } catch (e) {
+      throw new Error('pinv: invalid matrix format');
+    }
+  }
+  
   // Moore-Penrose pseudo-inverse using SVD approximation
   const m = matrix.length;
   const n = matrix[0].length;
@@ -1010,6 +1144,22 @@ function pinv(matrix, rcond = 1e-15) {
 }
 
 function lstsq(A, b, rcond = null) {
+  // Handle string input (for REXX compatibility)
+  if (typeof A === 'string') {
+    try {
+      A = JSON.parse(A);
+    } catch (e) {
+      throw new Error('lstsq: invalid matrix A format');
+    }
+  }
+  if (typeof b === 'string') {
+    try {
+      b = JSON.parse(b);
+    } catch (e) {
+      throw new Error('lstsq: invalid vector b format');
+    }
+  }
+  
   // Least squares solution using normal equations
   const m = A.length;
   const n = A[0].length;

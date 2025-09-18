@@ -1,7 +1,7 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { Interpreter } = require('../../../../../../core/src/interpreter');
-const { parse } = require('../../../../../../core/src/parser');
+const { Interpreter } = require('../../../../../core/src/interpreter');
+const { parse } = require('../../../../../core/src/parser');
 const fs = require('fs');
 const path = require('path');
 

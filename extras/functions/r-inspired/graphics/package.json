@@ -26,6 +26,6 @@
   "jest": {
     "testEnvironment": "node",
     "testMatch": ["**/*.spec.js"],
-    "testPathIgnorePatterns": ["/node_modules/", ".*png-rendering.*"]
+    "testPathIgnorePatterns": ["/node_modules/", ".*png-rendering.*", ".*playwright.*"]
   }
 }

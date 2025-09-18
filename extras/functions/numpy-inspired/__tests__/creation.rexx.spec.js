@@ -14,14 +14,14 @@
 const path = require('path');
 const fs = require('fs');
 
-const interpPath = path.join(__dirname, '..', '..', '..', '..', '..', 'core', 'src', 'interpreter.js');
+const interpPath = path.join(__dirname, '..', '..', '..', '..', 'core', 'src', 'interpreter.js');
 // Ensure the interpreter file exists; test will fail if not present (no skipping)
 if (!fs.existsSync(interpPath)) {
   throw new Error(`Expected Rexx interpreter at ${interpPath} but file not found. Please ensure interpreter exists.`);
 }
 
-const { Interpreter } = require(interpPath);
-const { parse } = require(path.join(__dirname, '..', '..', '..', '..', '..', 'core', 'src', 'parser.js'));
+const { RexxInterpreter } = require(interpPath);
+const { parse } = require(path.join(__dirname, '..', '..', '..', '..', 'core', 'src', 'parser.js'));
 const creation = require('../numpy');
 
 describe('numpy-inspired creation utilities from consolidated module (Rexx interpreter integration)', () => {
@@ -34,7 +34,7 @@ describe('numpy-inspired creation utilities from consolidated module (Rexx inter
         return { success: true, result: null };
       }
     };
-    interpreter = new Interpreter(addressSender);
+    interpreter = new RexxInterpreter(addressSender);
     if (!interpreter) throw new Error('Unable to instantiate Rexx interpreter.');
     if (typeof interpreter.run !== 'function') {
       throw new Error('Rexx interpreter must expose a run(code, context) function.');

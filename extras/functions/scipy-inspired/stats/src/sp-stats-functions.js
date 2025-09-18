@@ -530,6 +530,8 @@ spStatsFunctions.SP_STATS_FUNCTIONS_MAIN = () => ({
 // Export for both Node.js and browser environments
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { 
+    spStatsFunctions: spStatsFunctions,
+    
     // Distributions
     norm: spStatsFunctions.norm,
     uniform: spStatsFunctions.uniform,

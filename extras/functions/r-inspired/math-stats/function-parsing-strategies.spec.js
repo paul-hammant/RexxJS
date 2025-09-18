@@ -8,7 +8,7 @@ const {
   getFunctionParsingStrategy,
   shouldParseAsFunction,
   isFunctionCallExpression
-} = require('../../../../../core/src/function-parsing-strategies');
+} = require('../../../../core/src/function-parsing-strategies');
 
 describe('Function Parsing Strategies', () => {
   

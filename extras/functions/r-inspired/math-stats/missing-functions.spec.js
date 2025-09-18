@@ -1,7 +1,7 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { Interpreter } = require('../../../../../core/src/interpreter');
-const { parse } = require('../../../../../core/src/parser');
+const { Interpreter } = require('../../../../core/src/interpreter');
+const { parse } = require('../../../../core/src/parser');
 
 // Custom output handler that collects output for testing
 class TestOutputHandler {
@@ -178,7 +178,7 @@ SAY "This should not execute"
       `;
       
       // The function name gets normalized to uppercase in error messages, so adjust expectation
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function CUSTOM_FUNCTION is not available.*This appears to be an R statistical function/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function R_CUSTOM_FUNCTION is not available.*This appears to be an R statistical function/);
     });
   });
 
