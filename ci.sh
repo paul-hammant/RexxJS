@@ -228,6 +228,38 @@ fi
 # Final status
 if [ "$TOTAL_JEST_FAILED" -eq 0 ]; then
   echo "🎉 All tests passed!"
+  
+  # Build binary after successful tests
+  echo ""
+  echo "🔨 Building binaries..."
+  
+  BINARY_BUILD_SUCCESS=true
+  
+  # Build linux-x64 binary
+  echo "Building linux-x64 binary..."
+  if ./make-binary.sh linux-x64; then
+    echo "✅ linux-x64 binary build completed"
+  else
+    echo "❌ linux-x64 binary build failed"
+    BINARY_BUILD_SUCCESS=false
+  fi
+  
+  # Build linux-arm64 binary (if on compatible platform)
+  echo ""
+  echo "Building linux-arm64 binary..."
+  if ./make-binary.sh linux-arm64; then
+    echo "✅ linux-arm64 binary build completed"
+  else
+    echo "❌ linux-arm64 binary build failed"
+    BINARY_BUILD_SUCCESS=false
+  fi
+  
+  if [ "$BINARY_BUILD_SUCCESS" = true ]; then
+    echo "✅ All binary builds completed successfully"
+  else
+    echo "⚠️ Some binary builds failed"
+  fi
+  
   exit 0
 else
   echo "💥 $TOTAL_JEST_FAILED tests failed"

@@ -85,13 +85,38 @@ if [ -f "${OUTPUT_NAME}" ]; then
         print_warning "Binary test failed, but binary was created"
     fi
     
+    # Create bin directory if it doesn't exist
+    mkdir -p bin
+    
+    # Generate timestamp for binary name (ccyy-mm-dd-hh-mm-ss format)
+    TIMESTAMP=$(date +"%Y-%m-%d-%H-%M-%S")
+    TIMESTAMPED_NAME="rexx-$TARGET-$TIMESTAMP"
+    
+    # Move binary to bin/ with timestamp suffix
+    mv "${OUTPUT_NAME}" "bin/$TIMESTAMPED_NAME"
+    print_success "Binary moved to: bin/$TIMESTAMPED_NAME"
+    
+    # Create symlink to most recent binary for this target
+    cd bin
+    ln -sf "$TIMESTAMPED_NAME" "rexx-$TARGET-bin"
+    print_success "Symlink created: bin/rexx-$TARGET-bin -> $TIMESTAMPED_NAME"
+    cd ..
+    
+    # Keep only the last 10 binaries for this target
+    print_info "Cleaning up old binaries for $TARGET..."
+    cd bin
+    ls -1t rexx-$TARGET-20* 2>/dev/null | tail -n +11 | xargs -r rm -f
+    REMAINING=$(ls -1 rexx-$TARGET-20* 2>/dev/null | wc -l)
+    print_success "Kept $REMAINING most recent $TARGET binaries"
+    cd ..
+    
     # Optional: Create compressed version
     if command -v upx >/dev/null 2>&1; then
         print_info "Creating compressed version with UPX..."
-        upx -9 "${OUTPUT_NAME}" -o "${OUTPUT_NAME}-compressed" 2>/dev/null || true
-        if [ -f "${OUTPUT_NAME}-compressed" ]; then
-            COMP_SIZE=$(du -h "${OUTPUT_NAME}-compressed" | cut -f1)
-            print_success "Compressed binary created: ${OUTPUT_NAME}-compressed (${COMP_SIZE})"
+        upx -9 "bin/$TIMESTAMPED_NAME" -o "bin/${TIMESTAMPED_NAME}-compressed" 2>/dev/null || true
+        if [ -f "bin/${TIMESTAMPED_NAME}-compressed" ]; then
+            COMP_SIZE=$(du -h "bin/${TIMESTAMPED_NAME}-compressed" | cut -f1)
+            print_success "Compressed binary created: bin/${TIMESTAMPED_NAME}-compressed (${COMP_SIZE})"
         fi
     fi
     
@@ -103,5 +128,6 @@ fi
 print_success "Build complete!"
 echo
 echo "Usage:"
-echo "  ./${OUTPUT_NAME} script.rexx"
-echo "  ./${OUTPUT_NAME} --help"
+echo "  ./bin/rexx-$TARGET-bin script.rexx"
+echo "  ./bin/rexx-$TARGET-bin --help"
+echo "  ./bin/$TIMESTAMPED_NAME script.rexx  (direct access to this version)"
