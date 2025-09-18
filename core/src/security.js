@@ -34,27 +34,7 @@
  * @returns {string} Formatted error message with categorization
  */
 function createMissingFunctionError(method) {
-  let errorMessage = `Function ${method} is not available.`;
-  
-  // Categorize the function and provide helpful context
-  if (method.startsWith('R_')) {
-    errorMessage += ` This appears to be an R statistical function.`;
-  } else if (method.startsWith('EXCEL_')) {
-    errorMessage += ` This appears to be an Excel function. This function is not recognized as a built-in function and no Address Sender is configured.`;  
-  } else if (method.startsWith('DOM_')) {
-    errorMessage += ` This appears to be a DOM manipulation function.`;
-  } else if (method.startsWith('SP_')) {
-    errorMessage += ` This appears to be a SciPy function.`;
-  } else if (method.match(/^(LENGTH|SUBSTR|TRANSLATE|INDEX|POS|REVERSE|UPPER|LOWER|STRIP|WORD|WORDS)$/)) {
-    errorMessage += ` This is a built-in string function that should be available.`;
-  } else {
-    errorMessage += ` This function is not recognized as a built-in function and no Address Sender is configured.`;
-  }
-  
-  // Add documentation link
-  errorMessage += ` See https://rexxjs.org/functions/missing/ for help with missing functions.`;
-  
-  return errorMessage;
+    return `Function ${method} is not available: See https://rexxjs.org/functions/missing/ for help with missing functions and REQUIRE.`;
 }
 
 /**

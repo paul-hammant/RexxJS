@@ -64,7 +64,7 @@ LET average = MEAN data=[1,2,3,4,5]
 SAY "Average: " || average
       `;
       
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function MEAN is not available.*This appears to be an R statistical function/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function MEAN is not available: See https:\/\/rexxjs\.org\/functions\/missing\/ for help with missing functions and REQUIRE\./);
     });
 
     test('should provide clear error message for APPLY when not available', async () => {
@@ -73,7 +73,7 @@ LET result = APPLY data=[1,2,3] func="sum"
 SAY "Result: " || result
       `;
       
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function APPLY is not available.*This appears to be an R statistical function/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function APPLY is not available: See https:\/\/rexxjs\.org\/functions\/missing\/ for help with missing functions and REQUIRE\./);
     });
 
     test('should provide clear error message for MATRIX when not available', async () => {
@@ -82,7 +82,7 @@ LET matrix = MATRIX rows=2 cols=3 data=[1,2,3,4,5,6]
 SAY "Matrix created"
       `;
       
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function MATRIX is not available.*This appears to be an R statistical function/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function MATRIX is not available: See https:\/\/rexxjs\.org\/functions\/missing\/ for help with missing functions and REQUIRE\./);
     });
 
     test('should provide clear error message for custom R_ function', async () => {
@@ -91,7 +91,7 @@ LET result = CUSTOM_FUNCTION param=123
 SAY "Result: " || result
       `;
       
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function CUSTOM_FUNCTION is not available.*This appears to be an R statistical function/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function CUSTOM_FUNCTION is not available: See https:\/\/rexxjs\.org\/functions\/missing\/ for help with missing functions and REQUIRE\./);
     });
   });
 
@@ -178,7 +178,7 @@ SAY "This should not execute"
       `;
       
       // The function name gets normalized to uppercase in error messages, so adjust expectation
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function R_CUSTOM_FUNCTION is not available.*This appears to be an R statistical function/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function R_CUSTOM_FUNCTION is not available: See https:\/\/rexxjs\.org\/functions\/missing\/ for help with missing functions and REQUIRE\./);
     });
   });
 
@@ -189,7 +189,7 @@ LET result = TOTALLY_UNKNOWN_FUNCTION param=123
 SAY "This should not execute"
       `;
       
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function TOTALLY_UNKNOWN_FUNCTION is not available.*not recognized as a built-in function and no Address Sender is configured/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function TOTALLY_UNKNOWN_FUNCTION is not available: See https:\/\/rexxjs\.org\/functions\/missing\/ for help with missing functions and REQUIRE\./);
     });
 
     test('should provide helpful error for Excel functions when no Address Sender available', async () => {
@@ -198,7 +198,7 @@ LET result = EXCEL_VLOOKUP lookup="test" table=[]
 SAY "This should not execute"
       `;
       
-      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function EXCEL_VLOOKUP is not available.*not recognized as a built-in function and no Address Sender is configured/);
+      await expect(interpreter.run(parse(script))).rejects.toThrow(/Function EXCEL_VLOOKUP is not available: See https:\/\/rexxjs\.org\/functions\/missing\/ for help with missing functions and REQUIRE\./);
     });
   });
 });
