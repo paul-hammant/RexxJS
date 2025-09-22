@@ -19,12 +19,13 @@ ADDRESS EXPECTATIONS
 SAY "✓ Status check passed"
 
 // Test 2: CREATE TABLE with clean multiline syntax
-ADDRESS sqlite3 MATCHING("^  (.*)")
-
-  CREATE TABLE test (
-    id INTEGER PRIMARY KEY, 
-    name TEXT NOT NULL
-  ) -- end table
+ADDRESS sqlite3
+<<CREATE_TABLE
+CREATE TABLE test (
+  id INTEGER PRIMARY KEY, 
+  name TEXT NOT NULL
+) -- end table
+CREATE_TABLE
 
 ADDRESS EXPECTATIONS
 "{RESULT.success} should equal true"
@@ -33,10 +34,11 @@ ADDRESS EXPECTATIONS
 SAY "✓ CREATE TABLE passed"
 
 // Test 3: INSERT with multiline syntax
-ADDRESS sqlite3 MATCHING("^  (.*)")
-
-  INSERT INTO test (name) 
-  VALUES ('hello')
+ADDRESS sqlite3
+<<INSERT_DATA
+INSERT INTO test (name) 
+VALUES ('hello')
+INSERT_DATA
 
 ADDRESS EXPECTATIONS
 "{RESULT.success} should equal true"
@@ -47,9 +49,10 @@ ADDRESS EXPECTATIONS
 SAY "✓ INSERT passed"
 
 // Test 4: SELECT with multiline syntax and row content validation
-ADDRESS sqlite3 MATCHING("^  (.*)")
-
-  SELECT * FROM test
+ADDRESS sqlite3
+<<SELECT_ALL
+SELECT * FROM test
+SELECT_ALL
 
 // Debug the SELECT result structure
 ADDRESS default

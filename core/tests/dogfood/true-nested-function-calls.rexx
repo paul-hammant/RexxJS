@@ -26,11 +26,13 @@ SAY "  MATH_ADD(MAX(1, 2, 3), MIN(4, 5, 6)) = " || multi_nested
 SAY "  LENGTH(UPPER('hello')) = " || string_nested
 SAY "  MATH_MULTIPLY(ABS(MIN(-5, -10)), MAX(2, 3, 4)) = " || complex_nested
 
-ADDRESS EXPECTATIONS MATCHING("^[ \t]*\.[ \t]+(.*)$")
-. {math_nested} should equal 10
-. {multi_nested} should equal 7 
-. {string_nested} should equal 5
-. {complex_nested} should equal 40
+ADDRESS EXPECTATIONS
+<<EXPECTATIONS
+{math_nested} should equal 10
+{multi_nested} should equal 7 
+{string_nested} should equal 5
+{complex_nested} should equal 40
+EXPECTATIONS
 
 SAY "✅ True Nested Function Calls Tests Complete - nested calls work perfectly!"
 EXIT 0

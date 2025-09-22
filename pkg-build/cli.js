@@ -48,6 +48,8 @@ class NodeOutputHandler {
 
 // Auto-discover and register bundled libraries
 function autoRegisterBundledLibraries() {
+  const handlers = {};
+  
   // Try to load and register system-address
   try {
     // Load system-address.js from bundled location
@@ -65,14 +67,47 @@ function autoRegisterBundledLibraries() {
         
         // Make the handler globally available
         global.ADDRESS_SYSTEM_HANDLER = ADDRESS_SYSTEM_HANDLER;
-        return { system: ADDRESS_SYSTEM_HANDLER };
+        handlers.system = ADDRESS_SYSTEM_HANDLER;
       }
     }
   } catch (error) {
     console.warn('Warning: Could not auto-register system-address:', error.message);
   }
   
-  return {};
+  // Try to load container orchestration handlers
+  const containerHandlers = [
+    { name: 'podman', file: '../extras/addresses/container-and-vm-orchestration/address-podman.js', 
+      mainFunc: 'ADDRESS_PODMAN_MAIN', handlerFunc: 'ADDRESS_PODMAN_HANDLER' },
+    { name: 'docker', file: '../extras/addresses/container-and-vm-orchestration/address-docker.js', 
+      mainFunc: 'ADDRESS_DOCKER_MAIN', handlerFunc: 'ADDRESS_DOCKER_HANDLER' },
+    { name: 'nspawn', file: '../extras/addresses/container-and-vm-orchestration/address-nspawn.js', 
+      mainFunc: 'ADDRESS_NSPAWN_MAIN', handlerFunc: 'ADDRESS_NSPAWN_HANDLER' }
+  ];
+  
+  for (const container of containerHandlers) {
+    try {
+      const containerPath = path.join(__dirname, container.file);
+      if (fs.existsSync(containerPath)) {
+        const containerCode = fs.readFileSync(containerPath, 'utf8');
+        
+        // Execute the code to make functions available
+        eval(containerCode);
+        
+        // Call the main detection function to get metadata
+        if (typeof global[container.mainFunc] === 'function') {
+          const metadata = global[container.mainFunc]();
+          console.log(`✓ Registered ADDRESS target: ${metadata.provides.addressTarget}`);
+          
+          // Make the handler globally available
+          handlers[container.name] = global[container.handlerFunc];
+        }
+      }
+    } catch (error) {
+      console.warn(`Warning: Could not auto-register ${container.name}-address:`, error.message);
+    }
+  }
+  
+  return handlers;
 }
 
 // Address sender for CLI execution
@@ -110,6 +145,17 @@ class CLIAddressSender {
       }
     }
 
+    // Handle container orchestration commands (podman, docker, nspawn)
+    const containerAddress = address.toLowerCase();
+    if (this.addressHandlers[containerAddress]) {
+      try {
+        const result = await this.addressHandlers[containerAddress](command, params);
+        return { status: 'success', result: result };
+      } catch (error) {
+        throw new Error(`${address.toUpperCase()} command failed: ${error.message}`);
+      }
+    }
+
     // Special case: ignore common 'default' ADDRESS calls from script parsing
     if (address === 'default') {
       return { status: 'ignored', result: 'Default ADDRESS call ignored' };
@@ -124,42 +170,92 @@ class CLIAddressSender {
   }
 }
 
+// Detect execution context for adaptive help
+function getExecutableName() {
+  const execPath = process.argv[0];
+  const scriptPath = process.argv[1];
+  
+  // Check if running as pkg binary - pkg sets process.pkg property
+  if (typeof process.pkg !== 'undefined') {
+    // Extract binary name from execPath
+    return path.basename(execPath);
+  }
+  
+  // Check if running as pkg binary by path patterns
+  if (execPath.includes('rexx') && !scriptPath.includes('cli.js')) {
+    return path.basename(execPath);
+  }
+  
+  // Running from source
+  return 'node cli.js';
+}
+
+function getVersion() {
+  try {
+    // Try to read package.json from various locations
+    const locations = [
+      path.join(__dirname, '../package.json'),
+      path.join(__dirname, '../../package.json'),
+      path.join(__dirname, 'package.json')
+    ];
+    
+    for (const loc of locations) {
+      if (fs.existsSync(loc)) {
+        const pkg = JSON.parse(fs.readFileSync(loc, 'utf8'));
+        return pkg.version || '1.0.0';
+      }
+    }
+  } catch (error) {
+    // Fallback version
+  }
+  return '1.0.0';
+}
+
 async function main() {
   const args = process.argv.slice(2);
+  const execName = getExecutableName();
+  
+  // Handle version flag
+  if (args.includes('--version') || args.includes('-v')) {
+    console.log(`RexxJS v${getVersion()}`);
+    process.exit(0);
+  }
   
   if (args.length === 0) {
-    console.error('Usage: node cli.js <script.rexx> [options]');
+    console.error(`Usage: ${execName} <script.rexx> [options]`);
     console.error('');
     console.error('Options:');
-    console.error('  --help, -h    Show this help message');
-    console.error('  --verbose, -v Show verbose output');
+    console.error('  --help, -h       Show this help message');
+    console.error('  --version, -v    Show version information');
+    console.error('  --verbose        Show verbose output');
     console.error('');
     console.error('Examples:');
-    console.error('  node cli.js tests/scripts/simple-command.rexx');
-    console.error('  node cli.js my-script.rexx --verbose');
+    console.error(`  ${execName} tests/scripts/simple-command.rexx`);
+    console.error(`  ${execName} my-script.rexx --verbose`);
     process.exit(1);
   }
   
   if (args.includes('--help') || args.includes('-h')) {
-    console.log('RexxJS REXX Script Runner - Node.js CLI');
+    console.log(`RexxJS v${getVersion()} - REXX Script Runner`);
     console.log('');
     console.log('This tool runs REXX scripts locally using the RexxJS interpreter.');
     console.log('Note: External services (DOM, file system, etc.) are mocked for local execution.');
     console.log('');
-    console.log('Usage: node cli.js <script.rexx> [options]');
+    console.log(`Usage: ${execName} <script.rexx> [options]`);
     console.log('');
     console.log('Options:');
-    console.log('  --help, -h    Show this help message');
-    console.log('  --verbose, -v Show verbose output');
+    console.log('  --help, -h       Show this help message');
+    console.log('  --version, -v    Show version information');
+    console.log('  --verbose        Show verbose output');
     console.log('');
     console.log('Examples:');
-    console.log('  node cli.js tests/scripts/simple-command.rexx');
-    console.log('  node cli.js my-script.rexx --verbose');
+    console.log(`  ${execName} tests/scripts/simple-command.rexx`);
+    console.log(`  ${execName} my-script.rexx --verbose`);
     return;
   }
   
   const scriptPath = args[0];
-  const verbose = args.includes('--verbose') || args.includes('-v');
+  const verbose = args.includes('--verbose');
   
   if (!fs.existsSync(scriptPath)) {
     console.error(`Error: Script file not found: ${scriptPath}`);

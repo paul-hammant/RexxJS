@@ -1,7 +1,6 @@
 /**
- * Address Matching Multiline SQL Test
- * Tests that ADDRESS MATCHING can handle SQL statements that span multiple lines
- * by accumulating fragments until a complete statement is formed.
+ * ADDRESS HEREDOC with SQL statements
+ * Tests that ADDRESS HEREDOC can handle SQL statements that span multiple lines
  * 
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
@@ -10,51 +9,31 @@
 const { TestRexxInterpreter } = require('../src/test-interpreter');
 const { parse } = require('../src/parser');
 
-describe('ADDRESS MATCHING with multiline SQL statements', () => {
+describe('ADDRESS HEREDOC with multiline SQL statements', () => {
   let interpreter;
-  let mockSQLHandler;
-  let sqlCalls;
+  let mockAddressSender;
+  let sqlEngineHandler;
+  let sqlEngineCalls;
 
   beforeEach(() => {
-    sqlCalls = [];
+    sqlEngineCalls = [];
     
-    // Mock SQL handler that accumulates fragments and detects complete statements
-    mockSQLHandler = jest.fn().mockImplementation((sqlFragment, context) => {
-      sqlCalls.push({ fragment: sqlFragment, context });
-      
-      // Simulate SQLite behavior: reject incomplete SQL, accept complete SQL
-      if (sqlFragment.trim() === 'CREATE TABLE test' || 
-          sqlFragment.trim() === '(id INTEGER PRIMARY KEY,' ||
-          sqlFragment.trim() === 'name TEXT') {
-        // Incomplete fragments - handler should accumulate
-        return Promise.resolve({ 
-          success: true, 
-          operation: 'ACCUMULATING',
-          message: 'Fragment accumulated'
-        });
-      } else if (sqlFragment.includes('CREATE TABLE') && sqlFragment.includes(')')) {
-        // Complete CREATE TABLE statement
-        return Promise.resolve({ 
-          success: true, 
-          operation: 'CREATE_TABLE',
-          sql: sqlFragment 
-        });
-      } else {
-        // Complete single-line statements
-        return Promise.resolve({ 
-          success: true, 
-          operation: 'EXECUTE',
-          sql: sqlFragment 
-        });
-      }
+    sqlEngineHandler = jest.fn().mockImplementation(async (payload, context, sourceContext) => {
+      sqlEngineCalls.push({ payload, context, sourceContext });
+      return { success: true, operation: 'SQL_EXECUTED' };
     });
     
-    interpreter = new TestRexxInterpreter({}, {}, {});
+    mockAddressSender = {
+      sendToAddress: jest.fn(),
+      send: jest.fn().mockResolvedValue({ success: true, result: null })
+    };
     
-    // Register mock SQL address target
+    interpreter = new TestRexxInterpreter(mockAddressSender, {}, {});
+    
+    // Register SQL engine handler
     interpreter.addressTargets.set('sqlengine', {
-      handler: mockSQLHandler,
-      methods: ['execute', 'query', 'status'],
+      handler: sqlEngineHandler,
+      methods: {},
       metadata: { name: 'SQL Engine' }
     });
   });
@@ -64,109 +43,107 @@ describe('ADDRESS MATCHING with multiline SQL statements', () => {
     return await interpreter.run(commands, rexxCode);
   };
 
-  describe('Multiline SQL statement handling', () => {
-    test('should handle multiline CREATE TABLE with two-space indentation pattern', async () => {
+  describe('SQL HEREDOC handling', () => {
+    test('should handle complex multiline SQL with HEREDOC', async () => {
       const rexxCode = `
-        ADDRESS sqlengine MATCHING("  (.*)")
+        LET userId = 123
+        LET minSalary = 50000
         
-          CREATE TABLE test (
-            id INTEGER PRIMARY KEY,
-            name TEXT
-          )
+        ADDRESS sqlengine
+        <<EMPLOYEE_QUERY
+        SELECT 
+          e.id,
+          e.name,
+          e.salary,
+          d.department_name
+        FROM employees e
+        JOIN departments d ON e.department_id = d.id
+        WHERE e.user_id = {userId}
+          AND e.salary >= {minSalary}
+        ORDER BY e.salary DESC
+        LIMIT 10
+        EMPLOYEE_QUERY
       `;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive one multiline call (consistent with ADDRESS MATCHING behavior)
-      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
+      expect(sqlEngineCalls).toHaveLength(1);
+      const sqlPayload = sqlEngineCalls[0].payload;
       
-      // Verify the complete multiline content is received
-      expect(mockSQLHandler).toHaveBeenCalledWith(
-        'CREATE TABLE test (\nid INTEGER PRIMARY KEY,\nname TEXT', 
-        expect.objectContaining({ _addressMatchingPattern: '  (.*)' }),
-        expect.anything()
-      );
+      // Should receive complete SQL as one multiline string
+      expect(sqlPayload).toContain('SELECT');
+      expect(sqlPayload).toContain('FROM employees e');
+      expect(sqlPayload).toContain('JOIN departments d');
+      expect(sqlPayload).toContain('WHERE e.user_id = {userId}');
+      expect(sqlPayload).toContain('ORDER BY e.salary DESC');
+      expect(sqlPayload).toContain('LIMIT 10');
     });
 
-    test('should handle mixed single-line and multiline SQL statements', async () => {
+    test('should handle SQL UPDATE with HEREDOC', async () => {
       const rexxCode = `
-        ADDRESS sqlengine MATCHING("  (.*)")
-        
-          CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)
-          
-          INSERT INTO products (name) VALUES ('Widget')
-          INSERT INTO products (name) VALUES ('Gadget')
-          
-          SELECT COUNT(*) FROM products
+        ADDRESS sqlengine
+        <<UPDATE_STMT
+        UPDATE employees 
+        SET salary = salary * 1.1,
+            last_updated = NOW()
+        WHERE department_id IN (
+          SELECT id FROM departments 
+          WHERE name = 'Engineering'
+        )
+        UPDATE_STMT
       `;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive 1 multiline call collecting all SQL statements
-      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
-      
-      expect(mockSQLHandler).toHaveBeenCalledWith(
-        "CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT)\nINSERT INTO products (name) VALUES ('Widget')\nINSERT INTO products (name) VALUES ('Gadget')\nSELECT COUNT(*) FROM products", 
-        expect.anything(),
-        expect.anything()
-      );
+      expect(sqlEngineCalls).toHaveLength(1);
+      expect(sqlEngineCalls[0].payload).toContain('UPDATE employees');
+      expect(sqlEngineCalls[0].payload).toContain('SET salary = salary * 1.1');
+      expect(sqlEngineCalls[0].payload).toContain('WHERE department_id IN');
     });
 
-    test('should ignore blank lines in MATCHING pattern', async () => {
+    test('demonstrates that ADDRESS HEREDOC delivers complete multiline SQL', async () => {
       const rexxCode = `
-        ADDRESS sqlengine MATCHING("  (.*)")
-        
-          CREATE TABLE test (id INTEGER)
-          
-          INSERT INTO test VALUES (1)
-          
-          SELECT * FROM test
+        ADDRESS sqlengine
+        <<COMPLEX_QUERY
+        WITH sales_summary AS (
+          SELECT 
+            customer_id,
+            SUM(amount) as total_sales,
+            COUNT(*) as order_count
+          FROM orders 
+          WHERE order_date >= '2024-01-01'
+          GROUP BY customer_id
+        )
+        SELECT 
+          c.name,
+          c.email,
+          ss.total_sales,
+          ss.order_count,
+          CASE 
+            WHEN ss.total_sales > 10000 THEN 'Premium'
+            WHEN ss.total_sales > 5000 THEN 'Gold'
+            ELSE 'Standard'
+          END as customer_tier
+        FROM customers c
+        JOIN sales_summary ss ON c.id = ss.customer_id
+        ORDER BY ss.total_sales DESC
+        COMPLEX_QUERY
       `;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive 1 multiline call (blank lines ignored)
-      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
+      expect(sqlEngineCalls).toHaveLength(1);
+      const payload = sqlEngineCalls[0].payload;
       
-      const receivedContent = sqlCalls[0].fragment;
-      expect(receivedContent).toBe('CREATE TABLE test (id INTEGER)\nINSERT INTO test VALUES (1)\nSELECT * FROM test');
-    });
-  });
-
-  describe('Complete SQL statement delivery', () => {
-    test('demonstrates that ADDRESS MATCHING delivers complete multiline SQL', async () => {
-      // This test documents that ADDRESS MATCHING with indentation patterns
-      // delivers complete multiline content to SQL handlers
-      
-      const rexxCode = `
-        ADDRESS sqlengine MATCHING("  (.*)")
-        
-          CREATE TABLE complex_table (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-          )
-      `;
-      
-      await executeRexxCode(rexxCode);
-      
-      // Handler receives 1 complete multiline call
-      expect(mockSQLHandler).toHaveBeenCalledTimes(1);
-      
-      // The complete SQL is delivered as a single multiline string
-      const receivedSQL = sqlCalls[0].fragment;
-      expect(receivedSQL).toContain('CREATE TABLE complex_table (');
-      expect(receivedSQL).toContain('id INTEGER PRIMARY KEY,');
-      expect(receivedSQL).toContain('name TEXT NOT NULL,');
-      expect(receivedSQL).toContain('created_at TEXT DEFAULT CURRENT_TIMESTAMP');
-      
-      // Verify it's properly formatted as multiline
-      const lines = receivedSQL.split('\n');
-      expect(lines.length).toBe(4);
-      expect(lines[0]).toBe('CREATE TABLE complex_table (');
-      expect(lines[1]).toBe('id INTEGER PRIMARY KEY,');
-      expect(lines[2]).toBe('name TEXT NOT NULL,');
-      expect(lines[3]).toBe('created_at TEXT DEFAULT CURRENT_TIMESTAMP');
+      // Verify all parts of the complex SQL are present
+      expect(payload).toContain('WITH sales_summary AS');
+      expect(payload).toContain('customer_id');
+      expect(payload).toContain('FROM orders');
+      expect(payload).toContain('GROUP BY customer_id');
+      expect(payload).toContain('CASE');
+      expect(payload).toContain('WHEN ss.total_sales > 10000');
+      expect(payload).toContain('JOIN sales_summary ss');
+      expect(payload).toContain('ORDER BY ss.total_sales DESC');
     });
   });
 });

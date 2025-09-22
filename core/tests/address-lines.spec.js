@@ -159,11 +159,13 @@ SAY "This should execute normally"`;
       expect(output).toContain('This should execute normally');
     });
 
-    test('should handle switching between LINES and MATCHING', async () => {
+    test('should handle switching between LINES and HEREDOC', async () => {
       const rexxCode = `ADDRESS mockaddress LINES(1)
 SAY "Captured by LINES"
-ADDRESS mockaddress MATCHING("^TEST: (.*)$")
-TEST: Captured by MATCHING
+ADDRESS mockaddress
+<<HEREDOC
+Captured by HEREDOC
+HEREDOC
 ADDRESS default
 SAY "Normal execution"`;
       
@@ -174,7 +176,7 @@ SAY "Normal execution"`;
         expect.anything()
       );
       expect(mockAddressHandler).toHaveBeenNthCalledWith(2,
-        'Captured by MATCHING',
+        'Captured by HEREDOC',
         expect.any(Object),
         expect.anything()
       );

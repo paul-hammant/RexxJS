@@ -1,7 +1,6 @@
 /**
- * ADDRESS MATCHING MULTILINE Test
- * Tests the new ADDRESS MATCHING MULTILINE functionality that collects
- * matching lines and sends them as multiline strings to the address handler.
+ * ADDRESS HEREDOC MULTILINE Test
+ * Tests the HEREDOC approach that collects multiline content
  * 
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
@@ -10,26 +9,30 @@
 const { TestRexxInterpreter } = require('../src/test-interpreter');
 const { parse } = require('../src/parser');
 
-describe('ADDRESS MATCHING MULTILINE functionality', () => {
+describe('ADDRESS HEREDOC MULTILINE functionality', () => {
   let interpreter;
-  let mockHandler;
-  let receivedCalls;
+  let mockAddressSender;
+  let testHandlerCalls;
 
   beforeEach(() => {
-    receivedCalls = [];
+    testHandlerCalls = [];
     
-    // Mock handler that records what it receives
-    mockHandler = jest.fn().mockImplementation((content, context) => {
-      receivedCalls.push(content);
-      return { success: true };
-    });
+    const testAddressHandler = async (payload, params, context) => {
+      testHandlerCalls.push({ payload, params, context });
+      return { success: true, operation: 'TEST_OK' };
+    };
     
-    interpreter = new TestRexxInterpreter({}, {}, {});
+    mockAddressSender = {
+      sendToAddress: jest.fn(),
+      send: jest.fn().mockResolvedValue({ success: true, result: null })
+    };
     
-    // Register mock address target
+    interpreter = new TestRexxInterpreter(mockAddressSender, {}, {});
+    
+    // Register test address handler
     interpreter.addressTargets.set('testhandler', {
-      handler: mockHandler,
-      methods: ['execute'],
+      handler: testAddressHandler,
+      methods: {},
       metadata: { name: 'Test Handler' }
     });
   });
@@ -39,142 +42,100 @@ describe('ADDRESS MATCHING MULTILINE functionality', () => {
     return await interpreter.run(commands, rexxCode);
   };
 
-  describe('Basic multiline collection', () => {
-    test('should collect matching lines and send as multiline string', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
-
-  line one
-  line two
-  line three
-
-ADDRESS default`;
+  describe('Basic HEREDOC multiline collection', () => {
+    test('should collect simple indented lines', async () => {
+      const rexxCode = `ADDRESS testhandler
+<<CONTENT
+First line
+Second line
+Third line
+CONTENT`;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive one multiline call
-      expect(mockHandler).toHaveBeenCalledTimes(1);
-      expect(receivedCalls[0]).toBe('line one\nline two\nline three');
+      expect(testHandlerCalls).toHaveLength(1);
+      expect(testHandlerCalls[0].payload).toBe('First line\nSecond line\nThird line');
     });
 
-    test('should handle multiple multiline blocks separated by non-matching lines', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
-
-  line one
-  line two
-  line three
-not_indented_line
-  second block line one
-  second block line two
-
-ADDRESS default`;
+    test('should collect lines with mixed content', async () => {
+      const rexxCode = `ADDRESS testhandler
+<<SQL
+SELECT * FROM table
+WHERE condition = 'value'
+ORDER BY id
+SQL`;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive 3 calls: first block, non-matching line, second block
-      expect(mockHandler).toHaveBeenCalledTimes(3);
-      expect(receivedCalls[0]).toBe('line one\nline two\nline three');
-      expect(receivedCalls[1]).toBe('not_indented_line');
-      expect(receivedCalls[2]).toBe('second block line one\nsecond block line two');
+      expect(testHandlerCalls).toHaveLength(1);
+      expect(testHandlerCalls[0].payload).toBe('SELECT * FROM table\nWHERE condition = \'value\'\nORDER BY id');
     });
 
-    test('should flush remaining lines when ADDRESS changes', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
-
-  line one
-  line two
-  line three
-
-ADDRESS default`;
+    test('should handle empty HEREDOC sections', async () => {
+      const rexxCode = `ADDRESS testhandler
+<<EMPTY
+EMPTY`;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive one call for the collected lines
-      expect(mockHandler).toHaveBeenCalledTimes(1);
-      expect(receivedCalls[0]).toBe('line one\nline two\nline three');
+      expect(testHandlerCalls).toHaveLength(1);
+      expect(testHandlerCalls[0].payload).toBe('');
     });
 
-    test('should flush remaining lines at end of program', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
-
-  line one
-  line two
-  line three`;
+    test('should handle HEREDOC with single line', async () => {
+      const rexxCode = `ADDRESS testhandler
+<<SINGLE
+Only one line
+SINGLE`;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive one call for the collected lines
-      expect(mockHandler).toHaveBeenCalledTimes(1);
-      expect(receivedCalls[0]).toBe('line one\nline two\nline three');
+      expect(testHandlerCalls).toHaveLength(1);
+      expect(testHandlerCalls[0].payload).toBe('Only one line');
     });
 
-    test('should handle empty content gracefully', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
-ADDRESS default`;
+    test('should collect complex nested content', async () => {
+      const rexxCode = `ADDRESS testhandler
+<<COMPLEX
+{
+  "user": "test",
+  "data": {
+    "nested": true
+  }
+}
+COMPLEX`;
       
       await executeRexxCode(rexxCode);
       
-      // Should not receive any calls
-      expect(mockHandler).toHaveBeenCalledTimes(0);
+      expect(testHandlerCalls).toHaveLength(1);
+      const expected = '{\n  "user": "test",\n  "data": {\n    "nested": true\n  }\n}';
+      expect(testHandlerCalls[0].payload).toBe(expected);
     });
   });
 
-  describe('Pattern matching behavior', () => {
-    test('should only collect lines that match the pattern', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("SQL: (.*)")
-
-SQL: CREATE TABLE test (id INTEGER)
-SQL: INSERT INTO test VALUES (1)
-not_sql_line
-SQL: SELECT * FROM test
-
-ADDRESS default`;
+  describe('SQL-specific HEREDOC tests', () => {
+    test('should demonstrate that HEREDOC delivers complete multiline SQL', async () => {
+      const rexxCode = `ADDRESS testhandler
+<<SQL_QUERY
+SELECT users.name, 
+       users.email,
+       COUNT(orders.id) as order_count
+FROM users
+LEFT JOIN orders ON users.id = orders.user_id
+WHERE users.active = 1
+GROUP BY users.id
+HAVING COUNT(orders.id) > 0
+ORDER BY order_count DESC
+LIMIT 10;
+SQL_QUERY`;
       
       await executeRexxCode(rexxCode);
       
-      // Should receive 3 calls: first SQL block, non-matching line, second SQL block
-      expect(mockHandler).toHaveBeenCalledTimes(3);
-      expect(receivedCalls[0]).toBe('CREATE TABLE test (id INTEGER)\nINSERT INTO test VALUES (1)');
-      expect(receivedCalls[1]).toBe('not_sql_line');
-      expect(receivedCalls[2]).toBe('SELECT * FROM test');
-    });
-
-    test('should handle patterns without capture groups', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("PREFIX: .*")
-
-PREFIX: line one
-PREFIX: line two
-not_prefixed
-PREFIX: line three
-
-ADDRESS default`;
-      
-      await executeRexxCode(rexxCode);
-      
-      // Should receive 1 call for the non-matching line
-      // (matching lines without capture groups produce empty content and are ignored)
-      expect(mockHandler).toHaveBeenCalledTimes(1);
-      expect(receivedCalls[0]).toBe('not_prefixed');
-    });
-  });
-
-  describe('Context and metadata', () => {
-    test('should pass correct context with multiline pattern', async () => {
-      const rexxCode = `ADDRESS testhandler MATCHING("  (.*)")
-
-  line one
-  line two
-
-ADDRESS default`;
-      
-      await executeRexxCode(rexxCode);
-      
-      expect(mockHandler).toHaveBeenCalledWith(
-        'line one\nline two',
-        expect.objectContaining({
-          _addressMatchingPattern: '  (.*)'
-        }),
-        expect.anything()
-      );
+      expect(testHandlerCalls).toHaveLength(1);
+      expect(testHandlerCalls[0].payload).toContain('SELECT users.name,');
+      expect(testHandlerCalls[0].payload).toContain('FROM users');
+      expect(testHandlerCalls[0].payload).toContain('ORDER BY order_count DESC');
+      expect(testHandlerCalls[0].payload).toContain('LIMIT 10;');
     });
   });
 });

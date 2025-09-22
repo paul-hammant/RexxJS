@@ -557,77 +557,82 @@ SAY "Calculator result: " || result
 SAY "User updated: " || userData.name
 ```
 
-## ADDRESS MATCHING Pattern Syntax
+## ADDRESS HEREDOC Pattern Syntax
 
-ADDRESS MATCHING provides **pattern-based line matching** that takes precedence over normal REXX parsing, enabling domain-specific languages and structured test frameworks within ADDRESS contexts.
+ADDRESS HEREDOC provides **multiline content blocks** with clean, readable syntax for complex content handling within ADDRESS contexts. This enables natural domain-specific languages, structured test frameworks, and configuration DSLs.
 
 ### Core Concept
 
-When an ADDRESS MATCHING pattern is active, lines that match the regex pattern are sent to the address target instead of being parsed as normal REXX commands. This allows for natural language syntax and structured data formats.
+ADDRESS HEREDOC allows you to send multiline content blocks to address targets using delimiter-based syntax. This provides a cleaner alternative to pattern-based matching for structured content.
 
 ### Basic Syntax
 
 ```rexx
--- Set ADDRESS with MATCHING pattern
-ADDRESS targetName MATCHING("regex_pattern")
-
--- Lines matching the pattern are sent to targetName
--- Lines not matching are parsed normally
+-- Send multiline content to target
+ADDRESS targetName <<DELIMITER
+multiline content here
+with preserved formatting
+DELIMITER
 ```
 
-### Pattern Matching Rules
+### HEREDOC Rules
 
-1. **Precedence**: MATCHING patterns take precedence over REXX parsing
-2. **Capture Groups**: First capture group `(.*)` becomes the processed content  
-3. **Flexible Whitespace**: Patterns should account for indentation with `^[ \\t]*`
-4. **Full Line Matching**: Patterns match against the complete source line including whitespace
+1. **Delimiter Matching**: Opening and closing delimiters must match exactly
+2. **Content Preservation**: All whitespace and formatting is preserved
+3. **Variable Interpolation**: `{variable}` syntax supported within content
+4. **No Nesting**: HEREDOC blocks cannot contain other HEREDOC blocks
 
 ### Examples
 
-#### Basic Test Framework Pattern
+#### Basic Test Framework with HEREDOC
 ```rexx
 REQUIRE "expectations-address"
 
--- Set dot-prefix pattern for test assertions
-ADDRESS EXPECTATIONS MATCHING("^[ \\t]*\\. (.*)$")
+-- Send test assertions using HEREDOC
+ADDRESS EXPECTATIONS <<TESTS
+result should equal 42
+name should equal "John"
+status should be true
+TESTS
 
--- These lines match the pattern and go to EXPECTATIONS
-. result should equal 42
-. name should equal "John"  
-. status should be true
-
--- This line doesn't match - parsed as normal REXX
+-- Normal REXX execution continues
 SAY "Test completed"
 ```
 
-#### Flexible Comment-Style Pattern
+#### SQL Database Operations
 ```rexx
-ADDRESS logger MATCHING("^[ \\t]*# (.*)$")
-
--- These lines match and go to logger
-# Starting application initialization
-# Loading configuration file
-# Database connection established
+-- Send SQL commands using HEREDOC
+ADDRESS sqlite3 <<SQL
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE
+)
+SQL
 
 -- Normal REXX execution continues
-LET status = "ready"
+LET status = "table_created"
 ```
 
-#### Multi-Pattern Testing
+#### API Configuration with HEREDOC
 ```rexx
-REQUIRE "expectations-address"  
-LET test_value = 100
+LET userId = "12345"
+LET newStatus = "active"
 
--- Pattern allows flexible whitespace and multiple syntaxes  
-ADDRESS EXPECTATIONS MATCHING("^[ \\t]*(?:\\.\\s+|CHECK:\\s+|VERIFY:\\s+)(.*)$")
-
--- All these match and go to EXPECTATIONS:
-. test_value should equal 100
-CHECK: test_value should be greater than 50
-VERIFY: test_value should be less than 200
+-- Send JSON configuration using HEREDOC with interpolation
+ADDRESS api <<REQUEST
+{
+  "method": "PUT",
+  "endpoint": "/users/{userId}",
+  "body": {
+    "status": "{newStatus}",
+    "updated_at": "{TIMESTAMP()}"
+  }
+}
+REQUEST
 
 -- Normal REXX
-SAY "All tests passed"
+SAY "API request sent"
 ```
 
 ### Advanced Pattern Features

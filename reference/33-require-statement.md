@@ -32,6 +32,41 @@ REQUIRE lib="library-path"
 REQUIRE lib="library-path" as="prefix-or-name"
 ```
 
+## Path Formats
+
+REQUIRE supports three different path formats for maximum flexibility:
+
+### 1. Local File Paths
+```rexx
+REQUIRE "./extras/addresses/sqlite3/sqlite-address.js" AS SQLite
+REQUIRE "../shared/utils.js" AS Utils
+REQUIRE "/absolute/path/to/module.js" AS Module
+```
+- Relative paths for development and local modules
+- Direct file system access
+- Best for development and project-local libraries
+
+### 2. Canonical Registry Names
+```rexx
+REQUIRE "org.rexxjs/sqlite3-address" AS SQLite
+REQUIRE "namespace/module-name" AS MyLib
+REQUIRE "registry:rexxjs/system-address" AS System
+```
+- Clean, version-managed distribution names
+- Registry-based lookup with integrity checking
+- Best for stable, published libraries
+- Registry publishers listed at: https://rexxjs.org/.list-of-public-lib-publishers.txt
+
+### 3. Direct HTTPS URLs
+```rexx
+REQUIRE "https://cdn.jsdelivr.net/npm/some-rexx-lib@1.0.0/dist/bundle.js" AS RemoteLib
+REQUIRE "https://github.com/user/repo/raw/main/my-lib.js" AS GitHubLib
+REQUIRE "https://example.com/custom-library.js" AS CustomLib
+```
+- Direct HTTP/HTTPS fetching for external modules
+- Bypasses registry entirely
+- Best for third-party or experimental libraries
+
 ## Library Types
 
 ### 1. Function Libraries

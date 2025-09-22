@@ -66,10 +66,19 @@ INTERPOLATION DEFAULT
 
 **Creating Custom Patterns:**
 ```rexx
--- Create custom angle bracket pattern
+-- Define custom angle bracket pattern
 INTERPOLATION PATTERN name=ANGLES start="<<" end=">>"
+
+-- Switch to the custom pattern
+INTERPOLATION ANGLES
 LET name = "Dave"
 SAY "Hello <<name>>"  -- Outputs: Hello Dave
+
+-- Create and use multiple custom patterns
+INTERPOLATION PATTERN name=RUBY start="#{" end="}"
+INTERPOLATION RUBY
+LET count = 42
+SAY "Found #{count} results"  -- Outputs: Found 42 results
 ```
 
 **Pattern Switching in Scripts:**
@@ -271,7 +280,11 @@ interpreter.addressTargets.set('logger', {
 LET user = "Alice"
 LET action = "login"
 
-ADDRESS logger MATCHING("^LOG: (.*)$")
+ADDRESS logger <<LOG_ENTRIES
+Starting application initialization
+Loading configuration file
+Database connection established
+LOG_ENTRIES
 LOG: User {user} performed {action} at {timestamp}
 */
 ```
@@ -371,7 +384,12 @@ LET api_key = "secret123"
 LET endpoint = "/users"
 LET user_id = 456
 
-ADDRESS api MATCHING("^API: (.*)$")  
+ADDRESS api <<JSON_REQUEST
+{
+  "method": "GET",
+  "endpoint": "/users"
+}
+JSON_REQUEST  
 API: GET {endpoint}/{user_id} with key {api_key}
 */
 ```
@@ -464,14 +482,14 @@ logActivity("myhandler", "important_operation", {
 });
 ```
 
-## Integration with ADDRESS MATCHING
+## Integration with ADDRESS HEREDOC
 
-The utilities work seamlessly with ADDRESS MATCHING patterns:
+The utilities work seamlessly with ADDRESS HEREDOC patterns:
 
 ```javascript
 // Handler using utilities
 const handler = wrapHandler("test", async (message, context) => {
-  // Message comes pre-extracted from MATCHING pattern
+  // Message comes from HEREDOC content block
   // Context contains all variables
   const processed = await interpolateMessage(message, context);
   return createResponse(true, { processed });
@@ -485,7 +503,11 @@ const handler = wrapHandler("test", async (message, context) => {
 LET name = "Alice"
 LET score = 95
 
-ADDRESS test MATCHING("^TEST: (.*)$")
+ADDRESS test <<TEST_CASES
+user authentication should succeed
+password validation should enforce rules
+input sanitization should prevent XSS
+TEST_CASES
 TEST: {name} achieved {score}% on the exam
 */
 ```
@@ -509,7 +531,7 @@ try {
 
 ## See Also
 
-- [ADDRESS MATCHING Patterns](address-matching-patterns.md) - Pattern syntax reference
+- [ADDRESS HEREDOC Patterns](27-address-heredoc-patterns.md) - HEREDOC syntax reference
 - [Application Addressing](16-application-addressing.md) - Core ADDRESS functionality  
 - [Dynamic Execution](15-interpret.md) - INTERPRET with ADDRESS contexts
 - [Testing with rexxt](23-testing-rexxt.md) - Testing ADDRESS handlers

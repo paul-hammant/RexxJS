@@ -220,18 +220,9 @@ function parseStatement(tokens, startIndex) {
   }
   
 
-  // ADDRESS command with MATCHING parameter
-  const addressMatchingMatch = line.match(/^ADDRESS\s+(\w+)\s+MATCHING\((["`'])(.*?)\2\)$/i);
-  if (addressMatchingMatch) {
-    return {
-      command: addLineNumber({ 
-        type: 'ADDRESS_WITH_MATCHING', 
-        target: addressMatchingMatch[1],
-        matchingPattern: addressMatchingMatch[3]
-      }, token),
-      nextIndex: startIndex + 1
-    };
-  }
+  // ADDRESS command with MATCHING parameter - REMOVED
+  // MATCHING functionality has been replaced with HEREDOC approach
+  // Use: ADDRESS target followed by <<DELIMITER content DELIMITER
   
   // ADDRESS command with LINES parameter
   const addressLinesMatch = line.match(/^ADDRESS\s+(\w+)\s+LINES\((\d+)\)$/i);
@@ -781,9 +772,19 @@ function parseStatement(tokens, startIndex) {
     };
   }
   
-  // IF statement - match both IF...THEN and IF...THEN DO patterns
-  const ifMatch = line.match(/^IF\s+(.+?)\s+THEN(?:\s+DO)?\s*$/i);
-  if (ifMatch) {
+  // IF statement - handle three patterns:
+  // 1. IF condition THEN statement (single line)
+  // 2. IF condition THEN (multiline with ENDIF) 
+  // 3. IF condition THEN DO (block form)
+  // Single-line IF: IF condition THEN statement (but not DO - that's multiline)
+  const ifSingleLineMatch = line.match(/^IF\s+(.+?)\s+THEN\s+(?!DO\s*$)(.+)$/i);
+  if (ifSingleLineMatch) {
+    // Single-line IF statement: IF condition THEN statement (excluding DO)
+    return parseSingleLineIfStatement(tokens, startIndex, ifSingleLineMatch);
+  }
+  
+  const ifMultiLineMatch = line.match(/^IF\s+(.+?)\s+THEN(?:\s+DO)?\s*$/i);
+  if (ifMultiLineMatch) {
     return parseIfStatement(tokens, startIndex);
   }
   
@@ -981,6 +982,31 @@ function parseStatement(tokens, startIndex) {
   
   // Skip unrecognized lines
   return { command: null, nextIndex: startIndex + 1 };
+}
+
+function parseSingleLineIfStatement(tokens, startIndex, match) {
+  // Handle single-line IF condition THEN statement
+  const condition = parseCondition(match[1]);
+  const thenStatement = match[2];
+  
+  // Parse the THEN statement as if it were a standalone command
+  const thenTokens = [{
+    content: thenStatement,
+    lineNumber: tokens[startIndex].lineNumber
+  }];
+  
+  const thenResult = parseStatement(thenTokens, 0);
+  const thenCommands = thenResult.command ? [thenResult.command] : [];
+  
+  return {
+    command: addLineNumber({
+      type: 'IF',
+      condition: condition,
+      thenCommands: thenCommands,
+      elseCommands: []
+    }, tokens[startIndex]),
+    nextIndex: startIndex + 1
+  };
 }
 
 function parseIfStatement(tokens, startIndex) {

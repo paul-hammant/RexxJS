@@ -1,6 +1,6 @@
 /*!
  * rexxjs/sqlite-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{"sqlite3":"^5.1.0"},"envVars":[]}
+ * @rexxjs-meta {"canonical":"org.rexxjs/sqlite3-address","type":"address-handler","dependencies":{"sqlite3":"^5.1.0"},"envVars":[]}
  */
 /**
  * SQLite ADDRESS Library - Provides SQL database operations via ADDRESS interface
@@ -74,8 +74,8 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
       return handleMatchingPatternSQL(db, commandOrMethod, params._addressMatchingPattern)
         .then(result => formatSQLResultForREXX(result))
         .catch(error => {
-          const formattedError = formatSQLErrorForREXX(error);
-          throw new Error(error.message);
+          const e = new Error(`${error.message} | SQL: ${commandOrMethod.trim()}`);
+          throw e;
         });
     }
     
@@ -97,8 +97,8 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
       return handleSQLCommand(db, commandOrMethod)
         .then(result => formatSQLResultForREXX(result))
         .catch(error => {
-          const formattedError = formatSQLErrorForREXX(error);
-          throw new Error(error.message); // Preserve original error throwing behavior
+          const e = new Error(`${error.message} | SQL: ${commandOrMethod.trim()}`);
+          throw e; // include SQL text for debugging
         });
     }
     
@@ -112,8 +112,8 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
       return handleMatchingPatternSQL(db, commandOrMethod, params._addressMatchingPattern)
         .then(result => formatSQLResultForREXX(result))
         .catch(error => {
-          const formattedError = formatSQLErrorForREXX(error);
-          throw new Error(error.message);
+          const e = new Error(`${error.message} | SQL: ${commandOrMethod.trim()}`);
+          throw e;
         });
     }
     
@@ -156,9 +156,10 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
     return resultPromise.then(result => {
       return formatSQLResultForREXX(result);
     }).catch(error => {
-      // For certain errors (like SQL syntax errors), we should still throw
-      const formattedError = formatSQLErrorForREXX(error);
-      throw new Error(error.message); // Preserve original error throwing behavior
+      // Include SQL when possible
+      const sqlText = (typeof params === 'object' && (params.sql || params.command)) || String(commandOrMethod || '').trim();
+      const e = new Error(`${error.message}${sqlText ? ` | SQL: ${sqlText}` : ''}`);
+      throw e;
     });
     
   } catch (error) {
@@ -434,11 +435,13 @@ function formatSQLErrorForREXX(error) {
 if (typeof window !== 'undefined') {
   // Browser environment (though this won't work due to sqlite3 dependency)
   window.SQLITE_ADDRESS_MAIN = SQLITE_ADDRESS_MAIN;
+  window.SQLITE3_ADDRESS_BUNDLE_MAIN = SQLITE_ADDRESS_MAIN; // Bundle detection function
   window.ADDRESS_SQLITE3_HANDLER = ADDRESS_SQLITE3_HANDLER;
   window.ADDRESS_SQLITE3_METHODS = ADDRESS_SQLITE3_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
   global.SQLITE_ADDRESS_MAIN = SQLITE_ADDRESS_MAIN;
+  global.SQLITE3_ADDRESS_BUNDLE_MAIN = SQLITE_ADDRESS_MAIN; // Bundle detection function
   global.ADDRESS_SQLITE3_HANDLER = ADDRESS_SQLITE3_HANDLER;
   global.ADDRESS_SQLITE3_METHODS = ADDRESS_SQLITE3_METHODS;
 }

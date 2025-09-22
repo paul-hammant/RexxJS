@@ -30,7 +30,7 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - **SQL**: SQLite database operations
 - **Assertions**: not just for the build in test framework
 - **System commands**: OS-level operations  
-- **Mock testing**: Comprehensive test framework (`tests/mock-address.js`)
+- **Mock testing**: Comprehensive test framework (`core/tests/mock-address.js`)
 - Supports both traditional command strings (`"CREATE TABLE users"`) and modern method calls (`execute sql="CREATE TABLE users"`)
 
 ### Browser Integration (`src/web/`)

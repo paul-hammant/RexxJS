@@ -65,8 +65,10 @@ function getLibraryType(libraryName, isBuiltinLibraryFn) {
   }
   
   // Check if it follows Go-style module path
-  if (libraryName.startsWith('github.com/') || libraryName.startsWith('gitlab.com/')) {
-    return 'module'; // e.g., "github.com/username/my-rexx-lib"
+  if (libraryName.startsWith('github.com/') || 
+      libraryName.startsWith('gitlab.com/') || 
+      libraryName.startsWith('dev.azure.com/')) {
+    return 'module'; // e.g., "github.com/username/my-rexx-lib", "gitlab.com/user/repo", "dev.azure.com/org/project"
   }
   
   // Everything else is third-party (no more complex fallback classifications)
@@ -89,7 +91,13 @@ function getLibraryRepository(libraryName, isBuiltinLibraryFn) {
       return 'rexxjs/rexxjs';
       
     case 'module':
-      // Extract repo from module path: "github.com/username/repo" -> "username/repo"
+      // Extract repo from module path: 
+      // "github.com/username/repo" -> "username/repo"
+      // "gitlab.com/username/repo" -> "username/repo"  
+      // "dev.azure.com/org/project" -> "org/project"
+      if (libraryNameWithoutVersion.startsWith('dev.azure.com/')) {
+        return libraryNameWithoutVersion.replace(/^dev\.azure\.com\//, '');
+      }
       return libraryNameWithoutVersion.replace(/^(github|gitlab)\.com\//, '');
       
     case 'third-party':

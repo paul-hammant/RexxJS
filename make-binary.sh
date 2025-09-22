@@ -40,6 +40,8 @@ if [ ! -d "pkg-build" ]; then
     exit 1
 fi
 
+# Dependencies are now in core/src/ and automatically included
+
 cd pkg-build
 
 # Check if pkg is installed locally
@@ -100,6 +102,28 @@ if [ -f "${OUTPUT_NAME}" ]; then
     cd bin
     ln -sf "$TIMESTAMPED_NAME" "rexx-$TARGET-bin"
     print_success "Symlink created: bin/rexx-$TARGET-bin -> $TIMESTAMPED_NAME"
+    
+    # Create generic bin/rexx symlink only if system architecture matches
+    SYSTEM_ARCH=$(uname -m)
+    case "$SYSTEM_ARCH" in
+        x86_64)
+            SYSTEM_TARGET="linux-x64"
+            ;;
+        aarch64|arm64)
+            SYSTEM_TARGET="linux-arm64"
+            ;;
+        *)
+            SYSTEM_TARGET="unknown"
+            ;;
+    esac
+    
+    if [ "$TARGET" = "$SYSTEM_TARGET" ]; then
+        ln -sf "$TIMESTAMPED_NAME" "rexx"
+        print_success "Generic symlink created: bin/rexx -> $TIMESTAMPED_NAME (matches system $SYSTEM_ARCH)"
+    else
+        print_info "Skipping generic bin/rexx symlink (target $TARGET doesn't match system $SYSTEM_ARCH)"
+    fi
+    
     cd ..
     
     # Keep only the last 10 binaries for this target
@@ -131,3 +155,6 @@ echo "Usage:"
 echo "  ./bin/rexx-$TARGET-bin script.rexx"
 echo "  ./bin/rexx-$TARGET-bin --help"
 echo "  ./bin/$TIMESTAMPED_NAME script.rexx  (direct access to this version)"
+if [ "$TARGET" = "$SYSTEM_TARGET" ]; then
+echo "  ./bin/rexx script.rexx  (generic symlink for current system)"
+fi

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Remote Docker Provision & Deploy (penguin → 192.168.0.253)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
+  <style>
+    :root { --bg:#0b0c10; --fg:#d8dee9; --muted:#7f8c8d; --lane:#1f2833; --accent:#66fcf1; --arrow:#c0c0c0; --ok:#8fce00; --warn:#ffb000; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background:var(--bg); color:var(--fg); }
+    header { padding:14px 18px; border-bottom:1px solid #222; font-weight:600; letter-spacing:.2px; }
+    .wrap { display:flex; flex-direction:column; gap:12px; height:calc(100vh - 56px); }
+    .diagram { padding:18px; overflow:auto; }
+    .script { flex:1 1 auto; display:flex; flex-direction:column; border-top:1px solid #222; }
+    .script header { border-bottom:1px solid #222; padding:10px 12px; }
+    .script iframe { flex:1 1 auto; width:100%; border:0; background:#0f1115; }
+  </style>
+</head>
+<body>
+  <header>
+    Remote Docker Provision & Deploy — Local Rexx (penguin) → Remote Host (192.168.0.253)
+  </header>
+  <div class="wrap">
+    <main class="diagram">
+      <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant LocalRexx as Local Rexx (penguin)
+  participant SSH as ADDRESS ssh (penguin)
+  participant Remote as Remote Host (192.168.0.253)
+  participant RemoteDocker as ADDRESS remote_docker (penguin)
+  participant Docker as Docker Daemon (192.168.0.253)
+  participant C as Container rexxtest (192.168.0.253)
+
+  LocalRexx->>SSH: connect(host, user)
+  LocalRexx->>SSH: exec "install docker if missing"
+
+  LocalRexx->>RemoteDocker: create(name, image, sudo)
+  RemoteDocker->>SSH: exec "docker create name image"
+  SSH->>Docker: docker create name image
+  Docker--)C: create container rexxtest
+
+  LocalRexx->>RemoteDocker: start(name, sudo)
+  RemoteDocker->>SSH: exec "docker start name"
+  SSH->>Docker: docker start name
+  Docker--)C: container running
+
+  LocalRexx->>RemoteDocker: deploy_rexx(local_binary, rexx_binary, sudo)
+  RemoteDocker->>SSH: scp local_binary -> /tmp/rexx-TS
+  RemoteDocker->>SSH: exec "docker cp /tmp/rexx-TS name:rexx_binary"
+  SSH->>Docker: docker cp /tmp/rexx-TS name:rexx_binary
+  Docker-)C: copy binary to rexx_binary
+  RemoteDocker->>SSH: exec "docker exec name chmod +x rexx_binary"
+  SSH->>Docker: docker exec name chmod +x rexx_binary
+  Docker-)C: chmod +x rexx_binary
+
+  LocalRexx->>RemoteDocker: execute_rexx(script, progress, sudo)
+  RemoteDocker->>SSH: exec "docker exec name rexx script"
+  SSH->>Docker: docker exec name rexx script
+  Docker-)C: run rexx script
+  C-->>LocalRexx: CHECKPOINT('PROGRESS','percent=n')
+
+  LocalRexx->>RemoteDocker: logs(name, tail, sudo)
+  RemoteDocker->>SSH: exec "docker logs --tail tail name"
+  SSH->>Docker: docker logs --tail tail name
+
+  LocalRexx->>RemoteDocker: stop(name, sudo)
+  RemoteDocker->>SSH: exec "docker stop name"
+  SSH->>Docker: docker stop name
+  Docker--)C: container stopped
+
+  LocalRexx->>RemoteDocker: remove(name, sudo)
+  RemoteDocker->>SSH: exec "docker rm name"
+  SSH->>Docker: docker rm name
+  Docker--)C: container removed
+      </div>
+    </main>
+    <aside class="script">
+      <header>Script: remote-docker-provision-and-deploy.rexx</header>
+      <iframe src="remote-docker-provision-and-deploy.rexx.txt"></iframe>
+    </aside>
+  </div>
+</body>
+</html>

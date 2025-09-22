@@ -74,6 +74,10 @@ describe('Interpreter Library URL', () => {
       expect(getLibraryType('gitlab.com/user/repo', isBuiltinLibraryFn)).toBe('module');
     });
 
+    it('should identify module libraries from dev.azure.com', () => {
+      expect(getLibraryType('dev.azure.com/org/project', isBuiltinLibraryFn)).toBe('module');
+    });
+
     it('should classify others as third-party', () => {
       expect(getLibraryType('my-random-lib', isBuiltinLibraryFn)).toBe('third-party');
     });
@@ -92,6 +96,10 @@ describe('Interpreter Library URL', () => {
 
     it('should extract repository from gitlab module paths', () => {
       expect(getLibraryRepository('gitlab.com/user/repo', isBuiltinLibraryFn)).toBe('user/repo');
+    });
+
+    it('should extract repository from Azure DevOps module paths', () => {
+      expect(getLibraryRepository('dev.azure.com/org/project', isBuiltinLibraryFn)).toBe('org/project');
     });
 
     it('should handle third-party libraries with user/repo format', () => {

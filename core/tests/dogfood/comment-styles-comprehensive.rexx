@@ -41,14 +41,16 @@ LET edge_test = "/* not a comment inside quotes */"
 LET another_edge = "// also not a comment"
 LET dash_edge = "-- definitely not a comment"
 
-ADDRESS EXPECTATIONS MATCHING("^[ \t]*\.[ \t]+(.*)$")
-. {dash_comment_works} should equal "yes"
-. {slash_comment_works} should equal "yes" 
-. {block_comment_works} should equal "yes"
-. {multi_word_block} should equal "yes"
-. {edge_test} should equal "/* not a comment inside quotes */"
-. {another_edge} should equal "// also not a comment"
-. {dash_edge} should equal "-- definitely not a comment"
+ADDRESS EXPECTATIONS
+<<EXPECTATIONS
+{dash_comment_works} should equal "yes"
+{slash_comment_works} should equal "yes" 
+{block_comment_works} should equal "yes"
+{multi_word_block} should equal "yes"
+{edge_test} should equal "/* not a comment inside quotes */"
+{another_edge} should equal "// also not a comment"
+{dash_edge} should equal "-- definitely not a comment"
+EXPECTATIONS
 
 SAY "✅ Comment Styles Tests Complete"
 SAY "📝 Successfully tested: dash(--), slash(//), block(/* */)"

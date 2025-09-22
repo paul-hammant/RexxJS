@@ -10,11 +10,42 @@
     "targets": [
       "node18-linux-x64"
     ],
+    "compress": "Brotli",
     "assets": [
       "src/**/*",
-      "system-address.js"
+      "system-address.js",
+      "../extras/addresses/remote/address-ssh.js",
+      "../extras/addresses/sqlite3/sqlite-address.js",
+      "../extras/addresses/anthropic-ai/claude/claude-address.js",
+      "../extras/addresses/gemini-ai/src/gemini-pro.js",
+      "../extras/addresses/gemini-ai/src/gemini-pro-vision.js", 
+      "../extras/addresses/gemini-ai/src/checkpoint-handler.js",
+      "../extras/addresses/open-ai/chat-completions/src/chat-completions.js",
+      "../extras/addresses/jq/src/jq-address.js",
+      "../extras/addresses/container-and-vm-orchestration/address-docker.js",
+      "../extras/addresses/container-and-vm-orchestration/address-podman.js",
+      "../extras/addresses/container-and-vm-orchestration/address-nspawn.js",
+      "../extras/addresses/container-and-vm-orchestration/address-remote-docker.js",
+      "../extras/addresses/container-and-vm-orchestration/shared-utils.js",
+      "../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.js"
     ],
-    "scripts": "src/**/*.js"
+    "scripts": [
+      "src/**/*.js",
+      "../extras/addresses/remote/address-ssh.js",
+      "../extras/addresses/sqlite3/sqlite-address.js",
+      "../extras/addresses/anthropic-ai/claude/claude-address.js",
+      "../extras/addresses/gemini-ai/src/gemini-pro.js",
+      "../extras/addresses/gemini-ai/src/gemini-pro-vision.js",
+      "../extras/addresses/gemini-ai/src/checkpoint-handler.js", 
+      "../extras/addresses/open-ai/chat-completions/src/chat-completions.js",
+      "../extras/addresses/jq/src/jq-address.js",
+      "../extras/addresses/container-and-vm-orchestration/address-docker.js",
+      "../extras/addresses/container-and-vm-orchestration/address-podman.js",
+      "../extras/addresses/container-and-vm-orchestration/address-nspawn.js",
+      "../extras/addresses/container-and-vm-orchestration/address-remote-docker.js",
+      "../extras/addresses/container-and-vm-orchestration/shared-utils.js",
+      "../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.js"
+    ]
   },
   "dependencies": {
     "pkg": "^5.8.1"

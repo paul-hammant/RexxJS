@@ -142,12 +142,79 @@ INTERPOLATION DEFAULT
 - `CUSTOM`: `$$variable$$`
 - `BRACKETS`: `[variable]`
 
-**Custom Patterns:**
+### Creating Custom Interpolation Patterns
+
+#### INTERPOLATION PATTERN Statement
+
+Create custom interpolation patterns with the `INTERPOLATION PATTERN` statement:
+
 ```rexx
--- Create custom delimiters
+-- Syntax: INTERPOLATION PATTERN name=NAME start="delimiter" end="delimiter"
 INTERPOLATION PATTERN name=ANGLES start="<<" end=">>"
+INTERPOLATION PATTERN name=PIPES start="|" end="|"
+INTERPOLATION PATTERN name=RUBY start="#{" end="}"
+```
+
+#### Using Custom Patterns
+
+After defining a custom pattern, switch to it using the pattern name:
+
+```rexx
+-- Define custom pattern
+INTERPOLATION PATTERN name=ANGLES start="<<" end=">>"
+
+-- Switch to the custom pattern
+INTERPOLATION ANGLES
 LET user = "Bob"
 SAY "User: <<user>>"  -- Outputs: User: Bob
+
+-- Define and use another pattern
+INTERPOLATION PATTERN name=PIPES start="|" end="|"
+INTERPOLATION PIPES
+SAY "Status: |user| is active"  -- Outputs: Status: Bob is active
+
+-- Switch back to default
+INTERPOLATION DEFAULT
+SAY "Back to {user}"  -- Outputs: Back to Bob
+```
+
+#### Custom Pattern Examples
+
+```rexx
+-- Ruby-style interpolation
+INTERPOLATION PATTERN name=RUBY start="#{" end="}"
+INTERPOLATION RUBY
+LET count = 5
+SAY "Found #{count} items"  -- Outputs: Found 5 items
+
+-- Angle bracket style
+INTERPOLATION PATTERN name=XML start="<%" end="%>"
+INTERPOLATION XML
+LET title = "Welcome"
+SAY "<%title%> to our site"  -- Outputs: Welcome to our site
+
+-- Double pipe style
+INTERPOLATION PATTERN name=WIKI start="||" end="||"
+INTERPOLATION WIKI
+LET page = "HomePage"
+SAY "Visit ||page|| for more info"  -- Outputs: Visit HomePage for more info
+```
+
+#### Pattern Validation
+
+Custom patterns must:
+- Have unique names (case-insensitive)
+- Use non-empty start and end delimiters
+- Not conflict with existing pattern names
+
+```rexx
+-- ✅ Valid custom patterns
+INTERPOLATION PATTERN name=CUSTOM1 start="@@" end="@@"
+INTERPOLATION PATTERN name=SPECIAL start="<?" end="?>"
+
+-- ❌ Invalid patterns (will cause errors)
+INTERPOLATION PATTERN name=DEFAULT start="[" end="]"  -- Reserved name
+INTERPOLATION PATTERN name=EMPTY start="" end="]"     -- Empty delimiter
 ```
 
 ### Interpolation Features

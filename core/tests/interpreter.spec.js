@@ -4044,6 +4044,7 @@ describe('Rexx-lite Interpreter', () => {
         const script = `
           LET writeResult = FILE_WRITE filename="test.txt" content="Hello World"
           LET readResult = FILE_READ filename="test.txt"
+          LET content = readResult.content
         `;
         
         const commands = parse(script);
@@ -4052,12 +4053,14 @@ describe('Rexx-lite Interpreter', () => {
         
         const writeResult = interpreter.getVariable('writeResult');
         const readResult = interpreter.getVariable('readResult');
-        
+        const content = interpreter.getVariable('content');
+
         expect(writeResult.success).toBe(true);
         expect(writeResult.bytes).toBe(11);
         
         expect(readResult.success).toBe(true);
         expect(readResult.content).toBe('Hello World');
+        expect(content).toBe('Hello World');
         expect(readResult.size).toBe(11);
       });
 

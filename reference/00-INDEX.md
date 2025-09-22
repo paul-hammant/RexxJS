@@ -145,7 +145,7 @@ Execution in Node.js environments (desktop, server, docker-style container or VM
 
 ### 📡 [Application Addressing](19-application-addressing.md)
 - ADDRESS statement for cross-application communication
-- **ADDRESS MATCHING patterns** for domain-specific languages
+- **ADDRESS HEREDOC patterns** for domain-specific languages
 - Secure iframe integration and postMessage protocols
 - API integration and authentication workflows
 - Multi-application automation patterns
@@ -199,11 +199,11 @@ Execution in Node.js environments (desktop, server, docker-style container or VM
 - Schema creation and migration patterns
 - Data analysis and reporting workflows
 
-### 🎯 [ADDRESS Matching Patterns](27-address-matching-patterns.md)
-- Pattern-based ADDRESS routing and dispatch
+### 🎯 [ADDRESS HEREDOC Patterns](27-address-heredoc-patterns.md)
+- Multiline content handling with HEREDOC syntax
 - Domain-specific language integration
-- Command parsing and validation patterns
-- Multi-target automation coordination
+- Clean syntax for SQL, JSON, XML, and templates
+- Migration from legacy MATCHING patterns
 
 ### 🔗 [ADDRESS Variable Patterns](28-address-variable-patterns.md)
 - Dynamic ADDRESS target resolution
@@ -243,6 +243,12 @@ Execution in Node.js environments (desktop, server, docker-style container or VM
 - REPL-specific features and commands
 - Debugging and exploration techniques
 - Development workflow integration
+
+### 🔤 [Interpolation Patterns](36-interpolation-patterns.md)
+- Complete INTERPOLATION PATTERN statement reference
+- Predefined and custom interpolation patterns
+- Pattern lifecycle management and validation
+- Integration with ADDRESS HEREDOC blocks
 
 ## Reference Materials
 

@@ -16,7 +16,6 @@
   ],
   "author": "Paul Hammant",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
     "jest": "^29.7.0"
   },
@@ -31,5 +30,21 @@
     "type": "git",
     "url": "git+https://github.com/your-org/rexx-lite-rpc.git",
     "directory": "extras/functions/excel"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/your-org/rexx-lite-rpc/issues"
+  },
+  "homepage": "https://github.com/your-org/rexx-lite-rpc#readme",
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
   }
 }

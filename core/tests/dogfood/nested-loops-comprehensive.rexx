@@ -144,10 +144,12 @@ MultiplicationTableTest:
 
   SAY "13 expectations to here after the heredoc trio"
 
-  ADDRESS EXPECTATIONS MATCHING("^[ \t]*\.[ \t]+(.*)$")
-  . {table_entries} should equal 25
-  . {max_result} should equal 25
-  . {table_sum} should equal 225
+  ADDRESS EXPECTATIONS
+  <<EXPECTATIONS
+  {table_entries} should equal 25
+  {max_result} should equal 25
+  {table_sum} should equal 225
+  EXPECTATIONS
 
   SAY "16 expectations to here after the heredoc trio"
 

@@ -81,12 +81,14 @@ EqualityOperatorsTest:
     LET coercion_result = "FAIL"
   ENDIF
   
-  ADDRESS EXPECTATIONS MATCHING("^[ \t]*\.[ \t]+(.*)$")
-  . {equal_numeric_result} should equal "PASS"
-  . {not_equal_result} should equal "PASS"
-  . {equal_string_result} should equal "PASS"
-  . {case_sensitive_result} should equal "PASS"
-  . {coercion_result} should equal "PASS"
+  ADDRESS EXPECTATIONS
+  <<EXPECTATIONS
+  {equal_numeric_result} should equal "PASS"
+  {not_equal_result} should equal "PASS"
+  {equal_string_result} should equal "PASS"
+  {case_sensitive_result} should equal "PASS"
+  {coercion_result} should equal "PASS"
+  EXPECTATIONS
   
   SAY "   ✓ Equality operators: numeric=" || equal_numeric_result || ", string=" || equal_string_result || ", coercion=" || coercion_result
   
@@ -165,17 +167,19 @@ InequalityOperatorsTest:
     LET not_equal_10 = "PASS"
   ENDIF
   
-  ADDRESS EXPECTATIONS MATCHING("^[ \t]*\.[ \t]+(.*)$")
-  . {not_equal_1} should equal "PASS"
-  . {not_equal_2} should equal "PASS"
-  . {not_equal_3} should equal "PASS"
-  . {not_equal_4} should equal "PASS"
-  . {not_equal_5} should equal "PASS"
-  . {not_equal_6} should equal "PASS"
-  . {not_equal_7} should equal "PASS"
-  . {not_equal_8} should equal "PASS"
-  . {not_equal_9} should equal "PASS"
-  . {not_equal_10} should equal "PASS"
+  ADDRESS EXPECTATIONS
+  <<EXPECTATIONS
+  {not_equal_1} should equal "PASS"
+  {not_equal_2} should equal "PASS"
+  {not_equal_3} should equal "PASS"
+  {not_equal_4} should equal "PASS"
+  {not_equal_5} should equal "PASS"
+  {not_equal_6} should equal "PASS"
+  {not_equal_7} should equal "PASS"
+  {not_equal_8} should equal "PASS"
+  {not_equal_9} should equal "PASS"
+  {not_equal_10} should equal "PASS"
+  EXPECTATIONS
   
   SAY "   ✓ Inequality operators: \\= works, != works, <> works, ¬= works, >< works"
   
@@ -253,17 +257,19 @@ RelationalOperatorsTest:
     LET less_equal_3 = "PASS"
   ENDIF
   
-  ADDRESS EXPECTATIONS MATCHING("^[ \t]*\.[ \t]+(.*)$")
-  . {greater_1} should equal "PASS"
-  . {greater_2} should equal "PASS"
-  . {less_1} should equal "PASS"
-  . {less_2} should equal "PASS"
-  . {greater_equal_1} should equal "PASS"
-  . {greater_equal_2} should equal "PASS"
-  . {greater_equal_3} should equal "PASS"
-  . {less_equal_1} should equal "PASS"
-  . {less_equal_2} should equal "PASS"
-  . {less_equal_3} should equal "PASS"
+  ADDRESS EXPECTATIONS
+  <<EXPECTATIONS
+  {greater_1} should equal "PASS"
+  {greater_2} should equal "PASS"
+  {less_1} should equal "PASS"
+  {less_2} should equal "PASS"
+  {greater_equal_1} should equal "PASS"
+  {greater_equal_2} should equal "PASS"
+  {greater_equal_3} should equal "PASS"
+  {less_equal_1} should equal "PASS"
+  {less_equal_2} should equal "PASS"
+  {less_equal_3} should equal "PASS"
+  EXPECTATIONS
   
   SAY "   ✓ Relational operators: > works, < works, >= works, <= works"
   
@@ -328,11 +334,13 @@ AdvancedComparisonTest:
     LET number_order = "FAIL"
   ENDIF
   
-  ADDRESS EXPECTATIONS MATCHING("^[ \t]*\.[ \t]+(.*)$")
-  . {grade} should equal "B"
-  . {status} should equal "Adult"
-  . {lexic_result} should equal "PASS"
-  . {number_order} should equal "PASS"
+  ADDRESS EXPECTATIONS
+  <<EXPECTATIONS
+  {grade} should equal "B"
+  {status} should equal "Adult"
+  {lexic_result} should equal "PASS"
+  {number_order} should equal "PASS"
+  EXPECTATIONS
   
   SAY "   ✓ Advanced patterns: grade=" || grade || ", status=" || status || ", lexic=" || lexic_result || ", numbers=" || number_order
   

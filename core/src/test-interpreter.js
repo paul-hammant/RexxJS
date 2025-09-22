@@ -8,7 +8,11 @@ const { RexxInterpreter } = require('./interpreter.js');
 
 class TestRexxInterpreter extends RexxInterpreter {
   constructor(addressSender, variables = {}, outputHandler = null, commandLineArgs = [], options = {}) {
-    super(addressSender, variables, outputHandler);
+    // Provide a default no-op addressSender for tests if not supplied
+    const defaultSender = addressSender && typeof addressSender.send === 'function' ? addressSender : {
+      send: async () => ({ success: true })
+    };
+    super(defaultSender, variables, outputHandler);
     
     // Store test runner options
     this.testOptions = options;

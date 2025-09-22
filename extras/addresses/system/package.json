@@ -5,7 +5,7 @@
   "main": "system-address.js",
   "scripts": {
     "test": "jest",
-    "test:watch": "jest --watch", 
+    "test:watch": "jest --watch",
     "install:core": "cd ../../../core && npm install",
     "pretest": "npm run install:core"
   },
@@ -19,11 +19,32 @@
     "filesystem",
     "process"
   ],
-  "author": "RexxJS Project", 
+  "author": "RexxJS Project",
   "license": "MIT",
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/__tests__/**/*.js", "**/*.test.js", "**/*.spec.js"],
-    "testPathIgnorePatterns": ["/node_modules/"]
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/*.test.js",
+      "**/*.spec.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/"
+    ]
+  },
+  "directories": {
+    "example": "examples"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^5.1.4"
   }
 }

@@ -459,15 +459,10 @@ class RexxInterpreter {
     this.variables = new Map();
     this.builtInFunctions = this.initializeBuiltInFunctions();
     
-    // ADDRESS MATCHING and LINES functionality
-    this.addressMatchingPattern = null;
+    // ADDRESS LINES functionality  
     this.addressLinesCount = 0;
     this.addressLinesBuffer = [];
     this.addressLinesStartLine = 0;
-    
-    // ADDRESS MATCHING MULTILINE functionality
-    this.addressMultilineMode = false;
-    this.addressCollectedLines = [];
     
     // ADDRESS target registry for REQUIRE'd service libraries
     this.addressTargets = new Map(); // targetName -> { handler: function, methods: object, metadata: object }
@@ -1375,13 +1370,16 @@ class RexxInterpreter {
   }
 
   async executeCommands(commands, startIndex = 0) {
+    let lastProcessedLine = 0; // Track the last processed source line number
+    
     for (let i = startIndex; i < commands.length; i++) {
       const command = commands[i];
       
       
-      
       // Track current line number for error reporting and push execution context
       if (command && command.lineNumber) {
+        lastProcessedLine = command.lineNumber;
+        
         // Update execution context if line number changes
         const currentCtx = this.getCurrentExecutionContext();
         if (!currentCtx || currentCtx.lineNumber !== command.lineNumber) {
@@ -1406,25 +1404,7 @@ class RexxInterpreter {
         }
       }
       
-      // Check if LABEL should be handled as ADDRESS MATCHING before skipping as subroutine
       if (command.type === 'LABEL' && this.callStack.length === 0) {
-        // First check if this should be handled as ADDRESS MATCHING
-        if (this.address !== 'default' && this.addressMatchingPattern) {
-          const originalLine = this.reconstructCommandAsLine(command);
-          if (originalLine.trim()) {
-            try {
-              const regex = new RegExp(this.addressMatchingPattern);
-              const match = regex.exec(originalLine);
-              if (match) {
-                // This line matches ADDRESS MATCHING pattern, execute it instead of skipping
-                await this.executeCommand(command);
-                continue;
-              }
-            } catch (error) {
-              // If regex is invalid, fall through to normal subroutine skipping
-            }
-          }
-        }
         
         // Skip subroutine bodies during main execution  
         // Skip to the end of this subroutine
@@ -1500,37 +1480,10 @@ class RexxInterpreter {
       }
     }
     
-    // Flush any remaining multiline content at end of execution
-    if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-      const multilineContent = this.addressCollectedLines.join('\n');
-      await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-      this.addressCollectedLines = [];
-    }
     
     return null;
   }
 
-  // Auto-detect multiline mode from ADDRESS MATCHING pattern
-  shouldUseMultilineMode(pattern) {
-    // Analyze the pattern to determine if multiline collection makes sense
-    
-    // Based on test expectations:
-    // - Prefix patterns like "SQL: (.*)" should collect consecutive lines (multiline)
-    // - Indentation patterns like "  (.*)" should collect consecutive lines (multiline)
-    
-    // Check for prefix patterns that should collect consecutive related lines
-    if (pattern.match(/^[A-Z]+:\s*\(/) || pattern.match(/^\w+:\s*\(/)) {
-      return true; // Multiline mode for SQL: patterns etc.
-    }
-    
-    // Check for indentation patterns that should collect consecutive lines
-    if (pattern.match(/^[\s\t]+\(/) || pattern.match(/^\^[\s\t]+/)) {
-      return true; // Multiline mode for indentation patterns
-    }
-    
-    // Default to single-line mode for other patterns
-    return false;
-  }
 
   // Browser-compatible string functions
   executeBrowserStringFunction(functionName, args) {
@@ -1543,21 +1496,12 @@ class RexxInterpreter {
     
     switch (command.type) {
         case 'ADDRESS':
-          // Flush any pending multiline content before changing address
-          if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-            const multilineContent = this.addressCollectedLines.join('\n');
-            await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-          }
-          
           this.address = command.target.toLowerCase();
-          // Clear matching pattern and lines state when switching to default or new target
+          // Clear lines state when switching to default
           if (this.address === 'default') {
-            this.addressMatchingPattern = null;
             this.addressLinesCount = 0;
             this.addressLinesBuffer = [];
             this.addressLinesStartLine = 0;
-            this.addressMultilineMode = false;
-            this.addressCollectedLines = [];
           }
           break;
           
@@ -1567,26 +1511,12 @@ class RexxInterpreter {
           await this.executeQuotedString({ type: 'QUOTED_STRING', value: command.commandString });
           break;
           
-        case 'ADDRESS_WITH_MATCHING':
-          // Set the address target and store the matching pattern for subsequent lines
-          this.address = command.target.toLowerCase();
-          this.addressMatchingPattern = command.matchingPattern;
-          
-          // Auto-detect multiline mode from pattern
-          if (this.shouldUseMultilineMode(command.matchingPattern)) {
-            this.addressMultilineMode = true;
-            this.addressCollectedLines = [];
-          } else {
-            this.addressMultilineMode = false;
-            this.addressCollectedLines = [];
-          }
-          break;
+        // ADDRESS_WITH_MATCHING case removed - use HEREDOC instead
 
           
         case 'ADDRESS_WITH_LINES':
           // Set the address target and capture raw source lines immediately, checking for ADDRESS interruption
           this.address = command.target.toLowerCase();
-          this.addressMatchingPattern = null; // Clear any existing matching pattern
           
           // Capture the required number of raw source lines, but stop at ADDRESS commands
           const linesToCapture = [];
@@ -1634,59 +1564,6 @@ class RexxInterpreter {
           return this.jumpToLabel(command.label);
           
         case 'LABEL':
-          // Check if this should be handled as an ADDRESS MATCHING line instead
-          if (this.address !== 'default' && this.addressMatchingPattern) {
-            const originalLine = this.reconstructCommandAsLine(command);
-            if (originalLine.trim()) {
-              // Test if this line matches the address pattern
-              try {
-                const regex = new RegExp(this.addressMatchingPattern);
-                const match = regex.exec(originalLine);
-                if (match) {
-                  // Extract content (remove the matched prefix)
-                  let extractedContent = originalLine;
-                  
-                  // If the pattern has capture groups, use the first capture group as the content
-                  if (match.length > 1) {
-                    extractedContent = match[1].trim();
-                  } else {
-                    // Otherwise, remove the matched portion and trim
-                    extractedContent = originalLine.replace(regex, '').trim();
-                  }
-                  
-                  if (this.addressMultilineMode) {
-                    // Collect lines for multiline processing
-                    if (extractedContent) {
-                      this.addressCollectedLines.push(extractedContent);
-                    }
-                  } else {
-                    // Regular ADDRESS MATCHING - send immediately
-                    if (extractedContent) {
-                      await this.executeQuotedString({ type: 'QUOTED_STRING', value: extractedContent });
-                    }
-                  }
-                  break;
-                } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-                  // Line doesn't match - send collected multiline content and reset
-                  const multilineContent = this.addressCollectedLines.join('\n');
-                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-                  
-                  // Reset multiline collection
-                  this.addressCollectedLines = [];
-                }
-              } catch (error) {
-                // If regex is invalid, fall through to normal label processing
-              }
-            } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-              // Empty line encountered - send collected multiline content and reset
-              const multilineContent = this.addressCollectedLines.join('\n');
-              await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-              
-              // Reset multiline collection
-              this.addressCollectedLines = [];
-            }
-          }
-          
           // Execute any command on the same line as the label
           if (command.statement) {
             return await this.executeCommand(command.statement);
@@ -1757,60 +1634,6 @@ class RexxInterpreter {
           break;
         
         case 'FUNCTION_CALL':
-          // Check if this should be handled as an ADDRESS MATCHING line instead
-          if (this.address !== 'default' && this.addressMatchingPattern) {
-            const originalLine = this.reconstructCommandAsLine(command);
-            if (originalLine.trim()) {
-              // Test if this line matches the address pattern
-              try {
-                const regex = new RegExp(this.addressMatchingPattern);
-                const match = regex.exec(originalLine);
-                if (match) {
-                  // Extract content (remove the matched prefix)
-                  let extractedContent = originalLine;
-                  
-                  // If the pattern has capture groups, use the first capture group as the content
-                  if (match.length > 1) {
-                    extractedContent = match[1].trim();
-                  } else {
-                    // Otherwise, remove the matched portion and trim
-                    extractedContent = originalLine.replace(regex, '').trim();
-                  }
-                  
-                  if (this.addressMultilineMode) {
-                    // Collect lines for multiline processing
-                    if (extractedContent) {
-                      this.addressCollectedLines.push(extractedContent);
-                    }
-                  } else {
-                    // Regular ADDRESS MATCHING - send immediately
-                    if (extractedContent) {
-                      await this.executeQuotedString({ type: 'QUOTED_STRING', value: extractedContent });
-                    }
-                  }
-                  break;
-                } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-                  // Line doesn't match - send collected multiline content and reset
-                  const multilineContent = this.addressCollectedLines.join('\n');
-                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-                  
-                  // Reset multiline collection
-                  this.addressCollectedLines = [];
-                }
-              } catch (error) {
-                // If regex is invalid, fall through to normal function call processing
-              }
-            } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-              // Empty line encountered - send collected multiline content and reset
-              const multilineContent = this.addressCollectedLines.join('\n');
-              await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-              
-              // Reset multiline collection
-              this.addressCollectedLines = [];
-            }
-          }
-          
-          // Normal function call processing
           await this.executeFunctionCall(command);
           break;
 
@@ -1881,9 +1704,6 @@ class RexxInterpreter {
                   // Execute as ADDRESS method call with empty params (parameterless call)
                   const params = { params: '' };
                   const context = Object.fromEntries(this.variables);
-                  if (this.addressMatchingPattern) {
-                    context._addressMatchingPattern = this.addressMatchingPattern;
-                  }
                   const sourceContext = this.currentLineNumber ? {
                     lineNumber: this.currentLineNumber,
                     sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
@@ -1936,9 +1756,6 @@ class RexxInterpreter {
                     // Execute as ADDRESS method call with empty params (parameterless call)
                     const params = { params: '' };
                     const context = Object.fromEntries(this.variables);
-                    if (this.addressMatchingPattern) {
-                      context._addressMatchingPattern = this.addressMatchingPattern;
-                    }
                     const sourceContext = this.currentLineNumber ? {
                       lineNumber: this.currentLineNumber,
                       sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
@@ -2072,55 +1889,6 @@ class RexxInterpreter {
           break;
 
         default:
-          // Handle unrecognized commands in ADDRESS context with MATCHING pattern
-          if (this.address !== 'default' && this.addressMatchingPattern) {
-            const line = this.reconstructCommandAsLine(command);
-            if (line.trim()) {
-              // Test if this line matches the address pattern
-              try {
-                const regex = new RegExp(this.addressMatchingPattern);
-                const match = regex.exec(line);
-                
-                if (match) {
-                  // Extract the matched content (use capture group if available)
-                  let extractedContent;
-                  if (match.length > 1) {
-                    extractedContent = match[1].trim();
-                  } else {
-                    extractedContent = line.replace(regex, '').trim();
-                  }
-                  
-                  if (this.addressMultilineMode) {
-                    // Collect lines for multiline processing
-                    if (extractedContent) {
-                      this.addressCollectedLines.push(extractedContent);
-                    }
-                  } else {
-                    // Regular ADDRESS MATCHING - send immediately
-                    if (extractedContent) {
-                      await this.executeQuotedString({ type: 'QUOTED_STRING', value: extractedContent });
-                    }
-                  }
-                } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-                  // Line doesn't match - send collected multiline content and reset
-                  const multilineContent = this.addressCollectedLines.join('\n');
-                  await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-                  
-                  // Reset multiline collection
-                  this.addressCollectedLines = [];
-                }
-              } catch (error) {
-                // If regex is invalid, skip this line
-              }
-            } else if (this.addressMultilineMode && this.addressCollectedLines.length > 0) {
-              // Empty line encountered - send collected multiline content and reset
-              const multilineContent = this.addressCollectedLines.join('\n');
-              await this.executeQuotedString({ type: 'QUOTED_STRING', value: multilineContent });
-              
-              // Reset multiline collection
-              this.addressCollectedLines = [];
-            }
-          }
           break;
     }
   }
@@ -2518,9 +2286,6 @@ class RexxInterpreter {
           // Pass interpreter variables as context for variable resolution
           const context = Object.fromEntries(this.variables);
           // Add matching pattern to context if available
-          if (this.addressMatchingPattern) {
-            context._addressMatchingPattern = this.addressMatchingPattern;
-          }
           // Pass source context for error reporting
           const sourceContext = this.currentLineNumber ? {
             lineNumber: this.currentLineNumber,
@@ -2604,9 +2369,6 @@ class RexxInterpreter {
           // Pass interpreter variables as context for variable resolution
           const context = Object.fromEntries(this.variables);
           // Add matching pattern to context if available
-          if (this.addressMatchingPattern) {
-            context._addressMatchingPattern = this.addressMatchingPattern;
-          }
           // Pass source context for error reporting
           const sourceContext = this.currentLineNumber ? {
             lineNumber: this.currentLineNumber,
@@ -3260,12 +3022,151 @@ class RexxInterpreter {
       return await this.requireNodeJSModule(libraryName);
     }
     
-    // Otherwise use GitHub-based loading
-    return await this.requireGitHubLibrary(libraryName);
+    // Check if it's a registry-style library (namespace/module@version)
+    if (this.isRegistryStyleLibrary(libraryName)) {
+      return await this.requireRegistryStyleLibrary(libraryName);
+    }
+    
+    // Otherwise use remote Git platform loading (GitHub, GitLab, Azure DevOps, etc.)
+    return await this.requireRemoteLibrary(libraryName);
+  }
+
+  /**
+   * Load library from remote Git platforms (GitHub, GitLab, Azure DevOps, etc.)
+   * @param {string} libraryName - Library name or URL
+   * @returns {Promise<boolean>} True if library loaded successfully
+   */
+  async requireRemoteLibrary(libraryName) {
+    return await this.loadAndExecuteLibrary(libraryName);
   }
 
   isLocalOrNpmModule(libraryName) {
     return libraryUrlUtils.isLocalOrNpmModule(libraryName);
+  }
+
+  /**
+   * Check if library name follows registry style (namespace/module@version)
+   * @param {string} libraryName - Library name to check
+   * @returns {boolean} True if registry style
+   */
+  isRegistryStyleLibrary(libraryName) {
+    // Pattern: namespace/module or namespace/module@version
+    // Examples: rexxjs/sqlite3-address, rexxjs/sqlite3-address@latest, com.example/my-lib@v1.0.0
+    return /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+)?$/.test(libraryName);
+  }
+
+  /**
+   * Resolve library through registry system
+   * @param {string} libraryName - Registry-style library name (namespace/module@version)
+   * @returns {Promise<boolean>} True if library loaded successfully
+   */
+  async requireRegistryStyleLibrary(libraryName) {
+    try {
+      // Parse namespace/module@version
+      const parsed = this.parseRegistryLibraryName(libraryName);
+      
+      // Step 1: Fetch publisher registry
+      const publisherUrl = await this.lookupPublisherRegistry(parsed.namespace);
+      
+      // Step 2: Fetch module registry
+      const moduleUrl = await this.lookupModuleInRegistry(publisherUrl, parsed.module, parsed.version);
+      
+      // Step 3: Load the resolved URL
+      return await this.requireRemoteLibrary(moduleUrl);
+      
+    } catch (error) {
+      throw new Error(`Registry resolution failed for ${libraryName}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Parse registry library name into components
+   * @param {string} libraryName - Library name like "namespace/module@version"
+   * @returns {Object} Parsed components {namespace, module, version}
+   */
+  parseRegistryLibraryName(libraryName) {
+    const parts = libraryName.split('/');
+    if (parts.length !== 2) {
+      throw new Error(`Invalid registry library name format: ${libraryName}. Expected: namespace/module[@version]`);
+    }
+    
+    const namespace = parts[0];
+    const moduleAndVersion = parts[1];
+    
+    // Split module@version
+    const versionSplit = moduleAndVersion.split('@');
+    const module = versionSplit[0];
+    const version = versionSplit[1] || 'latest'; // Default to latest
+    
+    return { namespace, module, version };
+  }
+
+  /**
+   * Look up publisher registry URL
+   * @param {string} namespace - Publisher namespace
+   * @returns {Promise<string>} Registry URL for the publisher
+   */
+  async lookupPublisherRegistry(namespace) {
+    const publisherRegistryUrl = 'https://rexxjs.org/.list-of-public-lib-publishers.txt';
+    
+    try {
+      // Fetch publisher registry
+      const response = await fetch(publisherRegistryUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch publisher registry: ${response.status}`);
+      }
+      
+      const registryText = await response.text();
+      const lines = registryText.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      
+      // Parse CSV: namespace,registry_url
+      for (const line of lines) {
+        const [lineNamespace, registryUrl] = line.split(',').map(s => s.trim());
+        if (lineNamespace === namespace) {
+          return registryUrl;
+        }
+      }
+      
+      throw new Error(`Namespace '${namespace}' not found in publisher registry`);
+      
+    } catch (error) {
+      throw new Error(`Publisher registry lookup failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Look up module URL in publisher's registry
+   * @param {string} registryUrl - Publisher's registry URL
+   * @param {string} module - Module name
+   * @param {string} version - Version tag
+   * @returns {Promise<string>} Final download URL for the module
+   */
+  async lookupModuleInRegistry(registryUrl, module, version) {
+    try {
+      // Fetch module registry
+      const response = await fetch(registryUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch module registry: ${response.status}`);
+      }
+      
+      const registryText = await response.text();
+      const lines = registryText.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      
+      // Parse CSV: module_name,type,url_template
+      for (const line of lines) {
+        const [moduleName, moduleType, urlTemplate] = line.split(',').map(s => s.trim());
+        if (moduleName === module) {
+          // Substitute {tag} in URL template
+          const finalUrl = urlTemplate.replace('{tag}', version);
+          return finalUrl;
+        }
+      }
+      
+      throw new Error(`Module '${module}' not found in registry`);
+      
+    } catch (error) {
+      throw new Error(`Module registry lookup failed: ${error.message}`);
+    }
   }
 
   async requireNodeJSModule(libraryName) {
@@ -3918,7 +3819,7 @@ class RexxInterpreter {
     }
   }
 
-  async requireNodeJS(libraryName) {
+  async loadAndExecuteLibrary(libraryName) {
     // Check cache first
     const cached = this.libraryCache.get(libraryName);
     if (cached && cached.loaded) {
