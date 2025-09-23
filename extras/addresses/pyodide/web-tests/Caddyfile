@@ -1,0 +1,25 @@
+{
+    # Disable admin API to avoid port conflicts
+    admin off
+}
+
+:8083 {
+    # Serve core/src directory at /core-source/
+    handle /core-source/* {
+        uri strip_prefix /core-source
+        root * ../../../../core/src
+        file_server
+    }
+    
+    # Serve current directory (web-tests) at root
+    handle /* {
+        root * .
+        file_server
+    }
+    
+    # Add CORS headers
+    header {
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept"
+    }
+}

@@ -27,15 +27,25 @@ module.exports = {
   },
   target: 'web',
   mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
-  externals: {
-    // Pyodide should be loaded separately
-    'pyodide': {
-      commonjs: 'pyodide',
-      commonjs2: 'pyodide',
-      amd: 'pyodide',
-      root: 'pyodide'
+  externals: [
+    // Exclude all pyodide-related modules from bundling
+    function({ context, request }, callback) {
+      if (/^pyodide/.test(request)) {
+        // Externalize any pyodide-related imports
+        return callback(null, 'window');
+      }
+      callback();
+    },
+    {
+      // Pyodide should be loaded separately - use global window object
+      'pyodide': {
+        commonjs: 'pyodide',
+        commonjs2: 'pyodide', 
+        amd: 'pyodide',
+        root: ['window'] // Access as window object, not specific pyodide global
+      }
     }
-  },
+  ],
   optimization: {
     minimize: process.env.NODE_ENV === 'production',
     minimizer: [

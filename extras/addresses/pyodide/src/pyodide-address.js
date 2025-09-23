@@ -1,6 +1,6 @@
 /*!
  * rexxjs/pyodide-address v1.2.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/pyodide-address","type":"address-handler","dependencies":{"pyodide":"0.26.1"},"envVars":[]}
+ * @rexxjs-meta {"canonical":"org.rexxjs/pyodide-address","type":"address-handler","dependencies":{"pyodide":"0.28.3"},"envVars":[]}
  */
 /**
  * Pyodide ADDRESS Library - Provides Python execution via ADDRESS interface
@@ -24,10 +24,15 @@ try {
     if (pyodide && pyodide.version) {
       pyodideVersion = pyodide.version;
     }
-  } else if (typeof window !== 'undefined' && window.pyodide) {
-    pyodide = window.pyodide;
-    if (pyodide && pyodide.version) {
+  } else if (typeof window !== 'undefined') {
+    // Check for CDN-loaded pyodide (has loadPyodide function)
+    if (typeof window.loadPyodide === 'function') {
+      pyodide = window; // Use window as pyodide object for CDN version
+    } else if (window.pyodide) {
+      pyodide = window.pyodide;
+      if (pyodide && pyodide.version) {
         pyodideVersion = pyodide.version;
+      }
     }
   }
 } catch (e) {
@@ -48,10 +53,7 @@ async function getPyodide() {
         return pyodideLoadingPromise;
     }
 
-    if (!pyodide || typeof pyodide.loadPyodide !== 'function') {
-        throw new Error('Pyodide is not loaded. Make sure to include it in your environment.');
-    }
-
+    // New API (v0.20+)
     console.log("Loading Pyodide...");
     pyodideLoadingPromise = pyodide.loadPyodide();
 
@@ -63,7 +65,7 @@ async function getPyodide() {
 
 
 // Primary detection function with ADDRESS target metadata
-function PYODIDE_ADDRESS_MAIN() {
+    function PYODIDE_ADDRESS_MAIN() {
   return {
     type: 'address-target',
     name: 'Pyodide Execution Service',
@@ -75,7 +77,7 @@ function PYODIDE_ADDRESS_MAIN() {
       commandSupport: true,
       methodSupport: true
     },
-    dependencies: [
+    dependencies: pyodide ? [] : [
       `pyodide@${pyodideVersion || '0.26.1'}`
     ],
     loaded: true,
@@ -86,6 +88,11 @@ function PYODIDE_ADDRESS_MAIN() {
     pyodideAvailable: !!pyodide,
     pyodideVersion: pyodideVersion
   };
+}
+
+// Registry-style detection function for "org.rexxjs/pyodide-address"
+function ORG_REXXJS_PYODIDE_ADDRESS_MAIN() {
+  return PYODIDE_ADDRESS_MAIN();
 }
 
 // ADDRESS target handler function
@@ -125,11 +132,32 @@ async function ADDRESS_PYODIDE_HANDLER(method, params) {
         for (const [key, value] of pyodideContext.entries()) {
           pyodide.globals.set(key, value);
         }
-        result = await pyodide.runPythonAsync(code);
+        
+        // Capture stdout from print statements
+        const captureCode = `
+import sys
+from io import StringIO
+
+# Capture stdout
+old_stdout = sys.stdout
+sys.stdout = captured_output = StringIO()
+
+# Execute the user code
+${code}
+
+# Get the captured output and restore stdout
+captured_text = captured_output.getvalue()
+sys.stdout = old_stdout
+
+# Return the captured output
+captured_text
+`;
+        
+        result = await pyodide.runPythonAsync(captureCode);
         return {
             success: true,
             result: result,
-            output: result,
+            output: result || '',
             errorCode: 0
         };
       case 'execute':
@@ -353,10 +381,12 @@ const ADDRESS_PYODIDE_METHODS = {
 // Export to global scope
 if (typeof window !== 'undefined') {
   window.PYODIDE_ADDRESS_MAIN = PYODIDE_ADDRESS_MAIN;
+  window.ORG_REXXJS_PYODIDE_ADDRESS_MAIN = ORG_REXXJS_PYODIDE_ADDRESS_MAIN;
   window.ADDRESS_PYODIDE_HANDLER = ADDRESS_PYODIDE_HANDLER;
   window.ADDRESS_PYODIDE_METHODS = ADDRESS_PYODIDE_METHODS;
 } else if (typeof global !== 'undefined') {
   global.PYODIDE_ADDRESS_MAIN = PYODIDE_ADDRESS_MAIN;
+  global.ORG_REXXJS_PYODIDE_ADDRESS_MAIN = ORG_REXXJS_PYODIDE_ADDRESS_MAIN;
   global.ADDRESS_PYODIDE_HANDLER = ADDRESS_PYODIDE_HANDLER;
   global.ADDRESS_PYODIDE_METHODS = ADDRESS_PYODIDE_METHODS;
 }

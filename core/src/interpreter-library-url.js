@@ -191,6 +191,15 @@ function resolveGitHubRawUrl(libraryName, isBuiltinLibraryFn) {
  * @returns {string} Web library URL
  */
 function resolveWebLibraryUrl(libraryName) {
+  // Check for library mapping first
+  if (typeof window !== 'undefined' && window.rexxjs && window.rexxjs.libMapping) {
+    const mappedUrl = window.rexxjs.libMapping[libraryName];
+    if (mappedUrl) {
+      console.log(`Using mapped URL for ${libraryName}: ${mappedUrl}`);
+      return mappedUrl;
+    }
+  }
+  
   // Handle relative paths (../src/file.js or ./file.js) - return as-is
   if (libraryName.startsWith('../') || libraryName.startsWith('./') || libraryName.startsWith('/')) {
     return libraryName;

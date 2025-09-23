@@ -12,7 +12,7 @@
     "pretest": "npm run install:core"
   },
   "dependencies": {
-    "pyodide": "0.26.1"
+    "pyodide": "0.28.3"
   },
   "devDependencies": {
     "webpack": "^5.89.0",

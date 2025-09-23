@@ -3071,8 +3071,15 @@ class RexxInterpreter {
       // Step 2: Fetch module registry
       const moduleUrl = await this.lookupModuleInRegistry(publisherUrl, parsed.module, parsed.version);
       
-      // Step 3: Load the resolved URL
-      return await this.requireRemoteLibrary(moduleUrl);
+      // Step 3: Load the resolved URL using appropriate method for environment
+      const env = this.detectEnvironment();
+      if (env === 'web-standalone' || env === 'web-controlbus') {
+        // Use browser loading for web environments
+        return await this.loadLibraryFromUrl(moduleUrl, libraryName);
+      } else {
+        // Use Node.js loading for Node.js environment
+        return await this.requireRemoteLibrary(moduleUrl);
+      }
       
     } catch (error) {
       throw new Error(`Registry resolution failed for ${libraryName}: ${error.message}`);
@@ -4036,6 +4043,11 @@ class RexxInterpreter {
   }
 
   async requireWebStandalone(libraryName) {
+    // Check if it's a registry-style library (namespace/module@version)
+    if (this.isRegistryStyleLibrary(libraryName)) {
+      return await this.requireRegistryStyleLibrary(libraryName);
+    }
+    
     const scriptUrl = this.resolveWebLibraryUrl(libraryName);
     
     return new Promise((resolve, reject) => {
@@ -4310,7 +4322,10 @@ class RexxInterpreter {
       
       // Verify loading succeeded
       if (!this.isLibraryLoaded(libraryName)) {
-        throw new Error(`Library executed but detection function not found`);
+        const detectionFunction = this.getLibraryDetectionFunction(libraryName);
+        console.log(`Looking for detection function: ${detectionFunction}`);
+        console.log(`Available global functions:`, Object.keys(window).filter(k => k.includes('MAIN')));
+        throw new Error(`Library executed but detection function not found: ${detectionFunction}`);
       }
       
       // Register library functions with the interpreter
@@ -4708,6 +4723,11 @@ class RexxInterpreter {
   }
 
   async checkWebPermissions(libraryName, libraryType) {
+    // Check if it's a registry-style library first - these are trusted
+    if (this.isRegistryStyleLibrary(libraryName)) {
+      return true; // Registry libraries are trusted
+    }
+    
     // Web standalone - medium security
     const policy = this.securityPolicy || 'default';
     

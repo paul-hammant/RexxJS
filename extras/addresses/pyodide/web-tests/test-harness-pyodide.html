@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyodide ADDRESS Test Harness</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f8f9fa;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        .status.loading {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        .status.success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .test-description pre {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pyodide ADDRESS Test Harness</h1>
+        <p>This test verifies that RexxJS can use the REQUIRE mechanism to load the Pyodide ADDRESS handler and execute Python code.</p>
+        
+        <div class="test-section">
+            <h3>RexxJS Script with Pyodide</h3>
+            <div class="controls">
+                <button onclick="runPyodideTest()" id="runBtn">Run Test</button>
+                <button onclick="clearLog()">Clear Log</button>
+            </div>
+            <div class="test-description">
+                <p>This test will execute the following RexxJS script:</p>
+                <pre>/* Test Pyodide ADDRESS handler via REQUIRE mechanism */
+SAY 'Starting Pyodide test...'
+
+/* Test the resolution chain: Publisher registry -> Module registry -> Bundle */
+REQUIRE "org.rexxjs/pyodide-address"
+
+SAY 'Pyodide address handler loaded'
+
+ADDRESS PYODIDE
+SAY 'Switched to Pyodide address'
+
+/* Test simple Python execution */
+LET result = run code="print('Hello from Python!')"
+SAY 'Python stdout:' result.output
+
+/* Test Python variable assignment */
+LET result2 = run code="x = 42; print(f'The answer is {x}')"
+SAY 'Python variable stdout:' result2.output
+
+SAY 'Test completed successfully!'</pre>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Status</h3>
+            <div id="status" class="status">Ready to run test</div>
+        </div>
+
+        <div class="test-section">
+            <h3>Log Output</h3>
+            <div id="log" class="log">Waiting for test execution...</div>
+        </div>
+    </div>
+
+    <!-- Preload Pyodide -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js"></script>
+    
+    <!-- RexxJS Web Loader -->
+    <script src="/core-source/interpreter-web-loader.js"></script>
+    
+    <script>
+        // Set up library mapping for external dependencies before loading RexxJS
+        window.rexxjs = window.rexxjs || {};
+        window.rexxjs.libMapping = window.rexxjs.libMapping || {};
+        
+        // Map pyodide dependency to CDN URL - use latest version
+        window.rexxjs.libMapping["pyodide@0.28.3"] = "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js";
+
+        console.log("Library mapping configured:", window.rexxjs.libMapping);
+    </script>
+    
+    <script>
+        let interpreter = null;
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function setStatus(message, type = 'loading') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        async function runPyodideTest() {
+            const runBtn = document.getElementById('runBtn');
+            runBtn.disabled = true;
+            
+            try {
+                // Wait for Pyodide to be available
+                if (typeof loadPyodide === 'undefined') {
+                    log('Waiting for Pyodide to load...');
+                    await new Promise(resolve => {
+                        const checkPyodide = () => {
+                            if (typeof loadPyodide !== 'undefined') {
+                                resolve();
+                            } else {
+                                setTimeout(checkPyodide, 100);
+                            }
+                        };
+                        checkPyodide();
+                    });
+                }
+                log('Pyodide is ready');
+                
+                // Load RexxJS dependencies if not already loaded
+                if (!window.RexxInterpreter) {
+                    log('Loading RexxJS dependencies...');
+                    await RexxWebLoader.load();
+                    log('RexxJS dependencies loaded successfully');
+                }
+                
+                // Create output handler to capture console output
+                const outputHandler = {
+                    output: (message) => {
+                        log(`RexxJS: ${message}`);
+                    }
+                };
+                
+                // Create RexxJS interpreter
+                log('Creating RexxJS interpreter...');
+                interpreter = new RexxInterpreter(null, outputHandler);
+                
+                // Hardcoded test script
+                const script = `/* Test Pyodide ADDRESS handler via REQUIRE mechanism */
+SAY 'Starting Pyodide test...'
+
+/* Test the resolution chain: Publisher registry -> Module registry -> Bundle */
+REQUIRE "org.rexxjs/pyodide-address"
+
+SAY 'Pyodide address handler loaded'
+
+ADDRESS PYODIDE
+SAY 'Switched to Pyodide address'
+
+/* Test simple Python execution */
+LET result = run code="print('Hello from Python!')"
+SAY 'Python stdout:' result.output
+
+/* Test Python variable assignment */
+LET result2 = run code="x = 42; print(f'The answer is {x}')"
+SAY 'Python variable stdout:' result2.output
+
+SAY 'Test completed successfully!'`;
+                
+                log('Starting RexxJS execution with REQUIRE pyodide-address...');
+                setStatus('Executing RexxJS script with Pyodide...', 'loading');
+                
+                // Parse the RexxJS script first
+                log('Parsing RexxJS script...');
+                const commands = parse(script);
+                log(`Script parsed successfully. Found ${commands.length} commands.`);
+                
+                // Execute the parsed commands - they will REQUIRE pyodide-address and run Python
+                const result = await interpreter.run(commands, script, 'test-harness');
+                
+                log('Script execution completed');
+                log(`Result: ${JSON.stringify(result, null, 2)}`);
+                
+                if (result === null || result === undefined || result.success !== false) {
+                    setStatus('Test completed successfully!', 'success');
+                    log('✓ Pyodide ADDRESS handler test PASSED - Real Python execution!');
+                } else {
+                    setStatus(`Test failed: ${result.error}`, 'error');
+                    log(`✗ Test FAILED: ${result.error}`);
+                }
+                
+            } catch (error) {
+                log(`Error during test execution: ${error.message}`);
+                setStatus(`Test failed: ${error.message}`, 'error');
+                log(`✗ Test FAILED: ${error.message}`);
+            } finally {
+                runBtn.disabled = false;
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            log('Page loaded, ready for testing');
+            setStatus('Ready to run test', 'success');
+        });
+    </script>
+</body>
+</html>
