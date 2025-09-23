@@ -5,7 +5,7 @@
 
 const { TestRexxInterpreter } = require('../src/test-interpreter');
 const { parse } = require('../src/parser');
-const { mockAddressHandler } = require('../src/mock-address');
+const { mockAddressHandler } = require('./mock-address');
 
 describe('ADDRESS with HEREDOC', () => {
   let interpreter;

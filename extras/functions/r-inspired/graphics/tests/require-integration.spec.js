@@ -22,10 +22,28 @@ describe('REQUIRE Integration Tests', () => {
   });
 
   test('should load and use r-graphing library functions', async () => {
-    // Mock fetchFromUrl to return our test library
-    interpreter.fetchFromUrl = async (url) => {
-      const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
-      return fs.readFileSync(testLibPath, 'utf8');
+    // Mock the library loading to use the test file
+    const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
+    const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+    
+    // Override requireNodeJSModule to use our test library
+    interpreter.requireNodeJSModule = async (libraryName) => {
+      if (libraryName === 'r-graphing') {
+        // Execute the test library code
+        eval(testLibContent);
+        
+        // Also add to interpreter's builtInFunctions
+        if (global.HISTOGRAM) interpreter.builtInFunctions.HISTOGRAM = global.HISTOGRAM;
+        if (global.SCATTER) interpreter.builtInFunctions.SCATTER = global.SCATTER;
+        if (global.DENSITY) interpreter.builtInFunctions.DENSITY = global.DENSITY;
+        if (global.R_GRAPHING_MAIN) interpreter.builtInFunctions.R_GRAPHING_MAIN = global.R_GRAPHING_MAIN;
+        if (global.SP_INTERP1D) interpreter.builtInFunctions.SP_INTERP1D = global.SP_INTERP1D;
+        if (global.SP_GRIDDATA) interpreter.builtInFunctions.SP_GRIDDATA = global.SP_GRIDDATA;
+        if (global.SCIPY_INTERPOLATION_MAIN) interpreter.builtInFunctions.SCIPY_INTERPOLATION_MAIN = global.SCIPY_INTERPOLATION_MAIN;
+        
+        return { loaded: true };
+      }
+      throw new Error(`Test library not found: ${libraryName}`);
     };
 
     const script = `
@@ -70,16 +88,29 @@ describe('REQUIRE Integration Tests', () => {
   });
 
   test('should handle multiple library loading', async () => {
-    // Mock fetchFromUrl to return appropriate libraries
-    interpreter.fetchFromUrl = async (url) => {
-      if (url.includes('r-graphing')) {
+    // Mock requireNodeJSModule to handle both test libraries
+    interpreter.requireNodeJSModule = async (libraryName) => {
+      const vm = require('vm');
+      const context = {
+        global: global,
+        require: require,
+        module: { exports: {} },
+        exports: {}
+      };
+      vm.createContext(context);
+      
+      if (libraryName === 'r-graphing') {
         const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
-        return fs.readFileSync(testLibPath, 'utf8');
-      } else if (url.includes('scipy-interpolation')) {
+        const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+        vm.runInContext(testLibContent, context);
+        return context.module.exports || context.exports;
+      } else if (libraryName === 'scipy-interpolation') {
         const testLibPath = path.join(__dirname, '..', 'test-libs', 'scipy-interpolation.js');
-        return fs.readFileSync(testLibPath, 'utf8');
+        const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+        vm.runInContext(testLibContent, context);
+        return context.module.exports || context.exports;
       }
-      throw new Error('Unknown library');
+      throw new Error(`Test library not found: ${libraryName}`);
     };
 
     const script = `
@@ -124,8 +155,8 @@ describe('REQUIRE Integration Tests', () => {
     interpreter.builtInFunctions.R_GRAPHING_MAIN = global.R_GRAPHING_MAIN;
     interpreter.builtInFunctions.HISTOGRAM = global.HISTOGRAM;
     
-    // Mock fetchFromUrl - should not be called
-    interpreter.fetchFromUrl = jest.fn();
+    // Mock requireNodeJSModule - should not be called since library is pre-loaded
+    interpreter.requireNodeJSModule = jest.fn();
 
     const script = `
       REQUIRE "r-graphing"
@@ -136,8 +167,8 @@ describe('REQUIRE Integration Tests', () => {
     const commands = parse(script);
     await interpreter.run(commands);
     
-    // fetchFromUrl should not have been called
-    expect(interpreter.fetchFromUrl).not.toHaveBeenCalled();
+    // requireNodeJSModule should not have been called
+    expect(interpreter.requireNodeJSModule).not.toHaveBeenCalled();
     
     // Should use pre-loaded function
     const result = interpreter.getVariable('result');
@@ -145,9 +176,9 @@ describe('REQUIRE Integration Tests', () => {
   });
 
   test('should handle library loading errors gracefully', async () => {
-    // Mock fetchFromUrl to fail
-    interpreter.fetchFromUrl = async (url) => {
-      throw new Error('Network error');
+    // Mock requireNodeJSModule to fail
+    interpreter.requireNodeJSModule = async (libraryName) => {
+      throw new Error(`Cannot find module '${libraryName}'`);
     };
 
     const script = `
@@ -156,14 +187,27 @@ describe('REQUIRE Integration Tests', () => {
     
     const commands = parse(script);
     
-    await expect(interpreter.run(commands)).rejects.toThrow('Failed to load failing-library');
+    await expect(interpreter.run(commands)).rejects.toThrow('Cannot find module \'failing-library\'');
   });
 
   test('should work with library function errors', async () => {
-    // Load library that has functions with validation
-    interpreter.fetchFromUrl = async (url) => {
-      const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
-      return fs.readFileSync(testLibPath, 'utf8');
+    // Mock requireNodeJSModule to load the test library
+    interpreter.requireNodeJSModule = async (libraryName) => {
+      if (libraryName === 'r-graphing') {
+        const vm = require('vm');
+        const context = {
+          global: global,
+          require: require,
+          module: { exports: {} },
+          exports: {}
+        };
+        vm.createContext(context);
+        const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
+        const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+        vm.runInContext(testLibContent, context);
+        return context.module.exports || context.exports;
+      }
+      throw new Error(`Test library not found: ${libraryName}`);
     };
 
     const script = `

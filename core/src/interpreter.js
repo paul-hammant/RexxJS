@@ -351,6 +351,28 @@ class RexxError extends Error {
       this.message = `Rexx ${type}: ${contextLine} (${filename}: ${sourceContext.lineNumber})\n${message}`;
     }
   }
+  
+  // Provide a toJSON method to prevent circular references during serialization
+  toJSON() {
+    const result = {
+      name: this.name,
+      message: this.message,
+      type: this.type,
+      stack: this.stack
+    };
+    
+    // Include sourceContext but remove any circular references
+    if (this.sourceContext) {
+      result.sourceContext = {
+        lineNumber: this.sourceContext.lineNumber,
+        sourceLine: this.sourceContext.sourceLine,
+        sourceFilename: this.sourceContext.sourceFilename
+        // Exclude interpreter and any other potentially circular references
+      };
+    }
+    
+    return result;
+  }
 }
 
 class RexxInterpreterBuilder {
@@ -1514,42 +1536,7 @@ class RexxInterpreter {
         // ADDRESS_WITH_MATCHING case removed - use HEREDOC instead
 
           
-        case 'ADDRESS_WITH_LINES':
-          // Set the address target and capture raw source lines immediately, checking for ADDRESS interruption
-          this.address = command.target.toLowerCase();
-          
-          // Capture the required number of raw source lines, but stop at ADDRESS commands
-          const linesToCapture = [];
-          const startLine = command.lineNumber || 0;
-          let commandsToSkip = 0;
-          
-          for (let i = 1; i <= command.lineCount; i++) {
-            const targetLineNumber = startLine + i;
-            if (this.sourceLines && targetLineNumber > 0 && this.sourceLines[targetLineNumber - 1] !== undefined) {
-              const rawLine = this.sourceLines[targetLineNumber - 1].trim();
-              if (rawLine) {
-                // Check if this line is an ADDRESS command that would interrupt
-                if (rawLine.match(/^ADDRESS\s+/i)) {
-                  break; // Stop capturing at ADDRESS command
-                }
-                linesToCapture.push(rawLine);
-                commandsToSkip++;
-              }
-            }
-          }
-          
-          // Send captured lines to the address handler immediately
-          if (linesToCapture.length > 0) {
-            const combinedMessage = linesToCapture.join('\n');
-            await this.executeQuotedString({ type: 'QUOTED_STRING', value: combinedMessage });
-          }
-          
-          // Reset to default address after capture
-          this.address = 'default';
-          
-          // Return info to skip the captured commands from normal execution
-          return { skipCommands: commandsToSkip };
-          break;
+        // ADDRESS_WITH_LINES case removed - use HEREDOC instead
         
         case 'SIGNAL':
           if (command.action === 'ON' || command.action === 'OFF') {
@@ -4522,8 +4509,12 @@ class RexxInterpreter {
       // First, try to get function list from library metadata
       try {
         const metadata = globalScope[detectionFunction]();
-        if (metadata && metadata.provides && metadata.provides.functions && Array.isArray(metadata.provides.functions)) {
-          for (const funcName of metadata.provides.functions) {
+        // Check for functions list in metadata (supports two formats)
+        const functionsList = (metadata && metadata.provides && metadata.provides.functions) || 
+                             (metadata && metadata.functions);
+        
+        if (functionsList && Array.isArray(functionsList)) {
+          for (const funcName of functionsList) {
             if (globalScope[funcName] && typeof globalScope[funcName] === 'function') {
               functions.push(funcName);
             }

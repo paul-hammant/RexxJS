@@ -62,8 +62,8 @@ function isBuiltinLibrary(libraryName) {
     return true;
   }
   
-  // Check for local file paths (relative paths)
-  if (libraryName.startsWith('./') || libraryName.startsWith('../')) {
+  // Check for local file paths that point to built-in libraries in src/
+  if (libraryName.startsWith('./src/') || libraryName.startsWith('../src/')) {
     return true;
   }
   

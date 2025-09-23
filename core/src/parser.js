@@ -26,6 +26,51 @@
  * SOFTWARE.
  */
 
+// Helper function to remove block comments while preserving strings
+function removeCommentsPreservingStrings(line) {
+  let result = '';
+  let inString = false;
+  let stringChar = null;
+  let i = 0;
+  
+  while (i < line.length) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+    
+    // Check for string delimiters
+    if (!inString && (char === '"' || char === "'")) {
+      inString = true;
+      stringChar = char;
+      result += char;
+    } else if (inString && char === stringChar) {
+      // Check for escaped quotes
+      if (i > 0 && line[i - 1] === '\\') {
+        result += char;
+      } else {
+        inString = false;
+        stringChar = null;
+        result += char;
+      }
+    } else if (!inString && char === '/' && nextChar === '*') {
+      // Found start of block comment outside of string
+      // Find the end of the comment
+      let commentEnd = line.indexOf('*/', i + 2);
+      if (commentEnd !== -1) {
+        // Skip to after the comment
+        i = commentEnd + 1; // +1 because the loop will increment
+      } else {
+        // Comment doesn't end on this line, remove rest of line
+        break;
+      }
+    } else {
+      result += char;
+    }
+    i++;
+  }
+  
+  return result;
+}
+
 // Import function parsing strategies
 function callIsFunctionCallExpression(expression) {
   if (typeof require !== 'undefined' && typeof module !== 'undefined') {
@@ -59,8 +104,8 @@ function tokenize(lines) {
     
     // Handle block comments /* ... */ (single line initially)
     if (line.includes('/*')) {
-      // Remove /* ... */ comments from the line
-      line = line.replace(/\/\*.*?\*\//g, '');
+      // Remove /* ... */ comments from the line, but preserve content inside strings
+      line = removeCommentsPreservingStrings(line);
       // If line becomes empty after removing comments, skip it
       if (!line.trim()) {
         continue;
@@ -224,18 +269,9 @@ function parseStatement(tokens, startIndex) {
   // MATCHING functionality has been replaced with HEREDOC approach
   // Use: ADDRESS target followed by <<DELIMITER content DELIMITER
   
-  // ADDRESS command with LINES parameter
-  const addressLinesMatch = line.match(/^ADDRESS\s+(\w+)\s+LINES\((\d+)\)$/i);
-  if (addressLinesMatch) {
-    return {
-      command: addLineNumber({ 
-        type: 'ADDRESS_WITH_LINES', 
-        target: addressLinesMatch[1],
-        lineCount: parseInt(addressLinesMatch[2], 10)
-      }, token),
-      nextIndex: startIndex + 1
-    };
-  }
+  // ADDRESS command with LINES parameter - REMOVED
+  // LINES functionality has been replaced with HEREDOC approach
+  // Use: ADDRESS target followed by <<DELIMITER content DELIMITER
 
   // ADDRESS command with quoted string (combined form)
   const addressWithStringMatch = line.match(/^ADDRESS\s+(\w+)\s+(["`'])(.*?)\2$/i);

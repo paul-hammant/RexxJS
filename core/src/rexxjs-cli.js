@@ -2,7 +2,7 @@
 /**
  * RexxJS Bundled CLI
  * Generated bundle containing RexxJS interpreter and dependencies
- * Generated: 2025-09-18T13:03:36.640Z
+ * Generated: 2025-09-24T06:34:54.539Z
  */
 
 'use strict';
@@ -56,6 +56,15 @@ class NodeOutputHandler {
 class CLIAddressSender {
   constructor(outputHandler) {
     this.outputHandler = outputHandler;
+    // Register first-class ADDRESS handlers available in CLI mode
+    try {
+      const { ADDRESS_SSH_HANDLER } = require('../../extras/addresses/remote/address-ssh');
+      this.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
+    } catch {}
+    try {
+      const { ADDRESS_REMOTE_DOCKER_HANDLER } = require('../../extras/addresses/container-and-vm-orchestration/address-remote-docker');
+      this.ADDRESS_REMOTE_DOCKER_HANDLER = ADDRESS_REMOTE_DOCKER_HANDLER;
+    } catch {}
   }
   
   async send(address, command, params = {}) {
@@ -74,6 +83,19 @@ class CLIAddressSender {
       return { status: 'ignored', result: 'Default ADDRESS call ignored' };
     }
     
+    // First-class handlers enabled for CLI mode
+    const upper = String(address || '').toUpperCase();
+    if (upper === 'SSH' && this.ADDRESS_SSH_HANDLER) {
+      const vars = this.variables instanceof Map ? this.variables : new Map();
+      return this.ADDRESS_SSH_HANDLER(command, params, { variables: vars });
+    }
+    if (upper === 'REMOTE_DOCKER' && this.ADDRESS_REMOTE_DOCKER_HANDLER) {
+      // Inject SSH handler for proxy composition if available
+      global.ADDRESS_SSH_HANDLER_FOR_TEST = this.ADDRESS_SSH_HANDLER;
+      const vars = this.variables instanceof Map ? this.variables : new Map();
+      return this.ADDRESS_REMOTE_DOCKER_HANDLER(command, params, { variables: vars });
+    }
+
     // In CLI mode, other missing ADDRESS handlers should be an error
     const error = new Error(`ADDRESS handler '${address}' not found. No external services available in CLI mode.`);
     error.address = address;
@@ -119,6 +141,18 @@ async function main() {
   
   const scriptPath = args[0];
   const verbose = args.includes('--verbose') || args.includes('-v');
+  // Collect KEY=VALUE pairs after the script path for interpolation context
+  const cliVars = new Map();
+  for (let i = 1; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--verbose' || a === '-v') continue;
+    const eq = a.indexOf('=');
+    if (eq > 0) {
+      const key = a.slice(0, eq);
+      const value = a.slice(eq + 1);
+      cliVars.set(key, value);
+    }
+  }
   
   if (!fs.existsSync(scriptPath)) {
     console.error(`Error: Script file not found: ${scriptPath}`);
@@ -143,8 +177,19 @@ async function main() {
     
     const outputHandler = new NodeOutputHandler();
     const addressSender = new CLIAddressSender(outputHandler);
+    // Attach variables for ADDRESS handlers to interpolate {KEY}
+    addressSender.variables = cliVars;
     
-    const interpreter = await executeScript(scriptContent, addressSender);
+    // Positional args for PARSE ARG: everything after script path that is not KEY=VALUE
+    const positional = [];
+    for (let i = 1; i < args.length; i++) {
+      const a = args[i];
+      if (a === '--verbose' || a === '-v') continue;
+      if (a.includes('=')) continue; // skip KEY=VALUE pairs
+      positional.push(a);
+    }
+
+    const interpreter = await executeScript(scriptContent, addressSender, positional);
     
     if (verbose) {
       console.log('');

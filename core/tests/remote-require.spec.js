@@ -72,9 +72,15 @@ describe('Remote REQUIRE via CHECKPOINT', () => {
       expect(interpreter.isBuiltinLibrary('json-functions')).toBe(true);
     });
 
-    test('should identify local file paths as built-in', () => {
-      expect(interpreter.isBuiltinLibrary('./local-lib.js')).toBe(true);
-      expect(interpreter.isBuiltinLibrary('../parent-lib.js')).toBe(true);
+    test('should identify src/ file paths as built-in', () => {
+      expect(interpreter.isBuiltinLibrary('./src/local-lib.js')).toBe(true);
+      expect(interpreter.isBuiltinLibrary('../src/parent-lib.js')).toBe(true);
+    });
+
+    test('should not identify non-src local files as built-in', () => {
+      expect(interpreter.isBuiltinLibrary('./local-lib.js')).toBe(false);
+      expect(interpreter.isBuiltinLibrary('../parent-lib.js')).toBe(false);
+      expect(interpreter.isBuiltinLibrary('./tests/test-lib.js')).toBe(false);
     });
 
     test('should not identify external libraries as built-in', () => {

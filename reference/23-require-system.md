@@ -754,15 +754,254 @@ gh release upload v1.2.3 lib/my-library.js lib/my-library-min.js
 - Monitor network requests in development tools
 - Cache libraries in production environments
 
+## Remote REQUIRE via CHECKPOINT
+
+### SCRO (Source-Controlled Remote Orchestration)
+
+The Remote REQUIRE system enables RexxJS scripts to load libraries from remote sources through a bidirectional communication channel using the CHECKPOINT protocol. This advanced feature supports distributed computing scenarios where the RexxJS interpreter runs in a controlled environment and needs to request libraries from an orchestration service.
+
+### Environment Detection
+
+Remote orchestration is detected through several mechanisms:
+
+**Environment Variables:**
+```bash
+export SCRO_REMOTE=true
+export SCRO_ORCHESTRATION_ID=orch_123456
+```
+
+**RexxJS Variables:**
+```rexx
+-- Set remoteness via interpreter variables
+LET SCRO_REMOTE = "true"
+LET SCRO_ORCHESTRATION_ID = "session_789"
+```
+
+**Streaming Callback Context:**
+```javascript
+// Orchestration environment detected via streaming callback presence
+interpreter.streamingProgressCallback = (message) => {
+  // Handle CHECKPOINT messages
+};
+```
+
+### CHECKPOINT Communication Protocol
+
+The CHECKPOINT system uses a JSON-based messaging protocol for bidirectional communication:
+
+**Request Message Format:**
+```javascript
+{
+  type: 'rexx-require',
+  subtype: 'require_request', 
+  data: {
+    type: 'require_request',
+    libraryName: 'my-remote-library',
+    requireId: 'req_12345',
+    timestamp: 1640995200000
+  }
+}
+```
+
+**Response Message Format:**
+```javascript
+{
+  type: 'rexx-require-response',
+  requireId: 'req_12345',
+  success: true,
+  libraryCode: 'module.exports = { ... };',
+  libraryName: 'my-remote-library'
+}
+```
+
+### Built-in vs Third-party Detection
+
+The remote REQUIRE system intelligently routes library requests:
+
+**Built-in Libraries (Local Loading):**
+```rexx
+-- These load locally even in remote context
+REQUIRE "string-functions"    -- Built-in, loads locally
+REQUIRE "math-functions"      -- Built-in, loads locally
+REQUIRE "./src/local-lib.js"  -- src/ directory, loads locally
+```
+
+**Third-party Libraries (Remote Loading):**
+```rexx
+-- These request via CHECKPOINT in remote context
+REQUIRE "custom-library"              -- Remote request
+REQUIRE "github-user/repo"            -- Remote request  
+REQUIRE "./tests/test-lib.js"         -- Non-src local file, remote request
+```
+
+### Remote Library Execution
+
+When a library is received via CHECKPOINT, it's executed safely in the interpreter's context:
+
+```javascript
+// Remote library code execution
+await interpreter.executeRemoteLibraryCode(libraryName, libraryCode);
+
+// Functions become available immediately
+const result = interpreter.functions.REMOTE_FUNCTION('param');
+```
+
+**Library Caching:**
+```javascript
+// Libraries are cached after loading
+const cached = interpreter.libraryCache.get('remote-library');
+// { loaded: true, code: '...', timestamp: 1640995200000 }
+```
+
+### Security Considerations
+
+**Code Execution:**
+- Remote library code executes with full interpreter privileges
+- Libraries run in the same context as the main script
+- No sandboxing or permission restrictions applied
+
+**Network Security:**
+- All communication goes through the CHECKPOINT channel
+- No direct network requests from remote-orchestrated interpreters
+- Library resolution handled by orchestration service
+
+**Trust Model:**
+- Remote libraries must be trusted by the orchestration service
+- Library code integrity depends on the orchestration environment
+- Consider implementing additional validation for production use
+
+### Error Handling
+
+**Timeout Handling:**
+```javascript
+// Configurable timeout for remote requests
+const response = await interpreter.waitForCheckpointResponse(requireId, 5000);
+
+if (response.success === false && response.error === 'timeout') {
+  throw new Error(`Remote REQUIRE timeout for ${libraryName}`);
+}
+```
+
+**Communication Channel Errors:**
+```javascript
+// Handle missing communication channel
+if (!interpreter.streamingProgressCallback && !window?.parent?.postMessage) {
+  return { success: false, error: 'no_communication_channel' };
+}
+```
+
+**Library Resolution Errors:**
+```rexx
+SIGNAL ON ERROR
+
+REQUIRE "non-existent-remote-library"
+
+ERROR:
+  SAY "Remote REQUIRE failed:" ERRORTEXT()
+  -- Error: Remote REQUIRE failed for non-existent-remote-library: Library not found
+```
+
+### Implementation Example
+
+**Setting up Remote Context:**
+```rexx
+-- Configure for remote orchestration
+LET SCRO_REMOTE = "true"
+LET SCRO_ORCHESTRATION_ID = "demo_session_123"
+
+-- Load remote library
+REQUIRE "analytics-package"
+
+-- Use loaded functions
+LET data = PROCESS_ANALYTICS input=rawData
+LET report = GENERATE_REPORT data=data
+```
+
+**Orchestration Service Integration:**
+```javascript
+// Orchestration service handles CHECKPOINT messages
+interpreter.streamingProgressCallback = async (message) => {
+  if (message.type === 'rexx-require') {
+    const { libraryName, requireId } = message.data;
+    
+    // Resolve library from registry/cache
+    const libraryCode = await resolveLibrary(libraryName);
+    
+    // Send response
+    window.postMessage({
+      type: 'rexx-require-response', 
+      requireId: requireId,
+      success: true,
+      libraryCode: libraryCode,
+      libraryName: libraryName
+    });
+  }
+};
+```
+
+### Development Workflow
+
+**Phase 1: Local Development**
+```rexx
+-- Normal local development (no remote context)
+REQUIRE "github.com/user/library@latest"  -- Direct GitHub loading
+```
+
+**Phase 2: Remote Testing**
+```bash
+# Set up remote orchestration environment
+export SCRO_REMOTE=true
+export SCRO_ORCHESTRATION_ID=test_123
+
+# Run with orchestration service
+node orchestrator.js --script=my-script.rexx
+```
+
+**Phase 3: Production Deployment**
+```rexx
+-- Script automatically detects remote context
+-- No code changes needed - REQUIRE routing is automatic
+REQUIRE "production-library"  -- Loaded via orchestration service
+```
+
+### Performance Characteristics
+
+**Local Library Loading:**
+- ✅ **Zero latency** - Built-in libraries load immediately
+- ✅ **No network overhead** - Direct function registration
+- ✅ **Caching efficient** - Functions stored in memory
+
+**Remote Library Loading:**
+- ⚠️ **Network latency** - CHECKPOINT round-trip required
+- ⚠️ **Timeout risk** - Communication channel dependent
+- ✅ **One-time cost** - Libraries cached after first load
+
+### Use Cases
+
+**Controlled Execution Environments:**
+- Jupyter notebook integrations
+- Sandboxed code execution platforms
+- Enterprise policy-controlled environments
+
+**Distributed Computing:**
+- Microservice architectures
+- Container orchestration platforms
+- Serverless function environments
+
+**Security-Conscious Deployments:**
+- Library approval workflows
+- Centralized dependency management
+- Audit trail requirements
+
 ## Related Functions
 
 - **[INTERPRET](15-interpret.md)** - Dynamic code execution
-- **[JSON Functions](08-json-functions.md)** - Parse dependency metadata
+- **[JSON Functions](08-json-functions.md)** - Parse dependency metadata  
 - **[Web Functions](09-web-functions.md)** - HTTP resource access
 - **[Security Functions](12-security-functions.md)** - Cryptographic verification
 
 ---
 
 **Total Libraries Loaded:** Dynamic based on requirements
-**Environments:** Browser (fetch) and Node.js (https.get)  
-**Security:** Transitive dependency validation and circular dependency detection
+**Environments:** Browser (fetch), Node.js (https.get), and Remote Orchestration (CHECKPOINT)
+**Security:** Transitive dependency validation, circular dependency detection, and controlled remote execution

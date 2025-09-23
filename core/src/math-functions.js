@@ -108,6 +108,28 @@ const mathFunctions = {
     }
   },
   
+  'MATH_ADD': (...values) => {
+    try {
+      return values.reduce((sum, val) => {
+        const num = parseFloat(val);
+        return sum + (isNaN(num) ? 0 : num);
+      }, 0);
+    } catch (e) {
+      return 0;
+    }
+  },
+  
+  'MATH_MULTIPLY': (...values) => {
+    try {
+      return values.reduce((product, val) => {
+        const num = parseFloat(val);
+        return product * (isNaN(num) ? 1 : num);
+      }, 1);
+    } catch (e) {
+      return 0;
+    }
+  },
+  
   'MATH_AVERAGE': (...values) => {
     try {
       const nums = values.map(v => parseFloat(v)).filter(n => !isNaN(n));

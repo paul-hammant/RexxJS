@@ -181,12 +181,26 @@ describe('REQUIRE Function', () => {
 
   describe('Node.js Library Loading', () => {
     test('should load library from local test file', async () => {
-      // Mock the GitHub fetch to use local file
-      const originalFetchFromUrl = interpreter.fetchFromUrl;
-      interpreter.fetchFromUrl = async (url) => {
-        // Return test library content
-        const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
-        return fs.readFileSync(testLibPath, 'utf8');
+      // Mock requireNodeJSModule to use local test file
+      interpreter.requireNodeJSModule = async (libraryName) => {
+        if (libraryName === 'r-graphing') {
+          // Direct execution approach - just require and run the test library
+          const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
+          const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+          
+          // Execute in current context to set global functions
+          eval(testLibContent);
+          
+          // Also add to interpreter's builtInFunctions
+          if (global.HISTOGRAM) interpreter.builtInFunctions.HISTOGRAM = global.HISTOGRAM;
+          if (global.SCATTER) interpreter.builtInFunctions.SCATTER = global.SCATTER;
+          if (global.DENSITY) interpreter.builtInFunctions.DENSITY = global.DENSITY;
+          if (global.R_GRAPHING_MAIN) interpreter.builtInFunctions.R_GRAPHING_MAIN = global.R_GRAPHING_MAIN;
+          
+          // Return expected export format
+          return { loaded: true };
+        }
+        throw new Error(`Test library not found: ${libraryName}`);
       };
 
       const script = `
@@ -206,15 +220,12 @@ describe('REQUIRE Function', () => {
       expect(histogram).toBeDefined();
       expect(histogram.type).toBe('histogram');
       expect(histogram.binCount).toBe(3);
-      
-      // Restore original method
-      interpreter.fetchFromUrl = originalFetchFromUrl;
     });
 
     test('should handle library loading errors', async () => {
-      // Mock fetch to fail
-      interpreter.fetchFromUrl = async (url) => {
-        throw new Error('Network error');
+      // Mock requireNodeJSModule to fail
+      interpreter.requireNodeJSModule = async (libraryName) => {
+        throw new Error(`Cannot find module '${libraryName}'`);
       };
 
       const script = `
@@ -223,18 +234,32 @@ describe('REQUIRE Function', () => {
       
       const commands = parse(script);
       
-      await expect(interpreter.run(commands)).rejects.toThrow('Failed to load nonexistent-lib in Node.js');
+      await expect(interpreter.run(commands)).rejects.toThrow('Cannot find module \'nonexistent-lib\'');
     });
   });
 
   describe('Library Functions Integration', () => {
     test('should use library functions after loading', async () => {
-      // Mock the GitHub fetch to use local file
-      const originalFetchFromUrl = interpreter.fetchFromUrl;
-      interpreter.fetchFromUrl = async (url) => {
-        // Return test library content
-        const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
-        return fs.readFileSync(testLibPath, 'utf8');
+      // Mock requireNodeJSModule to use local test file
+      interpreter.requireNodeJSModule = async (libraryName) => {
+        if (libraryName === 'r-graphing') {
+          // Direct execution approach - just require and run the test library
+          const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
+          const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+          
+          // Execute in current context to set global functions
+          eval(testLibContent);
+          
+          // Also add to interpreter's builtInFunctions
+          if (global.HISTOGRAM) interpreter.builtInFunctions.HISTOGRAM = global.HISTOGRAM;
+          if (global.SCATTER) interpreter.builtInFunctions.SCATTER = global.SCATTER;
+          if (global.DENSITY) interpreter.builtInFunctions.DENSITY = global.DENSITY;
+          if (global.R_GRAPHING_MAIN) interpreter.builtInFunctions.R_GRAPHING_MAIN = global.R_GRAPHING_MAIN;
+          
+          // Return expected export format
+          return { loaded: true };
+        }
+        throw new Error(`Test library not found: ${libraryName}`);
       };
 
       const script = `
@@ -270,17 +295,29 @@ describe('REQUIRE Function', () => {
       expect(density.type).toBe('density');
       expect(density.mean).toBeCloseTo(3, 1);
       expect(density.variance).toBeGreaterThan(0);
-      
-      // Restore original method
-      interpreter.fetchFromUrl = originalFetchFromUrl;
     });
 
     test('should handle library function errors', async () => {
-      // Mock the GitHub fetch to use local file
-      const originalFetchFromUrl = interpreter.fetchFromUrl;
-      interpreter.fetchFromUrl = async (url) => {
-        const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
-        return fs.readFileSync(testLibPath, 'utf8');
+      // Mock requireNodeJSModule to use local test file
+      interpreter.requireNodeJSModule = async (libraryName) => {
+        if (libraryName === 'r-graphing') {
+          // Direct execution approach - just require and run the test library
+          const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
+          const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+          
+          // Execute in current context to set global functions
+          eval(testLibContent);
+          
+          // Also add to interpreter's builtInFunctions
+          if (global.HISTOGRAM) interpreter.builtInFunctions.HISTOGRAM = global.HISTOGRAM;
+          if (global.SCATTER) interpreter.builtInFunctions.SCATTER = global.SCATTER;
+          if (global.DENSITY) interpreter.builtInFunctions.DENSITY = global.DENSITY;
+          if (global.R_GRAPHING_MAIN) interpreter.builtInFunctions.R_GRAPHING_MAIN = global.R_GRAPHING_MAIN;
+          
+          // Return expected export format
+          return { loaded: true };
+        }
+        throw new Error(`Test library not found: ${libraryName}`);
       };
 
       const script = `
@@ -291,9 +328,6 @@ describe('REQUIRE Function', () => {
       const commands = parse(script);
       
       await expect(interpreter.run(commands)).rejects.toThrow('HISTOGRAM: data must be an array');
-      
-      // Restore original method
-      interpreter.fetchFromUrl = originalFetchFromUrl;
     });
   });
 
@@ -338,10 +372,26 @@ describe('REQUIRE Function', () => {
 
   describe('Multiple Library Loading', () => {
     test('should handle multiple REQUIRE calls efficiently', async () => {
-      // Mock successful loading
-      interpreter.fetchFromUrl = async (url) => {
-        const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
-        return fs.readFileSync(testLibPath, 'utf8');
+      // Mock requireNodeJSModule to use local test file
+      interpreter.requireNodeJSModule = async (libraryName) => {
+        if (libraryName === 'r-graphing') {
+          // Direct execution approach - just require and run the test library
+          const testLibPath = path.join(__dirname, '..', 'test-libs', 'r-graphing.js');
+          const testLibContent = fs.readFileSync(testLibPath, 'utf8');
+          
+          // Execute in current context to set global functions
+          eval(testLibContent);
+          
+          // Also add to interpreter's builtInFunctions
+          if (global.HISTOGRAM) interpreter.builtInFunctions.HISTOGRAM = global.HISTOGRAM;
+          if (global.SCATTER) interpreter.builtInFunctions.SCATTER = global.SCATTER;
+          if (global.DENSITY) interpreter.builtInFunctions.DENSITY = global.DENSITY;
+          if (global.R_GRAPHING_MAIN) interpreter.builtInFunctions.R_GRAPHING_MAIN = global.R_GRAPHING_MAIN;
+          
+          // Return expected export format
+          return { loaded: true };
+        }
+        throw new Error(`Test library not found: ${libraryName}`);
       };
 
       const script = `
@@ -368,7 +418,7 @@ describe('REQUIRE Function', () => {
       expect(interpreter.getVariable('result3')).toBeDefined();
       
       // Library should only be loaded once (detection function exists)
-      expect(typeof global.HISTOGRAM).toBe('function');
+      expect(typeof interpreter.builtInFunctions.HISTOGRAM).toBe('function');
     });
   });
 });

@@ -23,7 +23,7 @@ describe('Line Number Reporting in Error Messages', () => {
 
   test('should report correct line numbers for main script failures', async () => {
     const script = `
-      REQUIRE "expectations-address"
+      REQUIRE "./src/expectations-address.js"
       LET test_var = "hello"
       ADDRESS EXPECTATIONS "{test_var} should equal 'world'"
     `;
@@ -41,7 +41,7 @@ describe('Line Number Reporting in Error Messages', () => {
 
   test('should report correct line numbers for subroutine failures', async () => {
     const script = `
-      REQUIRE "expectations-address"
+      REQUIRE "./src/expectations-address.js"
       CALL TestSubroutine
       EXIT 0
       
@@ -67,7 +67,7 @@ describe('Line Number Reporting in Error Messages', () => {
 
   test('should report correct line numbers for nested subroutine failures', async () => {
     const script = `
-      REQUIRE "expectations-address"
+      REQUIRE "./src/expectations-address.js"
       CALL OuterSub
       EXIT 0
       
@@ -98,7 +98,7 @@ describe('Line Number Reporting in Error Messages', () => {
 
   test('should report correct line numbers for deeply nested subroutines', async () => {
     const script = `
-      REQUIRE "expectations-address"
+      REQUIRE "./src/expectations-address.js"
       CALL Level1
       EXIT 0
       
@@ -134,7 +134,7 @@ describe('Line Number Reporting in Error Messages', () => {
 
   test('should report correct line numbers with multiple statements in subroutines', async () => {
     const script = `
-      REQUIRE "expectations-address"
+      REQUIRE "./src/expectations-address.js"
       CALL ComplexSub
       EXIT 0
       
@@ -166,7 +166,7 @@ describe('Line Number Reporting in Error Messages', () => {
   test('should report correct line numbers from external REXX file', async () => {
     // Create a temporary REXX file with a subroutine failure
     const tempScript = `
-      REQUIRE "expectations-address"
+      REQUIRE "./src/expectations-address.js"
       CALL FailingSub
       EXIT 0
       
