@@ -1,3 +1,7 @@
+/*!
+ * excel-functions v1.0.0 | (c) 2025 RexxJS Project | MIT License
+ * @rexxjs-meta {"canonical":"org.rexxjs/excel-functions","type":"functions-library","dependencies":{}}
+ */
 /**
  * Excel/Spreadsheet functions for REXX interpreter
  * 

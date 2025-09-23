@@ -1,6 +1,6 @@
 /*!
  * rexxjs/jq-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{"jq-wasm":"1.1.0-jq-1.8.1"},"envVars":[]}
+ * @rexxjs-meta {"canonical":"org.rexxjs/jq-address","type":"address-handler","dependencies":{"jq-wasm":"1.1.0-jq-1.8.1"},"envVars":[]}
  */
 /**
  * jq ADDRESS Library - Provides JSON query execution via ADDRESS interface

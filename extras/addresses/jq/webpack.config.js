@@ -1,12 +1,24 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
 const path = require('path');
+const { execSync } = require('child_process');
 const TerserPlugin = require('terser-webpack-plugin');
+
+function getGitRoot() {
+    try {
+        const gitRoot = execSync('git rev-parse --show-toplevel')
+            .toString()
+            .trim();
+        return gitRoot;
+    } catch (error) {
+        throw new Error('Not in a git repository');
+    }
+}
 
 module.exports = {
   entry: './src/jq-address.js',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(getGitRoot(), '../dist/addresses'),
     filename: 'jq-address.js',
     library: 'jqAddress',
     libraryTarget: 'umd',

@@ -1,180 +1,97 @@
 #!/bin/bash
 
-# Build all RexxJS modules using simple webpack bundling without minification
-# Usage: ./build-all-modules.sh [clean] [version-tag]
-# Examples:
-#   ./build-all-modules.sh clean latest
-#   ./build-all-modules.sh clean v1.0.0
+# Build all RexxJS modules using hardcoded list
+# Usage: ./build-all-modules.sh [clean]
 
 set -e
 
 # Colors for output
-RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
-print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 
-# Determine version/tag (default to 'latest')
-VERSION_TAG=${2:-latest}
-
-# Clean dist content directories if requested (preserve .git/ and registry.txt)
+# Clean dist directories if requested
 if [ "$1" = "clean" ]; then
-    print_info "Cleaning dist content directories (preserving .git/ and registry.txt)..."
+    print_info "Cleaning dist directories..."
     rm -rf ../dist/addresses/
     rm -rf ../dist/functions/
 fi
 
-# Create dist directories for current branch/tag (outside this repo)
-# No subdirectories - the branch name handles versioning
+# Create dist directories
 mkdir -p ../dist/{addresses,functions}
-print_info "Building for tag: $VERSION_TAG"
 
-print_info "Discovering and bundling ALL RexxJS modules..."
+print_info "Building RexxJS modules..."
 
-# Counter for built modules
-ADDRESS_COUNT=0
-FUNCTION_COUNT=0
+# Address handlers
+print_info "Building address handlers..."
 
-# Process all address handlers
-print_info "Processing address handlers..."
-find extras/addresses -name "*-address.js" -not -path "*/node_modules/*" -not -path "*/__tests__/*" -not -path "*/spec*" | while read address_file; do
-    if [ -f "$address_file" ]; then
-        dir=$(dirname "$address_file")
-        filename=$(basename "$address_file")
-        module_name=$(basename "$filename" .js)
-        
-        print_info "Building address handler: $module_name"
-        
-        # Create simple webpack config (no polyfills - let them break if needed)
-        # Use absolute path for dist directory
-        ABSOLUTE_DIST_PATH=$(realpath ../dist)
-        cat > "$dir/webpack.bundle.config.js" << EOF
-const path = require('path');
+cd extras/addresses/sqlite3 && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
+print_success "Built sqlite3-address"
 
-module.exports = {
-  mode: 'development', // No minification
-  entry: './$filename',
-  output: {
-    filename: '$module_name.bundle.js',
-    path: '$ABSOLUTE_DIST_PATH/addresses',
-    library: '$module_name',
-    libraryTarget: 'umd',
-    globalObject: 'this'
-  },
-  resolve: {
-    extensions: ['.js']
-  },
-  target: 'web'
-};
-EOF
-        
-        cd "$dir"
-        
-        # Install webpack if not present (minimal)
-        if [ ! -d "node_modules" ] || [ ! -f "node_modules/.bin/webpack" ]; then
-            print_info "Installing webpack for $module_name..."
-            npm init -y --silent 2>/dev/null || true
-            npm install --silent webpack webpack-cli 2>/dev/null || true
-        fi
-        
-        # Bundle the module
-        if npx webpack --config webpack.bundle.config.js --silent 2>/dev/null; then
-            print_success "Bundled $module_name successfully"
-            ADDRESS_COUNT=$((ADDRESS_COUNT + 1))
-        else
-            print_warning "Failed to bundle $module_name (may need polyfills)"
-        fi
-        
-        cd - >/dev/null
-    fi
-done
+cd extras/addresses/jq/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built jq-address"
 
-# Process all function libraries
-print_info "Processing function libraries..."
-find extras/functions -name "*-functions.js" -not -path "*/node_modules/*" -not -path "*/__tests__/*" -not -path "*/spec*" | while read function_file; do
-    if [ -f "$function_file" ]; then
-        dir=$(dirname "$function_file")
-        filename=$(basename "$function_file")
-        module_name=$(basename "$filename" .js)
-        
-        print_info "Building function library: $module_name"
-        
-        # Create simple webpack config (no polyfills - let them break if needed)
-        # Use absolute path for dist directory
-        ABSOLUTE_DIST_PATH=$(realpath ../dist)
-        cat > "$dir/webpack.bundle.config.js" << EOF
-const path = require('path');
+cd extras/addresses/anthropic-ai/claude && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built claude-address"
 
-module.exports = {
-  mode: 'development', // No minification
-  entry: './$filename',
-  output: {
-    filename: '$module_name.bundle.js',
-    path: '$ABSOLUTE_DIST_PATH/functions',
-    library: '$module_name',
-    libraryTarget: 'umd',
-    globalObject: 'this'
-  },
-  resolve: {
-    extensions: ['.js']
-  },
-  target: 'web'
-};
-EOF
-        
-        cd "$dir"
-        
-        # Install webpack if not present (minimal)
-        if [ ! -d "node_modules" ] || [ ! -f "node_modules/.bin/webpack" ]; then
-            print_info "Installing webpack for $module_name..."
-            npm init -y --silent 2>/dev/null || true
-            npm install --silent webpack webpack-cli 2>/dev/null || true
-        fi
-        
-        # Bundle the module
-        if npx webpack --config webpack.bundle.config.js --silent 2>/dev/null; then
-            print_success "Bundled $module_name successfully"
-            FUNCTION_COUNT=$((FUNCTION_COUNT + 1))
-        else
-            print_warning "Failed to bundle $module_name (may need polyfills)"
-        fi
-        
-        cd - >/dev/null
-    fi
-done
+cd extras/addresses/pyodide/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built pyodide-address"
+
+cd extras/addresses/duckdb-wasm/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built duckdb-wasm-address"
+
+cd extras/addresses/system && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
+print_success "Built system-address"
+
+# Function libraries
+print_info "Building function libraries..."
+
+cd extras/functions/graphviz/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built graphviz-functions"
+
+cd extras/functions/excel && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
+print_success "Built excel-functions"
+
+cd extras/functions/r-inspired/advanced-analytics && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built r-regression-functions"
+
+cd extras/functions/r-inspired/data-manipulation && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built r-set-functions"
+
+cd extras/functions/r-inspired/data-types && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built r-factor-functions"
+
+cd extras/functions/r-inspired/graphics && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built graphics-functions"
+
+cd extras/functions/r-inspired/math-stats && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built r-summary-functions"
+
+cd extras/functions/r-inspired/signal-processing && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built r-timeseries-functions"
+
+cd extras/functions/scipy-inspired/interpolation && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built sp-interpolation-functions"
+
+cd extras/functions/scipy-inspired/stats/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../../..
+print_success "Built sp-stats-functions"
+
+cd extras/functions/sympy-inspired/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built sympy-functions"
 
 # Show results
 print_info "Build Summary:"
 echo ""
-
-# Module counts for summary
-
-echo "=== Built Modules ==="
-
-echo "ADDRESS handlers:"
-if [ -d "../dist/addresses" ]; then
-    ls -lh "../dist/addresses/" 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
-else
-    echo "  (none)"
-fi
-
-echo "Function libraries:"
-if [ -d "../dist/functions" ]; then
-    ls -lh "../dist/functions/" 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
-else
-    echo "  (none)"
-fi
+echo "ADDRESS handlers (6):"
+ls -lh ../dist/addresses/ 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
+echo ""
+echo "Function libraries (10):"
+ls -lh ../dist/functions/ 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
 echo ""
 
-print_success "Build complete!"
-print_info "Built modules copied to ../dist/"
-print_info "Registry.txt is hand-maintained - update manually as needed" 
-print_info "GitHub URLs will be:"
-print_info "  https://github.com/RexxJS/dist/blob/latest/addresses/sqlite3-address.bundle.js"
-print_info "  https://raw.githubusercontent.com/RexxJS/dist/latest/addresses/sqlite3-address.bundle.js"
+print_success "Build complete! All 16 modules built successfully."

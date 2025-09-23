@@ -1,6 +1,6 @@
 /*!
  * rexxjs/pyodide-address v1.2.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{"pyodide":"0.26.1"},"envVars":[]}
+ * @rexxjs-meta {"canonical":"org.rexxjs/pyodide-address","type":"address-handler","dependencies":{"pyodide":"0.26.1"},"envVars":[]}
  */
 /**
  * Pyodide ADDRESS Library - Provides Python execution via ADDRESS interface

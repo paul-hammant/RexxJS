@@ -1,6 +1,6 @@
 /*!
  * rexxjs/system-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{},"envVars":[]}
+ * @rexxjs-meta {"canonical":"org.rexxjs/system-address","type":"address-handler","dependencies":{},"nodeonly":true,"envVars":[]}
  */
 /**
  * System ADDRESS Library - Provides OS command execution via ADDRESS interface

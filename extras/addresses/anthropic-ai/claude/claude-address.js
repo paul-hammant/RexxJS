@@ -1,6 +1,6 @@
 /*!
  * rexxjs/claude-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{},"envVars":["ANTHROPIC_API_KEY"]}
+ * @rexxjs-meta {"canonical":"org.rexxjs/claude-address","type":"address-handler","dependencies":{},"envVars":["ANTHROPIC_API_KEY"]}
  */
 /**
  * Claude API ADDRESS Library - Provides AI chat operations via ADDRESS interface

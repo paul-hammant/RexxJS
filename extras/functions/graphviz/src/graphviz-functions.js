@@ -1,6 +1,6 @@
 /*!
  * graphviz-functions v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"dependencies":{"graphviz-wasm":"^1.2.1"}}
+ * @rexxjs-meta {"canonical":"org.rexxjs/graphviz-functions","type":"functions-library","dependencies":{"graphviz-wasm":"^3.0.2"}}
  */
 /**
  * Graphviz Functions Library - Provides Graphviz rendering capabilities

@@ -1,6 +1,6 @@
 /*!
  * rexxjs/sqlite-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/sqlite3-address","type":"address-handler","dependencies":{"sqlite3":"^5.1.0"},"envVars":[]}
+ * @rexxjs-meta {"canonical":"org.rexxjs/sqlite3-address","type":"address-handler","dependencies":{"sqlite3":"^5.1.0"},"nodeonly":true,"envVars":[]}
  */
 /**
  * SQLite ADDRESS Library - Provides SQL database operations via ADDRESS interface

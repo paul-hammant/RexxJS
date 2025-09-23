@@ -1,9 +1,21 @@
 const path = require('path');
+const { execSync } = require('child_process');
+
+function getGitRoot() {
+    try {
+        const gitRoot = execSync('git rev-parse --show-toplevel')
+            .toString()
+            .trim();
+        return gitRoot;
+    } catch (error) {
+        throw new Error('Not in a git repository');
+    }
+}
 
 module.exports = {
   entry: './src/index.js',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(getGitRoot(), '../dist'),
     filename: 'rexx.js',
     library: 'rexxjs',
     libraryTarget: 'umd',
