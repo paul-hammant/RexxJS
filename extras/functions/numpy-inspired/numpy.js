@@ -5,6 +5,14 @@
  Implemented with focus on 1D/2D and common numpy-like behaviors. No external deps.
 */
 
+// suggestRender will be set by external module to avoid circular dependency
+let suggestRender;
+
+// Function to set suggestRender from external module
+function setSuggestRender(fn) {
+  suggestRender = fn;
+}
+
 // --- Creation & basic utilities ---
 function normalizeShape(shape) {
   if (shape === undefined || shape === null) return [];
@@ -402,7 +410,15 @@ function histogram(a, bins=10, range) {
   if (min===max) { const counts=new Array(bins).fill(0); counts[0]=flat.length; const edges=[min,max]; return {bins:edges, counts}; }
   const binCounts=new Array(bins).fill(0); const binWidth=(max-min)/bins;
   for (let v of flat){ if (v<min || v>max) continue; let idx=Math.floor((v-min)/binWidth); if (idx===bins) idx=bins-1; binCounts[idx]++; }
-  const edges=new Array(bins+1); for (let i=0;i<=bins;i++) edges[i]=min+i*binWidth; return {bins:edges, counts:binCounts};
+  const edges=new Array(bins+1); for (let i=0;i<=bins;i++) edges[i]=min+i*binWidth; 
+  const result = {bins:edges, counts:binCounts};
+  
+  // Suggest render for universal REPL integration
+  if (typeof suggestRender === 'function') {
+    suggestRender(result, { title: 'Histogram' });
+  }
+  
+  return result;
 }
 
 function histogram2d(x, y, bins=[10, 10], range=null) {
@@ -441,7 +457,14 @@ function histogram2d(x, y, bins=[10, 10], range=null) {
   for (let i = 0; i <= xBins; i++) xEdges[i] = xMin + i * xWidth;
   for (let i = 0; i <= yBins; i++) yEdges[i] = yMin + i * yWidth;
   
-  return { hist, xEdges, yEdges };
+  const result = { hist, xEdges, yEdges };
+  
+  // Suggest render for universal REPL integration
+  if (typeof suggestRender === 'function') {
+    suggestRender(result, { title: '2D Histogram' });
+  }
+  
+  return result;
 }
 
 // --- Random ---
@@ -587,6 +610,12 @@ function corrcoef(x, y = null) {
         }
       }
     }
+    
+    // Suggest render for correlation matrix
+    if (typeof suggestRender === 'function') {
+      suggestRender(corrMatrix, { title: 'Correlation Matrix' });
+    }
+    
     return corrMatrix;
   } else {
     // x and y are 1D vectors
@@ -632,6 +661,12 @@ function cov(x, y = null, ddof = 1) {
         covMatrix[i][j] = _covariance(col1, col2, ddof);
       }
     }
+    
+    // Suggest render for covariance matrix
+    if (typeof suggestRender === 'function') {
+      suggestRender(covMatrix, { title: 'Covariance Matrix' });
+    }
+    
     return covMatrix;
   } else {
     // x and y are 1D vectors
@@ -975,7 +1010,14 @@ function eig(matrix) {
         eigenvectors.push(eigenvector);
       }
       
-      return { eigenvalues, eigenvectors };
+      const result = { eigenvalues, eigenvectors };
+      
+      // Suggest render for eigenvalue visualization
+      if (typeof suggestRender === 'function') {
+        suggestRender(result, { title: 'Eigenvalues' });
+      }
+      
+      return result;
     }
   }
   
@@ -996,7 +1038,14 @@ function eig(matrix) {
     }
   }
   
-  return { eigenvalues, eigenvectors };
+  const result = { eigenvalues, eigenvectors };
+  
+  // Suggest render for eigenvalue visualization
+  if (typeof suggestRender === 'function') {
+    suggestRender(result, { title: 'Eigenvalues' });
+  }
+  
+  return result;
 }
 
 function _powerIteration(matrix, maxIter = 100, tol = 1e-10) {
@@ -1079,7 +1128,14 @@ function eigh(matrix) {
     typeof val === 'number' ? val : val.real || 0
   );
   
-  return { eigenvalues, eigenvectors: result.eigenvectors };
+  const eigResult = { eigenvalues, eigenvectors: result.eigenvectors };
+  
+  // Suggest render for eigenvalue visualization
+  if (typeof suggestRender === 'function') {
+    suggestRender(eigResult, { title: 'Eigenvalues (Hermitian)' });
+  }
+  
+  return eigResult;
 }
 
 function eigvals(matrix) {
@@ -1210,6 +1266,9 @@ const numpyFunctions = {
     version: '1.0.0',
     loaded: true
   }),
+  
+  // Utility functions
+  setSuggestRender,
   
   // creation functions (both lowercase and uppercase for compatibility)
   zeros, ones, full, eye, identity, array, asarray, arange, linspace, logspace, empty, shape, ravel, flatten, reshape, transpose, concatenate,
