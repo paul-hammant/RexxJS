@@ -247,7 +247,7 @@
         
         async function runDemo() {
             try {
-                addToHistory('--- Running REXX Demo ---', 'repl-output');
+                addToHistory('--- Running REXX Demo (line-by-line) ---', 'repl-output');
                 
                 // Create interpreter instance
                 const demoInterpreter = new RexxInterpreter(null, {
@@ -256,8 +256,32 @@
                     }
                 });
                 
-                const commands = parse(demoScript);
-                await demoInterpreter.run(commands);
+                // Split demo script into individual lines
+                const lines = demoScript.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0 && !line.startsWith('//'));
+                
+                // Execute each line with a delay, showing command before execution
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    
+                    // Show the command about to be executed
+                    addToHistory(`rexx> ${line}`, 'repl-command');
+                    
+                    // Small delay for readability
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    
+                    try {
+                        // Parse and execute just this line
+                        const commands = parse(line);
+                        await demoInterpreter.run(commands);
+                    } catch (lineError) {
+                        addToHistory(`❌ Error on line: ${lineError.message}`, 'repl-error');
+                    }
+                    
+                    // Pause between commands
+                    await new Promise(resolve => setTimeout(resolve, 400));
+                }
                 
                 addToHistory('✅ Demo completed successfully!', 'repl-output');
                 
