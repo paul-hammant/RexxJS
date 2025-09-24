@@ -283,23 +283,33 @@ test('REPL functionality works with web loader', async ({ page }) => {
   expect(history).toContain('Answer: 42');
   
   // Test REQUIRE functionality  
-  await page.waitForTimeout(1000);
-  await replInput.fill('REQUIRE "../src/r-graphics-functions.js"');
-  await replInput.press('Enter');
-  
   await page.waitForTimeout(2000);
+  
+  // Load the graphics library
+  await replInput.fill('REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js"');
+  await replInput.press('Enter');
+  await page.waitForTimeout(1000);
+  
+  // Create data and histogram
   await replInput.fill('LET data = [1, 2, 3, 4, 5, 4, 3, 2, 1]');
   await replInput.press('Enter');
-  
   await page.waitForTimeout(1000);
+  
+  // Create histogram (should trigger universal render suggestion)
   await replInput.fill('LET h = HIST(data)');
   await replInput.press('Enter');
   
-  // Wait for graphics to render and check if canvas appears
+  // Wait for potential auto-rendering
   await page.waitForTimeout(3000);
   
-  // Check for canvas elements (graphics output)
-  const canvasCount = await page.locator('.repl-graphics canvas').count();
-  // Accept that graphics may not be fully implemented - just check test doesn't crash
-  console.log(`Found ${canvasCount} canvas elements for graphics`);
+  // Check if universal render system is working
+  const hasRenderSystem = await page.evaluate(() => {
+    return window.rexxjs && typeof window.rexxjs.suggestedRenderFunction !== 'undefined';
+  });
+  
+  console.log(`Universal render system available: ${hasRenderSystem}`);
+  
+  // Check for any graphics containers (the new system may create different elements)
+  const graphicsCount = await page.locator('.repl-graphics').count();
+  console.log(`Found ${graphicsCount} graphics containers`);
 });

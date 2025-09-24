@@ -8,7 +8,7 @@
  * @description: R Graphics and Visualization Functions
  * @type: library
  * @detection_function: GRAPHICS_FUNCTIONS_MAIN
- * @functions: HISTOGRAM,HIST,PLOT,SCATTER,BOXPLOT,BARPLOT,PIE,DENSITY,QQPLOT,PAIRS,HEATMAP,CONTOUR,ABLINE,PAR
+ * @functions: HISTOGRAM,HIST,PLOT,SCATTER,BOXPLOT,BARPLOT,PIE,DENSITY,QQPLOT,PAIRS,HEATMAP,CONTOUR,ABLINE,PAR,RENDER
  * @dependencies: []
  * 
  * Copyright (c) 2025 Paul Hammant
@@ -32,6 +32,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+// Helper function to suggest render to REPL
+function suggestRender(plotData, options = {}) {
+  if (typeof window !== 'undefined' && window.rexxjs) {
+    window.rexxjs.suggestedRenderFunction = () => {
+      return rGraphicsFunctions.RENDER({
+        plot: plotData,
+        output: window.rexxjs.renderTarget || 'auto',
+        width: options.width || 800,
+        height: options.height || 600
+      });
+    };
+  }
+}
 
 const rGraphicsFunctions = {
   // Primary detection function (must be first)
@@ -139,6 +153,9 @@ const rGraphicsFunctions = {
         plotData.x = Array.from({length: plotData.x.length}, (_, i) => plotData.x[i]);
       }
 
+      // Suggest render function to REPL
+      suggestRender(plotData, options);
+
       return plotData;
     } catch (e) {
       return { type: 'plot', error: e.message };
@@ -242,7 +259,7 @@ const rGraphicsFunctions = {
           density: numericData.length
         }];
         
-        return {
+        const plotData = {
           type: 'hist',
           data: numericData,
           bins: bins,
@@ -265,6 +282,20 @@ const rGraphicsFunctions = {
           },
           timestamp: new Date().toISOString()
         };
+
+        // Suggest render function to REPL
+        if (typeof window !== 'undefined' && window.rexxjs) {
+          window.rexxjs.suggestedRenderFunction = () => {
+            return rGraphicsFunctions.RENDER({
+              plot: plotData,
+              output: window.rexxjs.renderTarget || 'auto',
+              width: options.width || 800,
+              height: options.height || 600
+            });
+          };
+        }
+
+        return plotData;
       }
       
       const bins = Array.from({length: nBins}, (_, i) => ({
@@ -288,7 +319,7 @@ const rGraphicsFunctions = {
         bin.density = bin.count / totalArea;
       });
 
-      return {
+      const plotData = {
         type: 'hist',
         data: numericData,
         bins: bins,
@@ -311,6 +342,11 @@ const rGraphicsFunctions = {
         },
         timestamp: new Date().toISOString()
       };
+
+      // Suggest render function to REPL
+      suggestRender(plotData, options);
+
+      return plotData;
     } catch (e) {
       return { type: 'hist', error: e.message };
     }
@@ -381,7 +417,7 @@ const rGraphicsFunctions = {
       const data = Array.isArray(height) ? height : [height];
       const numericData = data.map(val => parseFloat(val) || 0);
       
-      return {
+      const plotData = {
         type: 'barplot',
         heights: numericData,
         names: options.names || data.map((_, i) => String(i + 1)),
@@ -403,6 +439,11 @@ const rGraphicsFunctions = {
         },
         timestamp: new Date().toISOString()
       };
+
+      // Suggest render function to REPL
+      suggestRender(plotData, options);
+
+      return plotData;
     } catch (e) {
       return { type: 'barplot', error: e.message };
     }
@@ -426,7 +467,7 @@ const rGraphicsFunctions = {
       const percentages = numericData.map(val => (val / total) * 100);
       const angles = numericData.map(val => (val / total) * 360);
 
-      return {
+      const plotData = {
         type: 'pie',
         values: numericData,
         percentages: percentages,
@@ -445,6 +486,11 @@ const rGraphicsFunctions = {
         },
         timestamp: new Date().toISOString()
       };
+
+      // Suggest render function to REPL
+      suggestRender(plotData, options);
+
+      return plotData;
     } catch (e) {
       return { type: 'pie', error: e.message };
     }
@@ -459,7 +505,7 @@ const rGraphicsFunctions = {
         return { type: 'scatter', error: 'x and y data must have same length' };
       }
 
-      return {
+      const plotData = {
         type: 'scatter',
         x: xData.map(val => parseFloat(val)),
         y: yData.map(val => parseFloat(val)),
@@ -477,6 +523,11 @@ const rGraphicsFunctions = {
         },
         timestamp: new Date().toISOString()
       };
+
+      // Suggest render function to REPL
+      suggestRender(plotData, options);
+
+      return plotData;
     } catch (e) {
       return { type: 'scatter', error: e.message };
     }
@@ -1330,6 +1381,86 @@ const rGraphicsFunctions = {
     } catch (e) {
       return { type: 'abline', error: e.message };
     }
+  },
+
+  // Universal rendering function - works in both NodeJS and Web environments
+  'RENDER': (options = {}) => {
+    try {
+      // Extract parameters
+      const plotData = options.plot || options.data;
+      const output = options.output;
+      const width = options.width || 800;
+      const height = options.height || 600;
+      const format = options.format || 'auto';
+      const margin = options.margin;
+      
+      if (!plotData || !plotData.type) {
+        throw new Error('RENDER: plot parameter is required and must be a valid plot object');
+      }
+      
+      if (!output) {
+        throw new Error('RENDER: output parameter is required');
+      }
+      
+      // Detect environment
+      const isNodeJS = (typeof window === 'undefined');
+      const isWeb = (typeof window !== 'undefined');
+      
+      if (isNodeJS) {
+        // NodeJS: File system rendering
+        try {
+          const path = require('path');
+          const fs = require('fs');
+          
+          // Try to load the histogram renderer
+          let renderPlotToPNG;
+          try {
+            const rendererPath = path.join(__dirname, 'histogram-renderer.js');
+            if (fs.existsSync(rendererPath)) {
+              renderPlotToPNG = require('./histogram-renderer').renderPlotToPNG;
+            } else {
+              // Try relative path
+              renderPlotToPNG = require('./histogram-renderer').renderPlotToPNG;
+            }
+          } catch (e) {
+            throw new Error(`RENDER: Could not load PNG renderer: ${e.message}. Make sure histogram-renderer.js is available.`);
+          }
+          
+          // Set up render options
+          const renderOptions = { width, height };
+          if (margin) renderOptions.margin = margin;
+          
+          // Handle special output targets
+          if (output === 'clipboard') {
+            // For NodeJS, we'd need additional clipboard library
+            throw new Error('RENDER: clipboard output not yet supported in NodeJS mode');
+          }
+          
+          if (output === 'base64') {
+            // Render to temporary file then convert to base64
+            const tempPath = path.join('/tmp', `render-${Date.now()}.png`);
+            const savedPath = renderPlotToPNG(plotData, tempPath, renderOptions);
+            const imageBuffer = fs.readFileSync(savedPath);
+            fs.unlinkSync(savedPath); // Clean up temp file
+            return `data:image/png;base64,${imageBuffer.toString('base64')}`;
+          }
+          
+          // Regular file output
+          const savedPath = renderPlotToPNG(plotData, output, renderOptions);
+          return savedPath;
+          
+        } catch (e) {
+          throw new Error(`RENDER (NodeJS): ${e.message}`);
+        }
+        
+      } else {
+        // Web: DOM rendering
+        return renderPlotToDOM(plotData, output, { width, height, format, margin });
+      }
+      
+    } catch (e) {
+      return { type: 'render', error: e.message };
+    }
   }
 };
 
@@ -1509,7 +1640,7 @@ if (typeof window !== 'undefined') {
       provides: {
         functions: [
           'HIST', 'HIST', 'PLOT', 'SCATTER', 'BOXPLOT', 'BARPLOT', 'PIE',
-          'DENSITY', 'QQPLOT', 'PAIRS', 'HEATMAP', 'CONTOUR', 'ABLINE'
+          'DENSITY', 'QQPLOT', 'PAIRS', 'HEATMAP', 'CONTOUR', 'ABLINE', 'RENDER'
         ]
       },
       dependencies: []

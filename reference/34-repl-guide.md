@@ -113,45 +113,112 @@ REQUIRE lib="../core/src/string-utilities.js" as="str_"
 
 ## Graphics and Visualization
 
-### Creating Charts
+### Universal Graphics System
+
+The REPL features a universal graphics system that works with any compatible graphics library. Charts are automatically rendered when you create plot objects.
+
+### Loading Graphics Libraries
 
 ```rexx
-// Load graphics library
-REQUIRE lib="../core/src/r-graphics-functions.js"
+// Load R-inspired graphics library
+REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js"
 
-// Create data
+// Create data  
 LET sales_data = [120, 135, 140, 128, 155, 142, 138]
 
-// Create histogram  
-LET histogram = HIST data=sales_data bins=5 title="Weekly Sales"
-
-// Display the chart
-SHOW histogram
+// Create and auto-render histogram
+LET histogram = HIST data=sales_data main="Weekly Sales" col="steelblue"
+// 📊 Plot auto-rendered successfully
 ```
 
 ### Chart Types
 
 #### Histogram
 ```rexx
-LET hist = HIST data=[1,2,2,3,3,3,4,4,5] bins=5 title="Distribution"
-SHOW hist
+LET data = [1,2,2,3,3,3,4,4,5]
+LET hist = HIST data=data main="Distribution" col="lightblue"
+// Auto-renders to DOM
 ```
 
-#### Scatter Plot
+#### Scatter Plot  
 ```rexx
-LET scatter = R_SCATTER x=[1,2,3,4,5] y=[2,4,1,5,3] title="Correlation"
-SHOW scatter
+LET x = [1,2,3,4,5]
+LET y = [2,4,1,5,3] 
+LET scatter = SCATTER x=x y=y main="Correlation" col="red"
+// Auto-renders to DOM
 ```
 
-#### Box Plot
+#### Bar Plot
 ```rexx
-LET boxplot = R_BOXPLOT data=[10,12,14,15,18,20,22,25,28] title="Summary Stats"
-SHOW boxplot
+LET values = [10,20,15,25,30]
+LET names = ["A","B","C","D","E"]
+LET barplot = BARPLOT heights=values names=names main="Categories" col="orange"
+// Auto-renders to DOM
+```
+
+#### Box Plot  
+```rexx
+LET data = [10,12,14,15,18,20,22,25,28]
+LET boxplot = BOXPLOT data=data main="Summary Stats" col="lightgreen"
+// Auto-renders to DOM
+```
+
+### Graphics Control
+
+The REPL provides several graphics control commands:
+
+```rexx
+// Disable auto-rendering
+window.rexxjs.setAutoRender(false)
+
+// Create plot (won't auto-render)  
+LET hist = HIST data=[1,2,3,4,5]
+// 📊 Plot ready for rendering (auto-render disabled)
+
+// Manually render the last suggested plot
+window.rexxjs.renderSuggested()
+// 📊 Plot rendered manually
+
+// Re-enable auto-rendering
+window.rexxjs.setAutoRender(true)
+
+// Set custom render target
+window.rexxjs.setRenderTarget("#my-chart-div")
 ```
 
 ### Graphics Display
 
-The REPL automatically displays graphics when you use the `SHOW` command. Charts appear inline with your command history.
+- **Auto-rendering (default)**: Charts appear automatically when plot objects are created
+- **Manual rendering**: Disable auto-render and use `window.rexxjs.renderSuggested()` 
+- **Custom targets**: Direct plots to specific DOM elements
+- **Universal compatibility**: Works with any graphics library implementing the suggestion pattern
+
+### Universal Graphics Architecture
+
+The REPL uses a universal graphics system that works with any compatible library:
+
+1. **Graphics functions suggest renders**: When you call `HIST()`, `SCATTER()`, etc., the function sets `window.rexxjs.suggestedRenderFunction`
+
+2. **REPL checks for suggestions**: After each command, the REPL checks if a render was suggested
+
+3. **Auto-render or notify**: Depending on `autoRenderMode`, the REPL either:
+   - Auto-renders the plot to the DOM
+   - Notifies you that a plot is ready for manual rendering
+
+4. **Library independence**: Any graphics library can implement this pattern - it's not limited to R-inspired functions
+
+**Example of how it works:**
+```rexx
+// 1. Function suggests render
+LET hist = HIST data=[1,2,3]  // Sets window.rexxjs.suggestedRenderFunction
+
+// 2. REPL detects suggestion after command execution
+// 3. REPL auto-renders (if enabled) or notifies user
+// 📊 Plot auto-rendered successfully
+
+// You can also inspect the suggestion:
+window.rexxjs.suggestedRenderFunction  // Function that would render the plot
+```
 
 ## Command History
 
@@ -253,14 +320,28 @@ rexx> LET hist = HIST data=[1,2,3]  // Error: HIST not found
 rexx> LET hist = plot_HIST data=[1,2,3]  // Works!
 ```
 
-#### Graphics Not Displaying
+#### Graphics Not Auto-Rendering
 
-**Problem:** Created chart but it doesn't appear
+**Problem:** Created plot but it doesn't appear automatically
 
 **Solutions:**
-- Use the `SHOW` command: `SHOW histogram`
-- Check that graphics library is loaded
-- Ensure data is valid format
+- Check that auto-rendering is enabled: `window.rexxjs.autoRenderMode` should be `true`
+- Manually trigger render: `window.rexxjs.renderSuggested()`
+- Check that graphics library is loaded properly
+- Ensure data is in valid format for the plot type
+- Check browser console for RENDER() errors
+
+**Example:**
+```rexx
+// Enable auto-rendering if disabled
+window.rexxjs.setAutoRender(true)
+
+// Create plot (should auto-render)
+LET hist = HIST data=[1,2,3,4,5] main="Test"
+
+// Or manually render if needed
+window.rexxjs.renderSuggested()
+```
 
 #### Command History Not Working
 
@@ -311,28 +392,28 @@ LET scatter = SCATTER x=large_dataset y=large_dataset title="Correlation"
 
 ```rexx
 // 1. Load required libraries
-REQUIRE lib="../core/src/r-graphics-functions.js" as="R_"
-REQUIRE lib="../core/src/r-summary-functions.js" as="stats_"
+REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js"
+REQUIRE "../../extras/functions/r-inspired/math-stats/r-summary-functions.js"
 
 // 2. Create or load data
 LET sales = [125, 130, 140, 135, 155, 142, 138, 145, 160, 158]
 
-// 3. Calculate summary statistics
-LET mean_sales = stats_MEAN data=sales
-LET median_sales = stats_MEDIAN data=sales
-LET std_dev = stats_SD data=sales
+// 3. Calculate summary statistics  
+LET mean_sales = MEAN data=sales
+LET median_sales = MEDIAN data=sales
+LET std_dev = SD data=sales
 
-// 4. Create visualizations
-LET histogram = R_HIST data=sales bins=5 title="Sales Distribution" 
-SHOW histogram
+// 4. Create visualizations (auto-render)
+LET histogram = HIST data=sales main="Sales Distribution" col="steelblue"
+// 📊 Plot auto-rendered successfully
 
-LET boxplot = R_BOXPLOT data=sales title="Sales Summary"
-SHOW boxplot
+LET boxplot = BOXPLOT data=sales main="Sales Summary" col="lightgreen" 
+// 📊 Plot auto-rendered successfully
 
 // 5. Report results
 SAY "Sales Analysis Results:"
 SAY "Mean: {mean_sales}"
-SAY "Median: {median_sales}"  
+SAY "Median: {median_sales}"
 SAY "Standard Deviation: {std_dev}"
 ```
 

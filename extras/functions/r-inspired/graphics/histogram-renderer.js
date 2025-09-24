@@ -27,7 +27,6 @@
 const fs = require('fs');
 const path = require('path');
 const { createCanvas } = require('canvas');
-const { rGraphicsFunctions } = require('../../extras/functions/r-inspired/graphics/r-graphics-functions');
 
 // Simple linear scale function to replace D3
 function createLinearScale(domain, range) {
@@ -38,6 +37,19 @@ function createLinearScale(domain, range) {
   return function(value) {
     return rangeMin + (value - domainMin) * scale;
   };
+}
+
+// Simple heatmap color function
+function getHeatmapColor(normalized, colorscheme = 'default') {
+  // Clamp value between 0 and 1
+  const value = Math.max(0, Math.min(1, normalized));
+  
+  // Default color scheme: blue to red
+  const red = Math.round(255 * value);
+  const blue = Math.round(255 * (1 - value));
+  const green = Math.round(128 * (1 - Math.abs(value - 0.5) * 2));
+  
+  return `rgb(${red}, ${green}, ${blue})`;
 }
 
 /**
@@ -1169,7 +1181,7 @@ function renderHeatmapToPNG(heatmapData, outputPath, renderOptions = {}) {
   // Create gradient for legend
   for (let i = 0; i < legendHeight; i++) {
     const normalized = i / (legendHeight - 1);
-    const color = rGraphicsFunctions.getHeatmapColor(1 - normalized, options.colorscheme);
+    const color = getHeatmapColor(1 - normalized, options.colorscheme);
     context.fillStyle = color;
     context.fillRect(legendX, legendY + i, legendWidth, 1);
   }

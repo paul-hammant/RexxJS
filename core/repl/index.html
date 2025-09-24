@@ -110,6 +110,19 @@
     <button onclick="showDemo()" id="show-btn" disabled>Show Demo Script</button>
     <button onclick="clearOutput()">Clear Output</button>
     
+    <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 5px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="auto-render-checkbox" checked style="margin-right: 8px;">
+                <span>Auto-render graphics</span>
+            </label>
+            <button onclick="manualRender()" id="manual-render-btn" disabled style="padding: 4px 12px; font-size: 0.9em;">
+                📊 Render Last Plot
+            </button>
+        </div>
+        <small style="color: #666;">Automatically display charts when created, or use manual render button</small>
+    </div>
+    
     <div class="repl-container">
         <div id="repl-history" class="repl-history">
             <div class="repl-welcome">Click "Load REXX Interpreter" to begin...</div>
@@ -122,8 +135,6 @@
     
     <!-- Load only the web loader -->
     <script src="../src/interpreter-web-loader.js"></script>
-    <!-- Load browser-compatible R graphics renderer -->
-    <script src="../../extras/functions/r-inspired/graphics/histogram-browser-renderer.js"></script>
     
     <script>
         const statusDiv = document.getElementById('status');
@@ -136,6 +147,31 @@
         let interpreter = null;
         let commandHistory = [];
         let historyIndex = -1;
+        
+        // Initialize universal graphics rendering system
+        window.rexxjs = {
+            autoRenderMode: true,                  // Auto-render plots by default
+            suggestedRenderFunction: null,         // Function suggestions from graphics libs
+            renderTarget: 'auto',                  // Let RENDER choose DOM target
+            
+            // Configuration methods
+            setAutoRender: (enabled) => { window.rexxjs.autoRenderMode = enabled; },
+            setRenderTarget: (selector) => { window.rexxjs.renderTarget = selector; },
+            
+            // Manual render trigger
+            renderSuggested: () => {
+                if (window.rexxjs.suggestedRenderFunction) {
+                    try {
+                        const result = window.rexxjs.suggestedRenderFunction();
+                        if (result) {
+                            addToHistory(`📊 Plot rendered manually`, 'repl-output');
+                        }
+                    } catch (error) {
+                        addToHistory(`❌ Render failed: ${error.message}`, 'repl-error');
+                    }
+                }
+            }
+        };
         
         // Demo REXX script showcasing various features
         const demoScript = `
@@ -196,9 +232,13 @@
                 replHistory.innerHTML = ''; // Clear loading message
                 addToHistory('REXX REPL ready! Type REXX commands and press Enter.', 'repl-welcome');
                 addToHistory('Use ↑/↓ arrows for command history. Use REQUIRE to load libraries.', 'repl-welcome');
-                addToHistory('Example: REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js"', 'repl-welcome');
-                addToHistory('With prefix: REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js" AS "math_"', 'repl-welcome');
-                addToHistory('With regex: REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js" AS "gfx_(.*)"', 'repl-welcome');
+                addToHistory('Graphics Example: REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js"', 'repl-welcome');
+                addToHistory('Then try: LET data = [1,2,3,4,5]; LET h = HIST(data); (auto-renders)', 'repl-welcome');
+                addToHistory('Universal rendering works with any compatible graphics library!', 'repl-welcome');
+                addToHistory('Graphics Controls:', 'repl-welcome');
+                addToHistory('  window.rexxjs.setAutoRender(false) - Disable auto-rendering', 'repl-welcome');
+                addToHistory('  window.rexxjs.renderSuggested() - Manually render last plot', 'repl-welcome');
+                addToHistory('  window.rexxjs.setRenderTarget("#my-div") - Set custom target', 'repl-welcome');
                 replInputContainer.style.display = 'flex';
                 replInput.focus();
                 scrollToBottom();
@@ -286,34 +326,25 @@
             scrollToBottom();
         }
         
-        function addGraphicsToHistory(plotData, title) {
-            // Create a unique canvas element
-            const canvasId = 'repl-canvas-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-            const canvas = document.createElement('canvas');
-            canvas.id = canvasId;
-            canvas.width = 400;
-            canvas.height = 300;
-            
-            const graphicsDiv = document.createElement('div');
-            graphicsDiv.className = 'repl-graphics';
-            graphicsDiv.appendChild(canvas);
-            
-            const info = document.createElement('div');
-            info.className = 'graphics-info';
-            info.textContent = title || `${plotData.type} plot generated`;
-            graphicsDiv.appendChild(info);
-            
-            replHistory.appendChild(graphicsDiv);
-            
-            // Render the plot to the canvas
-            try {
-                renderPlotToCanvas(plotData, canvasId);
-            } catch (error) {
-                info.textContent = `Graphics error: ${error.message}`;
-                info.style.color = '#f48771';
+        function createGraphicsContainer(containerId = null) {
+            // Create unique container ID if not provided
+            if (!containerId) {
+                containerId = 'repl-graphics-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
             }
             
+            const graphicsDiv = document.createElement('div');
+            graphicsDiv.id = containerId;
+            graphicsDiv.className = 'repl-graphics';
+            
+            replHistory.appendChild(graphicsDiv);
             scrollToBottom();
+            
+            return graphicsDiv;
+        }
+        
+        function addGraphicsInfo(message, type = 'success') {
+            const color = type === 'error' ? '#f48771' : '#4ec9b0';
+            addToHistory(message, 'repl-output');
         }
         
         function scrollToBottom() {
@@ -333,6 +364,9 @@
             addToHistory(`rexx> ${command}`, 'repl-command');
             
             try {
+                // Clear previous render suggestions
+                window.rexxjs.suggestedRenderFunction = null;
+                
                 // Create or reuse interpreter instance
                 if (!interpreter) {
                     interpreter = new RexxInterpreter(null, {
@@ -344,6 +378,36 @@
                 
                 const commands = parse(command);
                 await interpreter.run(commands);
+                
+                // Check for render suggestions after command execution
+                if (window.rexxjs.suggestedRenderFunction) {
+                    if (window.rexxjs.autoRenderMode) {
+                        try {
+                            // Auto-render the suggested plot
+                            const renderResult = window.rexxjs.suggestedRenderFunction();
+                            
+                            if (typeof renderResult === 'string') {
+                                // If it's a DOM selector or element ID, find and display it
+                                const element = document.getElementById(renderResult) || document.querySelector(renderResult);
+                                if (element) {
+                                    addGraphicsInfo(`📊 Plot auto-rendered to ${renderResult}`);
+                                } else {
+                                    addGraphicsInfo(`📊 Plot rendered (output: ${renderResult})`);
+                                }
+                            } else {
+                                addGraphicsInfo(`📊 Plot auto-rendered successfully`);
+                            }
+                        } catch (renderError) {
+                            addGraphicsInfo(`❌ Auto-render failed: ${renderError.message}`, 'error');
+                        }
+                    } else {
+                        // Just notify that render is available
+                        addGraphicsInfo(`📊 Plot ready for rendering (auto-render disabled). Use window.rexxjs.renderSuggested() to render manually.`);
+                    }
+                }
+                
+                // Update manual render button state
+                updateManualRenderButton();
                 
             } catch (error) {
                 addToHistory(`Error: ${error.message}`, 'repl-error');
@@ -393,16 +457,42 @@
             }
         }
         
+        function manualRender() {
+            if (window.rexxjs && window.rexxjs.suggestedRenderFunction) {
+                window.rexxjs.renderSuggested();
+            } else {
+                addToHistory('No plot available to render', 'repl-error');
+            }
+        }
+        
+        function updateManualRenderButton() {
+            const manualBtn = document.getElementById('manual-render-btn');
+            if (window.rexxjs && window.rexxjs.suggestedRenderFunction) {
+                manualBtn.disabled = false;
+                manualBtn.style.opacity = '1';
+            } else {
+                manualBtn.disabled = true;
+                manualBtn.style.opacity = '0.6';
+            }
+        }
+        
         // Add event listeners
         document.addEventListener('DOMContentLoaded', function() {
             replInput.addEventListener('keydown', handleKeyDown);
             
-            // Listen for SHOW command graphics events
-            window.addEventListener('rexx-graphics', function(event) {
-                const plotData = event.detail.plotData;
-                const command = event.detail.command;
-                addGraphicsToHistory(plotData, `${command}: ${plotData.type} plot`);
+            // Auto-render checkbox handler
+            const autoRenderCheckbox = document.getElementById('auto-render-checkbox');
+            // Initialize checkbox state to match window.rexxjs.autoRenderMode
+            autoRenderCheckbox.checked = window.rexxjs.autoRenderMode;
+            
+            autoRenderCheckbox.addEventListener('change', function() {
+                window.rexxjs.setAutoRender(this.checked);
+                const status = this.checked ? 'enabled' : 'disabled';
+                addToHistory(`Auto-rendering ${status}`, 'repl-output');
             });
+            
+            // Initialize manual render button state
+            updateManualRenderButton();
             
             // Keep focus on input when clicking in the REPL area (but not when selecting text)
             document.querySelector('.repl-container').addEventListener('click', function(event) {
