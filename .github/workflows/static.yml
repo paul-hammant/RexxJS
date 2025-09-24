@@ -39,8 +39,6 @@ jobs:
           mkdir -p _site
           # Copy core/src contents (including redirect index.html, CNAME, .nojekyll) 
           cp -r core/src/* _site/
-          # Copy core/repl directory to _site/repl/
-          cp -r core/repl _site/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
