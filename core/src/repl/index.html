@@ -232,13 +232,8 @@
                 replHistory.innerHTML = ''; // Clear loading message
                 addToHistory('REXX REPL ready! Type REXX commands and press Enter.', 'repl-welcome');
                 addToHistory('Use ↑/↓ arrows for command history. Use REQUIRE to load libraries.', 'repl-welcome');
-                addToHistory('Graphics Example: REQUIRE "../../extras/functions/r-inspired/graphics/graphics-functions.js"', 'repl-welcome');
-                addToHistory('Then try: LET data = [1,2,3,4,5]; LET h = HIST(data); (auto-renders)', 'repl-welcome');
-                addToHistory('Universal rendering works with any compatible graphics library!', 'repl-welcome');
-                addToHistory('Graphics Controls:', 'repl-welcome');
-                addToHistory('  window.rexxjs.setAutoRender(false) - Disable auto-rendering', 'repl-welcome');
-                addToHistory('  window.rexxjs.renderSuggested() - Manually render last plot', 'repl-welcome');
-                addToHistory('  window.rexxjs.setRenderTarget("#my-div") - Set custom target', 'repl-welcome');
+                addToHistory('Library Example: REQUIRE "org.rexxjs/graphviz-functions"', 'repl-welcome');
+                addToHistory('Try: SAY "Hello, REXX!" or explore library functions.', 'repl-welcome');
                 replInputContainer.style.display = 'flex';
                 replInput.focus();
                 scrollToBottom();
