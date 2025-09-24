@@ -11,6 +11,8 @@
         .error { background: #f8d7da; border: 1px solid #f5c6cb; }
         button { padding: 10px 20px; margin: 5px; }
         button:disabled { opacity: 0.6; cursor: not-allowed; }
+        select { padding: 8px 12px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        select:disabled { opacity: 0.6; cursor: not-allowed; }
         
         .repl-container { 
             background: #1e1e1e; 
@@ -110,8 +112,16 @@
     <div id="status" class="status loading">Click "Load REXX" to start</div>
     
     <button onclick="loadRexx()">Load REXX Interpreter</button>
-    <button onclick="runDemo()" id="run-btn" disabled>Run Demo Script</button>
-    <button onclick="showDemo()" id="show-btn" disabled>Show Demo Script</button>
+    <div style="display: inline-block; margin: 5px;">
+        <select id="demo-select" disabled>
+            <option value="">Choose Demo...</option>
+            <option value="basic">Basic REXX Features</option>
+            <option value="require">Library Loading (REQUIRE)</option>
+            <option value="histogram">R Histogram Visualization</option>
+        </select>
+        <button onclick="runSelectedDemo()" id="run-demo-btn" disabled>Run Demo</button>
+        <button onclick="showSelectedDemo()" id="show-demo-btn" disabled>Show Code</button>
+    </div>
     <button onclick="clearOutput()">Clear Output</button>
     
     <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">
@@ -142,8 +152,9 @@
     
     <script>
         const statusDiv = document.getElementById('status');
-        const runBtn = document.getElementById('run-btn');
-        const showBtn = document.getElementById('show-btn');
+        const demoSelect = document.getElementById('demo-select');
+        const runDemoBtn = document.getElementById('run-demo-btn');
+        const showDemoBtn = document.getElementById('show-demo-btn');
         const replHistory = document.getElementById('repl-history');
         const replInputContainer = document.getElementById('repl-input-container');
         const replInput = document.getElementById('repl-input');
@@ -177,8 +188,9 @@
             }
         };
         
-        // Demo REXX script showcasing various features
-        const demoScript = `
+        // Demo REXX scripts showcasing various features
+        const demoScripts = {
+            basic: `
                     SAY "=== REXX Web Loader Demo ==="
 
                     // Variables and string interpolation
@@ -202,15 +214,63 @@
                     LET urlParts = URL_PARSE url=url
                     SAY "Host: " || urlParts.hostname || ", Port: " || urlParts.port
                     
-                    // Control flow
-                    IF parsed.score > 90 THEN
-                        SAY "Excellent score!"
-                    ELSE
-                        SAY "Good effort!"
-                    ENDIF
+                    // Simple conditional check
+                    SAY "Score evaluation: " || parsed.score || " points"
                     
                     SAY "=== Demo Complete ==="
-        `.trim();
+        `.trim(),
+            
+            require: `
+                    SAY "=== Library Loading Demo ==="
+                    
+                    // Load a graphics library
+                    SAY "Loading R-inspired graphics library..."
+                    REQUIRE "org.rexxjs/r-graphics-functions"
+                    
+                    // Create some sample data
+                    LET dataJson = "[1, 4, 2, 8, 5, 7, 3, 9, 6, 4]"
+                    LET data = JSON_PARSE text=dataJson
+                    SAY "Sample data: " || dataJson
+                    
+                    // Calculate basic statistics
+                    LET mean = MEAN data=data
+                    LET max_val = MAX data=data
+                    LET min_val = MIN data=data
+                    
+                    SAY "Mean: " || mean
+                    SAY "Max: " || max_val
+                    SAY "Min: " || min_val
+                    
+                    // Library loading demonstration complete
+                    SAY "✅ Library functions now available for use!"
+                    SAY "=== Demo Complete ==="
+        `.trim(),
+            
+            histogram: `
+                    SAY "=== R Histogram Visualization Demo ==="
+                    
+                    // Load the R graphics library
+                    SAY "Loading R-inspired graphics library..."
+                    REQUIRE "org.rexxjs/r-graphics-functions"
+                    
+                    // Create histogram data
+                    LET dataJson = "[1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 6]"
+                    LET data = JSON_PARSE text=dataJson
+                    SAY "Dataset: " || dataJson
+                    
+                    // Generate histogram
+                    SAY "Creating histogram with 5 bins..."
+                    LET histogram = HIST data=data breaks=5 main="Sample Data Distribution" col="steelblue"
+                    
+                    // Display histogram info
+                    SAY "Histogram type: " || histogram.type
+                    SAY "Bins: " || histogram.breaks.length
+                    
+                    // The histogram will auto-render if graphics mode is enabled
+                    SAY "📊 Histogram created! Check graphics panel above."
+                    SAY "=== Demo Complete ==="
+        `.trim()
+        };
         
         function updateStatus(message, type = 'loading') {
             statusDiv.textContent = message;
@@ -229,8 +289,9 @@
                 });
                 
                 updateStatus('✅ REXX Interpreter loaded successfully!', 'success');
-                runBtn.disabled = false;
-                showBtn.disabled = false;
+                demoSelect.disabled = false;
+                runDemoBtn.disabled = false;
+                showDemoBtn.disabled = false;
                 
                 // Initialize REPL
                 replHistory.innerHTML = ''; // Clear loading message
@@ -249,7 +310,25 @@
             }
         }
         
-        async function runDemo() {
+        async function runSelectedDemo() {
+            const selectedDemo = demoSelect.value;
+            if (!selectedDemo) {
+                addToHistory('❌ Please select a demo first', 'repl-error');
+                return;
+            }
+            await runDemo(selectedDemo);
+        }
+        
+        function showSelectedDemo() {
+            const selectedDemo = demoSelect.value;
+            if (!selectedDemo) {
+                addToHistory('❌ Please select a demo first', 'repl-error');
+                return;
+            }
+            showDemo(selectedDemo);
+        }
+        
+        async function runDemo(demoType = 'basic') {
             try {
                 addToHistory('🚀 Running REXX Demo - Watch each command execute step by step!', 'repl-output');
                 addToHistory('', 'repl-output'); // Add blank line for spacing
@@ -261,8 +340,15 @@
                     }
                 });
                 
+                // Get the selected demo script
+                const selectedScript = demoScripts[demoType];
+                if (!selectedScript) {
+                    addToHistory(`❌ Demo "${demoType}" not found`, 'repl-error');
+                    return;
+                }
+                
                 // Split demo script into individual lines
-                const lines = demoScript.split('\n')
+                const lines = selectedScript.split('\n')
                     .map(line => line.trim())
                     .filter(line => line.length > 0 && !line.startsWith('//'));
                 
@@ -270,8 +356,8 @@
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
                     
-                    // Show the command about to be executed with step number
-                    addToHistory(`Step ${i + 1}: ${line}`, 'repl-command');
+                    // Show the command about to be executed
+                    addToHistory(`rexx> ${line}`, 'repl-command');
                     
                     // Quick delay for readability 
                     await new Promise(resolve => setTimeout(resolve, 600));
@@ -302,11 +388,23 @@
             }
         }
         
-        function showDemo() {
-            addToHistory('--- Demo Script Source Code ---', 'repl-output');
+        function showDemo(demoType = 'basic') {
+            const selectedScript = demoScripts[demoType];
+            if (!selectedScript) {
+                addToHistory(`❌ Demo "${demoType}" not found`, 'repl-error');
+                return;
+            }
+            
+            const demoNames = {
+                basic: 'Basic REXX Features',
+                require: 'Library Loading (REQUIRE)',
+                histogram: 'R Histogram Visualization'
+            };
+            
+            addToHistory(`--- ${demoNames[demoType]} Demo Source Code ---`, 'repl-output');
             
             // Display the script with syntax highlighting-style formatting
-            const lines = demoScript.split('\n');
+            const lines = selectedScript.split('\n');
             const formattedScript = lines.map((line, index) => {
                 const lineNum = String(index + 1).padStart(2, ' ');
                 return `${lineNum}: ${line}`;
