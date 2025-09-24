@@ -1,0 +1,2 @@
+# This file tells GitHub Pages to serve files directly without Jekyll processing
+# This is important for the REPL to work correctly with its JavaScript modules
