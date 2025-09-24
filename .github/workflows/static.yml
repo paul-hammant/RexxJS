@@ -33,11 +33,19 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Prepare site structure
+        run: |
+          # Create a temporary directory for the site
+          mkdir -p _site
+          # Copy core/src contents (including redirect index.html, CNAME, .nojekyll) 
+          cp -r core/src/* _site/
+          # Copy core/repl directory to _site/repl/
+          cp -r core/repl _site/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload RexxJS and its repl subdir
-          path: 'core/src'
+          # Upload the prepared site structure
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
