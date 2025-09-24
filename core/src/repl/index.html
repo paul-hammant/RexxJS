@@ -59,8 +59,12 @@
         }
         
         .repl-command { 
-            color: #d4d4d4; 
-            margin: 2px 0; 
+            color: #4fc3f7; 
+            background: rgba(79, 195, 247, 0.1);
+            margin: 8px 0 4px 0; 
+            padding: 6px 12px;
+            border-left: 4px solid #4fc3f7;
+            font-weight: bold;
             user-select: text; 
         }
         
@@ -247,12 +251,13 @@
         
         async function runDemo() {
             try {
-                addToHistory('--- Running REXX Demo (line-by-line) ---', 'repl-output');
+                addToHistory('🚀 Running REXX Demo - Watch each command execute step by step!', 'repl-output');
+                addToHistory('', 'repl-output'); // Add blank line for spacing
                 
                 // Create interpreter instance
                 const demoInterpreter = new RexxInterpreter(null, {
                     output: (text) => {
-                        addToHistory(text, 'repl-output');
+                        addToHistory(`   → ${text}`, 'repl-output'); // Indent output
                     }
                 });
                 
@@ -265,25 +270,31 @@
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
                     
-                    // Show the command about to be executed
-                    addToHistory(`rexx> ${line}`, 'repl-command');
+                    // Show the command about to be executed with step number
+                    addToHistory(`Step ${i + 1}: ${line}`, 'repl-command');
                     
-                    // Small delay for readability
-                    await new Promise(resolve => setTimeout(resolve, 800));
+                    // Quick delay for readability 
+                    await new Promise(resolve => setTimeout(resolve, 600));
                     
                     try {
                         // Parse and execute just this line
                         const commands = parse(line);
                         await demoInterpreter.run(commands);
                     } catch (lineError) {
-                        addToHistory(`❌ Error on line: ${lineError.message}`, 'repl-error');
+                        addToHistory(`   ❌ Error: ${lineError.message}`, 'repl-error');
                     }
                     
-                    // Pause between commands
-                    await new Promise(resolve => setTimeout(resolve, 400));
+                    // Add separator between commands except for the last one
+                    if (i < lines.length - 1) {
+                        addToHistory('', 'repl-output'); // Blank line separator
+                    }
+                    
+                    // Short pause between commands
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
                 
-                addToHistory('✅ Demo completed successfully!', 'repl-output');
+                addToHistory('', 'repl-output'); // Add blank line before completion
+                addToHistory('✅ Demo completed! Now you can try your own REXX commands below.', 'repl-output');
                 
             } catch (error) {
                 addToHistory(`❌ Demo failed: ${error.message}`, 'repl-error');
