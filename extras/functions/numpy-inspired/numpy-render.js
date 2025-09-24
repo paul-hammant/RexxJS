@@ -37,14 +37,21 @@ if (numpyFunctions && typeof numpyFunctions === 'object') {
  * @param {string} params.colormap - Color scheme ('viridis', 'hot', 'cool', 'grayscale')
  * @returns {string} Output identifier (file path or DOM element ID)
  */
-function RENDER(params) {
-    // Parameter parsing and defaults
-    const data = params.data || params.plot;
-    const output = params.output || 'auto';
-    const width = params.width || 800;
-    const height = params.height || 600;
-    const title = params.title || params.main || 'NumPy Visualization';
-    const colormap = params.colormap || params.cmap || 'viridis';
+const RENDER = (options = {}) => {
+    // Parameter parsing and defaults - match r-graphics pattern
+    let data = options.plot || options.data;
+    
+    // If data is not found in expected parameters, check if options itself is data
+    // This handles cases where RexxJS passes the data object directly as options
+    if (!data && (options.bins || options.counts || options.hist || options.eigenvalues || Array.isArray(options))) {
+        data = options;
+    }
+    
+    const output = options.output || 'auto';
+    const width = options.width || 800;
+    const height = options.height || 600;
+    const title = options.title || options.main || 'NumPy Visualization';
+    const colormap = options.colormap || options.cmap || 'viridis';
 
     if (!data) {
         throw new Error('RENDER: data parameter is required');
@@ -376,8 +383,8 @@ function renderArray1D(data, options) {
  */
 
 function createCanvas(width, height) {
-    if (typeof window !== 'undefined') {
-        // Browser environment
+    if (typeof document !== 'undefined') {
+        // Browser environment - check for document instead of window
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;

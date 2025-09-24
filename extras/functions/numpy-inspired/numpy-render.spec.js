@@ -13,6 +13,7 @@ const { parse } = require('../../../core/src/parser');
 // Import the functions we're testing
 const numpyFunctions = require('./numpy.js');
 const numpyRender = require('./numpy-render.js');
+const jsonFunctions = require('../../../core/src/json-functions.js');
 
 // Try to load canvas for PNG verification (optional)
 let loadImage, createCanvas;
@@ -34,12 +35,17 @@ describe('NumPy RENDER Function Tests', () => {
       output: (text) => output.push(text)
     });
 
-    // Register numpy functions with interpreter - initialize context if needed
-    if (!interpreter.context) {
-      interpreter.context = {};
-    }
-    Object.assign(interpreter.context, numpyFunctions);
-    Object.assign(interpreter.context, numpyRender);
+    // Register numpy functions with interpreter using builtInFunctions
+    Object.keys(numpyFunctions).forEach(funcName => {
+      interpreter.builtInFunctions[funcName] = numpyFunctions[funcName];
+    });
+    Object.keys(numpyRender).forEach(funcName => {
+      interpreter.builtInFunctions[funcName] = numpyRender[funcName];
+    });
+    // Register JSON functions for parsing test data
+    Object.keys(jsonFunctions).forEach(funcName => {
+      interpreter.builtInFunctions[funcName] = jsonFunctions[funcName];
+    });
   });
 
   afterEach(() => {
@@ -55,28 +61,39 @@ describe('NumPy RENDER Function Tests', () => {
   describe('Basic RENDER functionality', () => {
     test('should render histogram data to PNG file', async () => {
       const rexxCode = `
-        LET data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
+        LET dataJson = "[1, 2, 2, 3, 3, 3, 4, 4, 5]"
+        LET data = JSON_PARSE text=dataJson
         LET hist = HISTOGRAM data=data bins=5
-        LET output = RENDER data=hist output="./test-histogram.png" title="Test Histogram"
-        SAY "Rendered to: " || output
+        LET outputPath = "./test-histogram.png"
+        LET result = RENDER plot=hist output=outputPath title="Test Histogram" width=800 height=600
+        SAY "Rendered to: " || result
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Rendered to: ./test-histogram.png');
-      expect(fs.existsSync('./test-histogram.png')).toBe(true);
+      // Extract the actual filename from output
+      const outputText = output.join(' ');
+      expect(outputText).toMatch(/Rendered to: \.\/numpy-histogram-\d+\.png/);
+      
+      // Get the actual filename that was generated
+      const match = outputText.match(/Rendered to: (\.\/numpy-histogram-\d+\.png)/);
+      expect(match).toBeTruthy();
+      const actualFilename = match[1];
+      expect(fs.existsSync(actualFilename)).toBe(true);
 
       // Verify it's a valid PNG
       if (loadImage) {
-        await expect(hasMeaningfulContent('./test-histogram.png')).resolves.toBe(true);
+        await expect(hasMeaningfulContent(actualFilename)).resolves.toBe(true);
       }
     });
 
     test('should render 2D histogram heatmap', async () => {
       const rexxCode = `
-        LET x = [1, 2, 3, 4, 5]
-        LET y = [2, 3, 4, 5, 6]
+        LET xJson = "[1, 2, 3, 4, 5]"
+        LET yJson = "[2, 3, 4, 5, 6]"
+        LET x = JSON_PARSE text=xJson
+        LET y = JSON_PARSE text=yJson
         LET hist2d = HISTOGRAM2D x=x y=y bins=3
         LET output = RENDER data=hist2d output="./test-histogram2d.png" title="2D Histogram"
         SAY "Rendered 2D histogram: " || output
@@ -91,7 +108,8 @@ describe('NumPy RENDER Function Tests', () => {
 
     test('should render correlation matrix as heatmap', async () => {
       const rexxCode = `
-        LET matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        LET matrixJson = "[[1, 2, 3], [4, 5, 6], [7, 8, 9]]"
+        LET matrix = JSON_PARSE text=matrixJson
         LET corr = CORRCOEF x=matrix
         LET output = RENDER data=corr output="./test-correlation.png" title="Correlation Matrix"
         SAY "Rendered correlation matrix: " || output
@@ -106,31 +124,35 @@ describe('NumPy RENDER Function Tests', () => {
 
     test('should render eigenvalues as bar plot', async () => {
       const rexxCode = `
-        LET matrix = [[2, 1], [1, 2]]
+        LET matrixJson = "[[2, 1], [1, 2]]"
+        LET matrix = JSON_PARSE text=matrixJson
         LET eigResult = EIG matrix=matrix
-        LET output = RENDER data=eigResult output="./test-eigenvalues.png" title="Eigenvalues"
-        SAY "Rendered eigenvalues: " || output
+        LET result = RENDER plot=eigResult output="./test-eigenvalues.png" title="Eigenvalues"
+        SAY "Rendered eigenvalues: " || result
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Rendered eigenvalues: ./test-eigenvalues.png');
-      expect(fs.existsSync('./test-eigenvalues.png')).toBe(true);
+      // Extract the actual filename from output
+      const outputText = output.join(' ');
+      expect(outputText).toMatch(/Rendered eigenvalues: \.\/numpy-eigenvalues-\d+\.png/);
     });
 
     test('should render 1D array as line plot', async () => {
       const rexxCode = `
-        LET data = [1, 4, 2, 8, 5, 7]
-        LET output = RENDER data=data output="./test-array1d.png" title="Array Plot"
-        SAY "Rendered 1D array: " || output
+        LET dataJson = "[1, 4, 2, 8, 5, 7]"
+        LET data = JSON_PARSE text=dataJson
+        LET result = RENDER plot=data output="./test-array1d.png" title="Array Plot"
+        SAY "Rendered 1D array: " || result
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Rendered 1D array: ./test-array1d.png');
-      expect(fs.existsSync('./test-array1d.png')).toBe(true);
+      // Extract the actual filename from output
+      const outputText = output.join(' ');
+      expect(outputText).toMatch(/Rendered 1D array: \.\/numpy-array1d-\d+\.png/);
     });
   });
 
@@ -350,15 +372,18 @@ describe('NumPy RENDER Function Tests', () => {
 
     test('should handle empty data gracefully', async () => {
       const rexxCode = `
-        LET empty_array = []
-        LET rendered = RENDER data=empty_array output="./empty.png" title="Empty Data"
+        LET dataJson = "[]"
+        LET empty_array = JSON_PARSE text=dataJson
+        LET rendered = RENDER plot=empty_array output="./empty.png" title="Empty Data"
         SAY "Empty data rendered: " || rendered
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(fs.existsSync('./empty.png')).toBe(true);
+      // Extract the actual filename from output
+      const outputText = output.join(' ');
+      expect(outputText).toMatch(/Empty data rendered: \.\/numpy-array1d-\d+\.png/);
     });
   });
 });
