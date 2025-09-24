@@ -166,10 +166,123 @@ Classic Rexx subroutine support for modular programming with parameter passing a
 ```rexx
 CALL subroutine_name             -- Call with no arguments
 CALL subroutine_name arg1        -- Call with one argument  
-CALL subroutine_name arg1, arg2  -- Call with multiple arguments
+CALL subroutine_name arg1 arg2   -- Call with multiple arguments (space-separated)
 RETURN                           -- Return to caller
 RETURN value                     -- Return with value
 ```
+
+### External Script Calling
+
+RexxJS supports calling external REXX scripts as subroutines using the same CALL syntax:
+
+```rexx
+CALL "./path/to/script.rexx"     -- Call external script (quoted, relative path)
+CALL "../other/script.rexx" a b  -- Call with parameters (space-separated)
+LET result = CALL external.rexx data_array  -- Call with native objects
+```
+
+#### Native Object Preservation
+
+**CALL operations preserve JavaScript native object types**, distinguishing RexxJS from traditional POSIX parameter passing:
+
+- **JavaScript arrays** remain as arrays (not converted to strings)
+- **JavaScript objects** remain as objects with all properties
+- **Numbers** remain as numeric types (not converted to strings)
+- **Booleans** and other native types are preserved
+
+```rexx
+-- Main script
+LET myArray = [10, 20, 30, "test"]
+CALL process_array.rexx myArray
+
+-- In process_array.rexx:
+PARSE ARG received_param
+SAY "Type: " || DATATYPE(received_param)     -- "ARRAY"
+SAY "Length: " || LENGTH(received_param)     -- 4
+SAY "First: " || ARRAY_GET(received_param, 1) -- 10 (1-based REXX indexing)
+```
+
+#### CALL vs ADDRESS System Parameter Passing
+
+RexxJS distinguishes between two parameter passing approaches:
+
+| Operation | Parameter Handling | Use Case |
+|-----------|-------------------|----------|
+| `CALL script.rexx` | **Native objects preserved** | Script-to-script communication |
+| `ADDRESS system 'rexx script.rexx'` | **POSIX string conversion** | System command compatibility |
+
+```rexx
+-- Native object preservation (CALL)
+LET data = [1, 2, 3]
+CALL processor.rexx data        -- Array passed as JavaScript array
+
+-- POSIX string conversion (ADDRESS system)  
+LET data = [1, 2, 3]
+ADDRESS system 'rexx processor.rexx ' || data  -- Array converted to "1,2,3"
+```
+
+#### Variable Isolation
+
+External scripts called via CALL have **complete variable isolation**:
+- Each called script has its own variable space
+- No variable sharing between calling and called scripts  
+- Changes to variables in called scripts don't affect the caller
+
+```rexx
+-- Main script
+LET name = "main"
+CALL sub.rexx
+SAY name  -- Still "main"
+
+-- In sub.rexx:
+LET name = "subroutine"  -- Does not affect main script's 'name'
+RETURN
+```
+
+#### Pass-by-Reference Semantics for Objects and Arrays
+
+**Objects and arrays passed to external scripts via CALL support true pass-by-reference semantics**, meaning mutations made in the called script are visible to the caller:
+
+```rexx
+-- Main script
+LET myArray = [10, 20, 30]
+LET myObject = {"name": "original", "value": 42}
+
+SAY "Before: " || ARRAY_GET(myArray, 1)     -- 10
+SAY "Before: " || ARRAY_GET(myObject, "name") -- "original"
+
+CALL modifier.rexx myArray, myObject
+
+SAY "After: " || ARRAY_GET(myArray, 1)      -- 999 (modified!)
+SAY "After: " || ARRAY_GET(myObject, "name") -- "CHANGED" (modified!)
+```
+
+```rexx
+-- In modifier.rexx:
+PARSE ARG arr, obj
+
+-- Modify array elements (mutations visible to caller)
+LET result1 = ARRAY_SET(arr, 0, 999)        -- Change first element
+LET result2 = ARRAY_SET(arr, 2, "new")      -- Change third element
+
+-- Modify object properties (mutations visible to caller)  
+LET result3 = ARRAY_SET(obj, "name", "CHANGED")
+LET result4 = ARRAY_SET(obj, "newProp", "added")
+
+RETURN
+```
+
+**Key Benefits:**
+- **Efficient data sharing**: Large objects/arrays aren't copied, just referenced
+- **True object mutation**: Changes persist across script boundaries
+- **JavaScript-native behavior**: Objects behave as they would in regular JavaScript
+- **Performance**: No serialization/deserialization overhead
+
+**Use Cases:**
+- Data processing pipelines that modify shared data structures
+- Configuration objects that need updates from multiple scripts  
+- Large datasets that need incremental modifications
+- Collaborative data manipulation across script boundaries
 
 ### Subroutine Structure
 ```rexx
@@ -324,3 +437,15 @@ LET final_result = VALIDATE data=processed_data
 - Start with TRACE I for general debugging
 - Use TRACE A for detailed step-by-step analysis
 - Always turn off tracing when debugging is complete
+### Argument Styles for CALL
+- External script calls use space-separated positional arguments only.
+- Commas between arguments are not supported.
+- External script names must be quoted and use a relative prefix ("./" or "../"). This keeps scripts portable across Node and browsers without bundlers.
+- Examples:
+  - `CALL "./path/to/script.rexx" arg1 arg2`
+  - With expressions: `CALL "./path/to/script.rexx" COPY(myArray) COPY(myObject)`
+
+### COPY() and Cross-Script Semantics
+- Strings and other primitives are passed by value.
+- Arrays/objects are passed by reference by default.
+- Use `COPY(value)` to deep copy before CALL if you do not want the callee to mutate your original.

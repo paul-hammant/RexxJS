@@ -264,7 +264,27 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
     
     // Check if this is an external script call (contains .rexx or path separators)
     if (isExternalScriptCallFn(actualSubroutineName)) {
-      const result = await executeExternalScriptFn(actualSubroutineName, args);
+      // Evaluate arguments before passing to external script (same logic as internal subroutines)
+      const evaluatedArgs = [];
+      for (let i = 0; i < args.length; i++) {
+        let argValue;
+        
+        // Evaluate argument value
+        if (typeof args[i] === 'string') {
+          if ((args[i].startsWith('"') && args[i].endsWith('"')) ||
+              (args[i].startsWith("'") && args[i].endsWith("'"))) {
+            argValue = args[i].slice(1, -1); // Remove quotes
+          } else {
+            argValue = variables.get(args[i]) || args[i];
+          }
+        } else {
+          argValue = await evaluateExpressionFn(args[i]);  // AWAIT the evaluation of COPY() calls!
+        }
+        
+        evaluatedArgs.push(argValue);
+      }
+      
+      const result = await executeExternalScriptFn(actualSubroutineName, evaluatedArgs);
       popExecutionContextFn();
       return result;
     }
@@ -408,11 +428,9 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
  * @returns {boolean} True if this looks like an external script call
  */
 function isExternalScriptCall(subroutineName) {
-  // Check if the name looks like a file path
-  return subroutineName.includes('.rexx') || 
-         subroutineName.includes('/') || 
-         subroutineName.includes('\\') ||
-         subroutineName.includes('.') && !subroutineName.includes(' ');
+  // External scripts must start with ./ or ../ (relative paths)
+  // This follows REXX convention where external scripts are explicitly referenced with relative paths
+  return subroutineName.startsWith('./') || subroutineName.startsWith('../');
 }
 
 // UMD pattern for both Node.js and browser compatibility

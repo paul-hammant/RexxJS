@@ -23,6 +23,43 @@
  * SOFTWARE.
  */
 
+// Helper function to determine REXX-style data types for JavaScript values
+function getDataType(value) {
+  if (value === null || value === undefined) {
+    return 'NULL';
+  }
+  
+  if (Array.isArray(value)) {
+    return 'ARRAY';
+  }
+  
+  if (typeof value === 'string') {
+    // Check if string represents a number
+    if (!isNaN(parseFloat(value)) && isFinite(value)) {
+      return 'NUM';
+    }
+    return 'CHAR';
+  }
+  
+  if (typeof value === 'number') {
+    return 'NUM';
+  }
+  
+  if (typeof value === 'boolean') {
+    return 'BOOL';
+  }
+  
+  if (typeof value === 'object') {
+    return 'OBJECT';
+  }
+  
+  if (typeof value === 'function') {
+    return 'FUNCTION';
+  }
+  
+  return 'UNKNOWN';
+}
+
 const validationFunctions = {
   'IS_EMAIL': (email) => {
     try {
@@ -426,6 +463,21 @@ const validationFunctions = {
       return false;
     } catch (e) {
       return false;
+    }
+  },
+
+  'DATATYPE': (value, type) => {
+    try {
+      // If type is provided, check if value matches that type
+      if (type !== undefined) {
+        const actualType = getDataType(value);
+        return actualType === String(type).toUpperCase();
+      }
+      
+      // If no type provided, return the actual type
+      return getDataType(value);
+    } catch (e) {
+      return 'UNKNOWN';
     }
   }
 

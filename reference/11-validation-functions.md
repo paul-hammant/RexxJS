@@ -2,6 +2,64 @@
 
 Comprehensive data validation functions for input validation, data integrity checking, and format verification in automation workflows.
 
+## Data Type Identification
+
+### DATATYPE Function
+
+Identify the REXX-style data type of any JavaScript value, with full support for native object types.
+
+```rexx
+-- Get data type
+LET type = DATATYPE value
+LET isType = DATATYPE value, expectedType
+
+-- Examples with different types
+LET arrayType = DATATYPE [1, 2, 3]           -- "ARRAY"
+LET numberType = DATATYPE 42                 -- "NUM"
+LET stringType = DATATYPE "hello"            -- "CHAR" 
+LET objectType = DATATYPE {"key": "value"}   -- "OBJECT"
+LET boolType = DATATYPE true                 -- "BOOL"
+LET nullType = DATATYPE null                 -- "NULL"
+
+-- Type checking (returns boolean)
+LET isArray = DATATYPE myVar, "ARRAY"        -- true/false
+LET isNumber = DATATYPE value, "NUM"         -- true/false
+```
+
+#### Supported Data Types
+
+| Type | JavaScript Value | REXX Type | Description |
+|------|-----------------|-----------|-------------|
+| `ARRAY` | `[1, 2, 3]` | ARRAY | JavaScript arrays |
+| `NUM` | `42`, `3.14` | NUM | Numbers (integer/float) |  
+| `CHAR` | `"hello"` | CHAR | String values |
+| `OBJECT` | `{key: value}` | OBJECT | JavaScript objects |
+| `BOOL` | `true`, `false` | BOOL | Boolean values |
+| `NULL` | `null`, `undefined` | NULL | Null/undefined values |
+| `FUNCTION` | `function() {}` | FUNCTION | Function objects |
+| `UNKNOWN` | Other | UNKNOWN | Unrecognized types |
+
+#### Integration with Native Object Preservation
+
+The DATATYPE function is essential when working with external REXX scripts and native object preservation:
+
+```rexx
+-- Main script
+LET data = [10, 20, 30]
+CALL processor.rexx data
+
+-- In processor.rexx:
+PARSE ARG received_param
+IF DATATYPE(received_param) = "ARRAY" THEN DO
+    SAY "Received array with " || LENGTH(received_param) || " elements"
+    LET first = ARRAY_GET(received_param, 1)
+    SAY "First element: " || first
+END
+ELSE DO
+    SAY "Expected array, got: " || DATATYPE(received_param)
+END
+```
+
 ## Email and Web Validation
 
 ### Email Address Validation
@@ -636,6 +694,10 @@ ENDIF
 ```
 
 ## Function Reference
+
+### Data Type Identification
+- `DATATYPE(value)` - Get REXX-style data type of any value
+- `DATATYPE(value, expectedType)` - Check if value matches expected type
 
 ### Email and Web
 - `IS_EMAIL(email)` - Validate email address format

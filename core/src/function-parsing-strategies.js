@@ -111,6 +111,9 @@ const FunctionParsingStrategies = {
   'FIND': 'FUNCTION_CALL',
   'SEARCH': 'FUNCTION_CALL',
 
+  // Data functions
+  'COPY': 'FUNCTION_CALL',
+
   // Default strategy for unknown functions
   'DEFAULT': 'AUTO_DETECT'
 };

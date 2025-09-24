@@ -35,6 +35,15 @@ const stringFunctions = {
   },
 
   'LENGTH': (str) => {
+    // Handle arrays directly without converting to strings
+    if (Array.isArray(str)) {
+      return str.length;
+    }
+    // Handle objects (return number of properties)
+    if (typeof str === 'object' && str !== null) {
+      return Object.keys(str).length;
+    }
+    // For strings and other types, convert to string and return length
     if (typeof str !== 'string') str = String(str);
     return str.length;
   },

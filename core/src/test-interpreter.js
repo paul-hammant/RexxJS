@@ -8,11 +8,13 @@ const { RexxInterpreter } = require('./interpreter.js');
 
 class TestRexxInterpreter extends RexxInterpreter {
   constructor(addressSender, variables = {}, outputHandler = null, commandLineArgs = [], options = {}) {
-    // Provide a default no-op addressSender for tests if not supplied
-    const defaultSender = addressSender && typeof addressSender.send === 'function' ? addressSender : {
-      send: async () => ({ success: true })
+    // Require explicit addressSender - don't provide default that masks real issues
+    const sender = addressSender && typeof addressSender.send === 'function' ? addressSender : {
+      send: async (command) => {
+        throw new Error(`Test attempted to use ADDRESS command '${command}' but no addressSender was provided. Tests must provide explicit addressSender for any ADDRESS commands they use.`);
+      }
     };
-    super(defaultSender, variables, outputHandler);
+    super(sender, variables, outputHandler);
     
     // Store test runner options
     this.testOptions = options;

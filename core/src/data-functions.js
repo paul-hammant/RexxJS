@@ -184,6 +184,44 @@ const dataFunctions = {
     } catch (e) {
       return '{}';
     }
+  },
+
+  'COPY': (value) => {
+    try {
+      // Handle null and undefined
+      if (value === null || value === undefined) {
+        return value;
+      }
+      
+      // For primitives (string, number, boolean), return as-is (already immutable)
+      if (typeof value !== 'object') {
+        return value;
+      }
+      
+      // Use structuredClone for modern browsers/Node.js (v17+)
+      if (typeof structuredClone !== 'undefined') {
+        try {
+          const cloned = structuredClone(value);
+          return cloned;
+        } catch (structuredCloneError) {
+          // If structuredClone fails (e.g., functions), try JSON fallback
+          try {
+            return JSON.parse(JSON.stringify(value));
+          } catch (jsonError) {
+            // If both fail, return original
+            return value;
+          }
+        }
+      }
+      
+      // Fallback: JSON parse/stringify for deep cloning
+      // This works for most cases but has limitations (functions, undefined, symbols, etc.)
+      return JSON.parse(JSON.stringify(value));
+    } catch (e) {
+      // If deep cloning fails, return original value
+      // This maintains function behavior even with uncloneable objects
+      return value;
+    }
   }
 
   //TODO insert more data processing functions here

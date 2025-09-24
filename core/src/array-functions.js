@@ -26,14 +26,47 @@
 const arrayFunctions = {
   'ARRAY_GET': (array, key) => {
     if (typeof array === 'object' && array !== null) {
-      return array[key];
+      if (Array.isArray(array)) {
+        // Handle REXX 1-based indexing for arrays
+        const numKey = Number(key);
+        if (!isNaN(numKey) && Number.isInteger(numKey) && numKey >= 1) {
+          // Convert REXX 1-based index to JavaScript 0-based  
+          return array[numKey - 1];
+        } else if (numKey === 0) {
+          // Index 0 is treated as property on the array object
+          return array[key];
+        } else {
+          // Non-numeric key, treat as property
+          return array[key];
+        }
+      } else {
+        // For objects, use key directly
+        return array[key];
+      }
     }
     return '';
   },
 
   'ARRAY_SET': (array, key, value) => {
     if (typeof array === 'object' && array !== null) {
-      array[key] = value;
+      if (Array.isArray(array)) {
+        // Handle REXX 1-based indexing for arrays
+        // Convert REXX index (1-based) to JavaScript index (0-based) for numeric keys
+        const numKey = Number(key);
+        if (!isNaN(numKey) && Number.isInteger(numKey) && numKey >= 1) {
+          // Convert REXX 1-based index to JavaScript 0-based
+          array[numKey - 1] = value;
+        } else if (numKey === 0) {
+          // Index 0 is treated as property on the array object
+          array[key] = value;
+        } else {
+          // Non-numeric key, treat as property
+          array[key] = value;
+        }
+      } else {
+        // For objects, use key directly
+        array[key] = value;
+      }
       return array;
     }
     return {};

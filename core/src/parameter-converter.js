@@ -1544,34 +1544,43 @@ function convertParamsToArgs(functionName, params) {
             ];
 
         case 'ARRAY_GET':
-            // Array/object and key (convert 1-based REXX index to 0-based JavaScript index for arrays)
+            // Array/object and key - let ARRAY_GET function handle REXX indexing conversion
             const arrayGetArray = params.array || params.object || params.obj || Object.values(params)[0] || {};
-            const arrayGetKey = params.key || params.index || Object.values(params)[1] || '';
-
-            // If it's an array and the key is numeric, convert from 1-based to 0-based indexing
-            let convertedKey = arrayGetKey;
-            if (Array.isArray(arrayGetArray) && !isNaN(arrayGetKey) && arrayGetKey !== '') {
-                const numericIndex = parseInt(arrayGetKey);
-                if (numericIndex >= 1) {
-                    convertedKey = numericIndex - 1; // Convert 1-based to 0-based
-                }
-            }
-
-            return [arrayGetArray, convertedKey];
+            // Use nullish coalescing for key to properly handle 0
+            const arrayGetKey = params.key ?? params.index ?? Object.values(params)[1] ?? '';
+            return [arrayGetArray, arrayGetKey];
 
         case 'ARRAY_SET':
             // Array/object, key, and value
-            return [
-                params.array || params.object || params.obj || Object.values(params)[0] || {},
-                params.key || params.index || Object.values(params)[1] || '',
-                params.value || Object.values(params)[2] || ''
-            ];
+            // Handle both named and positional parameters
+            if (params.array || params.object || params.obj) {
+                // Named parameters
+                return [
+                    params.array || params.object || params.obj,
+                    params.key ?? params.index,
+                    params.value
+                ];
+            } else {
+                // Positional parameters: ARRAY_SET(array, key, value)
+                const values = Object.values(params);
+                return [
+                    values[0] || {},           // array
+                    values[1] !== undefined ? values[1] : '',  // key (preserve 0 as valid key)
+                    values[2] !== undefined ? values[2] : ''   // value
+                ];
+            }
 
         case 'REQUIRE':
             // Library name and optional AS clause
             return [
                 params.lib || params.library || params.name || params.value || Object.values(params)[0] || '',
                 params.as || params.asClause || params.prefix || Object.values(params)[1] || null
+            ];
+
+        case 'COPY':
+            // Single parameter to deep copy
+            return [
+                params.value || params.object || params.data || Object.values(params)[0]
             ];
 
         default:

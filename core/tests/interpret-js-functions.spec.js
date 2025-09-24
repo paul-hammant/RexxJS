@@ -101,7 +101,7 @@ describe('INTERPRET_JS and JS_EVAL Functions', () => {
             await interpreter.run(commands);
             
             expect(interpreter.getVariable('mathResult')).toBe(11);
-            expect(interpreter.getVariable('stringResult')).toBe('HelloWorld');
+            expect(interpreter.getVariable('stringResult')).toBe('Hello World');
             expect(interpreter.getVariable('boolResult')).toBe(true);
         });
 

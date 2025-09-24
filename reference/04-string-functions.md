@@ -23,6 +23,10 @@ LET proper = PROPER string="hello world"         -- "Hello World"
 ```rexx
 LET length = LENGTH string="Hello"               -- 5
 LET reversed = REVERSE string="hello"            -- "olleh"
+
+-- Enhanced LENGTH: works with arrays and objects  
+LET arrayLen = LENGTH [1, 2, 3, 4]               -- 4 (array length)
+LET objectLen = LENGTH {"a": 1, "b": 2}          -- 2 (object property count)
 ```
 
 ### String Cleaning

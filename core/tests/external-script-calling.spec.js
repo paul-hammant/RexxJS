@@ -46,9 +46,9 @@ describe('External REXX Script Calling', () => {
   });
 
   test('should detect external script calls correctly', () => {
-    // Test the detection logic
-    expect(interpreter.isExternalScriptCall('test.rexx')).toBe(true);
-    expect(interpreter.isExternalScriptCall('path/to/script.rexx')).toBe(true);
+    // Test the detection logic - only relative paths starting with ./ or ../ are external
+    expect(interpreter.isExternalScriptCall('test.rexx')).toBe(false);
+    expect(interpreter.isExternalScriptCall('path/to/script.rexx')).toBe(false);
     expect(interpreter.isExternalScriptCall('./relative/script.rexx')).toBe(true);
     expect(interpreter.isExternalScriptCall('../parent/script.rexx')).toBe(true);
     expect(interpreter.isExternalScriptCall('RegularSubroutine')).toBe(false);
@@ -66,8 +66,9 @@ describe('External REXX Script Calling', () => {
     fs.writeFileSync(testScriptPath, externalScript);
     
     // Main script that calls the external one
+    const rel = './' + path.relative(process.cwd(), testScriptPath).replace(/\\/g, '/');
     const mainScript = `
-      LET external_result = CALL ${testScriptPath}
+      LET external_result = CALL "${rel}"
     `;
 
     await interpreter.run(parse(mainScript));
@@ -86,9 +87,10 @@ describe('External REXX Script Calling', () => {
     fs.writeFileSync(testScriptPath, externalScript);
     
     // Main script that calls external with argument
+    const rel2 = './' + path.relative(process.cwd(), testScriptPath).replace(/\\/g, '/');
     const mainScript = `
       LET input = 15
-      LET result = CALL ${testScriptPath} input
+      LET result = CALL "${rel2}" input
     `;
 
     await interpreter.run(parse(mainScript));
@@ -107,11 +109,12 @@ describe('External REXX Script Calling', () => {
     fs.writeFileSync(testScriptPath, externalScript);
     
     // Main script that calls external with multiple arguments
+    const rel3 = './' + path.relative(process.cwd(), testScriptPath).replace(/\\/g, '/');
     const mainScript = `
       LET a = 10
       LET b = 20
       LET c = 30
-      LET total = CALL ${testScriptPath} a b c
+      LET total = CALL "${rel3}" a b c
     `;
 
     await interpreter.run(parse(mainScript));
@@ -130,10 +133,11 @@ describe('External REXX Script Calling', () => {
     fs.writeFileSync(testScriptPath, externalScript);
     
     // Main script with same variable names
+    const rel4 = './' + path.relative(process.cwd(), testScriptPath).replace(/\\/g, '/');
     const mainScript = `
       LET local_var = "main value"
       LET shared_name = "from main"
-      LET result = CALL ${testScriptPath}
+      LET result = CALL "${rel4}"
       -- Variables should remain unchanged in main script
     `;
 
@@ -146,17 +150,18 @@ describe('External REXX Script Calling', () => {
   });
 
   test('should handle external script that calls another external script', async () => {
+    // Create second external script first (needed for path reference)
+    const secondScriptPath = path.join(tempDir, 'second.rexx');
+    
     // Create first external script
     const firstScriptPath = path.join(tempDir, 'first.rexx');
+    const secondRel = './' + path.relative(process.cwd(), secondScriptPath).replace(/\\/g, '/');
     const firstScript = `
       PARSE ARG value
       LET intermediate = value * 2
-      LET final_result = CALL ${path.join(tempDir, 'second.rexx')} intermediate
+      LET final_result = CALL "${secondRel}" intermediate
       RETURN final_result
     `;
-    
-    // Create second external script
-    const secondScriptPath = path.join(tempDir, 'second.rexx');
     const secondScript = `
       PARSE ARG input
       LET output = input + 5
@@ -167,9 +172,10 @@ describe('External REXX Script Calling', () => {
     fs.writeFileSync(secondScriptPath, secondScript);
     
     // Main script
+    const firstRel = './' + path.relative(process.cwd(), firstScriptPath).replace(/\\/g, '/');
     const mainScript = `
       LET initial = 10
-      LET result = CALL ${firstScriptPath} initial
+      LET result = CALL "${firstRel}" initial
     `;
 
     await interpreter.run(parse(mainScript));
@@ -185,8 +191,9 @@ describe('External REXX Script Calling', () => {
   test('should handle missing external script gracefully', async () => {
     const nonExistentPath = path.join(tempDir, 'missing.rexx');
     
+    const missingRel = './' + path.relative(process.cwd(), nonExistentPath).replace(/\\/g, '/');
     const mainScript = `
-      LET result = CALL ${nonExistentPath}
+      LET result = CALL "${missingRel}"
     `;
 
     // Should throw an error when trying to call non-existent script
@@ -202,8 +209,9 @@ describe('External REXX Script Calling', () => {
     
     fs.writeFileSync(scriptWithExt, externalScript);
     
+    const extRel = './' + path.relative(process.cwd(), scriptWithExt).replace(/\\/g, '/');
     const mainScript = `
-      LET result = CALL ${scriptWithExt}
+      LET result = CALL "${extRel}"
     `;
 
     await interpreter.run(parse(mainScript));
@@ -226,7 +234,7 @@ describe('External REXX Script Calling', () => {
     fs.writeFileSync(absolutePath, externalScript);
     
     const mainScript = `
-      LET result = CALL ${relativeScript}
+      LET result = CALL "${relativeScript}"
     `;
 
     await interpreter.run(parse(mainScript));
@@ -248,8 +256,9 @@ describe('External REXX Script Calling', () => {
     fs.writeFileSync(testScriptPath, externalScript);
     
     // Main script with multiple arguments including spaces
+    const parseRel = './' + path.relative(process.cwd(), testScriptPath).replace(/\\/g, '/');
     const mainScript = `
-      LET result = CALL ${testScriptPath} "hello world" ignored "test value" "extra ignored"
+      LET result = CALL "${parseRel}" "hello world" ignored "test value" "extra ignored"
     `;
 
     await interpreter.run(parse(mainScript));

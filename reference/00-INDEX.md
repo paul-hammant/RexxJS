@@ -279,3 +279,8 @@ Execution in Node.js environments (desktop, server, docker-style container or VM
 **Total Functions:** 400+ built-in functions across all categories
 **Language Features:** Complete Rexx implementation with modern enhancements
 **Security:** Sandboxing, isolation, and cryptographic functions built-in
+### 📚 [Function Libraries](12-function-libraries.md)
+- Built‑ins vs third‑party
+- Positional vs named arguments
+- External script CALL semantics
+- COPY() and pass‑by semantics

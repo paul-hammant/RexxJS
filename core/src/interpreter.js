@@ -1155,13 +1155,13 @@ class RexxInterpreter {
             case 'expression':
               // Force expression mode - always wrap with return
               const exprFunc = new Function(...varNames, `return (${jsCode})`);
-              result = exprFunc(...varValues);
+              result = exprFunc.call(this, ...varValues);
               break;
               
             case 'statement':
               // Force statement mode - execute as-is
               const stmtFunc = new Function(...varNames, jsCode);
-              result = stmtFunc(...varValues);
+              result = stmtFunc.call(this, ...varValues);
               break;
               
             case 'auto':
@@ -1169,12 +1169,12 @@ class RexxInterpreter {
               // Try expression first, fall back to statement
               try {
                 const func = new Function(...varNames, `return (${jsCode})`);
-                result = func(...varValues);
+                result = func.call(this, ...varValues);
               } catch (e) {
                 // If expression fails, try as function body (for statements)
                 try {
                   const func = new Function(...varNames, jsCode);
-                  result = func(...varValues);
+                  result = func.call(this, ...varValues);
                 } catch (e2) {
                   // If both fail, throw the expression error (more informative)
                   throw e;
@@ -4977,23 +4977,10 @@ class RexxInterpreter {
       externalInterpreter.variables.set('__PARENT_SCRIPT__', true);
 
       // Pass arguments to the external script as ARG.1, ARG.2, etc.
+      // Note: args are already evaluated by the caller (interpreter-parse-subroutine.js)
       for (let i = 0; i < args.length; i++) {
-        let argValue;
-        
-        // Evaluate argument value in parent context
-        if (typeof args[i] === 'string') {
-          if ((args[i].startsWith('"') && args[i].endsWith('"')) ||
-              (args[i].startsWith("'") && args[i].endsWith("'"))) {
-            argValue = args[i].slice(1, -1); // Remove quotes
-          } else {
-            argValue = this.variables.get(args[i]) || args[i];
-          }
-        } else {
-          argValue = this.evaluateExpression(args[i]);
-        }
-
-        // Set arguments in external script context
-        externalInterpreter.variables.set(`ARG.${i + 1}`, argValue);
+        // Arguments are already evaluated, just use them directly
+        externalInterpreter.variables.set(`ARG.${i + 1}`, args[i]);
       }
 
       // Set ARG.0 to argument count

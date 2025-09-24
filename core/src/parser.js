@@ -396,7 +396,8 @@ function parseStatement(tokens, startIndex) {
   }
   
   // CALL statement - support both CALL name and CALL (variable) syntax
-  const callMatch = line.match(/^CALL\s+(?:\(([^)]+)\)|(\w+))(?:\s+(.*))?/i);
+  // Updated to handle quoted paths like "./script.rexx"
+  const callMatch = line.match(/^CALL\s+(?:\(([^)]+)\)|(".*?"|'.*?'|\S+))(?:\s+(.*))?/i);
   if (callMatch) {
     const variableName = callMatch[1]; // from (variable) syntax
     const directName = callMatch[2];   // from traditional syntax
@@ -404,7 +405,15 @@ function parseStatement(tokens, startIndex) {
     
     // Determine if this is a variable reference or direct name
     const isVariableCall = variableName !== undefined;
-    const subroutineName = isVariableCall ? variableName : directName.toUpperCase();
+    let subroutineName = isVariableCall ? variableName : directName;
+    
+    // Strip quotes from direct names (for external script paths)
+    if (!isVariableCall && ((subroutineName.startsWith('"') && subroutineName.endsWith('"')) || 
+                            (subroutineName.startsWith("'") && subroutineName.endsWith("'")))) {
+      subroutineName = subroutineName.slice(1, -1);
+    } else if (!isVariableCall) {
+      subroutineName = subroutineName.toUpperCase();
+    }
     
     // Parse arguments - use comma separation if commas present, otherwise space separation
     const args = [];
@@ -459,7 +468,18 @@ function parseStatement(tokens, startIndex) {
           current += char;
         } else if (char === separator && !inQuotes && parenLevel === 0) {
           if (current.trim()) {
-            args.push(current.trim());
+            const arg = current.trim();
+            // Check if this argument looks like a function call and parse it as expression
+            if (callIsFunctionCallExpression(arg)) {
+              const funcCall = parseFunctionCall(arg);
+              if (funcCall) {
+                args.push(funcCall);
+              } else {
+                args.push(arg);
+              }
+            } else {
+              args.push(arg);
+            }
             current = '';
           }
         } else {
@@ -468,7 +488,19 @@ function parseStatement(tokens, startIndex) {
       }
       
       if (current.trim()) {
-        args.push(current.trim());
+        const arg = current.trim();
+        // Check if this argument looks like a function call and parse it as expression
+        if (callIsFunctionCallExpression(arg)) {
+          const funcCall = parseFunctionCall(arg);
+          if (funcCall) {
+            args.push(funcCall);
+          } else {
+            args.push(arg);
+          }
+        } else {
+          args.push(arg);
+        }
+        // Final argument parsed
       }
     }
     
@@ -594,6 +626,8 @@ function parseStatement(tokens, startIndex) {
     const variableName = letMatch[1];
     const expression = letMatch[2];
     
+    // Debug logging removed
+    
     // Check if it's a heredoc pattern (<<DELIMITER)
     const heredocMatch = expression.match(/^<<([A-Za-z_][A-Za-z0-9_]*)$/);
     if (heredocMatch) {
@@ -625,7 +659,8 @@ function parseStatement(tokens, startIndex) {
     }
     
     // Check if it's a CALL command assignment: LET var = CALL ...
-    const callMatch = expression.match(/^CALL\s+(?:\(([^)]+)\)|(\w+|\S+))(?:\s+(.*))?/i);
+    // Updated to handle quoted paths like "./script.rexx"  
+    const callMatch = expression.match(/^CALL\s+(?:\(([^)]+)\)|(".*?"|'.*?'|\S+))(?:\s+(.*))?/i);
     if (callMatch) {
       const variableName_call = callMatch[1]; // from (variable) syntax
       const directName = callMatch[2];   // from traditional syntax
@@ -633,7 +668,15 @@ function parseStatement(tokens, startIndex) {
       
       // Determine if this is a variable reference or direct name
       const isVariableCall = variableName_call !== undefined;
-      const subroutineName = isVariableCall ? variableName_call : directName;
+      let subroutineName = isVariableCall ? variableName_call : directName;
+      
+      // Strip quotes from direct names (for external script paths)
+      if (!isVariableCall && ((subroutineName.startsWith('"') && subroutineName.endsWith('"')) || 
+                              (subroutineName.startsWith("'") && subroutineName.endsWith("'")))) {
+        subroutineName = subroutineName.slice(1, -1);
+      } else if (!isVariableCall) {
+        subroutineName = subroutineName.toUpperCase();
+      }
       
       // Parse arguments - split by comma but respect quotes
       const args = [];
@@ -655,7 +698,18 @@ function parseStatement(tokens, startIndex) {
             current += char;
           } else if (char === ' ' && !inQuotes) {
             if (current.trim()) {
-              args.push(current.trim());
+              const arg = current.trim();
+              // Check if this argument looks like a function call and parse it as expression
+              if (callIsFunctionCallExpression(arg)) {
+                const funcCall = parseFunctionCall(arg);
+                if (funcCall) {
+                  args.push(funcCall);
+                } else {
+                  args.push(arg);
+                }
+              } else {
+                args.push(arg);
+              }
               current = '';
             }
           } else {
@@ -664,7 +718,18 @@ function parseStatement(tokens, startIndex) {
         }
         
         if (current.trim()) {
-          args.push(current.trim());
+          const arg = current.trim();
+          // Check if this argument looks like a function call and parse it as expression
+          if (callIsFunctionCallExpression(arg)) {
+            const funcCall = parseFunctionCall(arg);
+            if (funcCall) {
+              args.push(funcCall);
+            } else {
+              args.push(arg);
+            }
+          } else {
+            args.push(arg);
+          }
         }
       }
       
@@ -750,6 +815,8 @@ function parseStatement(tokens, startIndex) {
     // Try parsing as mathematical expression FIRST (if it has operators, numbers, or variables)
     // This takes precedence over function calls to handle expressions like "LENGTH(x) + 3"
     const expr = parseExpression(expression);
+    
+    // Debug logging removed
     
     if (expr !== null) {
       return {
@@ -1320,11 +1387,16 @@ function parseFunctionCall(line) {
     return null;
   }
   
+  // Debug logging removed
+  
   const parts = line.match(/([a-zA-Z_]\w*)\s*(.*)/);
   if (!parts) return null;
 
   const command = parts[1];
   const argsStr = parts[2];
+  
+  // Debug logging removed
+  
   const params = {};
 
   if (argsStr && argsStr.trim().length > 0) {
@@ -1355,6 +1427,8 @@ function parseFunctionCall(line) {
           while (i < remaining.length) {
             const char = remaining[i];
             
+            // Debug logging removed
+            
             if (!inQuotes && (char === '"' || char === "'")) {
               inQuotes = true;
               quoteChar = char;
@@ -1373,7 +1447,7 @@ function parseFunctionCall(line) {
               // End of this argument
               break;
             } else if (!inQuotes && parenCount === 0 && char === ' ') {
-              // End of this argument (space separator)
+              // End of this argument (space separator) - but only if not in quotes!
               break;
             } else {
               argValue += char;
@@ -1576,6 +1650,8 @@ function parseSelectStatement(tokens, startIndex) {
 function parseExpression(exprStr) {
   const expr = exprStr.trim();
   
+  // Debug logging removed
+  
   // Handle array access first, e.g., "myArray[5]" or "myArray[other_var]"
   const arrayAccessMatch = expr.match(/^([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\[(.+?)\]$/);
   if (arrayAccessMatch) {
@@ -1611,6 +1687,7 @@ function parseExpression(exprStr) {
   // First check if this looks like a mathematical expression (contains operators or parentheses)
   if (expr.match(/[+\-*/%()]|\*\*|\|\|/)) {
     // Parse as mathematical expression (which can contain function calls and concatenation)
+    // Debug logging removed
     return parseArithmeticExpression(expr);
   }
   
@@ -1619,6 +1696,7 @@ function parseExpression(exprStr) {
   const funcMatch = expr.match(/^([A-Z_]\w*)\s*\(/i);
   if (funcMatch) {
     // Try to parse as a function call with parentheses
+    // Debug logging removed
     const funcCall = parseFunctionCall(expr);
     if (funcCall) {
       return funcCall;
@@ -1670,9 +1748,44 @@ function parseExpression(exprStr) {
   return null;
 }
 
+function removeSpacesExceptInQuotes(expr) {
+  let result = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i];
+    
+    if (!inQuotes && (char === '"' || char === "'")) {
+      // Start of quoted string
+      inQuotes = true;
+      quoteChar = char;
+      result += char;
+    } else if (inQuotes && char === quoteChar) {
+      // End of quoted string
+      inQuotes = false;
+      quoteChar = '';
+      result += char;
+    } else if (inQuotes) {
+      // Inside quotes - preserve all characters including spaces
+      result += char;
+    } else if (char === ' ') {
+      // Outside quotes - skip spaces
+      continue;
+    } else {
+      // Outside quotes - keep non-space characters
+      result += char;
+    }
+  }
+  
+  return result;
+}
+
 function parseArithmeticExpression(expr) {
   try {
-    const result = parseAddition(expr.replace(/\s+/g, ''));
+    // Remove spaces while preserving spaces inside quoted strings
+    const cleanedExpr = removeSpacesExceptInQuotes(expr);
+    const result = parseAddition(cleanedExpr);
     
     if (result && result.remaining && result.remaining.length > 0) {
       // Unexpected remaining characters

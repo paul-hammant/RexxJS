@@ -29,7 +29,7 @@ describe('Three Plus Parameter Functions - Parentheses Compatibility', () => {
         
         await interpreter.run(parse(script));
         expect(interpreter.getVariable('x')).toBe('hello');
-        expect(interpreter.getVariable('y')).toBe('orld'); // SUBSTR is 0-based, 7th position gets 'orld'
+        expect(interpreter.getVariable('y')).toBe('world'); // SUBSTR is 1-based, 7th position gets 'world'
         expect(interpreter.getVariable('z')).toBe('llo');
       });
       
@@ -63,7 +63,7 @@ describe('Three Plus Parameter Functions - Parentheses Compatibility', () => {
         `;
         
         await interpreter.run(parse(script));
-        expect(interpreter.getVariable('x')).toBe(6); // POS(needle, haystack, start) - "world" is at position 6 (0-based)
+        expect(interpreter.getVariable('x')).toBe(7); // POS(needle, haystack, start) - "world" is at position 7 (1-based)
         expect(interpreter.getVariable('y')).toBe(1); // "hello" is at position 1
         expect(interpreter.getVariable('z')).toBe(0); // "test" not found
       });
@@ -223,7 +223,7 @@ describe('Three Plus Parameter Functions - Parentheses Compatibility', () => {
         await interpreter.run(parse(script));
         expect(interpreter.getVariable('x')).toBe(true);
         expect(interpreter.getVariable('y')).toBe(false);
-        expect(interpreter.getVariable('z')).toBe(true); // IS_LENGTH may consider 'hello world' (11 chars) as within range
+        expect(interpreter.getVariable('z')).toBe(false); // IS_LENGTH: 'hello world' (11 chars) is outside range 3-10
       });
     });
   });
