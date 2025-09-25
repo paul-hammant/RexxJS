@@ -3,7 +3,7 @@
 This file lists functions from the R language that could be implemented in the `r-inspired` directory.
 
 ## Data Manipulation
-
+    
 ### Data Reshaping
 - `cbind()`: Combine vectors, matrices or data frames by columns.
 - `rbind()`: Combine vectors, matrices or data frames by rows.
