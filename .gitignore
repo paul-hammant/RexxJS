@@ -9,6 +9,7 @@ core/playwright-report/
 core/debug-screenshot.png
 core/test-results.json
 core/tests/generated_images/
+extras/functions/r-inspired/graphics/generated_images/
 coverage
 
 # Binary build artifacts

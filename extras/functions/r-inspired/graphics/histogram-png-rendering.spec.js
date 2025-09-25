@@ -4,8 +4,8 @@
  * Tests for histogram PNG rendering using D3.js
  */
 
-const { rGraphicsFunctions } = require('../../extras/functions/r-inspired/graphics/r-graphics-functions');
-const { renderHistogramToPNG } = require('../src/histogram-renderer');
+const { rGraphicsFunctions } = require('./r-graphics-functions');
+const { renderHistogramToPNG } = require('./histogram-renderer');
 const fs = require('fs');
 const path = require('path');
 
