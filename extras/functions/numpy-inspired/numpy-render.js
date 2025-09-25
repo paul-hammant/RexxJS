@@ -162,8 +162,8 @@ function detectDataType(data) {
 function renderHistogram(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        // Return auto-generated filename when canvas is not available
-        return options.isPlotParameter ? `./images/numpy-histogram-${Date.now()}.png` : options.output;
+        // Canvas not available, return the output filename that caller expects
+        return options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -209,7 +209,8 @@ function renderHistogram(data, options) {
 function renderHistogram2D(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return `./images/numpy-histogram2d-${Date.now()}.png`;
+        // Canvas not available, return the output filename that caller expects
+        return options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -262,7 +263,8 @@ function renderHistogram2D(data, options) {
 function renderMatrix(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return `./images/numpy-matrix-${Date.now()}.png`;
+        // Canvas not available, return the output filename that caller expects
+        return options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -331,7 +333,8 @@ function renderMatrix(data, options) {
 function renderEigenvalues(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return options.isPlotParameter ? `./images/numpy-eigenvalues-${Date.now()}.png` : options.output;
+        // Canvas not available, return the output filename that caller expects
+        return options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -395,7 +398,8 @@ function renderEigenvalues(data, options) {
 function renderUniqueCounts(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return options.isPlotParameter ? `./images/numpy-unique-counts-${Date.now()}.png` : options.output;
+        // Canvas not available, return the output filename that caller expects
+        return options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -507,7 +511,8 @@ function renderUniqueCounts(data, options) {
 function renderArray1D(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return options.isPlotParameter ? `./images/numpy-array1d-${Date.now()}.png` : options.output;
+        // Canvas not available, return the output filename that caller expects
+        return options.output;
     }
     const ctx = canvas.getContext('2d');
     
