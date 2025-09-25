@@ -28,8 +28,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { executeScript } = require(__dirname + '/src/executor');
-const { ADDRESS_EXPECTATIONS_HANDLER } = require(__dirname + '/src/expectations-address.js');
+const { executeScript } = require('../core/src/executor');
+const { ADDRESS_EXPECTATIONS_HANDLER } = require('../core/src/expectations-address.js');
 
 // Simple console output handler for Node.js
 class NodeOutputHandler {
@@ -50,62 +50,29 @@ class NodeOutputHandler {
 function autoRegisterBundledLibraries() {
   const handlers = {};
   
-  // Try to load and register system-address
-  try {
-    // Load system-address.js from bundled location
-    const systemAddressPath = path.join(__dirname, 'system-address.js');
-    if (fs.existsSync(systemAddressPath)) {
-      const systemAddressCode = fs.readFileSync(systemAddressPath, 'utf8');
-      
-      // Execute the code to make functions available
-      eval(systemAddressCode);
-      
-      // Call the main detection function to get metadata
-      if (typeof SYSTEM_ADDRESS_MAIN === 'function') {
-        const metadata = SYSTEM_ADDRESS_MAIN();
-        console.log(`✓ Registered ADDRESS target: ${metadata.provides.addressTarget}`);
-        
-        // Make the handler globally available
-        global.ADDRESS_SYSTEM_HANDLER = ADDRESS_SYSTEM_HANDLER;
-        handlers.system = ADDRESS_SYSTEM_HANDLER;
-      }
-    }
-  } catch (error) {
-    console.warn('Warning: Could not auto-register system-address:', error.message);
-  }
+  // system-address is not bundled here; container/remote bundles handle registration
   
-  // Try to load container orchestration handlers
-  const containerHandlers = [
-    { name: 'podman', file: '../extras/addresses/container-and-vm-orchestration/address-podman.js', 
-      mainFunc: 'ADDRESS_PODMAN_MAIN', handlerFunc: 'ADDRESS_PODMAN_HANDLER' },
-    { name: 'docker', file: '../extras/addresses/container-and-vm-orchestration/address-docker.js', 
-      mainFunc: 'ADDRESS_DOCKER_MAIN', handlerFunc: 'ADDRESS_DOCKER_HANDLER' },
-    { name: 'nspawn', file: '../extras/addresses/container-and-vm-orchestration/address-nspawn.js', 
-      mainFunc: 'ADDRESS_NSPAWN_MAIN', handlerFunc: 'ADDRESS_NSPAWN_HANDLER' }
-  ];
-  
-  for (const container of containerHandlers) {
-    try {
-      const containerPath = path.join(__dirname, container.file);
-      if (fs.existsSync(containerPath)) {
-        const containerCode = fs.readFileSync(containerPath, 'utf8');
-        
-        // Execute the code to make functions available
-        eval(containerCode);
-        
-        // Call the main detection function to get metadata
-        if (typeof global[container.mainFunc] === 'function') {
-          const metadata = global[container.mainFunc]();
-          console.log(`✓ Registered ADDRESS target: ${metadata.provides.addressTarget}`);
-          
-          // Make the handler globally available
-          handlers[container.name] = global[container.handlerFunc];
-        }
-      }
-    } catch (error) {
-      console.warn(`Warning: Could not auto-register ${container.name}-address:`, error.message);
+  // Try to load bundled container orchestration handlers (with shared-utils centralized)
+  {
+    const bundledContainers = path.join(__dirname, '../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.bundle.js');
+    if (!fs.existsSync(bundledContainers)) {
+      throw new Error(`Required bundle missing: ${bundledContainers}. Build extras first (npm run build:extras or ./build-all.sh).`);
     }
+    const code = fs.readFileSync(bundledContainers, 'utf8');
+    eval(code);
   }
+
+  // Try to load bundled remote handlers
+  {
+    const bundledRemote = path.join(__dirname, '../extras/addresses/remote/bundled-remote-handlers.bundle.js');
+    if (!fs.existsSync(bundledRemote)) {
+      throw new Error(`Required bundle missing: ${bundledRemote}. Build extras first (npm run build:extras or ./build-all.sh).`);
+    }
+    const code = fs.readFileSync(bundledRemote, 'utf8');
+    eval(code);
+  }
+
+  // No fallbacks: require bundles to be present; otherwise continue without handlers
   
   return handlers;
 }
@@ -194,9 +161,9 @@ function getVersion() {
   try {
     // Try to read package.json from various locations
     const locations = [
-      path.join(__dirname, '../package.json'),
-      path.join(__dirname, '../../package.json'),
-      path.join(__dirname, 'package.json')
+      path.join(__dirname, 'package.json'),        // pkg-build/package.json
+      path.join(__dirname, '../package.json'),     // RexxJS/package.json
+      path.join(__dirname, '../core/package.json') // core/package.json
     ];
     
     for (const loc of locations) {

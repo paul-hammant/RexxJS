@@ -1,6 +1,6 @@
 /*!
  * rexxjs/pyodide-address v1.2.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/pyodide-address","type":"address-handler","dependencies":{"pyodide":"0.28.3"},"envVars":[]}
+ * @rexxjs-meta=PYODIDE_ADDRESS_META
  */
 /**
  * Pyodide ADDRESS Library - Provides Python execution via ADDRESS interface
@@ -64,10 +64,11 @@ async function getPyodide() {
 }
 
 
-// Primary detection function with ADDRESS target metadata
-    function PYODIDE_ADDRESS_MAIN() {
+// Pyodide ADDRESS metadata function
+function PYODIDE_ADDRESS_META() {
   return {
-    type: 'address-target',
+    canonical: "org.rexxjs/pyodide-address",
+    type: 'address-handler',
     name: 'Pyodide Execution Service',
     version: '1.2.0',
     description: 'Python execution via ADDRESS interface using Pyodide',
@@ -77,9 +78,10 @@ async function getPyodide() {
       commandSupport: true,
       methodSupport: true
     },
-    dependencies: pyodide ? [] : [
-      `pyodide@${pyodideVersion || '0.26.1'}`
-    ],
+    dependencies: {
+      "pyodide": "0.28.3"
+    },
+    envVars: [],
     loaded: true,
     requirements: {
       environment: 'browser',
@@ -91,8 +93,8 @@ async function getPyodide() {
 }
 
 // Registry-style detection function for "org.rexxjs/pyodide-address"
-function ORG_REXXJS_PYODIDE_ADDRESS_MAIN() {
-  return PYODIDE_ADDRESS_MAIN();
+function ORG_REXXJS_PYODIDE_ADDRESS_META() {
+  return PYODIDE_ADDRESS_META();
 }
 
 // ADDRESS target handler function
@@ -380,13 +382,13 @@ const ADDRESS_PYODIDE_METHODS = {
 
 // Export to global scope
 if (typeof window !== 'undefined') {
-  window.PYODIDE_ADDRESS_MAIN = PYODIDE_ADDRESS_MAIN;
-  window.ORG_REXXJS_PYODIDE_ADDRESS_MAIN = ORG_REXXJS_PYODIDE_ADDRESS_MAIN;
+  window.PYODIDE_ADDRESS_META = PYODIDE_ADDRESS_META;
+  window.ORG_REXXJS_PYODIDE_ADDRESS_META = ORG_REXXJS_PYODIDE_ADDRESS_META;
   window.ADDRESS_PYODIDE_HANDLER = ADDRESS_PYODIDE_HANDLER;
   window.ADDRESS_PYODIDE_METHODS = ADDRESS_PYODIDE_METHODS;
 } else if (typeof global !== 'undefined') {
-  global.PYODIDE_ADDRESS_MAIN = PYODIDE_ADDRESS_MAIN;
-  global.ORG_REXXJS_PYODIDE_ADDRESS_MAIN = ORG_REXXJS_PYODIDE_ADDRESS_MAIN;
+  global.PYODIDE_ADDRESS_META = PYODIDE_ADDRESS_META;
+  global.ORG_REXXJS_PYODIDE_ADDRESS_META = ORG_REXXJS_PYODIDE_ADDRESS_META;
   global.ADDRESS_PYODIDE_HANDLER = ADDRESS_PYODIDE_HANDLER;
   global.ADDRESS_PYODIDE_METHODS = ADDRESS_PYODIDE_METHODS;
 }

@@ -4,6 +4,8 @@
   "description": "Anthropic Claude AI ADDRESS library for RexxJS",
   "main": "claude-address.js",
   "scripts": {
+    "build": "webpack --config webpack.bundle.config.js --mode=production",
+    "build:dev": "webpack --config webpack.bundle.config.js --mode=development", 
     "test": "jest",
     "test:watch": "jest --watch",
     "install:core": "cd ../../../../core && npm install",

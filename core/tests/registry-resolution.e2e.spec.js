@@ -109,7 +109,7 @@ rexxjs,https://raw.githubusercontent.com/RexxJS/dist/latest/registry.txt`)
         .mockResolvedValueOnce({
           ok: true,
           text: () => Promise.resolve(`# RexxJS Module Registry
-sqlite3-address,address-handler,https://raw.githubusercontent.com/RexxJS/dist/{tag}/addresses/sqlite3-address.bundle.js
+sqlite3-address,address-handler,https://raw.githubusercontent.com/RexxJS/dist/{tag}/addresses/sqlite-address.bundle.js
 math-functions,function-library,https://raw.githubusercontent.com/RexxJS/dist/{tag}/functions/math-functions.bundle.js`)
         });
 
@@ -119,14 +119,14 @@ math-functions,function-library,https://raw.githubusercontent.com/RexxJS/dist/{t
         'latest'
       );
       
-      expect(moduleUrl).toBe('https://raw.githubusercontent.com/RexxJS/dist/latest/addresses/sqlite3-address.bundle.js');
+      expect(moduleUrl).toBe('https://raw.githubusercontent.com/RexxJS/dist/latest/addresses/sqlite-address.bundle.js');
     });
 
     test('should substitute version tag correctly', async () => {
       global.fetch = jest.fn()
         .mockResolvedValueOnce({
           ok: true,
-          text: () => Promise.resolve(`sqlite3-address,address-handler,https://raw.githubusercontent.com/RexxJS/dist/{tag}/addresses/sqlite3-address.bundle.js`)
+          text: () => Promise.resolve(`sqlite3-address,address-handler,https://raw.githubusercontent.com/RexxJS/dist/{tag}/addresses/sqlite-address.bundle.js`)
         });
 
       const moduleUrl = await interpreter.lookupModuleInRegistry(
@@ -135,7 +135,7 @@ math-functions,function-library,https://raw.githubusercontent.com/RexxJS/dist/{t
         'v1.0.0'
       );
       
-      expect(moduleUrl).toBe('https://raw.githubusercontent.com/RexxJS/dist/v1.0.0/addresses/sqlite3-address.bundle.js');
+      expect(moduleUrl).toBe('https://raw.githubusercontent.com/RexxJS/dist/v1.0.0/addresses/sqlite-address.bundle.js');
     });
 
     test('should handle unknown module', async () => {
@@ -166,7 +166,7 @@ rexxjs,https://raw.githubusercontent.com/RexxJS/dist/latest/registry.txt`)
         // Step 2: Module registry lookup  
         .mockResolvedValueOnce({
           ok: true,
-          text: () => Promise.resolve(`sqlite3-address,address-handler,https://raw.githubusercontent.com/RexxJS/dist/{tag}/addresses/sqlite3-address.bundle.js`)
+          text: () => Promise.resolve(`sqlite3-address,address-handler,https://raw.githubusercontent.com/RexxJS/dist/{tag}/addresses/sqlite-address.bundle.js`)
         })
         // Step 3: Final module download (mocked as successful)
         .mockResolvedValueOnce({
@@ -181,7 +181,7 @@ rexxjs,https://raw.githubusercontent.com/RexxJS/dist/latest/registry.txt`)
       
       expect(result).toBe(true);
       expect(interpreter.requireRemoteLibrary).toHaveBeenCalledWith(
-        'https://raw.githubusercontent.com/RexxJS/dist/latest/addresses/sqlite3-address.bundle.js'
+        'https://raw.githubusercontent.com/RexxJS/dist/latest/addresses/sqlite-address.bundle.js'
       );
     });
 

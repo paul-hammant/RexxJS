@@ -5,7 +5,9 @@
   "main": "excel-functions.js",
   "scripts": {
     "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "build": "webpack --config webpack.bundle.config.js --mode=production",
+    "build:dev": "webpack --config webpack.bundle.config.js --mode=development"
   },
   "keywords": [
     "rexx",

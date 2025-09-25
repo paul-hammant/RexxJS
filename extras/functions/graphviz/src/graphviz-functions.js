@@ -1,6 +1,6 @@
 /*!
  * graphviz-functions v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/graphviz-functions","type":"functions-library","dependencies":{"graphviz-wasm":"^3.0.2"}}
+ * @rexxjs-meta=GRAPHVIZ_FUNCTIONS_META
  */
 /**
  * Graphviz Functions Library - Provides Graphviz rendering capabilities
@@ -50,12 +50,7 @@ async function loadWASM() {
 
 const GRAPHVIZ_FUNCTIONS = {
     // Detection function for REQUIRE system
-    'GRAPHVIZ_FUNCTIONS_MAIN': () => ({
-        type: 'library_info',
-        name: 'Graphviz Functions',
-        version: '1.0.0',
-        loaded: true
-    }),
+    'GRAPHVIZ_FUNCTIONS_MAIN': () => GRAPHVIZ_FUNCTIONS_META(),
     
     /**
      * Renders a DOT string into an SVG using Graphviz.
@@ -83,20 +78,25 @@ const GRAPHVIZ_FUNCTIONS = {
     }
 };
 
-// Metadata for the function library
-const GRAPHVIZ_FUNCTIONS_META = {
-    type: 'functions-library',
-    name: 'Graphviz Functions',
-    version: '1.0.0',
-    description: 'Provides functions for rendering Graphviz DOT strings.',
-    functions: {
-        'GRAPHVIZ_RENDER': {
-            description: "Renders a DOT string into an SVG.",
-            params: ["dot_string", {name: "options", optional: true}],
-            returns: "The rendered SVG as a string."
-        }
-    }
-};
+// Consolidated metadata provider function
+function GRAPHVIZ_FUNCTIONS_META() {
+    return {
+        canonical: "org.rexxjs/graphviz-functions",
+        type: "functions-library",
+        dependencies: {"graphviz-wasm": "^3.0.2"},
+        name: 'Graphviz Functions',
+        version: '1.0.0',
+        description: 'Provides functions for rendering Graphviz DOT strings.',
+        functions: {
+            'GRAPHVIZ_RENDER': {
+                description: "Renders a DOT string into an SVG.",
+                params: ["dot_string", {name: "options", optional: true}],
+                returns: "The rendered SVG as a string."
+            }
+        },
+        detectionFunction: 'GRAPHVIZ_FUNCTIONS_MAIN'
+    };
+}
 
 // Export for both Node.js and browser in consistent format
 if (typeof module !== 'undefined' && module.exports) {

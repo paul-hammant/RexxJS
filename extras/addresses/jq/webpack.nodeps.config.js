@@ -24,16 +24,19 @@ class InjectNoDepsMetaPlugin {
         // Get the source code
         let source = mainAsset.source();
         
-        // Replace the @rexxjs-meta comment to indicate no external dependencies
-        source = source.replace(
-          /@rexxjs-meta {"dependencies":{"jq-wasm":"[^"]+"}}/,
-          '@rexxjs-meta {"dependencies":{}}'
-        );
+        // Update for new metadata pattern - keep the same function name but indicate no deps
+        // The metadata function will still exist, but will return dependencies: {}
         
-        // Replace the header comment
+        // Replace the header comment to indicate this is the no-deps version
         source = source.replace(
           /\/\*!\s*\n \* jq-address v1\.0\.0/,
           '/*!\n * jq-nodeps-address v1.0.0'
+        );
+        
+        // Update dependencies in the metadata function to be empty
+        source = source.replace(
+          /dependencies:\s*\{\s*["']jq-wasm["']:\s*["'][^"']+["']\s*\}/g,
+          'dependencies: {}'
         );
         
         // Update the asset
@@ -66,13 +69,13 @@ module.exports = {
       new TerserPlugin({
         terserOptions: {
           // Preserve function names for RexxJS detection
-          keep_fnames: /.*_MAIN$/,
+          keep_fnames: /.*_META$/,
           mangle: {
             // Don't mangle critical property names
             reserved: [
               'dependencies', 'peerDependencies', 'optionalDependencies',
               'type', 'module', 'name', 'version', 'loaded', 'functions',
-              'jq-address', 'JQ_ADDRESS_MAIN', 'ADDRESS_JQ_HANDLER', 'ADDRESS_JQ_METHODS'
+              'jq-address', 'JQ_ADDRESS_META', 'ADDRESS_JQ_HANDLER', 'ADDRESS_JQ_METHODS'
             ]
           },
           compress: {

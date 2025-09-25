@@ -3,17 +3,7 @@
  * Proxy ADDRESS to operate Docker on a remote host via ADDRESS ssh
  */
 
-const {
-  interpolateMessage,
-  createLogFunction,
-  parseCommand,
-  parseCheckpointOutput: sharedParseCheckpointOutput,
-  parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput,
-  wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints,
-  formatStatus
-} = require('./shared-utils');
-
-const log = createLogFunction('ADDRESS_REMOTE_DOCKER');
+// Modules will be loaded dynamically in initialize method
 
 // Helper to call another ADDRESS target handler that the interpreter exposes
 async function callAddress(targetHandler, command, params, sourceContext) {
@@ -26,17 +16,39 @@ class AddressRemoteDockerHandler {
     this.defaultTimeout = 60000;
     this.sshHandler = sshHandler; // required for real usage; tests can stub
     this.active = new Map();
+    this.initialized = false;
   }
 
   async initialize(config = {}) {
+    if (this.initialized) return;
+    
+    try {
+      // Import shared utilities
+      const sharedUtils = require('../shared-utils');
+      this.interpolateMessage = sharedUtils.interpolateMessage;
+      this.createLogFunction = sharedUtils.createLogFunction;
+      this.parseCommand = sharedUtils.parseCommand;
+      this.sharedParseCheckpointOutput = sharedUtils.parseCheckpointOutput;
+      this.sharedParseEnhancedCheckpointOutput = sharedUtils.parseEnhancedCheckpointOutput;
+      this.sharedWrapScriptWithCheckpoints = sharedUtils.wrapScriptWithCheckpoints;
+      this.formatStatus = sharedUtils.formatStatus;
+      
+      // Set up logger
+      this.log = this.createLogFunction('ADDRESS_REMOTE_DOCKER');
+      
+      this.initialized = true;
+    } catch (error) {
+      throw new Error(`Failed to initialize Remote Docker handler: ${error.message}`);
+    }
+    
     this.defaultTimeout = config.defaultTimeout || this.defaultTimeout;
   }
 
   async handleAddressCommand(command, context = {}, source = {}) {
     try {
-      const interpolated = await interpolateMessage(command, context);
-      log('command', { command: interpolated });
-      const parsed = parseCommand(interpolated);
+      const interpolated = await this.interpolateMessage(command, context);
+      this.log('command', { command: interpolated });
+      const parsed = this.parseCommand(interpolated);
       switch (parsed.operation) {
         case 'status': return this.getStatus(parsed.params);
         case 'list': return this.execDocker(parsed.params, 'ps -a --format "{{.Names}}|{{.Image}}|{{.Status}}"');
@@ -51,7 +63,7 @@ class AddressRemoteDockerHandler {
         default: throw new Error(`Unknown ADDRESS REMOTE_DOCKER command: ${parsed.operation}`);
       }
     } catch (error) {
-      log('error', { error: error.message });
+      this.log('error', { error: error.message });
       return { success: false, operation: 'error', error: error.message, output: error.message };
     }
   }
@@ -61,7 +73,7 @@ class AddressRemoteDockerHandler {
       success: true,
       operation: 'status',
       runtime: 'remote-docker',
-      output: formatStatus('remote-docker', 0, 0, 'n/a')
+      output: this.formatStatus('remote-docker', 0, 0, 'n/a')
     };
   }
 
@@ -106,7 +118,7 @@ class AddressRemoteDockerHandler {
     // inline script: echo | docker exec sh -c 'cat > file && rexx file'
     const remoteFile = `/tmp/rexx-${Date.now()}.rexx`;
     const wrapped = String(progress_callback).toLowerCase() === 'true'
-      ? sharedWrapScriptWithCheckpoints(content, { progressCallback: () => {} })
+      ? this.sharedWrapScriptWithCheckpoints(content, { progressCallback: () => {} })
       : content;
     // write script to host
     const tmpHostFile = `/tmp/rexx-host-${Date.now()}.rexx`;

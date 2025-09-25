@@ -1,6 +1,6 @@
 /*!
  * rexxjs/gemini-pro-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{},"envVars":["GOOGLE_API_KEY"]}
+ * @rexxjs-meta=GEMINI_PRO_ADDRESS_META
  */
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
@@ -20,9 +20,10 @@
  *   -- response is in checkpointResult.response
  */
 
-// Primary detection function with ADDRESS target metadata
-function GEMINI_PRO_ADDRESS_MAIN() {
+// Gemini Pro ADDRESS metadata function
+function GEMINI_PRO_ADDRESS_META() {
   return {
+    namespace: "rexxjs",
     type: 'address-target',
     name: 'Gemini Pro AI Chat Service (Checkpoint)',
     version: '1.1.0',
@@ -33,6 +34,8 @@ function GEMINI_PRO_ADDRESS_MAIN() {
       commandSupport: false, // We only support method-style calls for CHECKPOINT
       methodSupport: true
     },
+    dependencies: {},
+    envVars: ["GOOGLE_API_KEY"],
     requirements: {
       apiKey: 'GEMINI_API_KEY',
       environment: 'managed-checkpoint'
@@ -69,11 +72,11 @@ const ADDRESS_GEMINI_PRO_METHODS = {
 
 // Export to global scope
 if (typeof window !== 'undefined') {
-  window.GEMINI_PRO_ADDRESS_MAIN = GEMINI_PRO_ADDRESS_MAIN;
+  window.GEMINI_PRO_ADDRESS_META = GEMINI_PRO_ADDRESS_META;
   window.ADDRESS_GEMINI_PRO_HANDLER = ADDRESS_GEMINI_PRO_HANDLER;
   window.ADDRESS_GEMINI_PRO_METHODS = ADDRESS_GEMINI_PRO_METHODS;
 } else if (typeof global !== 'undefined') {
-  global.GEMINI_PRO_ADDRESS_MAIN = GEMINI_PRO_ADDRESS_MAIN;
+  global.GEMINI_PRO_ADDRESS_META = GEMINI_PRO_ADDRESS_META;
   global.ADDRESS_GEMINI_PRO_HANDLER = ADDRESS_GEMINI_PRO_HANDLER;
   global.ADDRESS_GEMINI_PRO_METHODS = ADDRESS_GEMINI_PRO_METHODS;
 }

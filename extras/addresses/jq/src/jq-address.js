@@ -1,6 +1,6 @@
 /*!
  * rexxjs/jq-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/jq-address","type":"address-handler","dependencies":{"jq-wasm":"1.1.0-jq-1.8.1"},"envVars":[]}
+ * @rexxjs-meta=JQ_ADDRESS_META
  */
 /**
  * jq ADDRESS Library - Provides JSON query execution via ADDRESS interface
@@ -53,8 +53,8 @@ let jqContextMethods = {
   }
 };
 
-// Primary detection function with ADDRESS target metadata
-function JQ_ADDRESS_MAIN() {
+// jq ADDRESS metadata function
+function JQ_ADDRESS_META() {
   // Check jq-wasm availability without throwing during registration
   let jqAvailable = false;
   try {
@@ -66,7 +66,8 @@ function JQ_ADDRESS_MAIN() {
   }
   
   return {
-    type: 'address-target',
+    canonical: "org.rexxjs/jq-address",
+    type: 'address-handler',
     name: 'jq JSON Query Service',
     version: '1.0.0',
     description: 'JSON query execution via ADDRESS interface using jq-wasm',
@@ -76,9 +77,10 @@ function JQ_ADDRESS_MAIN() {
       commandSupport: true,  // Indicates support for command-string style
       methodSupport: true    // Also supports method-call style for convenience
     },
-    dependencies: [
-      'jq-wasm@1.1.0-jq-1.8.1'
-    ],
+    dependencies: {
+      "jq-wasm": "1.1.0-jq-1.8.1"
+    },
+    envVars: [],
     loaded: true,
     requirements: {
       environment: 'universal', // Works in both Node.js and browser
@@ -501,12 +503,12 @@ function formatJqErrorForREXX(error) {
 // Export to global scope (required for REQUIRE system detection)
 if (typeof window !== 'undefined') {
   // Browser environment
-  window.JQ_ADDRESS_MAIN = JQ_ADDRESS_MAIN;
+  window.JQ_ADDRESS_META = JQ_ADDRESS_META;
   window.ADDRESS_JQ_HANDLER = ADDRESS_JQ_HANDLER;
   window.ADDRESS_JQ_METHODS = ADDRESS_JQ_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
-  global.JQ_ADDRESS_MAIN = JQ_ADDRESS_MAIN;
+  global.JQ_ADDRESS_META = JQ_ADDRESS_META;
   global.ADDRESS_JQ_HANDLER = ADDRESS_JQ_HANDLER;
   global.ADDRESS_JQ_METHODS = ADDRESS_JQ_METHODS;
 }

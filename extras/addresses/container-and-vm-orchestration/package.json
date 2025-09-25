@@ -1,0 +1,16 @@
+{
+  "name": "@rexxjs/address-container-vm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RexxJS container and VM orchestration ADDRESS handlers (docker, podman, nspawn, remote-docker)",
+  "main": "bundled-container-handlers.bundle.js",
+  "scripts": {
+    "build": "webpack --mode=production"
+  },
+  "devDependencies": {
+    "terser-webpack-plugin": "^5.3.9",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
+

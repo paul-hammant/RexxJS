@@ -1,6 +1,6 @@
 /*!
  * rexxjs/address-docker v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{"child_process":"builtin"},"envVars":[]}
+ * @rexxjs-meta=DOCKER_ADDRESS_META
  */
 /**
  * ADDRESS DOCKER Handler
@@ -17,14 +17,7 @@
  * Licensed under the MIT License
  */
 
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { interpolateMessage, logActivity, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, testRuntime, validateCommand, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = require('./shared-utils');
-// Inline utility functions for universal compatibility (Node.js, pkg binary, web/DOM)
-
-// Helper function for logging
-const log = createLogFunction('ADDRESS_DOCKER');
+// Modules will be loaded dynamically in initialize method
 
 class AddressDockerHandler {
   constructor() {
@@ -36,6 +29,7 @@ class AddressDockerHandler {
     this.allowedImages = new Set(['debian:stable', 'ubuntu:latest', 'alpine:latest']);
     this.trustedBinaries = new Set();
     this.runtime = 'docker';
+    this.initialized = false;
     
     // Enhanced security settings
     this.securityPolicies = {
@@ -68,9 +62,45 @@ class AddressDockerHandler {
   }
 
   /**
-   * Initialize the ADDRESS PODMAN handler
+   * Initialize the ADDRESS DOCKER handler
    */
   async initialize(config = {}) {
+    if (this.initialized) return;
+    
+    try {
+      // Import Node.js modules when needed
+      this.spawn = require('child_process').spawn;
+      this.fs = require('fs');
+      this.path = require('path');
+      
+      // Import shared utilities
+      const sharedUtils = require('../shared-utils');
+      this.interpolateMessage = sharedUtils.interpolateMessage;
+      this.logActivity = sharedUtils.logActivity;
+      this.createLogFunction = sharedUtils.createLogFunction;
+      this.parseCommandParts = sharedUtils.parseCommandParts;
+      this.parseCommand = sharedUtils.parseCommand;
+      this.parseMemoryLimit = sharedUtils.parseMemoryLimit;
+      this.testRuntime = sharedUtils.testRuntime;
+      this.validateCommand = sharedUtils.validateCommand;
+      this.validateVolumePath = sharedUtils.validateVolumePath;
+      this.validateBinaryPath = sharedUtils.validateBinaryPath;
+      this.sharedAuditSecurityEvent = sharedUtils.auditSecurityEvent;
+      this.calculateUptime = sharedUtils.calculateUptime;
+      this.parseKeyValueString = sharedUtils.parseKeyValueString;
+      this.sharedParseCheckpointOutput = sharedUtils.parseCheckpointOutput;
+      this.sharedWrapScriptWithCheckpoints = sharedUtils.wrapScriptWithCheckpoints;
+      this.sharedParseEnhancedCheckpointOutput = sharedUtils.parseEnhancedCheckpointOutput;
+      this.formatStatus = sharedUtils.formatStatus;
+      
+      // Set up logger
+      this.log = this.createLogFunction('ADDRESS_DOCKER');
+      
+      this.initialized = true;
+    } catch (error) {
+      throw new Error(`Failed to initialize Docker handler: ${error.message}`);
+    }
+    
     this.securityMode = config.securityMode || this.securityMode;
     this.maxContainers = config.maxContainers || this.maxContainers;
     this.defaultTimeout = config.defaultTimeout || this.defaultTimeout;
@@ -1070,7 +1100,7 @@ class AddressDockerHandler {
    * Wrap RexxJS script with CHECKPOINT monitoring capabilities
    */
   wrapScriptWithCheckpoints(script, options = {}) {
-    return sharedWrapScriptWithCheckpoints(script, options);
+    return this.sharedWrapScriptWithCheckpoints(script, options);
   }
 
   /**
@@ -1129,7 +1159,7 @@ class AddressDockerHandler {
    * Parse CHECKPOINT output for progress monitoring
    */
   parseCheckpointOutput(output, progressCallback) {
-    return sharedParseCheckpointOutput(output, progressCallback);
+    return this.sharedParseCheckpointOutput(output, progressCallback);
   }
 
   /**
@@ -1190,7 +1220,7 @@ class AddressDockerHandler {
    * Audit security events for compliance
    */
   auditSecurityEvent(event, details) {
-    sharedAuditSecurityEvent(event, details, this.securityMode, this.auditLog, log);
+    this.sharedAuditSecurityEvent(event, details, this.securityMode, this.auditLog, this.log);
   }
 
   /**
@@ -1522,7 +1552,7 @@ class AddressDockerHandler {
    * Parse enhanced CHECKPOINT output with structured data support
    */
   parseEnhancedCheckpointOutput(containerName, output, progressCallback) {
-    return sharedParseEnhancedCheckpointOutput(output, (rec) => {
+    return this.sharedParseEnhancedCheckpointOutput(output, (rec) => {
       this.processCheckpointData(containerName, rec);
       if (typeof progressCallback === 'function') {
         progressCallback(rec.checkpoint, rec.params);
@@ -1586,26 +1616,23 @@ class AddressDockerHandler {
 // Global handler instance
 let dockerHandlerInstance = null;
 
-// Primary detection function with ADDRESS target metadata
-function ADDRESS_DOCKER_MAIN() {
+// Consolidated metadata provider function
+function DOCKER_ADDRESS_META() {
   return {
+    namespace: "rexxjs",
+    dependencies: {"child_process": "builtin"},
+    envVars: [],
     type: 'address-target',
     name: 'ADDRESS DOCKER Container Service',
     version: '1.0.0',
-    description: 'Docker container operations via ADDRESS interface',
-    provides: {
-      addressTarget: 'docker',
-      handlerFunction: 'ADDRESS_DOCKER_HANDLER',
-      commandSupport: true,  // Indicates support for command-string style
-      methodSupport: true    // Also supports method-call style for convenience
-    },
-    dependencies: [],
-    loaded: true,
-    requirements: {
-      environment: 'nodejs',
-      modules: ['child_process']
-    }
+    description: 'Docker container management via ADDRESS interface',
+    detectionFunction: 'ADDRESS_DOCKER_MAIN'
   };
+}
+
+// Primary detection function with ADDRESS target metadata
+function ADDRESS_DOCKER_MAIN() {
+  return DOCKER_ADDRESS_META();
 }
 
 // ADDRESS target handler function with REXX variable management

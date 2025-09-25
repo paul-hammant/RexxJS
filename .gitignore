@@ -17,7 +17,11 @@ coverage
 *.bundle.js.map
 bin/rexx*
 pkg-build/node_modules/
+pkg-build/src/
 sea-build/
 
 # Temp files
 *.tmp
+*.log
+*.LICENSE.txt
+package-lock.json

@@ -1,6 +1,6 @@
 /*!
  * rexxjs/duckdb-wasm-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/duckdb-address","type":"address-handler","dependencies":{"@duckdb/duckdb-wasm":"^1.28.0"},"envVars":[]}
+ * @rexxjs-meta=DUCKDB_WASM_ADDRESS_META
  */
 /**
  * DuckDB-WASM ADDRESS Library - Provides an in-process analytical database via ADDRESS interface
@@ -69,9 +69,11 @@ async function getConnection() {
     return dbConnection;
 }
 
-function DUCKDB_WASM_ADDRESS_MAIN() {
+// DuckDB WASM ADDRESS metadata function
+function DUCKDB_WASM_ADDRESS_META() {
     return {
-        type: 'address-target',
+        canonical: "org.rexxjs/duckdb-address",
+        type: 'address-handler',
         name: 'DuckDB-WASM Service',
         version: '1.0.0',
         description: 'In-process analytical database via DuckDB-WASM',
@@ -81,7 +83,10 @@ function DUCKDB_WASM_ADDRESS_MAIN() {
             commandSupport: true,
             methodSupport: true
         },
-        dependencies: ['@duckdb/duckdb-wasm@^1.28.0'],
+        dependencies: {
+            "@duckdb/duckdb-wasm": "^1.28.0"
+        },
+        envVars: [],
         loaded: true,
         requirements: {
             environment: 'browser',
@@ -162,11 +167,11 @@ const ADDRESS_DUCKDB_WASM_METHODS = {
 };
 
 if (typeof window !== 'undefined') {
-    window.DUCKDB_WASM_ADDRESS_MAIN = DUCKDB_WASM_ADDRESS_MAIN;
+    window.DUCKDB_WASM_ADDRESS_META = DUCKDB_WASM_ADDRESS_META;
     window.ADDRESS_DUCKDB_WASM_HANDLER = ADDRESS_DUCKDB_WASM_HANDLER;
     window.ADDRESS_DUCKDB_WASM_METHODS = ADDRESS_DUCKDB_WASM_METHODS;
 } else if (typeof global !== 'undefined') {
-    global.DUCKDB_WASM_ADDRESS_MAIN = DUCKDB_WASM_ADDRESS_MAIN;
+    global.DUCKDB_WASM_ADDRESS_META = DUCKDB_WASM_ADDRESS_META;
     global.ADDRESS_DUCKDB_WASM_HANDLER = ADDRESS_DUCKDB_WASM_HANDLER;
     global.ADDRESS_DUCKDB_WASM_METHODS = ADDRESS_DUCKDB_WASM_METHODS;
 }

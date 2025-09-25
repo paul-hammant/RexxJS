@@ -1,6 +1,6 @@
 /*!
  * rexxjs/claude-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/claude-address","type":"address-handler","dependencies":{},"envVars":["ANTHROPIC_API_KEY"]}
+ * @rexxjs-meta=CLAUDE_ADDRESS_META
  */
 /**
  * Claude API ADDRESS Library - Provides AI chat operations via ADDRESS interface
@@ -29,38 +29,34 @@ let sessionCounter = 0;
 const activeCheckpoints = new Map();
 let checkpointCounter = 0;
 
-// Primary detection function with ADDRESS target metadata
-function CLAUDE_ADDRESS_MAIN() {
-  // Check Node.js/fetch availability without throwing during registration
-  let fetchAvailable = false;
-  try {
-    if (typeof fetch !== 'undefined' || (typeof require !== 'undefined' && require)) {
-      fetchAvailable = true;
-    }
-  } catch (e) {
-    // Will be available as metadata for error handling
-  }
-  
+// Consolidated metadata provider function
+function CLAUDE_ADDRESS_META() {
   return {
-    type: 'address-target',
+    canonical: "org.rexxjs/claude-address",
+    type: "address-handler",
+    dependencies: {},
+    envVars: ["ANTHROPIC_API_KEY"],
     name: 'Claude AI Chat Service',
     version: '1.0.0',
     description: 'Anthropic Claude API integration via ADDRESS interface',
     provides: {
       addressTarget: 'claude',
       handlerFunction: 'ADDRESS_CLAUDE_HANDLER',
-      commandSupport: true,  // Indicates support for command-string style
-      methodSupport: true    // Also supports method-call style for convenience
+      commandSupport: true,
+      methodSupport: true
     },
-    dependencies: [],
-    loaded: true,
     requirements: {
       environment: 'nodejs-or-browser',
       modules: ['fetch'],
       apiKey: 'ANTHROPIC_API_KEY'
     },
-    fetchAvailable: fetchAvailable
+    detectionFunction: 'CLAUDE_ADDRESS_MAIN'
   };
+}
+
+// Primary detection function with ADDRESS target metadata
+function CLAUDE_ADDRESS_MAIN() {
+  return CLAUDE_ADDRESS_META();
 }
 
 // ADDRESS target handler function with REXX variable management
@@ -857,11 +853,13 @@ function formatClaudeErrorForREXX(error) {
 // Export to global scope (required for REQUIRE system detection)
 if (typeof window !== 'undefined') {
   // Browser environment
+  window.CLAUDE_ADDRESS_META = CLAUDE_ADDRESS_META;
   window.CLAUDE_ADDRESS_MAIN = CLAUDE_ADDRESS_MAIN;
   window.ADDRESS_CLAUDE_HANDLER = ADDRESS_CLAUDE_HANDLER;
   window.ADDRESS_CLAUDE_METHODS = ADDRESS_CLAUDE_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
+  global.CLAUDE_ADDRESS_META = CLAUDE_ADDRESS_META;
   global.CLAUDE_ADDRESS_MAIN = CLAUDE_ADDRESS_MAIN;
   global.ADDRESS_CLAUDE_HANDLER = ADDRESS_CLAUDE_HANDLER;
   global.ADDRESS_CLAUDE_METHODS = ADDRESS_CLAUDE_METHODS;

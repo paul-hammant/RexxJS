@@ -1,6 +1,6 @@
 /*!
  * rexxjs/openai-chat-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{},"envVars":["OPENAI_API_KEY"]}
+ * @rexxjs-meta=OPENAI_CHAT_ADDRESS_META
  */
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
@@ -50,9 +50,10 @@ async function ADDRESS_OPENAI_CHAT_HANDLER(commandOrMethod, params) {
     // The actual API call logic would be in a separate module that listens for these requests.
 }
 
-// This function would provide metadata about the address target.
-function OPENAI_CHAT_ADDRESS_MAIN() {
+// OpenAI Chat ADDRESS metadata function
+function OPENAI_CHAT_ADDRESS_META() {
     return {
+        namespace: "rexxjs",
         type: 'address-target',
         name: 'OpenAI Chat Completions Service',
         version: '1.0.0',
@@ -63,6 +64,8 @@ function OPENAI_CHAT_ADDRESS_MAIN() {
             commandSupport: true,
             methodSupport: true
         },
+        dependencies: {},
+        envVars: ["OPENAI_API_KEY"],
         requirements: {
             apiKey: 'OPENAI_API_KEY'
         }
@@ -79,11 +82,11 @@ const ADDRESS_OPENAI_CHAT_METHODS = {
 
 // Export to global scope
 if (typeof window !== 'undefined') {
-    window.OPENAI_CHAT_ADDRESS_MAIN = OPENAI_CHAT_ADDRESS_MAIN;
+    window.OPENAI_CHAT_ADDRESS_META = OPENAI_CHAT_ADDRESS_META;
     window.ADDRESS_OPENAI_CHAT_HANDLER = ADDRESS_OPENAI_CHAT_HANDLER;
     window.ADDRESS_OPENAI_CHAT_METHODS = ADDRESS_OPENAI_CHAT_METHODS;
 } else if (typeof global !== 'undefined') {
-    global.OPENAI_CHAT_ADDRESS_MAIN = OPENAI_CHAT_ADDRESS_MAIN;
+    global.OPENAI_CHAT_ADDRESS_META = OPENAI_CHAT_ADDRESS_META;
     global.ADDRESS_OPENAI_CHAT_HANDLER = ADDRESS_OPENAI_CHAT_HANDLER;
     global.ADDRESS_OPENAI_CHAT_METHODS = ADDRESS_OPENAI_CHAT_METHODS;
 }

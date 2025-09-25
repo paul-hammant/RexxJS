@@ -1,6 +1,6 @@
 /*!
  * minification-safe-lib v1.0.0 | (c) 2024 Alice Developer | MIT License
- * @rexxjs-meta {"dependencies":{"github.com/shared/common-utils":"v2.0.0","github.com/math/advanced-math":"latest","lodash":"4.17.21"}}
+ * @rexxjs-meta=MINIFICATION_SAFE_LIB_META
  */
 /**
  * Minification-Safe RexxJS Library Example
@@ -21,8 +21,8 @@
  */
 
 const minificationSafeLib = {
-  // PRIMARY DETECTION FUNCTION with embedded dependencies
-  'MINIFICATION_SAFE_LIB_MAIN': () => {
+  // METADATA FUNCTION with embedded dependencies
+  'MINIFICATION_SAFE_LIB_META': () => {
     return {
       type: 'library_info',
       module: 'github.com/alice/minification-safe-lib',
@@ -32,20 +32,20 @@ const minificationSafeLib = {
       description: 'Example library that works with minified code',
       
       // ✅ DEPENDENCIES SURVIVE MINIFICATION (in runtime metadata)
-      dependencies: [
-        'github.com/shared/common-utils@v2.0.0',
-        'github.com/math/advanced-math@latest',
-        'lodash@4.17.21'  // npm package example
-      ],
+      dependencies: {
+        'github.com/shared/common-utils': 'v2.0.0',
+        'github.com/math/advanced-math': 'latest',
+        'lodash': '4.17.21'  // npm package example
+      },
       
       // Optional: Additional dependency metadata
-      peerDependencies: [
-        'react@^17.0.0'  // If this is a React component library
-      ],
+      peerDependencies: {
+        'react': '^17.0.0'  // If this is a React component library
+      },
       
-      optionalDependencies: [
-        'chart.js@^3.0.0'  // Optional visualization support
-      ],
+      optionalDependencies: {
+        'chart.js': '^3.0.0'  // Optional visualization support
+      },
       
       functions: Object.keys(minificationSafeLib).filter(key => typeof minificationSafeLib[key] === 'function'),
       loaded: true,
@@ -177,7 +177,7 @@ module.exports = {
       new TerserPlugin({
         terserOptions: {
           // Preserve function names for RexxJS detection
-          keep_fnames: /.*_MAIN$/,
+          keep_fnames: /.*_META$/,
           mangle: {
             // Don't mangle critical property names
             reserved: [

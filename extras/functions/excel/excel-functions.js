@@ -1,6 +1,6 @@
 /*!
  * excel-functions v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/excel-functions","type":"functions-library","dependencies":{}}
+ * @rexxjs-meta=EXCEL_FUNCTIONS_META
  */
 /**
  * Excel/Spreadsheet functions for REXX interpreter
@@ -27,14 +27,33 @@
  * SOFTWARE.
  */
 
-const excelFunctions = {
-  // Detection function for REQUIRE system
-  'EXCEL_FUNCTIONS_MAIN': () => ({
-    type: 'library_info',
+// Consolidated metadata provider function
+function EXCEL_FUNCTIONS_META() {
+  return {
+    canonical: "org.rexxjs/excel-functions",
+    type: "functions-library",
+    dependencies: {},
     name: 'Excel Functions',
     version: '1.0.0',
-    loaded: true
-  }),
+    description: 'Excel/Spreadsheet functions for REXX interpreter',
+    functions: {
+      'VLOOKUP': {
+        description: "Looks up a value in a table and returns a corresponding value.",
+        params: ["lookupValue", "tableArray", "colIndex", {name: "exactMatch", optional: true}]
+      },
+      'ROUND': {
+        description: "Rounds a number to a specified number of digits.",
+        params: ["number", "digits"]
+      }
+      // Additional function metadata can be added here
+    },
+    detectionFunction: 'EXCEL_FUNCTIONS_MAIN'
+  };
+}
+
+const excelFunctions = {
+  // Detection function for REQUIRE system
+  'EXCEL_FUNCTIONS_MAIN': () => EXCEL_FUNCTIONS_META(),
   
   // Lookup Functions
   'VLOOKUP': (lookupValue, tableArray, colIndex, exactMatch = false) => {
@@ -617,8 +636,10 @@ if (typeof module !== 'undefined' && module.exports) {
   if (typeof global !== 'undefined') {
     // Put functions directly in global scope for detection
     Object.assign(global, excelFunctions);
+    global.EXCEL_FUNCTIONS_META = EXCEL_FUNCTIONS_META;
   }
 } else if (typeof window !== 'undefined') {
   // Put functions directly in window scope for detection
   Object.assign(window, excelFunctions);
+  window.EXCEL_FUNCTIONS_META = EXCEL_FUNCTIONS_META;
 }

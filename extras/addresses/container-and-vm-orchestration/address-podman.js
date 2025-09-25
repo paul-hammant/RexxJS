@@ -1,6 +1,6 @@
 /*!
  * rexxjs/address-podman v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{"child_process":"builtin"},"envVars":[]}
+ * @rexxjs-meta=PODMAN_ADDRESS_META
  */
 /**
  * ADDRESS PODMAN Handler
@@ -17,14 +17,7 @@
  * Licensed under the MIT License
  */
 
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { interpolateMessage, logActivity, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, testRuntime, validateCommand, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = require('./shared-utils');
-// Inline utility functions for universal compatibility (Node.js, pkg binary, web/DOM)
-
-// Helper function for logging
-const log = createLogFunction('ADDRESS_PODMAN');
+// Modules will be loaded dynamically in initialize method
 
 class AddressPodmanHandler {
   constructor() {
@@ -65,12 +58,49 @@ class AddressPodmanHandler {
       callbacks: new Map(),     // container -> callback function
       realtimeData: new Map()   // container -> latest checkpoint data
     };
+    this.initialized = false;
   }
 
   /**
    * Initialize the ADDRESS PODMAN handler
    */
   async initialize(config = {}) {
+    if (this.initialized) return;
+    
+    try {
+      // Import Node.js modules when needed
+      this.spawn = require('child_process').spawn;
+      this.fs = require('fs');
+      this.path = require('path');
+      
+      // Import shared utilities
+      const sharedUtils = require('../shared-utils');
+      this.interpolateMessage = sharedUtils.interpolateMessage;
+      this.logActivity = sharedUtils.logActivity;
+      this.createLogFunction = sharedUtils.createLogFunction;
+      this.parseCommandParts = sharedUtils.parseCommandParts;
+      this.parseCommand = sharedUtils.parseCommand;
+      this.parseMemoryLimit = sharedUtils.parseMemoryLimit;
+      this.testRuntime = sharedUtils.testRuntime;
+      this.validateCommand = sharedUtils.validateCommand;
+      this.validateVolumePath = sharedUtils.validateVolumePath;
+      this.validateBinaryPath = sharedUtils.validateBinaryPath;
+      this.sharedAuditSecurityEvent = sharedUtils.auditSecurityEvent;
+      this.calculateUptime = sharedUtils.calculateUptime;
+      this.parseKeyValueString = sharedUtils.parseKeyValueString;
+      this.sharedParseCheckpointOutput = sharedUtils.parseCheckpointOutput;
+      this.sharedWrapScriptWithCheckpoints = sharedUtils.wrapScriptWithCheckpoints;
+      this.sharedParseEnhancedCheckpointOutput = sharedUtils.parseEnhancedCheckpointOutput;
+      this.formatStatus = sharedUtils.formatStatus;
+      
+      // Set up logger
+      this.log = this.createLogFunction('ADDRESS_PODMAN');
+      
+      this.initialized = true;
+    } catch (error) {
+      throw new Error(`Failed to initialize Podman handler: ${error.message}`);
+    }
+    
     this.securityMode = config.securityMode || this.securityMode;
     this.maxContainers = config.maxContainers || this.maxContainers;
     this.defaultTimeout = config.defaultTimeout || this.defaultTimeout;
@@ -86,7 +116,7 @@ class AddressPodmanHandler {
     // Detect runtime availability
     await this.detectRuntime();
 
-    log('initialize', {
+    this.log('initialize', {
       securityMode: this.securityMode,
       maxContainers: this.maxContainers,
       runtime: this.runtime,
@@ -99,7 +129,7 @@ class AddressPodmanHandler {
    */
   async detectRuntime() {
     try {
-      await testRuntime('podman');
+      await this.testRuntime('podman');
       this.runtime = 'podman';
       return;
     } catch (error) {
@@ -113,10 +143,10 @@ class AddressPodmanHandler {
    */
   async handleAddressCommand(command, context = {}) {
     try {
-      const interpolatedCommand = await interpolateMessage(command, context);
-      log('command', { command: interpolatedCommand });
+      const interpolatedCommand = await this.interpolateMessage(command, context);
+      this.log('command', { command: interpolatedCommand });
 
-      const parsed = parseCommand(interpolatedCommand);
+      const parsed = this.parseCommand(interpolatedCommand);
       
       switch (parsed.operation) {
         case 'status':
@@ -163,7 +193,7 @@ class AddressPodmanHandler {
           throw new Error(`Unknown ADDRESS PODMAN command: ${parsed.operation}`);
       }
     } catch (error) {
-      log('error', { error: error.message, command });
+      this.log('error', { error: error.message, command });
       return {
         success: false,
         operation: 'error',
@@ -188,7 +218,7 @@ class AddressPodmanHandler {
       activeContainers: containerCount,
       maxContainers: this.maxContainers,
       securityMode: this.securityMode,
-      output: formatStatus(this.runtime, containerCount, this.maxContainers, this.securityMode)
+      output: this.formatStatus(this.runtime, containerCount, this.maxContainers, this.securityMode)
     };
   }
 
@@ -291,9 +321,9 @@ class AddressPodmanHandler {
       createArgs.push('bash');
     }
     
-    log('podman_create_start', { containerName, image, args: createArgs });
+    this.log('podman_create_start', { containerName, image, args: createArgs });
     const result = await this.execPodmanCommand(createArgs);
-    log('podman_create_result', { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
+    this.log('podman_create_result', { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
     
     if (result.exitCode === 0) {
       const containerInfo = {
@@ -312,7 +342,7 @@ class AddressPodmanHandler {
 
       this.activeContainers.set(containerName, containerInfo);
 
-      log('container_created', { name: containerName, image, containerId: containerInfo.containerId });
+      this.log('container_created', { name: containerName, image, containerId: containerInfo.containerId });
 
       return {
         success: true,
@@ -359,7 +389,7 @@ class AddressPodmanHandler {
       container.status = 'running';
       container.started = new Date().toISOString();
 
-      log('container_started', { name });
+      this.log('container_started', { name });
 
       return {
         success: true,
@@ -397,7 +427,7 @@ class AddressPodmanHandler {
       container.status = 'stopped';
       container.stopped = new Date().toISOString();
 
-      log('container_stopped', { name });
+      this.log('container_stopped', { name });
 
       return {
         success: true,
@@ -430,7 +460,7 @@ class AddressPodmanHandler {
     if (result.exitCode === 0) {
         this.activeContainers.delete(name);
 
-        log('container_removed', { name });
+        this.log('container_removed', { name });
 
         return {
           success: true,
@@ -468,8 +498,8 @@ class AddressPodmanHandler {
     }
 
     // Check if binary exists
-    const interpolatedBinary = await interpolateMessage(rexx_binary, context);
-    const interpolatedTarget = await interpolateMessage(target, context);
+    const interpolatedBinary = await this.interpolateMessage(rexx_binary, context);
+    const interpolatedTarget = await this.interpolateMessage(target, context);
     
     // Security validation
     if (!validateBinaryPath(interpolatedBinary, this.securityMode, this.trustedBinaries, this.auditSecurityEvent.bind(this))) {
@@ -498,7 +528,7 @@ class AddressPodmanHandler {
       container.rexxDeployed = true;
       container.rexxPath = interpolatedTarget;
 
-      log('binary_deployed', { 
+      this.log('binary_deployed', { 
         container: name, 
         binary: interpolatedBinary, 
         target: interpolatedTarget 
@@ -537,8 +567,8 @@ class AddressPodmanHandler {
       throw new Error(`Container ${name} must be running to execute commands`);
     }
 
-    const interpolatedCmd = await interpolateMessage(cmd, context);
-    const interpolatedDir = working_dir ? await interpolateMessage(working_dir, context) : null;
+    const interpolatedCmd = await this.interpolateMessage(cmd, context);
+    const interpolatedDir = working_dir ? await this.interpolateMessage(working_dir, context) : null;
     
     // Security validation for command
     const commandViolations = validateCommand(interpolatedCmd, this.securityPolicies.bannedCommands);
@@ -560,7 +590,7 @@ class AddressPodmanHandler {
     try {
       const result = await this.execInContainer(name, fullCommand, { timeout: execTimeout });
 
-      log('command_executed', {
+      this.log('command_executed', {
         container: name,
         command: interpolatedCmd,
         exitCode: result.exitCode
@@ -610,10 +640,10 @@ class AddressPodmanHandler {
 
     let rexxScript;
     if (script_file) {
-      const interpolatedFile = await interpolateMessage(script_file, context);
-      rexxScript = fs.readFileSync(interpolatedFile, 'utf8');
+      const interpolatedFile = await this.interpolateMessage(script_file, context);
+      rexxScript = this.fs.readFileSync(interpolatedFile, 'utf8');
     } else {
-      rexxScript = await interpolateMessage(script, context);
+      rexxScript = await this.interpolateMessage(script, context);
     }
 
     try {
@@ -624,7 +654,7 @@ class AddressPodmanHandler {
         result = await this.executeRexxWithProgress(container, rexxScript, {
           timeout: execTimeout,
           progressCallback: (checkpoint, params) => {
-            log('rexx_progress', {
+            this.log('rexx_progress', {
               container: name,
               checkpoint: checkpoint,
               progress: params
@@ -645,7 +675,7 @@ class AddressPodmanHandler {
         await this.execInContainer(name, `rm -f ${tempScript}`, { timeout: 5000 });
       }
 
-      log('rexx_executed', {
+      this.log('rexx_executed', {
         container: name,
         exitCode: result.exitCode,
         progressEnabled: enableProgressCallback
@@ -688,7 +718,7 @@ class AddressPodmanHandler {
       const result = await this.execPodmanCommand(args);
       
       if (result.exitCode === 0) {
-        log('copy_to_success', {
+        this.log('copy_to_success', {
           container,
           local,
           remote
@@ -733,7 +763,7 @@ class AddressPodmanHandler {
       const result = await this.execPodmanCommand(args);
       
       if (result.exitCode === 0) {
-        log('copy_from_success', {
+        this.log('copy_from_success', {
           container,
           remote,
           local
@@ -780,7 +810,7 @@ class AddressPodmanHandler {
       const result = await this.execPodmanCommand(args);
       
       if (result.exitCode === 0) {
-        log('logs_success', {
+        this.log('logs_success', {
           container,
           lines: logLines,
           logLength: result.stdout.length
@@ -825,7 +855,7 @@ class AddressPodmanHandler {
             this.activeContainers.delete(id);
             cleaned++;
           } catch (error) {
-            log('cleanup_error', {
+            this.log('cleanup_error', {
               containerId: id,
               error: error.message
             });
@@ -842,7 +872,7 @@ class AddressPodmanHandler {
               this.activeContainers.delete(id);
               cleaned++;
             } catch (error) {
-              log('cleanup_error', {
+              this.log('cleanup_error', {
                 containerId: id,
                 error: error.message
               });
@@ -852,7 +882,7 @@ class AddressPodmanHandler {
         }
       }
 
-      log('cleanup_completed', {
+      this.log('cleanup_completed', {
         cleaned,
         remaining: this.activeContainers.size,
         all: all === 'true'
@@ -880,7 +910,7 @@ class AddressPodmanHandler {
       const startTime = Date.now();
       const timeout = options.timeout || this.defaultTimeout;
 
-      const exec = spawn('podman', ['exec', containerName, 'sh', '-c', command], {
+      const exec = this.spawn('podman', ['exec', containerName, 'sh', '-c', command], {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -924,7 +954,7 @@ class AddressPodmanHandler {
    */
   async copyToContainer(containerName, localPath, remotePath) {
     return new Promise((resolve, reject) => {
-      const copy = spawn('podman', ['cp', localPath, `${containerName}:${remotePath}`], {
+      const copy = this.spawn('podman', ['cp', localPath, `${containerName}:${remotePath}`], {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -952,7 +982,7 @@ class AddressPodmanHandler {
    */
   async writeToContainer(containerName, remotePath, content) {
     return new Promise((resolve, reject) => {
-      const write = spawn('podman', ['exec', '-i', containerName, 'sh', '-c', `cat > ${remotePath}`], {
+      const write = this.spawn('podman', ['exec', '-i', containerName, 'sh', '-c', `cat > ${remotePath}`], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
@@ -985,7 +1015,7 @@ class AddressPodmanHandler {
     const timeout = options.timeout || this.defaultTimeout;
     
     return new Promise((resolve, reject) => {
-      const child = spawn('podman', args, {
+      const child = this.spawn('podman', args, {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -1060,7 +1090,7 @@ class AddressPodmanHandler {
         await this.execInContainer(containerInfo.name, `rm -f ${tempScript}`, { timeout: 5000 });
       } catch (cleanupError) {
         // Log cleanup failure but don't mask original error
-        log('cleanup_error', { script: tempScript, error: cleanupError.message });
+        this.log('cleanup_error', { script: tempScript, error: cleanupError.message });
       }
       throw error;
     }
@@ -1070,7 +1100,7 @@ class AddressPodmanHandler {
    * Wrap RexxJS script with CHECKPOINT monitoring capabilities
    */
   wrapScriptWithCheckpoints(script, options = {}) {
-    return sharedWrapScriptWithCheckpoints(script, options);
+    return this.sharedWrapScriptWithCheckpoints(script, options);
   }
 
   /**
@@ -1079,7 +1109,7 @@ class AddressPodmanHandler {
   async execInContainerWithProgress(containerName, command, options = {}) {
     return new Promise((resolve, reject) => {
       const { spawn } = require('child_process');
-      const child = spawn('podman', ['exec', '-i', containerName, 'sh', '-c', command], {
+      const child = this.spawn('podman', ['exec', '-i', containerName, 'sh', '-c', command], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
@@ -1129,7 +1159,7 @@ class AddressPodmanHandler {
    * Parse CHECKPOINT output for progress monitoring
    */
   parseCheckpointOutput(output, progressCallback) {
-    return sharedParseCheckpointOutput(output, progressCallback);
+    return this.sharedParseCheckpointOutput(output, progressCallback);
   }
 
   /**
@@ -1190,7 +1220,7 @@ class AddressPodmanHandler {
    * Audit security events for compliance
    */
   auditSecurityEvent(event, details) {
-    sharedAuditSecurityEvent(event, details, this.securityMode, this.auditLog, log);
+    this.sharedAuditSecurityEvent(event, details, this.securityMode, this.auditLog, this.log);
   }
 
   /**
@@ -1223,7 +1253,7 @@ class AddressPodmanHandler {
       this.checkContainerHealth();
     }, this.processMonitor.checkInterval);
 
-    log('process_monitoring_started', { 
+    this.log('process_monitoring_started', { 
       interval: this.processMonitor.checkInterval,
       containers: this.activeContainers.size 
     });
@@ -1236,7 +1266,7 @@ class AddressPodmanHandler {
     if (this.monitoringTimer) {
       clearInterval(this.monitoringTimer);
       this.monitoringTimer = null;
-      log('process_monitoring_stopped');
+      this.log('process_monitoring_stopped');
     }
   }
 
@@ -1257,7 +1287,7 @@ class AddressPodmanHandler {
           this.handleUnhealthyContainer(name, container, health);
         }
       } catch (error) {
-        log('health_check_error', { container: name, error: error.message });
+        this.log('health_check_error', { container: name, error: error.message });
       }
     }
   }
@@ -1285,7 +1315,7 @@ class AddressPodmanHandler {
         };
       }
     } catch (error) {
-      log('health_check_failed', { container: containerName, error: error.message });
+      this.log('health_check_failed', { container: containerName, error: error.message });
     }
 
     return {
@@ -1302,7 +1332,7 @@ class AddressPodmanHandler {
    * Handle unhealthy containers
    */
   async handleUnhealthyContainer(name, container, health) {
-    log('unhealthy_container_detected', { 
+    this.log('unhealthy_container_detected', { 
       container: name, 
       status: health.status,
       lastKnownGood: container.status 
@@ -1321,10 +1351,10 @@ class AddressPodmanHandler {
     // Auto-recovery logic for certain conditions
     if (health.status === 'exited' && container.autoRestart) {
       try {
-        log('attempting_auto_restart', { container: name });
+        this.log('attempting_auto_restart', { container: name });
         await this.startContainer({ name }, {});
       } catch (error) {
-        log('auto_restart_failed', { container: name, error: error.message });
+        this.log('auto_restart_failed', { container: name, error: error.message });
       }
     }
   }
@@ -1371,7 +1401,7 @@ class AddressPodmanHandler {
       lastCheck: null
     });
 
-    log('health_check_configured', { 
+    this.log('health_check_configured', { 
       container, 
       enabled, 
       interval, 
@@ -1420,7 +1450,7 @@ class AddressPodmanHandler {
       lastUpdate: null
     });
 
-    log('checkpoint_monitoring_setup', { 
+    this.log('checkpoint_monitoring_setup', { 
       container: containerName,
       bidirectional: true 
     });
@@ -1447,7 +1477,7 @@ class AddressPodmanHandler {
     }
 
     // Log the checkpoint for debugging
-    log('checkpoint_received', {
+    this.log('checkpoint_received', {
       container: containerName,
       checkpoint: checkpointData.checkpoint,
       params: checkpointData.params
@@ -1460,7 +1490,7 @@ class AddressPodmanHandler {
   async execInContainerWithProgress(containerName, command, options = {}) {
     return new Promise((resolve, reject) => {
       const { spawn } = require('child_process');
-      const child = spawn('podman', ['exec', '-i', containerName, 'sh', '-c', command], {
+      const child = this.spawn('podman', ['exec', '-i', containerName, 'sh', '-c', command], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
@@ -1522,7 +1552,7 @@ class AddressPodmanHandler {
    * Parse enhanced CHECKPOINT output with structured data support
    */
   parseEnhancedCheckpointOutput(containerName, output, progressCallback) {
-    return sharedParseEnhancedCheckpointOutput(output, (rec) => {
+    return this.sharedParseEnhancedCheckpointOutput(output, (rec) => {
       this.processCheckpointData(containerName, rec);
       if (typeof progressCallback === 'function') {
         progressCallback(rec.checkpoint, rec.params);
@@ -1586,9 +1616,10 @@ class AddressPodmanHandler {
 // Global handler instance
 let podmanHandlerInstance = null;
 
-// Primary detection function with ADDRESS target metadata
-function ADDRESS_PODMAN_MAIN() {
+// Podman ADDRESS metadata function
+function PODMAN_ADDRESS_META() {
   return {
+    namespace: "rexxjs",
     type: 'address-target',
     name: 'ADDRESS PODMAN Container Service',
     version: '1.0.0',
@@ -1599,7 +1630,10 @@ function ADDRESS_PODMAN_MAIN() {
       commandSupport: true,  // Indicates support for command-string style
       methodSupport: true    // Also supports method-call style for convenience
     },
-    dependencies: [],
+    dependencies: {
+      "child_process": "builtin"
+    },
+    envVars: [],
     loaded: true,
     requirements: {
       environment: 'nodejs',
@@ -1695,14 +1729,14 @@ const ADDRESS_PODMAN_METHODS = {
 if (typeof module !== 'undefined' && module.exports) {
   // Node.js environment
   module.exports = {
-    ADDRESS_PODMAN_MAIN,
+    PODMAN_ADDRESS_META,
     ADDRESS_PODMAN_HANDLER,
     ADDRESS_PODMAN_METHODS,
     AddressPodmanHandler // Export the class for testing
   };
 } else if (typeof window !== 'undefined') {
   // Browser environment - attach to global window
-  window.ADDRESS_PODMAN_MAIN = ADDRESS_PODMAN_MAIN;
+  window.PODMAN_ADDRESS_META = PODMAN_ADDRESS_META;
   window.ADDRESS_PODMAN_HANDLER = ADDRESS_PODMAN_HANDLER;
   window.ADDRESS_PODMAN_METHODS = ADDRESS_PODMAN_METHODS;
 }

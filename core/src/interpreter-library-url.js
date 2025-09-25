@@ -29,9 +29,9 @@
  */
 
 /**
- * Check if library name refers to local or npm module
+ * Check if library name refers to local or npm module (not remote web-hosted)
  * @param {string} libraryName - Library name to check
- * @returns {boolean} True if local or npm module
+ * @returns {boolean} True if local file, npm package, or registry-style name; false if remote web-hosted
  */
 function isLocalOrNpmModule(libraryName) {
   // Local relative paths
@@ -39,12 +39,30 @@ function isLocalOrNpmModule(libraryName) {
     return true;
   }
   
-  // npm package names (no github.com prefix and no @version)
-  if (!libraryName.includes('github.com/') && !libraryName.startsWith('http')) {
-    return true;
+  // Check for remote web-hosted libraries (any HTTP/HTTPS URL or git hosting platforms)
+  if (libraryName.startsWith('http://') || libraryName.startsWith('https://')) {
+    return false; // Direct HTTP/HTTPS URLs are remote
   }
   
-  return false;
+  // Check for common git hosting platforms (github.com, gitlab.com, bitbucket.org, etc.)
+  const gitHostPatterns = [
+    'github.com/',
+    'gitlab.com/',
+    'bitbucket.org/',
+    'dev.azure.com/',
+    'git.sr.ht/',
+    'codeberg.org/',
+    'gitea.com/'
+  ];
+  
+  for (const pattern of gitHostPatterns) {
+    if (libraryName.includes(pattern)) {
+      return false; // Git hosting platforms are remote
+    }
+  }
+  
+  // Everything else is considered local/npm (package names, local files)
+  return true;
 }
 
 /**

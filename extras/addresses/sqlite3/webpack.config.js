@@ -43,18 +43,7 @@ module.exports = {
  * ${pkg.description}
  * (c) 2025 ${pkg.author} | ${pkg.license} License
  * 
- * @rexxjs-meta {
- *   "canonical": "${rexxjsMeta.canonical}",
- *   "name": "${pkg.name}",
- *   "version": "${pkg.version}",
- *   "description": "${pkg.description}",
- *   "author": "${pkg.author}",
- *   "license": "${pkg.license}",
- *   "type": "${rexxjsMeta.type}",
- *   "minified": true,
- *   "buildTime": "${new Date().toISOString()}",
- *   "buildTool": "webpack@5.x"
- * }
+ * @rexxjs-meta=SQLITE_ADDRESS_META
  */`,
       raw: true,
       entryOnly: true

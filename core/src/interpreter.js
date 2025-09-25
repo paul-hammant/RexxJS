@@ -19,6 +19,7 @@ let libraryUrlUtils;
 let expressionValueUtils;
 let domManagerUtils;
 let libraryManagementUtils;
+let requireSystem;
 let utils;
 let security;
 let stringUtils;
@@ -47,6 +48,7 @@ if (typeof require !== 'undefined') {
   expressionValueUtils = require('./interpreter-expression-value-resolution.js');
   domManagerUtils = require('./interpreter-dom-manager.js');
   libraryManagementUtils = require('./interpreter-library-management.js');
+  requireSystem = require('./require-system.js');
   utils = require('./utils.js');
   security = require('./security.js');
   stringUtils = require('./string-processing.js');
@@ -275,6 +277,23 @@ if (typeof require !== 'undefined') {
     getBlockedRepositories: window.getBlockedRepositories,
     validateGitHubLibrary: window.validateGitHubLibrary
   };
+  
+  // Require system utilities
+  if (registry.has('requireSystem')) {
+    requireSystem = registry.get('requireSystem');
+  } else {
+    // Browser environment fallback for require system
+    requireSystem = {
+      requireWithDependencies: window.requireWithDependencies,
+      loadSingleLibrary: window.loadSingleLibrary,
+      requireNodeJS: window.requireNodeJS,
+      requireRemoteLibrary: window.requireRemoteLibrary,
+      isLocalOrNpmModule: window.isLocalOrNpmModule,
+      isRegistryStyleLibrary: window.isRegistryStyleLibrary,
+      requireRegistryStyleLibrary: window.requireRegistryStyleLibrary,
+      parseRegistryLibraryName: window.parseRegistryLibraryName
+    };
+  }
   
   // String processing utilities
   if (registry.has('stringProcessingUtils')) {
@@ -2965,57 +2984,73 @@ class RexxInterpreter {
   // Transitive dependency resolution
   
   async requireWithDependencies(libraryName, asClause = null) {
-    return await libraryManagementUtils.requireWithDependencies(
-      libraryName,
-      this.loadingQueue,
-      this.checkLibraryPermissions.bind(this),
-      this.isLibraryLoaded.bind(this),
-      (libName) => this.detectAndRegisterAddressTargets(libName, asClause),
-      this.loadSingleLibrary.bind(this),
-      this.extractDependencies.bind(this),
-      this.dependencyGraph,
-      (libName) => this.registerLibraryFunctions(libName, asClause)
-    );
+    const ctx = {
+      libraryManagementUtils,
+      loadingQueue: this.loadingQueue,
+      checkLibraryPermissions: this.checkLibraryPermissions.bind(this),
+      isLibraryLoaded: this.isLibraryLoaded.bind(this),
+      detectAndRegisterAddressTargets: (libName, asClause) => this.detectAndRegisterAddressTargets(libName, asClause),
+      extractDependencies: this.extractDependencies.bind(this),
+      dependencyGraph: this.dependencyGraph,
+      registerLibraryFunctions: (libName, asClause) => this.registerLibraryFunctions(libName, asClause),
+      requireRegistryLibrary: this.requireRegistryLibrary.bind(this),
+      isRemoteOrchestrated: this.isRemoteOrchestrated.bind(this),
+      isBuiltinLibrary: this.isBuiltinLibrary.bind(this),
+      requireViaCheckpoint: this.requireViaCheckpoint.bind(this),
+      detectEnvironment: this.detectEnvironment.bind(this),
+      requireWebStandalone: this.requireWebStandalone.bind(this),
+      requireControlBus: this.requireControlBus.bind(this),
+      requireNodeJS: this.requireNodeJS.bind(this),
+      requireNodeJSModule: this.requireNodeJSModule.bind(this),
+      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
+      libraryUrlUtils,
+      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
+      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
+      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this),
+      isLocalOrNpmModule: this.isLocalOrNpmModule.bind(this),
+      isRegistryStyleLibrary: this.isRegistryStyleLibrary.bind(this),
+      requireRegistryStyleLibrary: this.requireRegistryStyleLibrary.bind(this),
+      requireRemoteLibrary: this.requireRemoteLibrary.bind(this)
+    };
+    return await requireSystem.requireWithDependencies(libraryName, asClause, ctx);
   }
 
   async loadSingleLibrary(libraryName) {
-    // Check if it's a registry: prefixed library
-    if (libraryName.startsWith('registry:')) {
-      return await this.requireRegistryLibrary(libraryName.substring(9)); // Remove 'registry:' prefix
-    }
-    
-    // SCRO: Check if we're in remote orchestrated context and should request via CHECKPOINT
-    if (this.isRemoteOrchestrated() && !this.isBuiltinLibrary(libraryName)) {
-      return await this.requireViaCheckpoint(libraryName);
-    }
-
-    // Original single library loading logic
-    const env = this.detectEnvironment();
-    switch (env) {
-      case 'nodejs': 
-        return await this.requireNodeJS(libraryName);
-      case 'web-standalone': 
-        return await this.requireWebStandalone(libraryName);
-      case 'web-controlbus': 
-        return await this.requireControlBus(libraryName);
-      default: 
-        throw new Error(`REQUIRE not supported in environment: ${env}`);
-    }
+    const ctx = {
+      requireRegistryLibrary: this.requireRegistryLibrary.bind(this),
+      isRemoteOrchestrated: this.isRemoteOrchestrated.bind(this),
+      isBuiltinLibrary: this.isBuiltinLibrary.bind(this),
+      requireViaCheckpoint: this.requireViaCheckpoint.bind(this),
+      detectEnvironment: this.detectEnvironment.bind(this),
+      requireWebStandalone: this.requireWebStandalone.bind(this),
+      requireControlBus: this.requireControlBus.bind(this),
+      requireNodeJS: this.requireNodeJS.bind(this),
+      requireNodeJSModule: this.requireNodeJSModule.bind(this),
+      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
+      libraryUrlUtils,
+      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
+      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
+      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this)
+    };
+    return await requireSystem.loadSingleLibrary(libraryName, ctx);
   }
 
   async requireNodeJS(libraryName) {
-    // Check if it's a local file or npm package (Node.js style)
-    if (this.isLocalOrNpmModule(libraryName)) {
-      return await this.requireNodeJSModule(libraryName);
-    }
-    
-    // Check if it's a registry-style library (namespace/module@version)
-    if (this.isRegistryStyleLibrary(libraryName)) {
-      return await this.requireRegistryStyleLibrary(libraryName);
-    }
-    
-    // Otherwise use remote Git platform loading (GitHub, GitLab, Azure DevOps, etc.)
-    return await this.requireRemoteLibrary(libraryName);
+    const ctx = {
+      requireNodeJSModule: this.requireNodeJSModule.bind(this),
+      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
+      libraryUrlUtils,
+      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
+      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
+      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this),
+      detectEnvironment: this.detectEnvironment.bind(this),
+      isBuiltinLibrary: this.isBuiltinLibrary.bind(this),
+      isLocalOrNpmModule: this.isLocalOrNpmModule.bind(this),
+      isRegistryStyleLibrary: this.isRegistryStyleLibrary.bind(this),
+      requireRegistryStyleLibrary: this.requireRegistryStyleLibrary.bind(this),
+      requireRemoteLibrary: this.requireRemoteLibrary.bind(this)
+    };
+    return await requireSystem.requireNodeJS(libraryName, ctx);
   }
 
   /**
@@ -3024,11 +3059,17 @@ class RexxInterpreter {
    * @returns {Promise<boolean>} True if library loaded successfully
    */
   async requireRemoteLibrary(libraryName) {
-    return await this.loadAndExecuteLibrary(libraryName);
+    const ctx = {
+      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this)
+    };
+    return await requireSystem.requireRemoteLibrary(libraryName, ctx);
   }
 
   isLocalOrNpmModule(libraryName) {
-    return libraryUrlUtils.isLocalOrNpmModule(libraryName);
+    const ctx = {
+      libraryUrlUtils
+    };
+    return requireSystem.isLocalOrNpmModule(libraryName, ctx);
   }
 
   /**
@@ -3037,9 +3078,7 @@ class RexxInterpreter {
    * @returns {boolean} True if registry style
    */
   isRegistryStyleLibrary(libraryName) {
-    // Pattern: namespace/module or namespace/module@version
-    // Examples: rexxjs/sqlite3-address, rexxjs/sqlite3-address@latest, com.example/my-lib@v1.0.0
-    return /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+)?$/.test(libraryName);
+    return requireSystem.isRegistryStyleLibrary(libraryName);
   }
 
   /**
@@ -3048,29 +3087,14 @@ class RexxInterpreter {
    * @returns {Promise<boolean>} True if library loaded successfully
    */
   async requireRegistryStyleLibrary(libraryName) {
-    try {
-      // Parse namespace/module@version
-      const parsed = this.parseRegistryLibraryName(libraryName);
-      
-      // Step 1: Fetch publisher registry
-      const publisherUrl = await this.lookupPublisherRegistry(parsed.namespace);
-      
-      // Step 2: Fetch module registry
-      const moduleUrl = await this.lookupModuleInRegistry(publisherUrl, parsed.module, parsed.version);
-      
-      // Step 3: Load the resolved URL using appropriate method for environment
-      const env = this.detectEnvironment();
-      if (env === 'web-standalone' || env === 'web-controlbus') {
-        // Use browser loading for web environments
-        return await this.loadLibraryFromUrl(moduleUrl, libraryName);
-      } else {
-        // Use Node.js loading for Node.js environment
-        return await this.requireRemoteLibrary(moduleUrl);
-      }
-      
-    } catch (error) {
-      throw new Error(`Registry resolution failed for ${libraryName}: ${error.message}`);
-    }
+    const ctx = {
+      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
+      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
+      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this),
+      detectEnvironment: this.detectEnvironment.bind(this),
+      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this)
+    };
+    return await requireSystem.requireRegistryStyleLibrary(libraryName, ctx);
   }
 
   /**
@@ -3079,20 +3103,7 @@ class RexxInterpreter {
    * @returns {Object} Parsed components {namespace, module, version}
    */
   parseRegistryLibraryName(libraryName) {
-    const parts = libraryName.split('/');
-    if (parts.length !== 2) {
-      throw new Error(`Invalid registry library name format: ${libraryName}. Expected: namespace/module[@version]`);
-    }
-    
-    const namespace = parts[0];
-    const moduleAndVersion = parts[1];
-    
-    // Split module@version
-    const versionSplit = moduleAndVersion.split('@');
-    const module = versionSplit[0];
-    const version = versionSplit[1] || 'latest'; // Default to latest
-    
-    return { namespace, module, version };
+    return requireSystem.parseRegistryLibraryName(libraryName);
   }
 
   /**
@@ -3320,7 +3331,24 @@ class RexxInterpreter {
     
     // Parse dependencies from library code comments or metadata
     if (libraryCode) {
-      // 1. Look for preserved comment dependencies (survive minification, jQuery-style)
+      // 1. NEW: Look for function-based metadata provider (@rexxjs-meta=FUNCTION_NAME)
+      const metaFunctionPattern = /\/\*!\s*[\s\S]*?@rexxjs-meta=([A-Z_]+)/i;
+      const metaFunctionMatch = metaFunctionPattern.exec(libraryCode);
+      
+      if (metaFunctionMatch) {
+        const functionName = metaFunctionMatch[1];
+        console.log(`✓ Found metadata function ${functionName} for ${libraryName}`);
+        
+        // The function will be available after library execution, dependency extraction happens later
+        // For now, mark it as having function-based metadata
+        this.libraryMetadataProviders = this.libraryMetadataProviders || new Map();
+        this.libraryMetadataProviders.set(libraryName, functionName);
+        
+        // Return empty dependencies for now - we'll get them from the function after execution
+        return [];
+      }
+      
+      // 2. Look for preserved comment dependencies (survive minification, jQuery-style)
       const preservedCommentPattern = /\/\*!\s*[\s\S]*?@rexxjs-meta\s+(\{[\s\S]*?\})/i;
       const preservedMatch = preservedCommentPattern.exec(libraryCode);
       
@@ -3336,7 +3364,7 @@ class RexxInterpreter {
         }
       }
       
-      // 2. Look for standardized JSON format (comment-based)
+      // 3. Look for standardized JSON format (comment-based)
       const jsonDepPattern = /@rexxjs-meta-start\s*\*\s*([\s\S]*?)\s*\*\s*@rexxjs-meta-end/i;
       const jsonMatch = jsonDepPattern.exec(libraryCode);
       
@@ -3352,7 +3380,7 @@ class RexxInterpreter {
       }
       
       
-      // 3. Final fallback: Legacy comment format
+      // 4. Final fallback: Legacy comment format
       const depPattern = /\/\*\s*@dependencies?\s+(.*?)\s*\*\//gi;
       const requirePattern = /\/\*\s*@require\s+(.*?)\s*\*\//gi;
       
@@ -4346,6 +4374,37 @@ class RexxInterpreter {
         this.builtInFunctions[registeredName] = (...args) => {
           return func(...args);
         };
+      }
+    }
+    
+    // NEW: Check if this library has a metadata provider function
+    if (this.libraryMetadataProviders && this.libraryMetadataProviders.has(libraryName)) {
+      const metadataFunctionName = this.libraryMetadataProviders.get(libraryName);
+      
+      try {
+        // Call the metadata provider function to get full metadata
+        const metadataFunc = this.getGlobalFunction(metadataFunctionName, libraryName);
+        if (metadataFunc) {
+          const metadata = metadataFunc();
+          console.log(`✓ Retrieved metadata from ${metadataFunctionName} for ${libraryName}:`, metadata);
+          
+          // Store metadata for later use by require system
+          this.libraryMetadata = this.libraryMetadata || new Map();
+          this.libraryMetadata.set(libraryName, metadata);
+          
+          // Extract and validate dependencies if they exist
+          if (metadata.dependencies) {
+            const depKeys = Object.keys(metadata.dependencies);
+            if (depKeys.length > 0) {
+              console.log(`✓ Library ${libraryName} declares dependencies: ${depKeys.join(', ')}`);
+            }
+          }
+        } else {
+          console.warn(`Metadata function ${metadataFunctionName} not found for ${libraryName}`);
+        }
+      } catch (error) {
+        console.error(`Failed to call metadata function ${metadataFunctionName} for ${libraryName}:`, error);
+        throw new Error(`Metadata provider function ${metadataFunctionName} failed: ${error.message}`);
       }
     }
   }

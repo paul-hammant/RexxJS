@@ -7,7 +7,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "install:core": "cd ../../../../core && npm install",
-    "pretest": "npm run install:core"
+    "pretest": "npm run install:core",
+    "build": "webpack --config webpack.bundle.config.js --mode=production",
+    "build:dev": "webpack --config webpack.bundle.config.js --mode=development"
   },
   "devDependencies": {
     "jest": "^29.7.0"

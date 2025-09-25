@@ -6,15 +6,20 @@
   "bin": {
     "rexx": "./cli.js"
   },
+  "scripts": {
+    "build:extras": "node -e \"const {execSync,spawnSync}=require('child_process'); const fs=require('fs'); const path=require('path'); const dirs=['../extras/addresses/container-and-vm-orchestration','../extras/addresses/remote']; for (const d of dirs) { const cwd=path.resolve(__dirname,d); const hasLock = fs.existsSync(path.join(cwd,'package-lock.json')) || fs.existsSync(path.join(cwd,'npm-shrinkwrap.json')); execSync(hasLock?'npm ci':'npm install', {stdio:'inherit', cwd}); execSync('npm run build', {stdio:'inherit', cwd}); }\"",
+    "build:all": "./build-all.sh"
+  },
   "pkg": {
     "targets": [
       "node18-linux-x64"
     ],
     "compress": "Brotli",
     "assets": [
-      "src/**/*",
+      "../core/src/**/*",
       "system-address.js",
       "../extras/addresses/remote/address-ssh.js",
+      "../extras/addresses/remote/address-ssh-multimode.js",
       "../extras/addresses/sqlite3/sqlite-address.js",
       "../extras/addresses/anthropic-ai/claude/claude-address.js",
       "../extras/addresses/gemini-ai/src/gemini-pro.js",
@@ -22,16 +27,14 @@
       "../extras/addresses/gemini-ai/src/checkpoint-handler.js",
       "../extras/addresses/open-ai/chat-completions/src/chat-completions.js",
       "../extras/addresses/jq/src/jq-address.js",
-      "../extras/addresses/container-and-vm-orchestration/address-docker.js",
-      "../extras/addresses/container-and-vm-orchestration/address-podman.js",
-      "../extras/addresses/container-and-vm-orchestration/address-nspawn.js",
-      "../extras/addresses/container-and-vm-orchestration/address-remote-docker.js",
-      "../extras/addresses/container-and-vm-orchestration/shared-utils.js",
-      "../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.js"
+      "../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.bundle.js",
+      "../extras/addresses/remote/bundled-remote-handlers.bundle.js",
+      "../extras/addresses/shared-utils/index.js"
     ],
     "scripts": [
-      "src/**/*.js",
+      "../core/src/**/*.js",
       "../extras/addresses/remote/address-ssh.js",
+      "../extras/addresses/remote/address-ssh-multimode.js",
       "../extras/addresses/sqlite3/sqlite-address.js",
       "../extras/addresses/anthropic-ai/claude/claude-address.js",
       "../extras/addresses/gemini-ai/src/gemini-pro.js",
@@ -39,12 +42,9 @@
       "../extras/addresses/gemini-ai/src/checkpoint-handler.js", 
       "../extras/addresses/open-ai/chat-completions/src/chat-completions.js",
       "../extras/addresses/jq/src/jq-address.js",
-      "../extras/addresses/container-and-vm-orchestration/address-docker.js",
-      "../extras/addresses/container-and-vm-orchestration/address-podman.js",
-      "../extras/addresses/container-and-vm-orchestration/address-nspawn.js",
-      "../extras/addresses/container-and-vm-orchestration/address-remote-docker.js",
-      "../extras/addresses/container-and-vm-orchestration/shared-utils.js",
-      "../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.js"
+      "../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.bundle.js",
+      "../extras/addresses/remote/bundled-remote-handlers.bundle.js",
+      "../extras/addresses/shared-utils/index.js"
     ]
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 /*!
  * rexxjs/sqlite-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/sqlite3-address","type":"address-handler","dependencies":{"sqlite3":"^5.1.0"},"nodeonly":true,"envVars":[]}
+ * @rexxjs-meta=SQLITE_ADDRESS_META
  */
 /**
  * SQLite ADDRESS Library - Provides SQL database operations via ADDRESS interface
@@ -19,8 +19,8 @@
  * Licensed under the MIT License
  */
 
-// Primary detection function with ADDRESS target metadata
-function SQLITE_ADDRESS_MAIN() {
+// SQLite ADDRESS metadata function
+function SQLITE_ADDRESS_META() {
   // Check sqlite3 availability without throwing during registration
   let sqlite3Available = false;
   try {
@@ -31,7 +31,8 @@ function SQLITE_ADDRESS_MAIN() {
   }
   
   return {
-    type: 'address-target',
+    canonical: "org.rexxjs/sqlite3-address",
+    type: 'address-handler',
     name: 'SQLite Database Service',
     version: '1.0.0',
     description: 'SQLite database operations via ADDRESS interface',
@@ -41,7 +42,11 @@ function SQLITE_ADDRESS_MAIN() {
       commandSupport: true,  // Indicates support for command-string style
       methodSupport: true    // Also supports method-call style for convenience
     },
-    dependencies: [],
+    dependencies: {
+      "sqlite3": "^5.1.0"
+    },
+    nodeonly: true,
+    envVars: [],
     loaded: true,
     requirements: {
       environment: 'nodejs',
@@ -434,14 +439,14 @@ function formatSQLErrorForREXX(error) {
 // Export to global scope (required for REQUIRE system detection)
 if (typeof window !== 'undefined') {
   // Browser environment (though this won't work due to sqlite3 dependency)
-  window.SQLITE_ADDRESS_MAIN = SQLITE_ADDRESS_MAIN;
-  window.SQLITE3_ADDRESS_BUNDLE_MAIN = SQLITE_ADDRESS_MAIN; // Bundle detection function
+  window.SQLITE_ADDRESS_META = SQLITE_ADDRESS_META;
+  window.SQLITE3_ADDRESS_BUNDLE_META = SQLITE_ADDRESS_META; // Bundle detection function
   window.ADDRESS_SQLITE3_HANDLER = ADDRESS_SQLITE3_HANDLER;
   window.ADDRESS_SQLITE3_METHODS = ADDRESS_SQLITE3_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
-  global.SQLITE_ADDRESS_MAIN = SQLITE_ADDRESS_MAIN;
-  global.SQLITE3_ADDRESS_BUNDLE_MAIN = SQLITE_ADDRESS_MAIN; // Bundle detection function
+  global.SQLITE_ADDRESS_META = SQLITE_ADDRESS_META;
+  global.SQLITE3_ADDRESS_BUNDLE_META = SQLITE_ADDRESS_META; // Bundle detection function
   global.ADDRESS_SQLITE3_HANDLER = ADDRESS_SQLITE3_HANDLER;
   global.ADDRESS_SQLITE3_METHODS = ADDRESS_SQLITE3_METHODS;
 }

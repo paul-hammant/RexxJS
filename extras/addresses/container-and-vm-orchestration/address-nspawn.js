@@ -1,6 +1,6 @@
 /*!
  * rexxjs/address-nspawn v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"namespace":"rexxjs","dependencies":{"child_process":"builtin"},"envVars":[]}
+ * @rexxjs-meta=NSPAWN_ADDRESS_META
  */
 /**
  * ADDRESS NSPAWN Handler
@@ -20,7 +20,18 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { interpolateMessage, logActivity, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, testRuntime, validateCommand, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = require('./shared-utils');
+const { interpolateMessage, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = require('../shared-utils');
+// testRuntime and validateCommand were previously sourced locally; define simple versions here or import if available
+function testRuntime(runtime) {
+  return new Promise((resolve, reject) => {
+    const { spawn } = require('child_process');
+    const proc = spawn(runtime, ['--version'], { stdio: 'ignore' });
+    const to = setTimeout(() => { try { proc.kill(); } catch {} ; reject(new Error(`${runtime} test timeout`)); }, 5000);
+    proc.on('close', code => { clearTimeout(to); code === 0 ? resolve(true) : reject(new Error(`${runtime} test failed with code ${code}`)); });
+    proc.on('error', err => { clearTimeout(to); reject(new Error(`${runtime} not found: ${err.message}`)); });
+  });
+}
+function validateCommand(cmd) { return typeof cmd === 'string' && cmd.length > 0; }
 // Inline utility functions for universal compatibility (Node.js, pkg binary, web/DOM)
 
 // Helper function for logging
@@ -1586,26 +1597,23 @@ class AddressNspawnHandler {
 // Global handler instance
 let nspawnHandlerInstance = null;
 
-// Primary detection function with ADDRESS target metadata
-function ADDRESS_NSPAWN_MAIN() {
+// Consolidated metadata provider function
+function NSPAWN_ADDRESS_META() {
   return {
+    namespace: "rexxjs",
+    dependencies: {"child_process": "builtin"},
+    envVars: [],
     type: 'address-target',
     name: 'ADDRESS NSPAWN Container Service',
     version: '1.0.0',
-    description: 'systemd-nspawn container operations via ADDRESS interface',
-    provides: {
-      addressTarget: 'nspawn',
-      handlerFunction: 'ADDRESS_NSPAWN_HANDLER',
-      commandSupport: true,  // Indicates support for command-string style
-      methodSupport: true    // Also supports method-call style for convenience
-    },
-    dependencies: [],
-    loaded: true,
-    requirements: {
-      environment: 'nodejs',
-      modules: ['child_process']
-    }
+    description: 'systemd-nspawn container management via ADDRESS interface',
+    detectionFunction: 'ADDRESS_NSPAWN_MAIN'
   };
+}
+
+// Primary detection function with ADDRESS target metadata
+function ADDRESS_NSPAWN_MAIN() {
+  return NSPAWN_ADDRESS_META();
 }
 
 // ADDRESS target handler function with REXX variable management
@@ -1695,6 +1703,7 @@ const ADDRESS_NSPAWN_METHODS = {
 if (typeof module !== 'undefined' && module.exports) {
   // Node.js environment
   module.exports = {
+    NSPAWN_ADDRESS_META,
     ADDRESS_NSPAWN_MAIN,
     ADDRESS_NSPAWN_HANDLER,
     ADDRESS_NSPAWN_METHODS,
@@ -1702,6 +1711,7 @@ if (typeof module !== 'undefined' && module.exports) {
   };
 } else if (typeof window !== 'undefined') {
   // Browser environment - attach to global window
+  window.NSPAWN_ADDRESS_META = NSPAWN_ADDRESS_META;
   window.ADDRESS_NSPAWN_MAIN = ADDRESS_NSPAWN_MAIN;
   window.ADDRESS_NSPAWN_HANDLER = ADDRESS_NSPAWN_HANDLER;
   window.ADDRESS_NSPAWN_METHODS = ADDRESS_NSPAWN_METHODS;

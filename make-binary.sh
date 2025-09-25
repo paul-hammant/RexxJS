@@ -40,7 +40,7 @@ if [ ! -d "pkg-build" ]; then
     exit 1
 fi
 
-# Dependencies are now in core/src/ and automatically included
+# Source files are now referenced directly from core/src via package.json
 
 cd pkg-build
 

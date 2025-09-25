@@ -1,6 +1,6 @@
 /*!
  * test-framework-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
- * @rexxjs-meta {"dependencies": {}}
+ * @rexxjs-meta=TEST_FRAMEWORK_ADDRESS_META
  */
 
 /**
@@ -525,8 +525,8 @@ function generateHierarchy() {
   return TestFramework.suites.map(processSuite);
 }
 
-// Main ADDRESS handler
-function TEST_FRAMEWORK_ADDRESS_MAIN() {
+// Test framework ADDRESS metadata function
+function TEST_FRAMEWORK_ADDRESS_META() {
   return {
     type: 'address-target',
     name: 'REXX Native Test Framework',
@@ -536,7 +536,7 @@ function TEST_FRAMEWORK_ADDRESS_MAIN() {
       commandSupport: true,
       methodSupport: true
     },
-    dependencies: [],
+    dependencies: {},
     version: '1.0.0',
     commands: Object.keys(ADDRESS_HANDLERS),
     matchers: Object.keys(MATCHERS),
@@ -551,7 +551,7 @@ function TEST_FRAMEWORK_ADDRESS_MAIN() {
 // Export for Node.js usage
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    TEST_FRAMEWORK_ADDRESS_MAIN,
+    TEST_FRAMEWORK_ADDRESS_META,
     ADDRESS_HANDLERS,
     TestFramework,
     MATCHERS

@@ -1,6 +1,6 @@
 /*!
  * expectations-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
- * @rexxjs-meta {"dependencies":{}}
+ * @rexxjs-meta=EXPECTATIONS_ADDRESS_META
  */
 /**
  * Plain English Expectation DSL ADDRESS Library for RexxJS
@@ -940,8 +940,8 @@ const ExpectationsEngine = {
   }
 };
 
-// ADDRESS target detection function
-function EXPECTATIONS_ADDRESS_MAIN() {
+// ADDRESS target metadata function
+function EXPECTATIONS_ADDRESS_META() {
   return {
     type: 'address-target',
     name: 'Plain English Expectations Service',
@@ -952,7 +952,7 @@ function EXPECTATIONS_ADDRESS_MAIN() {
       commandSupport: true,
       methodSupport: true
     },
-    dependencies: [],
+    dependencies: {},
     loaded: true,
     requirements: {
       environment: 'universal'
@@ -1135,13 +1135,13 @@ const ADDRESS_EXPECTATIONS_METHODS = {
 
 if (typeof window !== 'undefined') {
   // Browser environment
-  window.EXPECTATIONS_ADDRESS_MAIN = EXPECTATIONS_ADDRESS_MAIN;
+  window.EXPECTATIONS_ADDRESS_META = EXPECTATIONS_ADDRESS_META;
   window.ADDRESS_EXPECTATIONS_HANDLER = ADDRESS_EXPECTATIONS_HANDLER;
   window.ADDRESS_EXPECTATIONS_METHODS = ADDRESS_EXPECTATIONS_METHODS;
   window.ExpectationError = ExpectationError;
 } else if (typeof global !== 'undefined') {
   // Node.js environment  
-  global.EXPECTATIONS_ADDRESS_MAIN = EXPECTATIONS_ADDRESS_MAIN;
+  global.EXPECTATIONS_ADDRESS_META = EXPECTATIONS_ADDRESS_META;
   global.ADDRESS_EXPECTATIONS_HANDLER = ADDRESS_EXPECTATIONS_HANDLER;
   global.ADDRESS_EXPECTATIONS_METHODS = ADDRESS_EXPECTATIONS_METHODS;
   global.ExpectationError = ExpectationError;
@@ -1151,7 +1151,7 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ExpectationError,
-    EXPECTATIONS_ADDRESS_MAIN,
+    EXPECTATIONS_ADDRESS_META,
     ADDRESS_EXPECTATIONS_HANDLER,
     ADDRESS_EXPECTATIONS_METHODS
   };

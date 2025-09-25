@@ -1,69 +1,69 @@
 /*!
  * rexxjs/address-ssh v1.0.0 | (c) 2025 RexxJS Project | MIT License
+ * @rexxjs-meta=ADDRESS_SSH_META
  * First-class ADDRESS target for remote shell over SSH (transport layer)
  */
 
-const { spawn } = require('child_process');
-const path = require('path');
-// Resolve shared utils relative to this module using CommonJS-safe signals
-let hereDir;
-try { if (typeof __dirname !== 'undefined') { hereDir = __dirname; } } catch {}
-if (!hereDir) {
-  try { if (typeof module !== 'undefined' && module && module.filename) { hereDir = path.dirname(module.filename); } } catch {}
-}
-if (!hereDir) {
-  try { if (typeof module !== 'undefined' && module && module.parent && module.parent.filename) { hereDir = path.dirname(module.parent.filename); } } catch {}
-}
-if (!hereDir) { hereDir = process.cwd(); }
-
-const fs = require('fs');
-function resolveSharedUtils() {
-  const candidates = [];
-  const rel = '../container-and-vm-orchestration/shared-utils';
-  // Prefer path relative to this file dir if valid
-  candidates.push(path.join(hereDir, rel));
-  // Repo-root cwd guesses
-  candidates.push(path.join(process.cwd(), 'extras/addresses/container-and-vm-orchestration/shared-utils'));
-  candidates.push(path.join(process.cwd(), 'core/../extras/addresses/container-and-vm-orchestration/shared-utils'));
-  // Based on parent module directory
-  try {
-    const parentDir = module && module.parent && module.parent.filename ? path.dirname(module.parent.filename) : null;
-    if (parentDir) {
-      candidates.push(path.join(parentDir, '../extras/addresses/container-and-vm-orchestration/shared-utils'));
+// SSH ADDRESS metadata function
+function ADDRESS_SSH_META() {
+  return {
+    type: 'address-target',
+    name: 'ADDRESS SSH Transport',
+    version: '1.0.0',
+    description: 'Remote shell via SSH',
+    provides: {
+      addressTarget: 'ssh',
+      handlerFunction: 'ADDRESS_SSH_HANDLER',
+      commandSupport: true,
+      methodSupport: true
+    },
+    dependencies: {},
+    envVars: [],
+    requirements: {
+      environment: 'nodejs',
+      modules: ['child_process']
     }
-  } catch {}
-  for (const base of candidates) {
-    const asIndex = path.join(base, 'index.js');
-    const asJs = base + '.js';
-    if (fs.existsSync(asIndex)) return asIndex;
-    if (fs.existsSync(asJs)) return asJs;
-    if (fs.existsSync(base)) return base; // in case package.json main
-  }
-  // Fall back to the first candidate; let require error show the attempted path
-  return candidates[0];
+  };
 }
-const sharedUtilsPath = resolveSharedUtils();
-const { interpolateMessage, createLogFunction } = require(sharedUtilsPath);
-
-const log = createLogFunction('ADDRESS_SSH');
 
 class AddressSSHHandler {
   constructor() {
     this.sessions = new Map(); // id -> { host, user, options }
     this.defaultTimeout = 60000;
     this.counter = 0;
+    this.initialized = false;
     // Pluggable runner for testability
     this.run = this._spawn.bind(this);
   }
 
   async initialize(config = {}) {
-    this.defaultTimeout = config.defaultTimeout || this.defaultTimeout;
-    log('initialize', { defaultTimeout: this.defaultTimeout });
+    if (this.initialized) return;
+    
+    try {
+      // Import Node.js modules when needed
+      this.spawn = require('child_process').spawn;
+      this.path = require('path');
+      this.fs = require('fs');
+      
+      // Resolve shared utils via shared module
+      const sharedUtils = require('../shared-utils');
+      this.interpolateMessage = sharedUtils.interpolateMessage;
+      this.createLogFunction = sharedUtils.createLogFunction;
+      this.log = this.createLogFunction('ADDRESS_SSH');
+      
+      this.defaultTimeout = config.defaultTimeout || this.defaultTimeout;
+      this.log('initialize', { defaultTimeout: this.defaultTimeout });
+      this.initialized = true;
+    } catch (error) {
+      throw new Error(`Failed to initialize SSH handler: ${error.message}`);
+    }
   }
+
+  // Dynamic resolver removed; using shared module path above
 
   async handleAddressCommand(command, context = {}) {
     try {
-      const interpolated = await interpolateMessage(command, context);
+      const interpolated = await this.interpolateMessage(command, context);
       const [op, ...rest] = interpolated.trim().split(/\s+/);
       const params = {};
       for (const part of rest) {
@@ -72,14 +72,16 @@ class AddressSSHHandler {
       switch (op) {
         case 'connect': return formatSSHResultForREXX(await this.connect(params));
         case 'exec': return formatSSHResultForREXX(await this.exec(params));
-        case 'copy_to': return formatSSHResultForREXX(await this.copyTo(params));
-        case 'copy_from': return formatSSHResultForREXX(await this.copyFrom(params));
+        case 'copy_to': 
+        case 'put': return formatSSHResultForREXX(await this.copyTo(params));
+        case 'copy_from': 
+        case 'get': return formatSSHResultForREXX(await this.copyFrom(params));
         case 'close': return formatSSHResultForREXX(await this.close(params));
         case 'status': return formatSSHResultForREXX(await this.status());
         default: throw new Error(`Unknown ADDRESS SSH command: ${op}`);
       }
     } catch (error) {
-      log('error', { error: error.message });
+      this.log('error', { error: error.message });
       return formatSSHErrForREXX(error);
     }
   }
@@ -129,7 +131,7 @@ class AddressSSHHandler {
   _spawn(cmd, args, timeout) {
     const to = timeout ? parseInt(timeout) : this.defaultTimeout;
     return new Promise((resolve, reject) => {
-      const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = this.spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
       let stdout = '', stderr = '';
       child.stdout.on('data', d => stdout += d.toString());
       child.stderr.on('data', d => stderr += d.toString());
@@ -164,14 +166,17 @@ class AddressSSHHandler {
   }
 }
 
-function ADDRESS_SSH_MAIN() {
-  return { type: 'address-target', name: 'ADDRESS SSH Transport', version: '1.0.0', description: 'Remote shell via SSH', provides: { addressTarget: 'ssh', handlerFunction: 'ADDRESS_SSH_HANDLER', commandSupport: true, methodSupport: true }, requirements: { environment: 'nodejs', modules: ['child_process'] } };
-}
-
 let sshInstance = null;
+
 async function ADDRESS_SSH_HANDLER(commandOrMethod, params, sourceContext) {
-  if (!sshInstance) { sshInstance = new AddressSSHHandler(); await sshInstance.initialize(); }
-  let cmd = commandOrMethod; let context = {};
+  if (!sshInstance) { 
+    sshInstance = new AddressSSHHandler(); 
+    await sshInstance.initialize(); 
+  }
+  
+  let cmd = commandOrMethod; 
+  let context = {};
+  
   try {
     // Get variables from sourceContext if available
     const vars = sourceContext && sourceContext.variables;
@@ -185,12 +190,11 @@ async function ADDRESS_SSH_HANDLER(commandOrMethod, params, sourceContext) {
     }
   } catch {}
 
-
   // Handle direct shell commands (HEREDOC or single commands)
   if (typeof commandOrMethod === 'string') {
     // Check if it looks like a method call (starts with known method names)
     const trimmedCmd = commandOrMethod.trim();
-    const knownMethods = ['connect', 'exec', 'copy_to', 'copy_from', 'close', 'status'];
+    const knownMethods = ['connect', 'exec', 'copy_to', 'put', 'copy_from', 'get', 'close', 'status'];
     const firstLine = trimmedCmd.split('\n')[0].trim();
     const isMethodCall = knownMethods.some(method => firstLine.startsWith(method + ' ') || firstLine === method);
     
@@ -217,14 +221,23 @@ async function ADDRESS_SSH_HANDLER(commandOrMethod, params, sourceContext) {
   }
 
   // Original method call handling
-  if (params) { const pairs = Object.entries(params).map(([k, v]) => typeof v === 'string' && v.includes(' ') ? `${k}="${v}"` : `${k}=${v}`).join(' '); cmd = `${commandOrMethod} ${pairs}`; context = { ...context, ...params }; }
-  try { return await sshInstance.handleAddressCommand(cmd, context); } catch (e) { return formatSSHErrForREXX(e); }
+  if (params) { 
+    const pairs = Object.entries(params).map(([k, v]) => typeof v === 'string' && v.includes(' ') ? `${k}="${v}"` : `${k}=${v}`).join(' '); 
+    cmd = `${commandOrMethod} ${pairs}`; 
+    context = { ...context, ...params }; 
+  }
+  
+  try { 
+    return await sshInstance.handleAddressCommand(cmd, context); 
+  } catch (e) { 
+    return formatSSHErrForREXX(e); 
+  }
 }
 
 // Handle HEREDOC shell commands
 async function handleHeredocShellCommand(sshInstance, multilineCommand, context) {
   try {
-    const interpolated = await interpolateMessage(multilineCommand, context);
+    const interpolated = await sshInstance.interpolateMessage(multilineCommand, context);
     const result = await sshInstance.execShellCommand(interpolated, context);
     return {
       operation: 'SHELL_EXEC',
@@ -242,7 +255,7 @@ async function handleHeredocShellCommand(sshInstance, multilineCommand, context)
 // Handle direct shell command strings  
 async function handleDirectShellCommand(sshInstance, command, context) {
   try {
-    const interpolated = await interpolateMessage(command, context);
+    const interpolated = await sshInstance.interpolateMessage(command, context);
     const result = await sshInstance.execShellCommand(interpolated, context);
     return {
       operation: 'SHELL_EXEC',
@@ -265,14 +278,6 @@ const ADDRESS_SSH_METHODS = {
   'close': 'Close session [id]',
   'status': 'List sessions'
 };
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ADDRESS_SSH_MAIN, ADDRESS_SSH_HANDLER, ADDRESS_SSH_METHODS, AddressSSHHandler };
-} else if (typeof window !== 'undefined') {
-  window.ADDRESS_SSH_MAIN = ADDRESS_SSH_MAIN;
-  window.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
-  window.ADDRESS_SSH_METHODS = ADDRESS_SSH_METHODS;
-}
 
 // Formatters aligned with sqlite address contract so interpreter preserves objects
 function formatSSHResultForREXX(result) {
@@ -311,5 +316,28 @@ function formatSSHErrForREXX(error) {
     errorMessage: message,
     output: message,
     timestamp: new Date().toISOString()
+  };
+}
+
+// Export for global scope (RexxJS interpreter compatibility)
+if (typeof window !== 'undefined') {
+  // Browser environment
+  window.ADDRESS_SSH_META = ADDRESS_SSH_META;
+  window.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
+  window.ADDRESS_SSH_METHODS = ADDRESS_SSH_METHODS;
+} else if (typeof global !== 'undefined') {
+  // Node.js environment  
+  global.ADDRESS_SSH_META = ADDRESS_SSH_META;
+  global.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
+  global.ADDRESS_SSH_METHODS = ADDRESS_SSH_METHODS;
+}
+
+// Export for module systems
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ADDRESS_SSH_META,
+    ADDRESS_SSH_HANDLER,
+    ADDRESS_SSH_METHODS,
+    AddressSSHHandler
   };
 }

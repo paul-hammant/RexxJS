@@ -1,6 +1,6 @@
 /*!
  * rexxjs/system-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta {"canonical":"org.rexxjs/system-address","type":"address-handler","dependencies":{},"nodeonly":true,"envVars":[]}
+ * @rexxjs-meta=SYSTEM_ADDRESS_META
  */
 /**
  * System ADDRESS Library - Provides OS command execution via ADDRESS interface
@@ -19,8 +19,8 @@
  * Licensed under the MIT License
  */
 
-// Primary detection function with ADDRESS target metadata
-function SYSTEM_ADDRESS_MAIN() {
+// System ADDRESS metadata function
+function SYSTEM_ADDRESS_META() {
   // Check Node.js availability without throwing during registration
   let nodejsAvailable = false;
   try {
@@ -32,7 +32,8 @@ function SYSTEM_ADDRESS_MAIN() {
   }
   
   return {
-    type: 'address-target',
+    canonical: "org.rexxjs/system-address",
+    type: 'address-handler',
     name: 'System Command Service',
     version: '1.0.0',
     description: 'OS command execution via ADDRESS interface',
@@ -42,7 +43,9 @@ function SYSTEM_ADDRESS_MAIN() {
       commandSupport: true,  // Indicates support for command-string style
       methodSupport: true    // Also supports method-call style for convenience
     },
-    dependencies: [],
+    dependencies: {},
+    nodeonly: true,
+    envVars: [],
     loaded: true,
     requirements: {
       environment: 'nodejs',
@@ -310,12 +313,12 @@ function formatSystemErrorForREXX(error) {
 // Export to global scope (required for REQUIRE system detection)
 if (typeof window !== 'undefined') {
   // Browser environment (though this won't work due to Node.js dependency)
-  window.SYSTEM_ADDRESS_MAIN = SYSTEM_ADDRESS_MAIN;
+  window.SYSTEM_ADDRESS_META = SYSTEM_ADDRESS_META;
   window.ADDRESS_SYSTEM_HANDLER = ADDRESS_SYSTEM_HANDLER;
   window.ADDRESS_SYSTEM_METHODS = ADDRESS_SYSTEM_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
-  global.SYSTEM_ADDRESS_MAIN = SYSTEM_ADDRESS_MAIN;
+  global.SYSTEM_ADDRESS_META = SYSTEM_ADDRESS_META;
   global.ADDRESS_SYSTEM_HANDLER = ADDRESS_SYSTEM_HANDLER;
   global.ADDRESS_SYSTEM_METHODS = ADDRESS_SYSTEM_METHODS;
 }
