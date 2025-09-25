@@ -48,15 +48,8 @@ describe('NumPy RENDER Function Tests', () => {
     });
   });
 
-  afterEach(() => {
-    // Clean up test files
-    const testFiles = fs.readdirSync('./').filter(f => 
-      f.startsWith('numpy-') && f.endsWith('.png')
-    );
-    testFiles.forEach(file => {
-      try { fs.unlinkSync(file); } catch (e) {}
-    });
-  });
+  // No afterEach cleanup - PNG files are kept in images/ directory for inspection
+  // The images/ directory is in .gitignore so these won't be committed
 
   describe('Basic RENDER functionality', () => {
     test('should render histogram data to PNG file', async () => {
@@ -64,7 +57,7 @@ describe('NumPy RENDER Function Tests', () => {
         LET dataJson = "[1, 2, 2, 3, 3, 3, 4, 4, 5]"
         LET data = JSON_PARSE text=dataJson
         LET hist = HISTOGRAM data=data bins=5
-        LET outputPath = "./test-histogram.png"
+        LET outputPath = "./images/test-histogram.png"
         LET result = RENDER plot=hist output=outputPath title="Test Histogram" width=800 height=600
         SAY "Rendered to: " || result
       `;
@@ -74,10 +67,10 @@ describe('NumPy RENDER Function Tests', () => {
 
       // Extract the actual filename from output
       const outputText = output.join(' ');
-      expect(outputText).toMatch(/Rendered to: \.\/numpy-histogram-\d+\.png/);
+      expect(outputText).toMatch(/Rendered to: \.\/images\/numpy-histogram-\d+\.png/);
       
       // Get the actual filename that was generated
-      const match = outputText.match(/Rendered to: (\.\/numpy-histogram-\d+\.png)/);
+      const match = outputText.match(/Rendered to: (\.\/images\/numpy-histogram-\d+\.png)/);
       expect(match).toBeTruthy();
       const actualFilename = match[1];
       
@@ -98,15 +91,15 @@ describe('NumPy RENDER Function Tests', () => {
         LET x = JSON_PARSE text=xJson
         LET y = JSON_PARSE text=yJson
         LET hist2d = HISTOGRAM2D x=x y=y bins=3
-        LET output = RENDER data=hist2d output="./test-histogram2d.png" title="2D Histogram"
+        LET output = RENDER data=hist2d output="./images/test-histogram2d.png" title="2D Histogram"
         SAY "Rendered 2D histogram: " || output
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Rendered 2D histogram: ./test-histogram2d.png');
-      expect(fs.existsSync('./test-histogram2d.png')).toBe(true);
+      expect(output.join(' ')).toContain('Rendered 2D histogram: ./images/test-histogram2d.png');
+      expect(fs.existsSync('./images/test-histogram2d.png')).toBe(true);
     });
 
     test('should render correlation matrix as heatmap', async () => {
@@ -114,15 +107,15 @@ describe('NumPy RENDER Function Tests', () => {
         LET matrixJson = "[[1, 2, 3], [4, 5, 6], [7, 8, 9]]"
         LET matrix = JSON_PARSE text=matrixJson
         LET corr = CORRCOEF x=matrix
-        LET output = RENDER data=corr output="./test-correlation.png" title="Correlation Matrix"
+        LET output = RENDER data=corr output="./images/test-correlation.png" title="Correlation Matrix"
         SAY "Rendered correlation matrix: " || output
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Rendered correlation matrix: ./test-correlation.png');
-      expect(fs.existsSync('./test-correlation.png')).toBe(true);
+      expect(output.join(' ')).toContain('Rendered correlation matrix: ./images/test-correlation.png');
+      expect(fs.existsSync('./images/test-correlation.png')).toBe(true);
     });
 
     test('should render eigenvalues as bar plot', async () => {
@@ -130,7 +123,7 @@ describe('NumPy RENDER Function Tests', () => {
         LET matrixJson = "[[2, 1], [1, 2]]"
         LET matrix = JSON_PARSE text=matrixJson
         LET eigResult = EIG matrix=matrix
-        LET result = RENDER plot=eigResult output="./test-eigenvalues.png" title="Eigenvalues"
+        LET result = RENDER plot=eigResult output="./images/test-eigenvalues.png" title="Eigenvalues"
         SAY "Rendered eigenvalues: " || result
       `;
 
@@ -139,14 +132,14 @@ describe('NumPy RENDER Function Tests', () => {
 
       // Extract the actual filename from output
       const outputText = output.join(' ');
-      expect(outputText).toMatch(/Rendered eigenvalues: \.\/numpy-eigenvalues-\d+\.png/);
+      expect(outputText).toMatch(/Rendered eigenvalues: \.\/images\/numpy-eigenvalues-\d+\.png/);
     });
 
     test('should render 1D array as line plot', async () => {
       const rexxCode = `
         LET dataJson = "[1, 4, 2, 8, 5, 7]"
         LET data = JSON_PARSE text=dataJson
-        LET result = RENDER plot=data output="./test-array1d.png" title="Array Plot"
+        LET result = RENDER plot=data output="./images/test-array1d.png" title="Array Plot"
         SAY "Rendered 1D array: " || result
       `;
 
@@ -155,7 +148,7 @@ describe('NumPy RENDER Function Tests', () => {
 
       // Extract the actual filename from output
       const outputText = output.join(' ');
-      expect(outputText).toMatch(/Rendered 1D array: \.\/numpy-array1d-\d+\.png/);
+      expect(outputText).toMatch(/Rendered 1D array: \.\/images\/numpy-array1d-\d+\.png/);
     });
   });
 
@@ -211,7 +204,7 @@ describe('NumPy RENDER Function Tests', () => {
   describe('Data type detection', () => {
     test('should detect histogram data structure', () => {
       const histData = { bins: [0, 1, 2, 3], counts: [1, 2, 3] };
-      expect(() => numpyRender.RENDER({ data: histData, output: './test-detect.png' }))
+      expect(() => numpyRender.RENDER({ data: histData, output: './images/test-detect.png' }))
         .not.toThrow();
     });
 
@@ -221,7 +214,7 @@ describe('NumPy RENDER Function Tests', () => {
         xEdges: [0, 1, 2],
         yEdges: [0, 1, 2]
       };
-      expect(() => numpyRender.RENDER({ data: hist2dData, output: './test-detect2d.png' }))
+      expect(() => numpyRender.RENDER({ data: hist2dData, output: './images/test-detect2d.png' }))
         .not.toThrow();
     });
 
@@ -230,24 +223,24 @@ describe('NumPy RENDER Function Tests', () => {
         eigenvalues: [3, 1],
         eigenvectors: [[1, 0], [0, 1]]
       };
-      expect(() => numpyRender.RENDER({ data: eigData, output: './test-detect-eig.png' }))
+      expect(() => numpyRender.RENDER({ data: eigData, output: './images/test-detect-eig.png' }))
         .not.toThrow();
     });
 
     test('should detect 2D matrix', () => {
       const matrixData = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
-      expect(() => numpyRender.RENDER({ data: matrixData, output: './test-detect-matrix.png' }))
+      expect(() => numpyRender.RENDER({ data: matrixData, output: './images/test-detect-matrix.png' }))
         .not.toThrow();
     });
 
     test('should detect 1D array', () => {
       const arrayData = [1, 2, 3, 4, 5];
-      expect(() => numpyRender.RENDER({ data: arrayData, output: './test-detect-array.png' }))
+      expect(() => numpyRender.RENDER({ data: arrayData, output: './images/test-detect-array.png' }))
         .not.toThrow();
     });
 
     test('should throw error for unsupported data types', () => {
-      expect(() => numpyRender.RENDER({ data: "invalid", output: './test.png' }))
+      expect(() => numpyRender.RENDER({ data: "invalid", output: './images/test.png' }))
         .toThrow('Unsupported data type');
     });
   });
@@ -261,13 +254,13 @@ describe('NumPy RENDER Function Tests', () => {
       for (const colormap of colormaps) {
         const output = numpyRender.RENDER({
           data: matrix,
-          output: `./test-${colormap}.png`,
+          output: `./images/test-${colormap}.png`,
           colormap: colormap,
           title: `${colormap} colormap`
         });
         
         expect(output).toContain(colormap);
-        expect(fs.existsSync(`./test-${colormap}.png`)).toBe(true);
+        expect(fs.existsSync(`./images/test-${colormap}.png`)).toBe(true);
       }
     });
   });
@@ -277,45 +270,45 @@ describe('NumPy RENDER Function Tests', () => {
       const rexxCode = `
         LET data = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
         LET correlation_matrix = CORRCOEF x=data
-        LET rendered = RENDER data=correlation_matrix output="./corrcoef-pipeline.png" title="Correlation Pipeline"
+        LET rendered = RENDER data=correlation_matrix output="./images/corrcoef-pipeline.png" title="Correlation Pipeline"
         SAY "Correlation pipeline rendered: " || rendered
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Correlation pipeline rendered: ./corrcoef-pipeline.png');
-      expect(fs.existsSync('./corrcoef-pipeline.png')).toBe(true);
+      expect(output.join(' ')).toContain('Correlation pipeline rendered: ./images/corrcoef-pipeline.png');
+      expect(fs.existsSync('./images/corrcoef-pipeline.png')).toBe(true);
     });
 
     test('should handle COV → RENDER pipeline', async () => {
       const rexxCode = `
         LET data = [[1, 2], [3, 4], [5, 6]]
         LET covariance_matrix = COV x=data
-        LET rendered = RENDER data=covariance_matrix output="./cov-pipeline.png" title="Covariance Pipeline" colormap="hot"
+        LET rendered = RENDER data=covariance_matrix output="./images/cov-pipeline.png" title="Covariance Pipeline" colormap="hot"
         SAY "Covariance pipeline rendered: " || rendered
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Covariance pipeline rendered: ./cov-pipeline.png');
-      expect(fs.existsSync('./cov-pipeline.png')).toBe(true);
+      expect(output.join(' ')).toContain('Covariance pipeline rendered: ./images/cov-pipeline.png');
+      expect(fs.existsSync('./images/cov-pipeline.png')).toBe(true);
     });
 
     test('should handle EIG → RENDER pipeline', async () => {
       const rexxCode = `
         LET matrix = [[4, 2], [1, 3]]
         LET eigenresult = EIG matrix=matrix
-        LET rendered = RENDER data=eigenresult output="./eig-pipeline.png" title="Eigenvalue Pipeline"
+        LET rendered = RENDER data=eigenresult output="./images/eig-pipeline.png" title="Eigenvalue Pipeline"
         SAY "Eigenvalue pipeline rendered: " || rendered
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Eigenvalue pipeline rendered: ./eig-pipeline.png');
-      expect(fs.existsSync('./eig-pipeline.png')).toBe(true);
+      expect(output.join(' ')).toContain('Eigenvalue pipeline rendered: ./images/eig-pipeline.png');
+      expect(fs.existsSync('./images/eig-pipeline.png')).toBe(true);
     });
 
     test('should handle HISTOGRAM2D → RENDER pipeline', async () => {
@@ -323,15 +316,30 @@ describe('NumPy RENDER Function Tests', () => {
         LET x = [1, 2, 3, 4, 5, 2, 3, 4]
         LET y = [2, 3, 4, 5, 6, 4, 5, 6]
         LET hist2d = HISTOGRAM2D x=x y=y bins=4
-        LET rendered = RENDER data=hist2d output="./hist2d-pipeline.png" title="Histogram2D Pipeline" colormap="cool"
+        LET rendered = RENDER data=hist2d output="./images/hist2d-pipeline.png" title="Histogram2D Pipeline" colormap="cool"
         SAY "Histogram2D pipeline rendered: " || rendered
       `;
 
       const commands = parse(rexxCode);
       await interpreter.run(commands);
 
-      expect(output.join(' ')).toContain('Histogram2D pipeline rendered: ./hist2d-pipeline.png');
-      expect(fs.existsSync('./hist2d-pipeline.png')).toBe(true);
+      expect(output.join(' ')).toContain('Histogram2D pipeline rendered: ./images/hist2d-pipeline.png');
+      expect(fs.existsSync('./images/hist2d-pipeline.png')).toBe(true);
+    });
+
+    test('should handle UNIQUE → RENDER pipeline', async () => {
+      const rexxCode = `
+        LET data = [1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4]
+        LET unique_result = UNIQUE data=data return_counts=true
+        LET rendered = RENDER data=unique_result output="./images/unique-pipeline.png" title="Unique Value Counts"
+        SAY "Unique counts rendered: " || rendered
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+
+      expect(output.join(' ')).toContain('Unique counts rendered: ./images/unique-pipeline.png');
+      expect(fs.existsSync('./images/unique-pipeline.png')).toBe(true);
     });
   });
 
@@ -360,7 +368,7 @@ describe('NumPy RENDER Function Tests', () => {
     test('should handle large matrices efficiently', async () => {
       const rexxCode = `
         LET big_matrix = ONES shape=[10, 10]
-        LET rendered = RENDER data=big_matrix output="./big-matrix.png" title="Large Matrix"
+        LET rendered = RENDER data=big_matrix output="./images/big-matrix.png" title="Large Matrix"
         SAY "Large matrix rendered: " || rendered
       `;
 
@@ -370,14 +378,14 @@ describe('NumPy RENDER Function Tests', () => {
       const endTime = Date.now();
 
       expect(endTime - startTime).toBeLessThan(5000); // Should complete in <5 seconds
-      expect(fs.existsSync('./big-matrix.png')).toBe(true);
+      expect(fs.existsSync('./images/big-matrix.png')).toBe(true);
     });
 
     test('should handle empty data gracefully', async () => {
       const rexxCode = `
         LET dataJson = "[]"
         LET empty_array = JSON_PARSE text=dataJson
-        LET rendered = RENDER plot=empty_array output="./empty.png" title="Empty Data"
+        LET rendered = RENDER plot=empty_array output="./images/empty.png" title="Empty Data"
         SAY "Empty data rendered: " || rendered
       `;
 
@@ -386,7 +394,7 @@ describe('NumPy RENDER Function Tests', () => {
 
       // Extract the actual filename from output
       const outputText = output.join(' ');
-      expect(outputText).toMatch(/Empty data rendered: \.\/numpy-array1d-\d+\.png/);
+      expect(outputText).toMatch(/Empty data rendered: \.\/images\/numpy-array1d-\d+\.png/);
     });
   });
 });

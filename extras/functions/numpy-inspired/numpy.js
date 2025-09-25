@@ -392,6 +392,217 @@ function resize(arr, newShape) {
   return reshape(newFlat, ns);
 }
 
+function unique(arr, return_counts = false) {
+  const flat = ravel(arr);
+  const uniqueValues = [];
+  const counts = [];
+  const valueMap = new Map();
+  
+  for (const value of flat) {
+    if (valueMap.has(value)) {
+      valueMap.set(value, valueMap.get(value) + 1);
+    } else {
+      valueMap.set(value, 1);
+      uniqueValues.push(value);
+    }
+  }
+  
+  // Sort unique values
+  uniqueValues.sort((a, b) => {
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    return String(a).localeCompare(String(b));
+  });
+  
+  if (return_counts) {
+    for (const value of uniqueValues) {
+      counts.push(valueMap.get(value));
+    }
+    return { values: uniqueValues, counts };
+  }
+  
+  return uniqueValues;
+}
+
+function sort(arr, axis = -1) {
+  const s = shape(arr);
+  
+  // Handle 1D arrays
+  if (s.length <= 1) {
+    return ravel(arr).slice().sort((a, b) => a - b);
+  }
+  
+  // Handle 2D arrays
+  if (s.length === 2) {
+    if (axis === -1 || axis === 1) {
+      // Sort along last axis (columns)
+      return arr.map(row => row.slice().sort((a, b) => a - b));
+    } else if (axis === 0) {
+      // Sort along first axis (rows) - transpose, sort, transpose back
+      const transposed = transpose(arr);
+      const sorted = transposed.map(col => col.slice().sort((a, b) => a - b));
+      return transpose(sorted);
+    }
+  }
+  
+  // For higher dimensions, flatten and sort
+  return ravel(arr).slice().sort((a, b) => a - b);
+}
+
+function argsort(arr, axis = -1) {
+  const s = shape(arr);
+  
+  // Handle 1D arrays
+  if (s.length <= 1) {
+    const flat = ravel(arr);
+    const indices = Array.from({ length: flat.length }, (_, i) => i);
+    return indices.sort((i, j) => flat[i] - flat[j]);
+  }
+  
+  // Handle 2D arrays
+  if (s.length === 2) {
+    if (axis === -1 || axis === 1) {
+      // Sort indices along last axis (columns)
+      return arr.map(row => {
+        const indices = Array.from({ length: row.length }, (_, i) => i);
+        return indices.sort((i, j) => row[i] - row[j]);
+      });
+    } else if (axis === 0) {
+      // Sort indices along first axis (rows)
+      const result = new Array(s[0]);
+      for (let col = 0; col < s[1]; col++) {
+        const column = arr.map(row => row[col]);
+        const indices = Array.from({ length: s[0] }, (_, i) => i);
+        const sortedIndices = indices.sort((i, j) => column[i] - column[j]);
+        for (let row = 0; row < s[0]; row++) {
+          if (!result[row]) result[row] = new Array(s[1]);
+          result[row][col] = sortedIndices[row];
+        }
+      }
+      return result;
+    }
+  }
+  
+  // For higher dimensions, flatten and sort indices
+  const flat = ravel(arr);
+  const indices = Array.from({ length: flat.length }, (_, i) => i);
+  return indices.sort((i, j) => flat[i] - flat[j]);
+}
+
+function where(condition, x = null, y = null) {
+  // Handle condition as array of booleans or function
+  let conditionArray;
+  if (typeof condition === 'function') {
+    // If condition is a function, apply it to x (assuming x is an array)
+    if (!x) throw new Error('where: x must be provided when condition is a function');
+    const xFlat = ravel(x);
+    conditionArray = xFlat.map(condition);
+  } else {
+    conditionArray = ravel(condition);
+  }
+  
+  if (x === null && y === null) {
+    // Return indices where condition is true
+    const indices = [];
+    conditionArray.forEach((cond, i) => {
+      if (cond) indices.push(i);
+    });
+    return indices;
+  }
+  
+  if (x !== null && y !== null) {
+    // Return elements from x where condition is true, from y where false
+    const xFlat = ravel(x);
+    const yFlat = ravel(y);
+    const result = [];
+    
+    for (let i = 0; i < conditionArray.length; i++) {
+      if (conditionArray[i]) {
+        result.push(xFlat[i % xFlat.length]);
+      } else {
+        result.push(yFlat[i % yFlat.length]);
+      }
+    }
+    
+    // Try to preserve original shape if possible
+    try {
+      const originalShape = shape(Array.isArray(x) ? x : condition);
+      if (originalShape.length > 1) {
+        return reshape(result, originalShape);
+      }
+    } catch (e) {
+      // If reshape fails, return flat array
+    }
+    
+    return result;
+  }
+  
+  throw new Error('where: must provide both x and y, or neither');
+}
+
+function clip(arr, min_val = null, max_val = null) {
+  if (min_val === null && max_val === null) {
+    throw new Error('clip: must specify at least one of min_val or max_val');
+  }
+  
+  function clipValue(val) {
+    let result = val;
+    if (min_val !== null && result < min_val) result = min_val;
+    if (max_val !== null && result > max_val) result = max_val;
+    return result;
+  }
+  
+  // Handle arrays recursively
+  function clipArray(a) {
+    if (Array.isArray(a)) {
+      return a.map(clipArray);
+    }
+    return clipValue(a);
+  }
+  
+  return clipArray(arr);
+}
+
+function convolve(a, v, mode = 'full') {
+  const aFlat = ravel(a);
+  const vFlat = ravel(v);
+  const M = aFlat.length;
+  const N = vFlat.length;
+  
+  let outputLength;
+  let startIdx;
+  
+  switch (mode) {
+    case 'full':
+      outputLength = M + N - 1;
+      startIdx = 0;
+      break;
+    case 'valid':
+      outputLength = Math.max(M, N) - Math.min(M, N) + 1;
+      startIdx = Math.min(M, N) - 1;
+      break;
+    case 'same':
+      outputLength = Math.max(M, N);
+      startIdx = Math.floor(Math.min(M, N) / 2);
+      break;
+    default:
+      throw new Error('convolve: mode must be "full", "valid", or "same"');
+  }
+  
+  const result = new Array(outputLength).fill(0);
+  
+  for (let i = 0; i < outputLength; i++) {
+    const actualIdx = i + startIdx;
+    for (let j = 0; j < N; j++) {
+      const aIdx = actualIdx - j;
+      if (aIdx >= 0 && aIdx < M) {
+        result[i] += aFlat[aIdx] * vFlat[j];
+      }
+    }
+  }
+  
+  return result;
+}
+
 // --- Stats ---
 function _sortedFlat(a){ const flat = ravel(a).slice(); flat.sort((x,y)=>x-y); return flat; }
 function amin(a){ const f=ravel(a); if (f.length===0) return undefined; return f.reduce((m,v)=>(v<m?v:m), f[0]); }
@@ -1279,11 +1490,12 @@ const numpyFunctions = {
   
   // manipulation
   stack, vstack, hstack, tile, repeat, append, insert, delete: delete_, flip, fliplr, flipud, roll, meshgrid,
-  split, hsplit, vsplit, resize,
+  split, hsplit, vsplit, resize, unique, sort, argsort, where, clip, convolve,
   'STACK': stack, 'VSTACK': vstack, 'HSTACK': hstack, 'TILE': tile, 'REPEAT': repeat, 
   'APPEND': append, 'INSERT': insert, 'DELETE': delete_, 'FLIP': flip, 
   'FLIPLR': fliplr, 'FLIPUD': flipud, 'ROLL': roll, 'MESHGRID': meshgrid,
   'SPLIT': split, 'HSPLIT': hsplit, 'VSPLIT': vsplit, 'RESIZE': resize,
+  'UNIQUE': unique, 'SORT': sort, 'ARGSORT': argsort, 'WHERE': where, 'CLIP': clip, 'CONVOLVE': convolve,
   
   // math functions
   sin, cos, tan, arcsin, arccos, arctan, sinh, cosh, tanh, arcsinh, arccosh, arctanh,

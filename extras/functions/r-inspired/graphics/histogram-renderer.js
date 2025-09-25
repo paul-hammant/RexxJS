@@ -231,6 +231,33 @@ function renderPlotToPNG(plotData, outputPath, options = {}) {
       return renderPairsToPNG(plotData, outputPath, options);
     case 'abline':
       return renderAblineToPNG(plotData, outputPath, options);
+    case 'plot':
+      // Generic plot type - determine specific type based on data structure
+      if (plotData.x && plotData.y && Array.isArray(plotData.x) && Array.isArray(plotData.y)) {
+        // Has x,y arrays - treat as scatter plot
+        return renderScatterToPNG(plotData, outputPath, options);
+      } else if (plotData.values && Array.isArray(plotData.values)) {
+        // Has values array - treat as line plot
+        const lineData = {
+          type: 'lines',
+          x: plotData.x || plotData.values.map((_, i) => i),
+          y: plotData.y || plotData.values,
+          options: plotData.options || {}
+        };
+        return renderLinesToPNG(lineData, outputPath, options);
+      } else if (Array.isArray(plotData.data)) {
+        // Has data array - treat as line plot
+        const lineData = {
+          type: 'lines', 
+          x: plotData.data.map((_, i) => i),
+          y: plotData.data,
+          options: plotData.options || {}
+        };
+        return renderLinesToPNG(lineData, outputPath, options);
+      } else {
+        // Default to scatter plot structure
+        return renderScatterToPNG(plotData, outputPath, options);
+      }
     default:
       throw new Error(`Unsupported plot type: ${plotData.type}`);
   }

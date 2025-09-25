@@ -493,4 +493,172 @@ describe('NumPy Linear Algebra Edge Cases', () => {
     expect(result.x.length).toBe(3);
     expect(result.residuals.length).toBe(0); // No residuals for underdetermined
   });
+
+  describe('New numpy functions - RexxJS integration', () => {
+    test('should handle UNIQUE function in RexxJS', async () => {
+      const rexxCode = `
+        LET data = [1, 2, 2, 3, 3, 3, 4]
+        LET unique_vals = UNIQUE data=data
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('unique_vals');
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(4);
+      expect(result).toEqual([1, 2, 3, 4]);
+    });
+
+    test('should handle UNIQUE with return_counts in RexxJS', async () => {
+      const rexxCode = `
+        LET data = [1, 2, 2, 3, 3, 3]
+        LET result = UNIQUE data=data return_counts=true
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('result');
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      expect(result.values).toBeDefined();
+      expect(result.counts).toBeDefined();
+      expect(Array.isArray(result.values)).toBe(true);
+      expect(Array.isArray(result.counts)).toBe(true);
+      expect(result.values.length).toBe(3);
+      expect(result.values).toEqual([1, 2, 3]);
+      expect(result.counts).toEqual([1, 2, 3]);
+    });
+
+    test('should handle SORT function in RexxJS', async () => {
+      const rexxCode = `
+        LET data = [3, 1, 4, 1, 5]
+        LET sorted = SORT arr=data
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('sorted');
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(5);
+      expect(result).toEqual([1, 1, 3, 4, 5]);
+    });
+
+    test('should handle ARGSORT function in RexxJS', async () => {
+      const rexxCode = `
+        LET data = [30, 10, 40]
+        LET indices = ARGSORT arr=data
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('indices');
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(3);
+      expect(result).toEqual([1, 0, 2]); // indices that would sort [30, 10, 40] to [10, 30, 40]
+    });
+
+    test('should handle WHERE function in RexxJS', async () => {
+      const rexxCode = `
+        LET condition = [true, false, true]
+        LET indices = WHERE condition=condition
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('indices');
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(2);
+      expect(result).toEqual([0, 2]);
+    });
+
+    test('should handle WHERE with conditional selection in RexxJS', async () => {
+      const rexxCode = `
+        LET condition = [true, false, true]
+        LET x = [10, 20, 30]
+        LET y = [100, 200, 300]
+        LET result = WHERE condition=condition x=x y=y
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('result');
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(3);
+      expect(result).toEqual([10, 200, 30]); // true->x[0], false->y[1], true->x[2]
+    });
+
+    test('should handle CLIP function in RexxJS', async () => {
+      const rexxCode = `
+        LET data = [1, 5, 10, 15, 20]
+        LET clipped = CLIP arr=data min_val=5 max_val=15
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('clipped');
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(5);
+      expect(result).toEqual([5, 5, 10, 15, 15]);
+    });
+
+    test('should handle CONVOLVE function in RexxJS', async () => {
+      const rexxCode = `
+        LET a = [1, 2, 3]
+        LET v = [1, 1]
+        LET result = CONVOLVE a=a v=v mode="valid"
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const result = interpreter.variables.get('result');
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(2);
+      expect(result).toEqual([3, 5]); // valid convolution of [1,2,3] with [1,1]
+    });
+
+    test('should integrate new functions with existing ones in RexxJS', async () => {
+      const rexxCode = `
+        LET raw_data = [1, 1, 2, 2, 2, 3, 3, 3, 3, 10, 20, 5]
+        LET clipped = CLIP arr=raw_data min_val=1 max_val=8
+        LET unique_result = UNIQUE data=clipped return_counts=true
+        LET mean_val = MEAN data=clipped
+      `;
+
+      const commands = parse(rexxCode);
+      await interpreter.run(commands);
+      
+      const clipped = interpreter.variables.get('clipped');
+      const unique_result = interpreter.variables.get('unique_result');
+      const mean_val = interpreter.variables.get('mean_val');
+      
+      expect(clipped).toBeDefined();
+      expect(unique_result).toBeDefined();
+      expect(mean_val).toBeDefined();
+      
+      // Verify clipping worked (10, 20, 5 should be clipped to 8, 8, 5)
+      expect(clipped).toEqual([1, 1, 2, 2, 2, 3, 3, 3, 3, 8, 8, 5]);
+      
+      // Verify unique counts
+      expect(unique_result.values).toEqual([1, 2, 3, 5, 8]);
+      expect(unique_result.counts).toEqual([2, 3, 4, 1, 2]);
+      
+      // Verify mean calculation 
+      expect(mean_val).toBeCloseTo((1*2 + 2*3 + 3*4 + 5*1 + 8*2) / 12);
+    });
+  });
 });

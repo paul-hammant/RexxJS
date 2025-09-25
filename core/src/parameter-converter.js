@@ -1118,18 +1118,12 @@ function convertParamsToArgs(functionName, params) {
         case 'COR':
         case 'cor':
             // COR(x, y, use)
-            const corX = JSON.parse(params.x || Object.values(params)[0] || '[]');
-            const corY = JSON.parse(params.y || Object.values(params)[1] || '[]');
+            const corXRaw = params.x || Object.values(params)[0] || '[]';
+            const corX = typeof corXRaw === 'string' ? JSON.parse(corXRaw) : corXRaw;
+            const corYRaw = params.y || Object.values(params)[1] || '[]';
+            const corY = typeof corYRaw === 'string' ? JSON.parse(corYRaw) : corYRaw;
             const corUse = params.use || Object.values(params)[2] || 'complete.obs';
             return [corX, corY, corUse];
-            
-        case 'COV':
-        case 'cov':
-            // COV(x, y, use)
-            const covX = JSON.parse(params.x || Object.values(params)[0] || '[]');
-            const covY = JSON.parse(params.y || Object.values(params)[1] || '[]');
-            const covUse = params.use || Object.values(params)[2] || 'complete.obs';
-            return [covX, covY, covUse];
             
         case 'SCALE':
         case 'scale':
@@ -1319,15 +1313,19 @@ function convertParamsToArgs(functionName, params) {
         case 'CORRCOEF':
         case 'corrcoef':
             // CORRCOEF(x, y)
-            const corrX = JSON.parse(params.x || Object.values(params)[0] || '[]');
-            const corrY = params.y ? JSON.parse(params.y) : null;
+            const corrXRaw = params.x || Object.values(params)[0] || '[]';
+            const corrX = typeof corrXRaw === 'string' ? JSON.parse(corrXRaw) : corrXRaw;
+            const corrYRaw = params.y;
+            const corrY = corrYRaw ? (typeof corrYRaw === 'string' ? JSON.parse(corrYRaw) : corrYRaw) : null;
             return [corrX, corrY];
             
         case 'COV':
         case 'cov':
             // COV(x, y, ddof) - numpy version
-            const covXNumpy = JSON.parse(params.x || Object.values(params)[0] || '[]');
-            const covYNumpy = params.y ? JSON.parse(params.y) : null;
+            const covXNumpyRaw = params.x || Object.values(params)[0] || '[]';
+            const covXNumpy = typeof covXNumpyRaw === 'string' ? JSON.parse(covXNumpyRaw) : covXNumpyRaw;
+            const covYNumpyRaw = params.y || null;
+            const covYNumpy = covYNumpyRaw && typeof covYNumpyRaw === 'string' ? JSON.parse(covYNumpyRaw) : covYNumpyRaw;
             const covDdof = parseInt(params.ddof || Object.values(params)[2]) || 1;
             return [covXNumpy, covYNumpy, covDdof];
             
@@ -1416,12 +1414,20 @@ function convertParamsToArgs(functionName, params) {
         case 'HISTOGRAM2D':
         case 'histogram2d':
             // HISTOGRAM2D(x, y, bins, range)
-            const hist2dX = JSON.parse(params.x || Object.values(params)[0] || '[]');
-            const hist2dY = JSON.parse(params.y || Object.values(params)[1] || '[]');
+            const hist2dXRaw = params.x || Object.values(params)[0] || '[]';
+            const hist2dX = typeof hist2dXRaw === 'string' ? JSON.parse(hist2dXRaw) : hist2dXRaw;
+            const hist2dYRaw = params.y || Object.values(params)[1] || '[]';
+            const hist2dY = typeof hist2dYRaw === 'string' ? JSON.parse(hist2dYRaw) : hist2dYRaw;
             const hist2dBinsStr = params.bins || Object.values(params)[2] || '[10, 10]';
             const hist2dBins = typeof hist2dBinsStr === 'string' ? JSON.parse(hist2dBinsStr) : hist2dBinsStr;
             const hist2dRange = params.range || Object.values(params)[3] || null;
             return [hist2dX, hist2dY, hist2dBins, hist2dRange];
+            
+        case 'RENDER':
+        case 'render':
+            // RENDER(data, output, title, width, height, colormap)
+            // Pass all parameters as an object to maintain named parameter support
+            return [params];
             
         case 'TENSORDOT':
         case 'tensordot':

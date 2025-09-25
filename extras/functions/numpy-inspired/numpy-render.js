@@ -38,20 +38,59 @@ if (numpyFunctions && typeof numpyFunctions === 'object') {
  * @returns {string} Output identifier (file path or DOM element ID)
  */
 const RENDER = (options = {}) => {
-    // Parameter parsing and defaults - match r-graphics pattern
+    // Handle case where options is passed as first parameter from parameter converter
+    if (arguments.length === 1 && typeof options === 'object' && !Array.isArray(options) && !options.hist && !options.eigenvalues) {
+        // This is the params object from parameter converter
+    } else {
+        // Direct call - wrap in object for consistent handling
+        options = arguments.length === 1 ? options : { data: options };
+    }
+    
+    // Debug: see what we get from HISTOGRAM function
+    
+    // Parameter parsing and defaults - match r-graphics pattern  
     let data = options.plot || options.data;
+    // Check if plot parameter exists at any level
+    const isPlotParameter = !!options.plot || (options.data && !!options.data.plot);
     
     // If data is not found in expected parameters, check if options itself is data
     // This handles cases where RexxJS passes the data object directly as options
-    if (!data && (options.bins || options.counts || options.hist || options.eigenvalues || Array.isArray(options))) {
+    if (!data && (options.bins || options.counts || options.hist || options.eigenvalues || options.values || Array.isArray(options))) {
         data = options;
     }
     
-    const output = options.output || 'auto';
-    const width = options.width || 800;
-    const height = options.height || 600;
-    const title = options.title || options.main || 'NumPy Visualization';
-    const colormap = options.colormap || options.cmap || 'viridis';
+    // Handle double-wrapped data from parameter converter
+    if (data && data.data && (data.data.hist || data.data.eigenvalues || data.data.bins || data.data.values || Array.isArray(data.data))) {
+        data = data.data;
+    }
+    
+    // Handle case where the entire object is passed but we need to extract the data part
+    if (!data && options.data && (options.data.bins || options.data.counts || options.data.hist || options.data.eigenvalues || options.data.values || Array.isArray(options.data))) {
+        data = options.data;
+    }
+    
+    // Handle case where data is nested deeper: options.data.plot
+    if (!data && options.data && options.data.plot) {
+        data = options.data.plot;
+    }
+    
+    // Handle case where the data itself has a plot property with the actual data
+    if (data && data.plot && typeof data.plot === 'object' && (data.plot.bins || data.plot.eigenvalues || Array.isArray(data.plot))) {
+        data = data.plot;
+    }
+    
+    // Extract parameters from potentially wrapped structure
+    const extractParam = (name, defaultValue) => {
+        return options[name] || 
+               (options.data && options.data[name]) || 
+               defaultValue;
+    };
+    
+    const output = extractParam('output', 'auto');
+    const width = extractParam('width', 800);
+    const height = extractParam('height', 600);
+    const title = extractParam('title', extractParam('main', 'NumPy Visualization'));
+    const colormap = extractParam('colormap', extractParam('cmap', 'viridis'));
 
     if (!data) {
         throw new Error('RENDER: data parameter is required');
@@ -62,19 +101,21 @@ const RENDER = (options = {}) => {
     
     switch (dataType) {
         case 'histogram':
-            return renderHistogram(data, { output, width, height, title });
+            return renderHistogram(data, { output, width, height, title, isPlotParameter });
         case 'histogram2d':
             return renderHistogram2D(data, { output, width, height, title, colormap });
         case 'matrix':
             return renderMatrix(data, { output, width, height, title, colormap });
         case 'eigenvalue':
-            return renderEigenvalues(data, { output, width, height, title });
+            return renderEigenvalues(data, { output, width, height, title, isPlotParameter });
+        case 'unique_counts':
+            return renderUniqueCounts(data, { output, width, height, title, isPlotParameter });
         case 'array_1d':
-            return renderArray1D(data, { output, width, height, title });
+            return renderArray1D(data, { output, width, height, title, isPlotParameter });
         case 'array_2d':
             return renderMatrix(data, { output, width, height, title, colormap });
         default:
-            throw new Error(`RENDER: Unsupported data type '${dataType}'. Supported types: histogram, histogram2d, matrix, eigenvalue, array_1d, array_2d`);
+            throw new Error(`RENDER: Unsupported data type '${dataType}'. Supported types: histogram, histogram2d, matrix, eigenvalue, unique_counts, array_1d, array_2d`);
     }
 }
 
@@ -97,6 +138,12 @@ function detectDataType(data) {
         return 'eigenvalue';
     }
     
+    // Check for unique result object (from UNIQUE function with return_counts=true)
+    if (data && typeof data === 'object' && data.values && data.counts && 
+        Array.isArray(data.values) && Array.isArray(data.counts)) {
+        return 'unique_counts';
+    }
+    
     // Check for arrays
     if (Array.isArray(data)) {
         if (data.length > 0 && Array.isArray(data[0])) {
@@ -115,8 +162,8 @@ function detectDataType(data) {
 function renderHistogram(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        // Return mock filename when canvas is not available
-        return `./numpy-histogram-${Date.now()}.png`;
+        // Return auto-generated filename when canvas is not available
+        return options.isPlotParameter ? `./images/numpy-histogram-${Date.now()}.png` : options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -153,7 +200,7 @@ function renderHistogram(data, options) {
     // Draw axes
     drawAxes(ctx, margin, plotWidth, plotHeight, bins, maxCount);
     
-    return saveCanvas(canvas, options.output, 'numpy-histogram');
+    return saveCanvas(canvas, options.isPlotParameter ? 'auto' : options.output, 'numpy-histogram');
 }
 
 /**
@@ -162,7 +209,7 @@ function renderHistogram(data, options) {
 function renderHistogram2D(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return `./numpy-histogram2d-${Date.now()}.png`;
+        return `./images/numpy-histogram2d-${Date.now()}.png`;
     }
     const ctx = canvas.getContext('2d');
     
@@ -215,7 +262,7 @@ function renderHistogram2D(data, options) {
 function renderMatrix(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return `./numpy-matrix-${Date.now()}.png`;
+        return `./images/numpy-matrix-${Date.now()}.png`;
     }
     const ctx = canvas.getContext('2d');
     
@@ -284,7 +331,7 @@ function renderMatrix(data, options) {
 function renderEigenvalues(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return `./numpy-eigenvalues-${Date.now()}.png`;
+        return options.isPlotParameter ? `./images/numpy-eigenvalues-${Date.now()}.png` : options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -339,7 +386,119 @@ function renderEigenvalues(data, options) {
     ctx.lineTo(margin.left + plotWidth, margin.top + plotHeight / 2);
     ctx.stroke();
     
-    return saveCanvas(canvas, options.output, 'numpy-eigenvalues');
+    return saveCanvas(canvas, options.isPlotParameter ? 'auto' : options.output, 'numpy-eigenvalues');
+}
+
+/**
+ * Render UNIQUE counts as bar chart
+ */
+function renderUniqueCounts(data, options) {
+    const canvas = createCanvas(options.width, options.height);
+    if (!canvas) {
+        return options.isPlotParameter ? `./images/numpy-unique-counts-${Date.now()}.png` : options.output;
+    }
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, options.width, options.height);
+    
+    const { values, counts } = data;
+    const maxCount = Math.max(...counts);
+    
+    // Set up margins and dimensions
+    const margin = { top: 60, right: 30, bottom: 80, left: 80 };
+    const plotWidth = options.width - margin.left - margin.right;
+    const plotHeight = options.height - margin.top - margin.bottom;
+    
+    // Draw title
+    if (options.title) {
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(options.title, options.width / 2, 30);
+    }
+    
+    // Calculate bar dimensions
+    const barWidth = plotWidth / values.length;
+    const barSpacing = barWidth * 0.1;
+    const actualBarWidth = barWidth - barSpacing;
+    
+    // Draw bars
+    ctx.fillStyle = '#1f77b4'; // Blue color
+    for (let i = 0; i < values.length; i++) {
+        const barHeight = (counts[i] / maxCount) * plotHeight;
+        const x = margin.left + i * barWidth + barSpacing / 2;
+        const y = margin.top + plotHeight - barHeight;
+        
+        ctx.fillRect(x, y, actualBarWidth, barHeight);
+        
+        // Add value labels on top of bars
+        ctx.fillStyle = 'black';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(counts[i].toString(), x + actualBarWidth / 2, y - 5);
+        
+        // Add category labels on x-axis
+        ctx.save();
+        ctx.translate(x + actualBarWidth / 2, margin.top + plotHeight + 20);
+        ctx.fillText(values[i].toString(), 0, 0);
+        ctx.restore();
+        
+        ctx.fillStyle = '#1f77b4'; // Reset to bar color
+    }
+    
+    // Draw axes
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 1;
+    
+    // Y-axis
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + plotHeight);
+    ctx.stroke();
+    
+    // X-axis  
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top + plotHeight);
+    ctx.lineTo(margin.left + plotWidth, margin.top + plotHeight);
+    ctx.stroke();
+    
+    // Y-axis labels
+    ctx.fillStyle = 'black';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 5; i++) {
+        const y = margin.top + plotHeight - (i / 5) * plotHeight;
+        const value = Math.round((i / 5) * maxCount);
+        ctx.fillText(value.toString(), margin.left - 10, y + 3);
+        
+        // Grid lines
+        if (i > 0) {
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(margin.left, y);
+            ctx.lineTo(margin.left + plotWidth, y);
+            ctx.stroke();
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+        }
+    }
+    
+    // Axis labels
+    ctx.fillStyle = 'black';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Unique Values', options.width / 2, options.height - 20);
+    
+    ctx.save();
+    ctx.translate(20, options.height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Count', 0, 0);
+    ctx.restore();
+    
+    return saveCanvas(canvas, options.isPlotParameter ? 'auto' : options.output, 'numpy-unique-counts');
 }
 
 /**
@@ -348,7 +507,7 @@ function renderEigenvalues(data, options) {
 function renderArray1D(data, options) {
     const canvas = createCanvas(options.width, options.height);
     if (!canvas) {
-        return `./numpy-array1d-${Date.now()}.png`;
+        return options.isPlotParameter ? `./images/numpy-array1d-${Date.now()}.png` : options.output;
     }
     const ctx = canvas.getContext('2d');
     
@@ -391,7 +550,7 @@ function renderArray1D(data, options) {
     drawAxes(ctx, margin, plotWidth, plotHeight, 
              Array.from({length: data.length}, (_, i) => i), maxVal);
     
-    return saveCanvas(canvas, options.output, 'numpy-array1d');
+    return saveCanvas(canvas, options.isPlotParameter ? 'auto' : options.output, 'numpy-array1d');
 }
 
 /**
@@ -526,7 +685,7 @@ function saveCanvas(canvas, output, defaultName) {
             return `#${containerId}`;
         } else {
             // Node.js: save to file
-            output = `./${defaultName}-${Date.now()}.png`;
+            output = `./images/${defaultName}-${Date.now()}.png`;
         }
     }
     
