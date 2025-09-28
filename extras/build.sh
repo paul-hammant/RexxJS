@@ -61,8 +61,8 @@ npm install
 npm run build
 cd ../..
 
-echo "  - container-and-vm-orchestration"
-cd addresses/container-and-vm-orchestration
+echo "  - provisioning-and-orchestration"
+cd addresses/provisioning-and-orchestration
 npm install
 npm run build
 cd ../..

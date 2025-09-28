@@ -57,7 +57,7 @@ function autoRegisterBundledLibraries() {
   
   // Try to load bundled container orchestration handlers (with shared-utils centralized)
   {
-    const bundledContainers = path.join(__dirname, '../extras/addresses/container-and-vm-orchestration/bundled-container-handlers.bundle.js');
+    const bundledContainers = path.join(__dirname, '../extras/addresses/provisioning-and-orchestration/bundled-container-handlers.bundle.js');
     if (!fs.existsSync(bundledContainers)) {
       throw new Error(`Required bundle missing: ${bundledContainers}. Build extras first (npm run build:extras or ./build-all.sh).`);
     }
@@ -67,7 +67,7 @@ function autoRegisterBundledLibraries() {
 
   // Try to load bundled remote handlers
   {
-    const bundledRemote = path.join(__dirname, '../extras/addresses/remote/bundled-remote-handlers.bundle.js');
+    const bundledRemote = path.join(__dirname, '../extras/addresses/provisioning-and-orchestration/bundled-remote-handlers.bundle.js');
     if (!fs.existsSync(bundledRemote)) {
       throw new Error(`Required bundle missing: ${bundledRemote}. Build extras first (npm run build:extras or ./build-all.sh).`);
     }

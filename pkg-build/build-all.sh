@@ -7,7 +7,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 
 echo "[build-all] Building extras bundles..."
-for rel in "extras/addresses/container-and-vm-orchestration" "extras/addresses/remote"; do
+for rel in "extras/addresses/provisioning-and-orchestration"; do
   dir="$root/$rel"
   echo "[build-all] -> $rel"
   pushd "$dir" >/dev/null

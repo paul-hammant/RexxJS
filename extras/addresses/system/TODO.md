@@ -220,7 +220,7 @@ class XxxHandler {
 ### 🎯 TODO Items from EFS2 Analysis:
 
 #### High Priority - SSH-Based Remote Management Handler
-**Status**: ✅ **SUPERSEDED** - Functionality moved to `extras/addresses/remote/address-ssh.js`
+**Status**: ✅ **SUPERSEDED** - Functionality moved to `extras/addresses/provisioning-and-orchestration/address-ssh.js`
 - **Commands**: `RUN command`, `PUT local remote mode`, parallel execution across hosts
 - **Progress**: Real-time per-host progress reporting (similar to EFS2's colored output)
 - **Architecture**: Persistent SSH connections, SFTP for file operations

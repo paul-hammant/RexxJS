@@ -58,11 +58,11 @@ class CLIAddressSender {
     this.outputHandler = outputHandler;
     // Register first-class ADDRESS handlers available in CLI mode
     try {
-      const { ADDRESS_SSH_HANDLER } = require('../../extras/addresses/remote/address-ssh');
+      const { ADDRESS_SSH_HANDLER } = require('../../extras/addresses/provisioning-and-orchestration/address-ssh');
       this.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
     } catch {}
     try {
-      const { ADDRESS_REMOTE_DOCKER_HANDLER } = require('../../extras/addresses/container-and-vm-orchestration/address-remote-docker');
+      const { ADDRESS_REMOTE_DOCKER_HANDLER } = require('../../extras/addresses/provisioning-and-orchestration/address-remote-docker');
       this.ADDRESS_REMOTE_DOCKER_HANDLER = ADDRESS_REMOTE_DOCKER_HANDLER;
     } catch {}
   }

@@ -21,8 +21,8 @@ npm run build:all
 
 This runs:
 - Builds extras bundles:
-  - `extras/addresses/container-and-vm-orchestration/bundled-container-handlers.bundle.js`
-  - `extras/addresses/remote/bundled-remote-handlers.bundle.js`
+  - `extras/addresses/provisioning-and-orchestration/bundled-container-handlers.bundle.js`
+  - `extras/addresses/provisioning-and-orchestration/bundled-remote-handlers.bundle.js`
 - Packages the binary via `pkg` (targets from `package.json`).
 
 ### Manual Steps
