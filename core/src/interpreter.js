@@ -731,6 +731,7 @@ class RexxInterpreter {
     let importedRegexFunctions = {};
     let importedValidationFunctions = {};
     let importedFileFunctions = {};
+    let importedHttpFunctions = {};
     let importedStatisticsFunctions = {};
     let importedLogicFunctions = {};
     let importedCryptoFunctions = {};
@@ -753,6 +754,7 @@ class RexxInterpreter {
         const { regexFunctions } = require('./regex-functions');
         const { validationFunctions } = require('./validation-functions');
         const { fileFunctions } = require('./file-functions');
+        const { httpFunctions } = require('./http-functions');
         // Excel functions are loaded via REQUIRE statement in REXX scripts
         // e.g., REQUIRE "../extras/functions/excel/excel-functions"
         const { statisticsFunctions } = require('./statistics-functions');
@@ -773,6 +775,7 @@ class RexxInterpreter {
         importedRegexFunctions = regexFunctions;
         importedValidationFunctions = validationFunctions;
         importedFileFunctions = fileFunctions;
+        importedHttpFunctions = httpFunctions;
         importedStatisticsFunctions = statisticsFunctions;
         importedLogicFunctions = logicFunctions;
         importedCryptoFunctions = cryptoFunctions;
@@ -792,6 +795,7 @@ class RexxInterpreter {
         importedRegexFunctions = window.regexFunctions || {};
         importedValidationFunctions = window.validationFunctions || {};
         importedFileFunctions = window.fileFunctions || {};
+        importedHttpFunctions = window.httpFunctions || {};
         importedStatisticsFunctions = window.statisticsFunctions || {};
         importedLogicFunctions = window.logicFunctions || {};
         importedCryptoFunctions = window.cryptoFunctions || {};
@@ -819,6 +823,7 @@ class RexxInterpreter {
       ...importedRegexFunctions,
       ...importedValidationFunctions,
       ...importedFileFunctions,
+      ...importedHttpFunctions,
       ...importedStatisticsFunctions,
       ...importedLogicFunctions,
       ...importedCryptoFunctions,

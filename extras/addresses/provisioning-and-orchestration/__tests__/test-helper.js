@@ -308,6 +308,423 @@ function setupDefaultMocks() {
       return createMockSpawn(0, '');
     }
 
+    // Handle faas-cli commands for OpenFaaS
+    if (command === 'faas-cli' && args) {
+      if (args.includes('version')) {
+        return createMockSpawn(0, 'CLI: version: 0.17.8');
+      }
+
+      // Handle store commands first (before regular list)
+      if (args.includes('store')) {
+        if (args.includes('list')) {
+          return createMockSpawn(0, 'FUNCTION     DESCRIPTION\nfiglet       ASCII art generator\nnodeinfo     Node.js system info');
+        }
+        if (args.includes('deploy')) {
+          return createMockSpawn(0, 'Deployed from store');
+        }
+      }
+
+      if (args.includes('list')) {
+        const functionList = `Function                Invocations    Replicas   Image
+hello-python            42             2          python:latest
+nodeinfo                10             1          functions/nodeinfo:latest`;
+        return createMockSpawn(0, functionList);
+      }
+
+      if (args.includes('deploy')) {
+        const nameIndex = args.indexOf('--name');
+        const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'unknown';
+        return createMockSpawn(0, `Deployed. 202 Accepted.\nURL: http://127.0.0.1:8080/function/${funcName}`);
+      }
+
+      if (args.includes('invoke')) {
+        const funcName = args[args.indexOf('invoke') + 1];
+        if (funcName === 'hello-python') {
+          return createMockSpawn(0, 'Hello from OpenFaaS function!');
+        }
+        if (funcName === 'non-existent') {
+          return createMockSpawn(1, '', 'Function not found');
+        }
+        return createMockSpawn(0, 'Function invoked successfully');
+      }
+
+      if (args.includes('remove')) {
+        const funcName = args[args.indexOf('remove') + 1];
+        if (funcName === 'non-existent') {
+          return createMockSpawn(1, '', 'Function not found');
+        }
+        return createMockSpawn(0, `Removing: ${funcName}\nRemoved function: ${funcName}`);
+      }
+
+      if (args.includes('scale')) {
+        const funcName = args[args.indexOf('scale') + 1];
+        if (funcName === 'non-existent') {
+          return createMockSpawn(1, '', 'Function not found');
+        }
+        return createMockSpawn(0, 'Scaled function successfully');
+      }
+
+      if (args.includes('logs')) {
+        return createMockSpawn(0, '2025-01-01T00:00:00Z Starting function\n2025-01-01T00:00:01Z Function ready');
+      }
+
+      if (args.includes('describe')) {
+        return createMockSpawn(0, 'Name: test-function\nImage: test:latest\nReplicas: 1\nInvocations: 5');
+      }
+
+      if (args.includes('new')) {
+        return createMockSpawn(0, 'Function created in ./function-name');
+      }
+
+      if (args.includes('build')) {
+        return createMockSpawn(0, 'Building function-name\nBuild complete');
+      }
+
+      if (args.includes('push')) {
+        return createMockSpawn(0, 'Pushing function image\nPush complete');
+      }
+
+      if (args.includes('secret')) {
+        if (args.includes('create')) {
+          return createMockSpawn(0, 'Created secret: secret-name');
+        }
+        if (args.includes('list')) {
+          return createMockSpawn(0, 'NAME             NAMESPACE\napi-key          openfaas-fn\ndb-password      openfaas-fn');
+        }
+      }
+
+      if (args.includes('namespaces')) {
+        if (args.includes('create')) {
+          return createMockSpawn(0, 'Created namespace: namespace-name');
+        }
+        return createMockSpawn(0, 'openfaas\nopenfaas-fn');
+      }
+
+      return createMockSpawn(0, '');
+    }
+
+    // Handle git for OpenFaaS installation
+    if (command === 'git' && args) {
+      if (args.includes('clone')) {
+        return createMockSpawn(0, 'Cloning into...\nclone complete');
+      }
+      return createMockSpawn(0, '');
+    }
+
+    // Handle bash for OpenFaaS deployment
+    if (command === 'bash' && args) {
+      if (args.some(a => a.includes('deploy_stack.sh'))) {
+        return createMockSpawn(0, 'Deploying OpenFaaS to Docker Swarm\nDeployment complete');
+      }
+      return createMockSpawn(0, '');
+    }
+
+    // Handle docker commands for OpenFaaS and containers
+    if (command === 'docker' && args) {
+      if (args.includes('info')) {
+        return createMockSpawn(0, 'Swarm: active');
+      }
+      if (args.includes('build')) {
+        return createMockSpawn(0, 'Successfully built image');
+      }
+      if (args.includes('version')) {
+        return createMockSpawn(0, 'Docker version 20.10.0');
+      }
+      return createMockSpawn(0, '');
+    }
+
+    // Handle AWS CLI commands for Lambda
+    if (command === 'aws' && args) {
+      if (args.includes('--version')) {
+        return createMockSpawn(0, 'aws-cli/2.13.0 Python/3.11.0');
+      }
+
+      if (args.includes('sts') && args.includes('get-caller-identity')) {
+        return createMockSpawn(0, JSON.stringify({
+          UserId: 'AIDACKCEVSQ6C2EXAMPLE',
+          Account: '123456789012',
+          Arn: 'arn:aws:iam::123456789012:user/test-user'
+        }));
+      }
+
+      // Lambda commands
+      if (args.includes('lambda')) {
+        if (args.includes('list-functions')) {
+          const functions = {
+            Functions: [
+              {
+                FunctionName: 'hello-python',
+                Runtime: 'python3.11',
+                FunctionArn: 'arn:aws:lambda:us-east-1:123456789012:function:hello-python',
+                LastModified: '2025-01-01T00:00:00.000+0000',
+                CodeSize: 1024,
+                Timeout: 30,
+                MemorySize: 128
+              },
+              {
+                FunctionName: 'nodeinfo',
+                Runtime: 'nodejs18.x',
+                FunctionArn: 'arn:aws:lambda:us-east-1:123456789012:function:nodeinfo',
+                LastModified: '2025-01-01T00:00:00.000+0000',
+                CodeSize: 2048,
+                Timeout: 60,
+                MemorySize: 256
+              }
+            ]
+          };
+          return createMockSpawn(0, JSON.stringify(functions));
+        }
+
+        if (args.includes('create-function')) {
+          const nameIndex = args.indexOf('--function-name');
+          const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-function';
+          const functionData = {
+            FunctionName: funcName,
+            FunctionArn: `arn:aws:lambda:us-east-1:123456789012:function:${funcName}`,
+            Runtime: 'python3.11',
+            Handler: 'index.handler',
+            State: 'Active'
+          };
+          return createMockSpawn(0, JSON.stringify(functionData));
+        }
+
+        if (args.includes('invoke')) {
+          const nameIndex = args.indexOf('--function-name');
+          const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-function';
+
+          if (funcName === 'non-existent') {
+            return createMockSpawn(1, '', 'ResourceNotFoundException: Function not found');
+          }
+
+          const response = { statusCode: 200, body: JSON.stringify({ message: 'Function executed successfully' }) };
+
+          // Write response to temp file if specified
+          const responseFile = args[args.length - 1];
+          if (responseFile && responseFile.includes('/tmp/lambda-response.json')) {
+            global.mockFS = global.mockFS || {};
+            global.mockFS[responseFile] = JSON.stringify(response);
+          }
+
+          return createMockSpawn(0, JSON.stringify({ StatusCode: 200 }));
+        }
+
+        if (args.includes('delete-function')) {
+          const nameIndex = args.indexOf('--function-name');
+          const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-function';
+
+          if (funcName === 'non-existent') {
+            return createMockSpawn(1, '', 'ResourceNotFoundException: Function not found');
+          }
+
+          return createMockSpawn(0, '');
+        }
+
+        if (args.includes('get-function')) {
+          const nameIndex = args.indexOf('--function-name');
+          const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-function';
+
+          if (funcName === 'non-existent') {
+            return createMockSpawn(1, '', 'ResourceNotFoundException: Function not found');
+          }
+
+          const functionData = {
+            Configuration: {
+              FunctionName: funcName,
+              FunctionArn: `arn:aws:lambda:us-east-1:123456789012:function:${funcName}`,
+              Runtime: 'python3.11',
+              Handler: 'index.handler',
+              State: 'Active',
+              Timeout: 30,
+              MemorySize: 128
+            },
+            Code: {
+              Location: 'https://s3.amazonaws.com/...'
+            }
+          };
+          return createMockSpawn(0, JSON.stringify(functionData));
+        }
+
+        if (args.includes('update-function-code') || args.includes('update-function-configuration')) {
+          const nameIndex = args.indexOf('--function-name');
+          const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-function';
+          const functionData = {
+            FunctionName: funcName,
+            FunctionArn: `arn:aws:lambda:us-east-1:123456789012:function:${funcName}`,
+            LastModified: new Date().toISOString()
+          };
+          return createMockSpawn(0, JSON.stringify(functionData));
+        }
+
+        if (args.includes('list-layers')) {
+          const layers = {
+            Layers: [
+              {
+                LayerName: 'test-layer',
+                LayerArn: 'arn:aws:lambda:us-east-1:123456789012:layer:test-layer',
+                LatestMatchingVersion: {
+                  Version: 1,
+                  Description: 'Test layer'
+                }
+              }
+            ]
+          };
+          return createMockSpawn(0, JSON.stringify(layers));
+        }
+
+        if (args.includes('publish-layer-version')) {
+          const nameIndex = args.indexOf('--layer-name');
+          const layerName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-layer';
+          const layerData = {
+            LayerArn: `arn:aws:lambda:us-east-1:123456789012:layer:${layerName}`,
+            LayerVersionArn: `arn:aws:lambda:us-east-1:123456789012:layer:${layerName}:1`,
+            Version: 1
+          };
+          return createMockSpawn(0, JSON.stringify(layerData));
+        }
+
+        if (args.includes('delete-layer-version')) {
+          return createMockSpawn(0, '');
+        }
+
+        if (args.includes('publish-version')) {
+          const nameIndex = args.indexOf('--function-name');
+          const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-function';
+          const versionData = {
+            FunctionName: funcName,
+            FunctionArn: `arn:aws:lambda:us-east-1:123456789012:function:${funcName}:1`,
+            Version: '1'
+          };
+          return createMockSpawn(0, JSON.stringify(versionData));
+        }
+
+        if (args.includes('create-alias')) {
+          const nameIndex = args.indexOf('--function-name');
+          const funcName = nameIndex !== -1 ? args[nameIndex + 1] : 'test-function';
+          const aliasIndex = args.indexOf('--name');
+          const aliasName = aliasIndex !== -1 ? args[aliasIndex + 1] : 'test-alias';
+          const aliasData = {
+            AliasArn: `arn:aws:lambda:us-east-1:123456789012:function:${funcName}:${aliasName}`,
+            Name: aliasName,
+            FunctionVersion: '1'
+          };
+          return createMockSpawn(0, JSON.stringify(aliasData));
+        }
+
+        if (args.includes('list-aliases')) {
+          const aliases = {
+            Aliases: [
+              {
+                AliasArn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function:prod',
+                Name: 'prod',
+                FunctionVersion: '1'
+              }
+            ]
+          };
+          return createMockSpawn(0, JSON.stringify(aliases));
+        }
+      }
+
+      // CloudWatch Logs commands
+      if (args.includes('logs')) {
+        if (args.includes('describe-log-streams')) {
+          const logStreams = {
+            logStreams: [
+              {
+                logStreamName: '2025/01/01/[$LATEST]abcdef123456',
+                creationTime: Date.now(),
+                lastEventTime: Date.now()
+              }
+            ]
+          };
+          return createMockSpawn(0, JSON.stringify(logStreams));
+        }
+
+        if (args.includes('get-log-events')) {
+          const logEvents = {
+            events: [
+              {
+                timestamp: Date.now(),
+                message: 'START RequestId: 12345678-1234-1234-1234-123456789012'
+              },
+              {
+                timestamp: Date.now(),
+                message: 'Function executed successfully'
+              },
+              {
+                timestamp: Date.now(),
+                message: 'END RequestId: 12345678-1234-1234-1234-123456789012'
+              }
+            ]
+          };
+          return createMockSpawn(0, JSON.stringify(logEvents));
+        }
+      }
+
+      return createMockSpawn(0, '');
+    }
+
+    // Handle SAM CLI commands for local Lambda development
+    if (command === 'sam' && args) {
+      if (args.includes('--version')) {
+        return createMockSpawn(0, 'SAM CLI, version 1.100.0');
+      }
+
+      if (args.includes('build')) {
+        return createMockSpawn(0, 'Build Succeeded\nBuilt Artifacts  : .aws-sam/build');
+      }
+
+      if (args.includes('local') && args.includes('start-api')) {
+        return createMockSpawn(0, 'Mounting HelloWorldFunction at http://127.0.0.1:3000/hello');
+      }
+
+      if (args.includes('local') && args.includes('start-lambda')) {
+        return createMockSpawn(0, 'Running SAM Local Lambda service on port 3001');
+      }
+
+      if (args.includes('local') && args.includes('invoke')) {
+        const funcName = args[args.indexOf('invoke') + 1];
+
+        if (funcName === 'non-existent') {
+          return createMockSpawn(1, '', 'Function not found');
+        }
+
+        const response = { statusCode: 200, body: JSON.stringify({ message: 'Local function executed' }) };
+        return createMockSpawn(0, JSON.stringify(response));
+      }
+
+      if (args.includes('package')) {
+        return createMockSpawn(0, 'Successfully packaged artifacts');
+      }
+
+      if (args.includes('deploy')) {
+        return createMockSpawn(0, 'Successfully created/updated stack');
+      }
+
+      return createMockSpawn(0, '');
+    }
+
+    // Handle curl commands for LocalStack health checks
+    if (command === 'curl' && args) {
+      if (args.some(arg => arg.includes('localhost:4566/health'))) {
+        return createMockSpawn(0, JSON.stringify({
+          services: {
+            lambda: 'available',
+            logs: 'available',
+            iam: 'available'
+          }
+        }));
+      }
+      return createMockSpawn(0, '');
+    }
+
+    // Handle zip commands for Lambda packaging
+    if (command === 'zip' && args) {
+      if (args.includes('-r')) {
+        return createMockSpawn(0, 'adding: lambda_function.py\nadding: requirements.txt');
+      }
+      return createMockSpawn(0, '');
+    }
+
     // Handle VirtualBox VBoxManage commands
     if (command === 'VBoxManage' && args) {
       if (args.includes('createvm')) {
@@ -573,6 +990,62 @@ async function createVirtualBoxTestHandler(config = {}) {
   return handler;
 }
 
+/**
+ * Create an OpenFaaS handler instance with mocked dependencies
+ */
+async function createOpenFaaSTestHandler(config = {}) {
+  setupDefaultMocks();
+
+  const { AddressOpenFaaSHandler } = require('../address-openfaas');
+  const handler = new AddressOpenFaaSHandler();
+
+  // Mock filesystem operations for deploy_rexx
+  handler.fs = {
+    existsSync: jest.fn(() => false),
+    mkdirSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    rmSync: jest.fn()
+  };
+
+  await handler.initialize(config);
+  return handler;
+}
+
+/**
+ * Create a Lambda handler instance with mocked dependencies
+ */
+async function createLambdaTestHandler(config = {}) {
+  setupDefaultMocks();
+
+  const { AddressLambdaHandler } = require('../address-lambda');
+  const handler = new AddressLambdaHandler();
+
+  // Mock filesystem operations
+  handler.fs = {
+    existsSync: jest.fn((path) => {
+      if (path.includes('/tmp/lambda-response.json')) {
+        return global.mockFS && global.mockFS[path];
+      }
+      return false;
+    }),
+    mkdirSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    readFileSync: jest.fn((path, encoding) => {
+      if (path.includes('/tmp/lambda-response.json')) {
+        return global.mockFS ? global.mockFS[path] || '{}' : '{}';
+      }
+      if (path.includes('.rexx')) {
+        return 'SAY "Hello from RexxJS!"';
+      }
+      return 'mock file content';
+    }),
+    rmSync: jest.fn()
+  };
+
+  await handler.initialize(config);
+  return handler;
+}
+
 describe('Test Helper', () => {
   test('should be a test helper', () => {
     expect(true).toBe(true);
@@ -586,5 +1059,7 @@ module.exports = {
   createDockerTestHandler,
   createNspawnTestHandler,
   createQemuTestHandler,
-  createVirtualBoxTestHandler
+  createVirtualBoxTestHandler,
+  createOpenFaaSTestHandler,
+  createLambdaTestHandler
 };

@@ -121,21 +121,45 @@ const checkFileExistsViaLocalStorage = (filename) => {
 const fileFunctions = {
   'FILE_WRITE': (filename, content, encoding = 'utf8') => {
     try {
+      // If in Node.js, use filesystem for path-based filenames
+      if (typeof require !== 'undefined') {
+        const fs = require('fs');
+        const path = require('path');
+
+        // Check if this is a filesystem path
+        // Only treat as filesystem if it's an explicit relative path (./  ../)
+        // or an absolute path that exists on the filesystem
+        const isFilesystemPath = filename.startsWith('./') ||
+                                 filename.startsWith('../') ||
+                                 (path.isAbsolute(filename) && fs.existsSync(path.dirname(filename)));
+
+        if (isFilesystemPath) {
+          // Node.js filesystem write
+          fs.writeFileSync(filename, String(content), encoding);
+          const stats = fs.statSync(filename);
+          return {
+            success: true,
+            bytes: stats.size,
+            path: filename,
+            timestamp: new Date().toISOString()
+          };
+        }
+      }
+
       // Check if this is an HTTP path - these can't be written to
-      const isHttpPath = filename.startsWith('/') || 
-                        filename.startsWith('./') || 
-                        filename.startsWith('../') ||
-                        filename.startsWith('http://') ||
-                        filename.startsWith('https://');
-      
+      // In browser contexts, paths starting with / are also HTTP resources
+      const isHttpPath = filename.startsWith('http://') ||
+                        filename.startsWith('https://') ||
+                        filename.startsWith('/');
+
       if (isHttpPath) {
-        return { 
-          success: false, 
-          error: 'FILE_WRITE not supported for HTTP resources. Use localStorage-based filenames (no path separators).' 
+        return {
+          success: false,
+          error: 'FILE_WRITE not supported for HTTP resources.'
         };
       }
 
-      // localStorage-based file writing
+      // localStorage-based file writing (browser or non-path filenames)
       const key = `rexx_file_${filename}`;
       const data = {
         content: String(content),
@@ -143,7 +167,7 @@ const fileFunctions = {
         timestamp: new Date().toISOString(),
         size: String(content).length
       };
-      
+
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(key, JSON.stringify(data));
         return { success: true, bytes: data.size };

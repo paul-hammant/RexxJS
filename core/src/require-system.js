@@ -230,10 +230,10 @@ async function requireNodeJSModule(libraryName, ctx) {
           // Set up module context
           global.module = mockModule;
           global.exports = mockModule.exports;
-          
-          // Execute the code with module support
-          const func = new Function(libraryCode);
-          func();
+
+          // Execute the code with module support - pass require, module, exports
+          const func = new Function('require', 'module', 'exports', '__filename', '__dirname', libraryCode);
+          func(require, mockModule, mockModule.exports, filePath, path.dirname(filePath));
           
           // If the library exported functions via module.exports, make them globally available
           if (mockModule.exports && typeof mockModule.exports === 'object') {
