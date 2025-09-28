@@ -500,6 +500,9 @@ class RexxInterpreter {
     this.variables = new Map();
     this.builtInFunctions = this.initializeBuiltInFunctions();
     
+    // Detect and expose execution environment globally
+    this.detectAndExposeEnvironment();
+    
     // ADDRESS LINES functionality  
     this.addressLinesCount = 0;
     this.addressLinesBuffer = [];
@@ -3506,27 +3509,14 @@ class RexxInterpreter {
         if (typeof result === 'object' && result !== null) {
           return result.loaded === true || result.type !== undefined;
         }
-        
-        // Handle legacy format (string return indicates loaded)
-        if (typeof result === 'string') {
-          return true;
-        }
-        
-        // Handle boolean return
-        if (typeof result === 'boolean') {
-          return result;
-        }
-        
-        // Any other truthy result indicates loaded
-        return !!result;
-        
       } catch (error) {
-        // If detection function throws, library is not properly loaded
-        console.warn(`Detection function ${detectionFunction} failed:`, error.message);
+        // Detection function exists but failed to execute
         return false;
       }
     }
     
+    
+    // If no detection function found, library is not loaded
     return false;
   }
 
@@ -3556,6 +3546,12 @@ class RexxInterpreter {
     // "gitlab.com/username/my-rexx-lib" -> "GITLAB_COM_USERNAME_MY_REXX_LIB_MAIN"
     // "scipy-interpolation" -> "SCIPY_INTERPOLATION_MAIN"
     return `${libraryName.toUpperCase().replace(/[\/\-\.]/g, '_')}_MAIN`;
+  }
+
+  extractMetadataFunctionName(libraryCode) {
+    // Extract metadata function name from @rexxjs-meta comment
+    const metaMatch = libraryCode.match(/@rexxjs-meta=([A-Z_][A-Z0-9_]*)/);
+    return metaMatch ? metaMatch[1] : null;
   }
 
   detectAndRegisterAddressTargets(libraryName, asClause = null) {
@@ -4335,11 +4331,14 @@ class RexxInterpreter {
       const func = new Function(libraryCode);
       func();
       
-      // Verify loading succeeded
-      if (!this.isLibraryLoaded(libraryName)) {
-        const detectionFunction = this.getLibraryDetectionFunction(libraryName);
+      // Verify loading succeeded - use new @rexxjs-meta pattern
+      const extractedFunctionName = this.extractMetadataFunctionName(libraryCode);
+      const detectionFunction = extractedFunctionName || this.getLibraryDetectionFunction(libraryName);
+      
+      const globalScope = typeof window !== 'undefined' ? window : global;
+      if (!globalScope[detectionFunction] || typeof globalScope[detectionFunction] !== 'function') {
         console.log(`Looking for detection function: ${detectionFunction}`);
-        console.log(`Available global functions:`, Object.keys(window).filter(k => k.includes('MAIN')));
+        console.log(`Available global functions:`, Object.keys(globalScope).filter(k => k.includes('META') || k.includes('MAIN')));
         throw new Error(`Library executed but detection function not found: ${detectionFunction}`);
       }
       
@@ -5059,6 +5058,55 @@ class RexxInterpreter {
     } catch (error) {
       throw new Error(`Error executing external REXX script '${scriptPath}': ${error.message}`);
     }
+  }
+
+  detectAndExposeEnvironment() {
+    const env = {
+      type: 'unknown',
+      nodeVersion: null,
+      isPkg: false,
+      hasNodeJsRequire: false,
+      hasWindow: false,
+      hasDOM: false
+    };
+
+    // Detect Node.js
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      env.type = 'nodejs';
+      env.nodeVersion = process.versions.node;
+      
+      // Detect pkg environment
+      if (typeof process.pkg !== 'undefined' || process.versions.pkg) {
+        env.type = 'pkg';
+        env.isPkg = true;
+      }
+    }
+    
+    // Detect browser
+    else if (typeof window !== 'undefined') {
+      env.type = 'browser';
+      env.hasWindow = true;
+      
+      // Detect DOM availability
+      if (typeof document !== 'undefined') {
+        env.hasDOM = true;
+      }
+    }
+    
+    // Check for Node.js require() availability (not REXX REQUIRE)
+    env.hasNodeJsRequire = typeof require !== 'undefined';
+    
+    // Expose globally for all libraries to use
+    const globalScope = typeof window !== 'undefined' ? window : global;
+    globalScope.REXX_ENVIRONMENT = env;
+    
+    // Also set as interpreter variable for REXX scripts
+    this.variables.set('ENV.TYPE', env.type);
+    this.variables.set('ENV.NODE_VERSION', env.nodeVersion || '');
+    this.variables.set('ENV.IS_PKG', env.isPkg ? '1' : '0');
+    this.variables.set('ENV.HAS_NODEJS_REQUIRE', env.hasNodeJsRequire ? '1' : '0');
+    this.variables.set('ENV.HAS_WINDOW', env.hasWindow ? '1' : '0');
+    this.variables.set('ENV.HAS_DOM', env.hasDOM ? '1' : '0');
   }
 
 }

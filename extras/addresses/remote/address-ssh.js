@@ -40,13 +40,62 @@ class AddressSSHHandler {
     if (this.initialized) return;
     
     try {
-      // Import Node.js modules when needed
-      this.spawn = require('child_process').spawn;
-      this.path = require('path');
-      this.fs = require('fs');
+      // Check global environment info provided by RexxJS interpreter
+      const globalScope = typeof window !== 'undefined' ? window : global;
+      const env = globalScope.REXX_ENVIRONMENT;
       
-      // Resolve shared utils via shared module
-      const sharedUtils = require('../shared-utils');
+      if (!env || (env.type !== 'nodejs' && env.type !== 'pkg')) {
+        throw new Error(`SSH handler requires Node.js environment. Current environment: ${env ? env.type : 'unknown'}`);
+      }
+      
+      if (env.type === 'pkg' && !env.hasNodeJsRequire) {
+        throw new Error('SSH handler cannot load Node.js modules in pkg environment without Node.js require() support');
+      }
+      
+      // Import Node.js modules when needed - handle pkg environment
+      try {
+        if (env.type === 'pkg') {
+          // In pkg environment, use pre-loaded modules from global scope
+          const globalScope = typeof global !== 'undefined' ? global : {};
+          const pkgModules = globalScope.PKG_NODEJS_MODULES;
+          
+          if (pkgModules) {
+            this.spawn = pkgModules.child_process.spawn;
+            this.path = pkgModules.path;
+            this.fs = pkgModules.fs;
+          } else {
+            throw new Error('Node.js modules not pre-loaded in pkg environment. Check CLI initialization.');
+          }
+        } else {
+          // Normal Node.js environment
+          this.spawn = require('child_process').spawn;
+          this.path = require('path');
+          this.fs = require('fs');
+        }
+      } catch (requireError) {
+        throw new Error(`Failed to load Node.js modules (child_process, path, fs): ${requireError.message}. Environment: ${env.type}.`);
+      }
+      
+      // Resolve shared utils via shared module - handle pkg environment
+      let sharedUtils;
+      try {
+        sharedUtils = require('../shared-utils/index.js');
+      } catch (requireError) {
+        // In pkg environment, require might not be available, provide fallbacks
+        sharedUtils = {
+          interpolateMessage: async (template, context = {}) => {
+            if (!template || typeof template !== 'string') return template;
+            return template.replace(/\{([^}]+)\}/g, (m, v) => (context[v] !== undefined ? String(context[v]) : m));
+          },
+          createLogFunction: (handlerName) => {
+            return function log(operation, details) {
+              if (typeof process !== 'undefined' && process.env && process.env.DEBUG) {
+                try { console.log(`[${handlerName}] ${operation}`, details); } catch {}
+              }
+            };
+          }
+        };
+      }
       this.interpolateMessage = sharedUtils.interpolateMessage;
       this.createLogFunction = sharedUtils.createLogFunction;
       this.log = this.createLogFunction('ADDRESS_SSH');
@@ -64,11 +113,26 @@ class AddressSSHHandler {
   async handleAddressCommand(command, context = {}) {
     try {
       const interpolated = await this.interpolateMessage(command, context);
-      const [op, ...rest] = interpolated.trim().split(/\s+/);
+      
+      // Better parsing that handles quoted values with spaces
+      const trimmed = interpolated.trim();
+      const spaceIndex = trimmed.indexOf(' ');
+      const op = spaceIndex === -1 ? trimmed : trimmed.substring(0, spaceIndex);
+      const paramsStr = spaceIndex === -1 ? '' : trimmed.substring(spaceIndex + 1);
+      
       const params = {};
-      for (const part of rest) {
-        if (part.includes('=')) { const [k, v] = part.split('='); params[k] = v.replace(/^"|"$/g, ''); }
+      if (paramsStr) {
+        // Parse key=value pairs, handling quoted values
+        const regex = /(\w+)=('[^']*'|"[^"]*"|[^\s]+)/g;
+        let match;
+        while ((match = regex.exec(paramsStr)) !== null) {
+          const [, key, value] = match;
+          // Remove surrounding quotes if present
+          params[key] = value.replace(/^['"]|['"]$/g, '');
+        }
       }
+      
+      
       switch (op) {
         case 'connect': return formatSSHResultForREXX(await this.connect(params));
         case 'exec': return formatSSHResultForREXX(await this.exec(params));
@@ -220,11 +284,26 @@ async function ADDRESS_SSH_HANDLER(commandOrMethod, params, sourceContext) {
     }
   }
 
-  // Original method call handling
+  // Original method call handling - use params directly instead of re-parsing
   if (params) { 
-    const pairs = Object.entries(params).map(([k, v]) => typeof v === 'string' && v.includes(' ') ? `${k}="${v}"` : `${k}=${v}`).join(' '); 
-    cmd = `${commandOrMethod} ${pairs}`; 
-    context = { ...context, ...params }; 
+    context = { ...context, ...params };
+    
+    // Call methods directly with parsed params to avoid double-parsing
+    try {
+      switch (commandOrMethod) {
+        case 'connect': return formatSSHResultForREXX(await sshInstance.connect(params));
+        case 'exec': return formatSSHResultForREXX(await sshInstance.exec(params));
+        case 'copy_to': 
+        case 'put': return formatSSHResultForREXX(await sshInstance.copyTo(params));
+        case 'copy_from': 
+        case 'get': return formatSSHResultForREXX(await sshInstance.copyFrom(params));
+        case 'close': return formatSSHResultForREXX(await sshInstance.close(params));
+        case 'status': return formatSSHResultForREXX(await sshInstance.status());
+        default: throw new Error(`Unknown ADDRESS SSH command: ${commandOrMethod}`);
+      }
+    } catch (e) { 
+      return formatSSHErrForREXX(e); 
+    }
   }
   
   try { 
@@ -320,13 +399,19 @@ function formatSSHErrForREXX(error) {
 }
 
 // Export for global scope (RexxJS interpreter compatibility)
-if (typeof window !== 'undefined') {
+// Check for Node.js first (more reliable than window check in pkg environments)
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+  // Node.js environment (including pkg-packaged binaries)
+  global.ADDRESS_SSH_META = ADDRESS_SSH_META;
+  global.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
+  global.ADDRESS_SSH_METHODS = ADDRESS_SSH_METHODS;
+} else if (typeof window !== 'undefined') {
   // Browser environment
   window.ADDRESS_SSH_META = ADDRESS_SSH_META;
   window.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
   window.ADDRESS_SSH_METHODS = ADDRESS_SSH_METHODS;
 } else if (typeof global !== 'undefined') {
-  // Node.js environment  
+  // Fallback: other global environments
   global.ADDRESS_SSH_META = ADDRESS_SSH_META;
   global.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
   global.ADDRESS_SSH_METHODS = ADDRESS_SSH_METHODS;

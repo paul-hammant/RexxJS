@@ -5,7 +5,7 @@
  * Licensed under the MIT License
  */
 
-const { ExpectationError, EXPECTATIONS_ADDRESS_MAIN, ADDRESS_EXPECTATIONS_HANDLER } = require('../src/expectations-address');
+const { ExpectationError, EXPECTATIONS_ADDRESS_META, ADDRESS_EXPECTATIONS_HANDLER } = require('../src/expectations-address');
 
 // Helper function to simulate assert behavior using ADDRESS_EXPECTATIONS_HANDLER
 async function assert(expression, context) {
@@ -22,9 +22,9 @@ async function assert(expression, context) {
 
 describe('Expectations Address', () => {
 
-  describe('EXPECTATIONS_ADDRESS_MAIN', () => {
+  describe('EXPECTATIONS_ADDRESS_META', () => {
     test('should return library info', () => {
-      const info = EXPECTATIONS_ADDRESS_MAIN();
+      const info = EXPECTATIONS_ADDRESS_META();
       expect(info.type).toBe('address-target');
       expect(info.name).toContain('Expectation');
       expect(info.loaded).toBe(true);

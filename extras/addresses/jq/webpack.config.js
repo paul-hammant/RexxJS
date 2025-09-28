@@ -97,5 +97,5 @@ module.exports = {
     ]
   },
   plugins: [],
-  devtool: process.env.NODE_ENV === 'production' ? 'source-map' : 'eval-source-map'
+  devtool: process.env.NODE_ENV === 'production' ? false : 'eval-source-map'
 };

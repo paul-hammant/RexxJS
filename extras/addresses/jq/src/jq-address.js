@@ -70,7 +70,7 @@ function JQ_ADDRESS_META() {
     type: 'address-handler',
     name: 'jq JSON Query Service',
     version: '1.0.0',
-    description: 'JSON query execution via ADDRESS interface using jq-wasm',
+    description: 'JSON query execution via ADDRESS interface (requires jq-wasm dependency)',
     provides: {
       addressTarget: 'jq',
       handlerFunction: 'ADDRESS_JQ_HANDLER',
@@ -83,7 +83,7 @@ function JQ_ADDRESS_META() {
     envVars: [],
     loaded: true,
     requirements: {
-      environment: 'universal', // Works in both Node.js and browser
+      environment: 'nodejs', // Requires Node.js for jq-wasm dependency loading
       modules: ['jq-wasm']
     },
     jqAvailable: jqAvailable,

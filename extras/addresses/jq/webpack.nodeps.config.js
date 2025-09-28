@@ -39,6 +39,24 @@ class InjectNoDepsMetaPlugin {
           'dependencies: {}'
         );
         
+        // Update canonical name to distinguish nodeps version
+        source = source.replace(
+          /canonical:\s*["']org\.rexxjs\/jq-address["']/g,
+          'canonical: "org.rexxjs/jq-nodeps-address"'
+        );
+        
+        // Update requirements to reflect web compatibility (nodeps version works in browser)
+        source = source.replace(
+          /environment:\s*["']nodejs["']/g,
+          'environment: "universal"'
+        );
+        
+        // Update description to clarify this is the standalone version
+        source = source.replace(
+          /description:\s*["']JSON query execution via ADDRESS interface \(requires jq-wasm dependency\)["']/g,
+          'description: "JSON query execution via ADDRESS interface (standalone, web-compatible)"'
+        );
+        
         // Update the asset
         compilation.assets['jq-nodeps-address.js'] = {
           source: () => source,
@@ -133,5 +151,5 @@ module.exports = {
   experiments: {
     asyncWebAssembly: true
   },
-  devtool: process.env.NODE_ENV === 'production' ? 'source-map' : 'eval-source-map'
+  devtool: process.env.NODE_ENV === 'production' ? false : 'eval-source-map'
 };

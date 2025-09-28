@@ -31,6 +31,9 @@ const path = require('path');
 const { executeScript } = require('../core/src/executor');
 const { ADDRESS_EXPECTATIONS_HANDLER } = require('../core/src/expectations-address.js');
 
+// Pre-load Node.js modules for pkg environment
+require('./nodejs-modules.js');
+
 // Simple console output handler for Node.js
 class NodeOutputHandler {
   write(content) {
@@ -178,9 +181,35 @@ function getVersion() {
   return '1.0.0';
 }
 
+// Function to read script content from stdin
+function readStdin() {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    
+    process.stdin.setEncoding('utf8');
+    
+    process.stdin.on('readable', () => {
+      const chunk = process.stdin.read();
+      if (chunk !== null) {
+        data += chunk;
+      }
+    });
+    
+    process.stdin.on('end', () => {
+      resolve(data);
+    });
+    
+    process.stdin.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const execName = getExecutableName();
+  
+  const useStdin = args.includes('--use-stdin');
   
   // Handle version flag
   if (args.includes('--version') || args.includes('-v')) {
@@ -188,17 +217,21 @@ async function main() {
     process.exit(0);
   }
   
-  if (args.length === 0) {
+  if (args.length === 0 && !useStdin) {
     console.error(`Usage: ${execName} <script.rexx> [options]`);
+    console.error(`       ${execName} --use-stdin [options]`);
     console.error('');
     console.error('Options:');
     console.error('  --help, -h       Show this help message');
     console.error('  --version, -v    Show version information');
     console.error('  --verbose        Show verbose output');
+    console.error('  --use-stdin      Read REXX script from stdin instead of file');
     console.error('');
     console.error('Examples:');
     console.error(`  ${execName} tests/scripts/simple-command.rexx`);
     console.error(`  ${execName} my-script.rexx --verbose`);
+    console.error(`  echo "SAY 'Hello World'" | ${execName} --use-stdin`);
+    console.error(`  cat script.rexx | ${execName} --use-stdin --verbose`);
     process.exit(1);
   }
   
@@ -209,22 +242,41 @@ async function main() {
     console.log('Note: External services (DOM, file system, etc.) are mocked for local execution.');
     console.log('');
     console.log(`Usage: ${execName} <script.rexx> [options]`);
+    console.log(`       ${execName} --use-stdin [options]`);
     console.log('');
     console.log('Options:');
     console.log('  --help, -h       Show this help message');
     console.log('  --version, -v    Show version information');
     console.log('  --verbose        Show verbose output');
+    console.log('  --use-stdin      Read REXX script from stdin instead of file');
     console.log('');
     console.log('Examples:');
     console.log(`  ${execName} tests/scripts/simple-command.rexx`);
     console.log(`  ${execName} my-script.rexx --verbose`);
+    console.log(`  echo "SAY 'Hello World'" | ${execName} --use-stdin`);
+    console.log(`  cat script.rexx | ${execName} --use-stdin --verbose`);
+    console.log(`  ssh user@host "cat remote-script.rexx" | ${execName} --use-stdin`);
     return;
   }
   
-  const scriptPath = args[0];
+  const scriptPath = useStdin ? '<stdin>' : args[0];
   const verbose = args.includes('--verbose');
   
-  if (!fs.existsSync(scriptPath)) {
+  // Collect KEY=VALUE pairs after the script path (or from all args if using stdin)
+  const cliVars = new Map();
+  const startIndex = useStdin ? 0 : 1;
+  for (let i = startIndex; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--verbose' || a === '--use-stdin') continue;
+    const eq = a.indexOf('=');
+    if (eq > 0) {
+      const key = a.slice(0, eq);
+      const value = a.slice(eq + 1);
+      cliVars.set(key, value);
+    }
+  }
+  
+  if (!useStdin && !fs.existsSync(scriptPath)) {
     console.error(`Error: Script file not found: ${scriptPath}`);
     process.exit(1);
   }
@@ -234,7 +286,14 @@ async function main() {
       console.log(`Reading REXX script: ${scriptPath}`);
     }
     
-    const scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    let scriptContent;
+    if (useStdin) {
+      // Read from stdin
+      scriptContent = await readStdin();
+    } else {
+      // Read from file
+      scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    }
     
     if (verbose) {
       console.log('Script content:');
@@ -247,8 +306,19 @@ async function main() {
     
     const outputHandler = new NodeOutputHandler();
     const addressSender = new CLIAddressSender(outputHandler);
+    addressSender.variables = cliVars;
     
-    const interpreter = await executeScript(scriptContent, addressSender);
+    // Positional args for PARSE ARG: everything after script path (or from all args if using stdin) that is not KEY=VALUE or flags
+    const positional = [];
+    const startIndex = useStdin ? 0 : 1;
+    for (let i = startIndex; i < args.length; i++) {
+      const a = args[i];
+      if (a === '--verbose' || a === '--use-stdin') continue;
+      if (a.includes('=')) continue; // skip KEY=VALUE pairs
+      positional.push(a);
+    }
+    
+    const interpreter = await executeScript(scriptContent, addressSender, positional);
     
     if (verbose) {
       console.log('');

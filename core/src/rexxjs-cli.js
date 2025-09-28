@@ -105,19 +105,49 @@ class CLIAddressSender {
   }
 }
 
+// Function to read script content from stdin
+function readStdin() {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    
+    process.stdin.setEncoding('utf8');
+    
+    process.stdin.on('readable', () => {
+      const chunk = process.stdin.read();
+      if (chunk !== null) {
+        data += chunk;
+      }
+    });
+    
+    process.stdin.on('end', () => {
+      resolve(data);
+    });
+    
+    process.stdin.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
 async function main() {
   const args = process.argv.slice(2);
   
-  if (args.length === 0) {
+  const useStdin = args.includes('--use-stdin');
+  
+  if (args.length === 0 && !useStdin) {
     console.error('Usage: node cli.js <script.rexx> [options]');
+    console.error('       node cli.js --use-stdin [options]');
     console.error('');
     console.error('Options:');
-    console.error('  --help, -h    Show this help message');
-    console.error('  --verbose, -v Show verbose output');
+    console.error('  --help, -h     Show this help message');
+    console.error('  --verbose, -v  Show verbose output');
+    console.error('  --use-stdin    Read REXX script from stdin instead of file');
     console.error('');
     console.error('Examples:');
     console.error('  node cli.js tests/scripts/simple-command.rexx');
     console.error('  node cli.js my-script.rexx --verbose');
+    console.error('  echo "SAY \'Hello World\'" | node cli.js --use-stdin');
+    console.error('  cat script.rexx | node cli.js --use-stdin --verbose');
     process.exit(1);
   }
   
@@ -128,24 +158,31 @@ async function main() {
     console.log('Note: External services (DOM, file system, etc.) are mocked for local execution.');
     console.log('');
     console.log('Usage: node cli.js <script.rexx> [options]');
+    console.log('       node cli.js --use-stdin [options]');
     console.log('');
     console.log('Options:');
-    console.log('  --help, -h    Show this help message');
-    console.log('  --verbose, -v Show verbose output');
+    console.log('  --help, -h     Show this help message');
+    console.log('  --verbose, -v  Show verbose output');
+    console.log('  --use-stdin    Read REXX script from stdin instead of file');
     console.log('');
     console.log('Examples:');
     console.log('  node cli.js tests/scripts/simple-command.rexx');
     console.log('  node cli.js my-script.rexx --verbose');
+    console.log('  echo "SAY \'Hello World\'" | node cli.js --use-stdin');
+    console.log('  cat script.rexx | node cli.js --use-stdin --verbose');
+    console.log('  ssh user@host "cat remote-script.rexx" | node cli.js --use-stdin');
     return;
   }
   
-  const scriptPath = args[0];
+  const scriptPath = useStdin ? '<stdin>' : args[0];
   const verbose = args.includes('--verbose') || args.includes('-v');
-  // Collect KEY=VALUE pairs after the script path for interpolation context
+  
+  // Collect KEY=VALUE pairs after the script path (or from all args if using stdin)
   const cliVars = new Map();
-  for (let i = 1; i < args.length; i++) {
+  const startIndex = useStdin ? 0 : 1;
+  for (let i = startIndex; i < args.length; i++) {
     const a = args[i];
-    if (a === '--verbose' || a === '-v') continue;
+    if (a === '--verbose' || a === '-v' || a === '--use-stdin') continue;
     const eq = a.indexOf('=');
     if (eq > 0) {
       const key = a.slice(0, eq);
@@ -154,7 +191,7 @@ async function main() {
     }
   }
   
-  if (!fs.existsSync(scriptPath)) {
+  if (!useStdin && !fs.existsSync(scriptPath)) {
     console.error(`Error: Script file not found: ${scriptPath}`);
     process.exit(1);
   }
@@ -164,7 +201,14 @@ async function main() {
       console.log(`Reading REXX script: ${scriptPath}`);
     }
     
-    const scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    let scriptContent;
+    if (useStdin) {
+      // Read from stdin
+      scriptContent = await readStdin();
+    } else {
+      // Read from file
+      scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    }
     
     if (verbose) {
       console.log('Script content:');
@@ -180,11 +224,12 @@ async function main() {
     // Attach variables for ADDRESS handlers to interpolate {KEY}
     addressSender.variables = cliVars;
     
-    // Positional args for PARSE ARG: everything after script path that is not KEY=VALUE
+    // Positional args for PARSE ARG: everything after script path (or from all args if using stdin) that is not KEY=VALUE or flags
     const positional = [];
-    for (let i = 1; i < args.length; i++) {
+    const startIndex = useStdin ? 0 : 1;
+    for (let i = startIndex; i < args.length; i++) {
       const a = args[i];
-      if (a === '--verbose' || a === '-v') continue;
+      if (a === '--verbose' || a === '-v' || a === '--use-stdin') continue;
       if (a.includes('=')) continue; // skip KEY=VALUE pairs
       positional.push(a);
     }

@@ -17,14 +17,84 @@
  * Licensed under the MIT License
  */
 
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { interpolateMessage, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = require('../shared-utils');
+// Environment-aware module loading for pkg support
+let spawn, fs, path, sharedUtils;
+
+try {
+  // Check global environment info provided by RexxJS interpreter
+  const globalScope = typeof window !== 'undefined' ? window : global;
+  const env = globalScope.REXX_ENVIRONMENT;
+  
+  if (env && env.type === 'pkg' && !env.hasNodeJsRequire) {
+    // In pkg environment, use pre-loaded modules from global scope
+    const pkgModules = globalScope.PKG_NODEJS_MODULES;
+    if (pkgModules) {
+      spawn = pkgModules.child_process.spawn;
+      fs = pkgModules.fs;
+      path = pkgModules.path;
+    } else {
+      throw new Error('Node.js modules not pre-loaded in pkg environment');
+    }
+    
+    // Try to get shared utils from global
+    sharedUtils = globalScope.__REXXJS_SHARED_UTILS__ || {
+      interpolateMessage: async (template, context = {}) => {
+        if (!template || typeof template !== 'string') return template;
+        return template.replace(/\{([^}]+)\}/g, (m, v) => (context[v] !== undefined ? String(context[v]) : m));
+      },
+      createLogFunction: (handlerName) => {
+        return function log(operation, details) {
+          if (typeof process !== 'undefined' && process.env && process.env.DEBUG) {
+            try { console.log(`[${handlerName}] ${operation}`, details); } catch {}
+          }
+        };
+      },
+      parseCommand: (cmd) => {
+        const trimmed = (cmd || '').trim();
+        if (!trimmed) return { operation: '', params: {} };
+        if (['status', 'list'].includes(trimmed)) return { operation: trimmed, params: {} };
+        
+        const parts = trimmed.split(/\s+/);
+        const operation = parts[0] || '';
+        const params = {};
+        
+        for (let i = 1; i < parts.length; i++) {
+          const part = parts[i];
+          if (part.includes('=')) {
+            const [key, ...valueParts] = part.split('=');
+            params[key] = valueParts.join('=').replace(/^["']|["']$/g, '');
+          } else {
+            params[part] = true;
+          }
+        }
+        return { operation, params };
+      },
+      parseMemoryLimit: (limit) => 0,
+      validateVolumePath: (path) => true,
+      validateBinaryPath: (path) => true,
+      auditSecurityEvent: () => {},
+      calculateUptime: (start) => Math.max(0, Date.now() - (start || Date.now())),
+      parseKeyValueString: (str) => ({}),
+      parseCheckpointOutput: (output) => [],
+      wrapScriptWithCheckpoints: (script) => script,
+      parseEnhancedCheckpointOutput: (output) => [],
+      formatStatus: (runtime, containers, max, security) => `${runtime} | containers: ${containers}/${max} | security: ${security}`
+    };
+  } else {
+    // Normal Node.js environment
+    spawn = require('child_process').spawn;
+    fs = require('fs');
+    path = require('path');
+    sharedUtils = require('../shared-utils');
+  }
+} catch (error) {
+  throw new Error(`Failed to load required modules: ${error.message}`);
+}
+
+const { interpolateMessage, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = sharedUtils;
 // testRuntime and validateCommand were previously sourced locally; define simple versions here or import if available
 function testRuntime(runtime) {
   return new Promise((resolve, reject) => {
-    const { spawn } = require('child_process');
     const proc = spawn(runtime, ['--version'], { stdio: 'ignore' });
     const to = setTimeout(() => { try { proc.kill(); } catch {} ; reject(new Error(`${runtime} test timeout`)); }, 5000);
     proc.on('close', code => { clearTimeout(to); code === 0 ? resolve(true) : reject(new Error(`${runtime} test failed with code ${code}`)); });
@@ -47,6 +117,15 @@ class AddressNspawnHandler {
     this.allowedImages = new Set(['debian:stable', 'ubuntu:latest', 'alpine:latest']);
     this.trustedBinaries = new Set();
     this.runtime = 'systemd-nspawn';
+    
+    // Remote execution support
+    this.remoteConfig = {
+      enabled: false,
+      sshHandler: null,
+      sessionId: null,
+      host: null,
+      user: null
+    };
     
     // Enhanced security settings
     this.securityPolicies = {
@@ -170,6 +249,12 @@ class AddressNspawnHandler {
           return await this.executeInContainer(parsed.params, context);
         case 'execute_rexx':
           return await this.executeRexx(parsed.params, context);
+        case 'connect_remote':
+          return await this.connectRemote(parsed.params, context);
+        case 'disconnect_remote':
+          return await this.disconnectRemote();
+        case 'remote_status':
+          return this.getRemoteStatus();
         default:
           throw new Error(`Unknown ADDRESS NSPAWN command: ${parsed.operation}`);
       }
@@ -303,7 +388,7 @@ class AddressNspawnHandler {
     }
     
     log('nspawn_create_start', { containerName, image, args: createArgs });
-    const result = await this.execPodmanCommand(createArgs);
+    const result = await this.execNspawnCommand(createArgs);
     log('nspawn_create_result', { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
     
     if (result.exitCode === 0) {
@@ -363,7 +448,7 @@ class AddressNspawnHandler {
     }
 
     // Real systemd-nspawn start
-    const result = await this.execPodmanCommand(['start', name]);
+    const result = await this.execNspawnCommand(['start', name]);
     
     if (result.exitCode === 0) {
       // Update container status
@@ -402,7 +487,7 @@ class AddressNspawnHandler {
       throw new Error(`Container ${name} is not running`);
     }
 
-    const result = await this.execPodmanCommand(['stop', name]);
+    const result = await this.execNspawnCommand(['stop', name]);
 
     if (result.exitCode === 0) {
       container.status = 'stopped';
@@ -436,7 +521,7 @@ class AddressNspawnHandler {
       throw new Error(`Container not found: ${name}`);
     }
 
-    const result = await this.execPodmanCommand(['rm', name]);
+    const result = await this.execNspawnCommand(['rm', name]);
 
     if (result.exitCode === 0) {
         this.activeContainers.delete(name);
@@ -696,7 +781,7 @@ class AddressNspawnHandler {
     const args = ['cp', local, `${container}:${remote}`];
     
     try {
-      const result = await this.execPodmanCommand(args);
+      const result = await this.execNspawnCommand(args);
       
       if (result.exitCode === 0) {
         log('copy_to_success', {
@@ -741,7 +826,7 @@ class AddressNspawnHandler {
     const args = ['cp', `${container}:${remote}`, local];
     
     try {
-      const result = await this.execPodmanCommand(args);
+      const result = await this.execNspawnCommand(args);
       
       if (result.exitCode === 0) {
         log('copy_from_success', {
@@ -788,7 +873,7 @@ class AddressNspawnHandler {
     const args = ['logs', '--tail', logLines.toString(), container];
     
     try {
-      const result = await this.execPodmanCommand(args);
+      const result = await this.execNspawnCommand(args);
       
       if (result.exitCode === 0) {
         log('logs_success', {
@@ -830,9 +915,9 @@ class AddressNspawnHandler {
           try {
             // Real mode - stop and remove container
             if (container.status === 'running') {
-              await this.execPodmanCommand(['stop', id]);
+              await this.execNspawnCommand(['stop', id]);
             }
-            await this.execPodmanCommand(['rm', id]);
+            await this.execNspawnCommand(['rm', id]);
             this.activeContainers.delete(id);
             cleaned++;
           } catch (error) {
@@ -849,7 +934,7 @@ class AddressNspawnHandler {
           if (container.status === 'stopped' || container.status === 'created') {
             try {
               // Real mode - remove stopped container
-              await this.execPodmanCommand(['rm', id]);
+              await this.execNspawnCommand(['rm', id]);
               this.activeContainers.delete(id);
               cleaned++;
             } catch (error) {
@@ -990,11 +1075,31 @@ class AddressNspawnHandler {
   }
 
   /**
-   * Execute systemd-nspawn command
+   * Execute systemd-nspawn command (local or remote)
    */
-  async execPodmanCommand(args, options = {}) {
+  async execNspawnCommand(args, options = {}) {
     const timeout = options.timeout || this.defaultTimeout;
     
+    // If remote execution is enabled, use SSH handler
+    if (this.remoteConfig.enabled && this.remoteConfig.sshHandler) {
+      const command = `sudo systemd-nspawn ${args.join(' ')}`;
+      try {
+        const result = await this.remoteConfig.sshHandler.exec({
+          id: this.remoteConfig.sessionId,
+          command: command,
+          timeout: timeout
+        });
+        return {
+          exitCode: result.exitCode || (result.success ? 0 : 1),
+          stdout: result.stdout || '',
+          stderr: result.stderr || ''
+        };
+      } catch (error) {
+        throw new Error(`Remote systemd-nspawn command failed: ${error.message}`);
+      }
+    }
+    
+    // Local execution
     return new Promise((resolve, reject) => {
       const child = spawn('systemd-nspawn', args, {
         stdio: ['ignore', 'pipe', 'pipe']
@@ -1279,8 +1384,8 @@ class AddressNspawnHandler {
   async getContainerHealth(containerName) {
     try {
       // Real mode: get actual container stats
-      const inspectResult = await this.execPodmanCommand(['inspect', containerName]);
-      const statsResult = await this.execPodmanCommand(['stats', '--no-stream', containerName]);
+      const inspectResult = await this.execNspawnCommand(['inspect', containerName]);
+      const statsResult = await this.execNspawnCommand(['stats', '--no-stream', containerName]);
       
       if (inspectResult.exitCode === 0 && statsResult.exitCode === 0) {
         const inspectData = JSON.parse(inspectResult.stdout)[0];
@@ -1579,6 +1684,133 @@ class AddressNspawnHandler {
   }
 
   /**
+   * Connect to remote host for nspawn operations
+   */
+  async connectRemote(params, context) {
+    const { host, user, port = '22', identity, id = 'nspawn-remote' } = params;
+    
+    if (!host || !user) {
+      throw new Error('connect_remote requires host and user parameters');
+    }
+    
+    try {
+      // Get SSH handler instance - dynamically load based on environment
+      let AddressSSHHandler;
+      try {
+        // Try to get from global scope first (pkg environment)
+        const globalScope = typeof window !== 'undefined' ? window : global;
+        if (globalScope.ADDRESS_SSH_HANDLER) {
+          // Use the handler function directly
+          AddressSSHHandler = class {
+            async connect(params) { return await globalScope.ADDRESS_SSH_HANDLER('connect', params); }
+            async exec(params) { return await globalScope.ADDRESS_SSH_HANDLER('exec', params); }
+            async close(params) { return await globalScope.ADDRESS_SSH_HANDLER('close', params); }
+            async initialize() { return true; }
+          };
+        } else {
+          // Normal Node.js environment
+          const sshModule = require('../remote/address-ssh.js');
+          AddressSSHHandler = sshModule.AddressSSHHandler;
+        }
+      } catch (reqError) {
+        throw new Error(`Failed to load SSH handler: ${reqError.message}`);
+      }
+      
+      if (!this.remoteConfig.sshHandler) {
+        this.remoteConfig.sshHandler = new AddressSSHHandler();
+        await this.remoteConfig.sshHandler.initialize();
+      }
+      
+      // Connect to remote host
+      const connectResult = await this.remoteConfig.sshHandler.connect({
+        host, user, port, identity, id
+      });
+      
+      if (connectResult.success) {
+        this.remoteConfig.enabled = true;
+        this.remoteConfig.sessionId = connectResult.id;
+        this.remoteConfig.host = host;
+        this.remoteConfig.user = user;
+        
+        // Test nspawn availability on remote host
+        const testResult = await this.remoteConfig.sshHandler.exec({
+          id: connectResult.id,
+          command: 'which systemd-nspawn && sudo systemd-nspawn --version',
+          timeout: 10000
+        });
+        
+        if (!testResult.success) {
+          throw new Error(`systemd-nspawn not available on remote host: ${testResult.stderr}`);
+        }
+        
+        log('remote_connected', { host, user, id: connectResult.id });
+        return {
+          success: true,
+          operation: 'connect_remote',
+          host, user, id: connectResult.id,
+          nspawnAvailable: true,
+          output: `Connected to ${user}@${host} for remote nspawn operations`
+        };
+      } else {
+        throw new Error(`Failed to connect: ${connectResult.errorMessage || 'Unknown error'}`);
+      }
+    } catch (error) {
+      throw new Error(`Remote connection failed: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Disconnect from remote host
+   */
+  async disconnectRemote() {
+    if (!this.remoteConfig.enabled || !this.remoteConfig.sshHandler) {
+      return {
+        success: true,
+        operation: 'disconnect_remote',
+        output: 'No remote connection active'
+      };
+    }
+    
+    try {
+      await this.remoteConfig.sshHandler.close({ id: this.remoteConfig.sessionId });
+      
+      const host = this.remoteConfig.host;
+      const user = this.remoteConfig.user;
+      
+      this.remoteConfig.enabled = false;
+      this.remoteConfig.sessionId = null;
+      this.remoteConfig.host = null;
+      this.remoteConfig.user = null;
+      
+      log('remote_disconnected', { host, user });
+      return {
+        success: true,
+        operation: 'disconnect_remote',
+        output: `Disconnected from ${user}@${host}`
+      };
+    } catch (error) {
+      throw new Error(`Disconnect failed: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Get remote connection status
+   */
+  getRemoteStatus() {
+    return {
+      success: true,
+      operation: 'remote_status',
+      enabled: this.remoteConfig.enabled,
+      host: this.remoteConfig.host,
+      user: this.remoteConfig.user,
+      sessionId: this.remoteConfig.sessionId,
+      output: this.remoteConfig.enabled 
+        ? `Connected to ${this.remoteConfig.user}@${this.remoteConfig.host}`
+        : 'No remote connection active'
+    };
+  }
+
+  /**
    * Cleanup process monitoring on handler destruction
    */
   destroy() {
@@ -1688,6 +1920,9 @@ const ADDRESS_NSPAWN_METHODS = {
   'execute': 'Execute command in container',
   'execute_rexx': 'Execute RexxJS script in container [progress_callback=true] [timeout=30000]',
   'copy_to': 'Copy file to container',
+  'connect_remote': 'Connect to remote host [host] [user] [port=22] [identity] [id=nspawn-remote]',
+  'disconnect_remote': 'Disconnect from remote host',
+  'remote_status': 'Get remote connection status',
   'copy_from': 'Copy file from container',
   'logs': 'Get container logs [lines=50]',
   'cleanup': 'Cleanup containers [all=true]',
