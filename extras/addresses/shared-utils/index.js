@@ -67,10 +67,21 @@ function validateVolumePath(p) {
   return true;
 }
 
-function validateBinaryPath(p) {
+function validateBinaryPath(p, securityMode, trustedBinaries, auditCallback) {
   if (typeof p !== 'string' || p.length === 0) return false;
   if (p.includes('..')) return false;
-  return true;
+
+  // If trustedBinaries is provided and contains this path, allow it
+  if (trustedBinaries && trustedBinaries.has && trustedBinaries.has(p)) {
+    return true;
+  }
+
+  // Basic validation for typical paths
+  if (p.startsWith('/usr/local/bin/') || p.startsWith('/usr/bin/') || p.startsWith('/host/')) {
+    return true;
+  }
+
+  return false;
 }
 
 function parseKeyValueString(s) {
@@ -93,6 +104,56 @@ function wrapScriptWithCheckpoints(script) { return String(script || ''); }
 
 function parseEnhancedCheckpointOutput(s) { return parseCheckpointOutput(s); }
 
+function testRuntime(command) {
+  // Basic runtime test function
+  const { spawn } = require('child_process');
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, ['--version'], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(`${command} not available: ${stderr}`));
+      }
+    });
+
+    child.on('error', (error) => {
+      reject(new Error(`${command} execution failed: ${error.message}`));
+    });
+
+    // Set timeout
+    setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error(`${command} test timeout`));
+    }, 5000);
+  });
+}
+
+function validateCommand(cmd, bannedCommands) {
+  if (!cmd || typeof cmd !== 'string') return ['Invalid command'];
+  const violations = [];
+  for (const banned of bannedCommands || []) {
+    if (cmd.includes(banned)) {
+      violations.push(`Contains banned command: ${banned}`);
+    }
+  }
+  return violations;
+}
+
 module.exports = {
   // logging
   logActivity, createLogFunction,
@@ -101,7 +162,9 @@ module.exports = {
   // command parsing
   parseCommandParts, parseCommand, parseMemoryLimit,
   // validation
-  validateVolumePath, validateBinaryPath,
+  validateVolumePath, validateBinaryPath, validateCommand,
+  // runtime testing
+  testRuntime,
   // misc utils
   auditSecurityEvent, calculateUptime, parseKeyValueString,
   parseCheckpointOutput, wrapScriptWithCheckpoints, parseEnhancedCheckpointOutput,

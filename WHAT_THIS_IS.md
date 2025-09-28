@@ -23,15 +23,41 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
 - **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements
 
-### ADDRESS mechanism 
+### ADDRESS mechanism
 - **Cross-Application Communication** is one way of looking at it
 - **Alien parsable/interpretable language** (Sql, bash, english assertion grammar, others)
 - **implementations** can modify RC and RESULT vars (the latter a dict if needed)
 - **SQL**: SQLite database operations
 - **Assertions**: not just for the build in test framework
-- **System commands**: OS-level operations  
+- **System commands**: OS-level operations
 - **Mock testing**: Comprehensive test framework (`core/tests/mock-address.js`)
 - Supports both traditional command strings (`"CREATE TABLE users"`) and modern method calls (`execute sql="CREATE TABLE users"`)
+
+### Provisioning & Orchestration (`extras/addresses/provisioning-and-orchestration/`)
+Comprehensive infrastructure management with VM and container automation:
+
+**Container Management:**
+- **Docker** (`address-docker.js`) - Full Docker container lifecycle
+- **Podman** (`address-podman.js`) - Rootless container operations
+- **systemd-nspawn** (`address-nspawn.js`) - Lightweight OS containers
+
+**Virtual Machine Management:**
+- **QEMU/KVM** (`address-qemu.js`) - Production virtualization with Guest Agent
+  - Command execution via qemu-guest-agent (no SSH needed)
+  - Three execution methods: Guest Agent → SSH fallback → Serial console
+  - Full lifecycle with pause/resume, save/restore state (via virsh)
+- **VirtualBox** (`address-virtualbox.js`) - Desktop/development VMs with Guest Additions
+  - Command execution via Guest Additions (no SSH needed)
+  - ISO management, network configuration, snapshot support
+  - Full lifecycle with pause/resume, save/restore state
+
+**Key Capabilities:**
+- **Exec without SSH**: Run commands directly in VMs/containers like `docker exec`
+- **RexxJS deployment**: Automatically deploy and execute RexxJS scripts in VMs
+- **Idempotent operations**: `start_if_stopped`, `stop_if_running` for automation
+- **Lifecycle management**: Create, start, stop, pause, resume, restart, snapshot, restore
+- **Production features**: Host verification, permissions setup, ISO downloads, guest agent installation
+- **Security policies**: Memory/CPU limits, command filtering, audit logging
 
 ### Browser Integration (`src/web/`)
 - PostMessage-based RPC between iframes
@@ -77,12 +103,39 @@ ADDRESS calculator
 clear
 press button="2"
 press button="+"
-press button="3" 
+press button="3"
 LET result = getDisplay
 
 -- API integration
 ADDRESS api
 LET response = GET endpoint="/users" params='{"limit": 10}'
+```
+
+### Infrastructure Automation
+```rexx
+-- QEMU/KVM virtualization with Guest Agent
+ADDRESS QEMU
+"create image=debian.qcow2 name=ci-vm memory=4G cpus=4"
+"configure_ssh name=ci-vm host=192.168.122.50 user=root"
+"install_guest_agent name=ci-vm"
+-- Now execute without SSH via qemu-guest-agent
+"execute vm=ci-vm command=\"apt update && apt install -y build-essential\""
+"deploy_rexx vm=ci-vm rexx_binary=/usr/local/bin/rexx"
+"execute_rexx vm=ci-vm script=\"SAY 'Running in VM!'\""
+
+-- VirtualBox with Guest Additions
+ADDRESS VIRTUALBOX
+"create template=Ubuntu name=test-vm memory=2048"
+"start_if_stopped name=test-vm"  -- Idempotent
+"install_guest_additions name=test-vm"
+"execute vm=test-vm command=\"./run-tests.sh\""
+"stop_if_running name=test-vm"  -- Idempotent
+
+-- Docker container management
+ADDRESS DOCKER
+"create image=node:18 name=app-container"
+"exec container=app-container command=\"npm install\""
+"exec container=app-container command=\"npm test\""
 ```
 
 ### Modern Extensions
@@ -104,10 +157,15 @@ The codebase follows a modular design:
 
 1. **Scientific Computing**: R/SciPy-compatible functions for data analysis
 2. **Web Automation**: Cross-iframe scripting and browser control
-3. **Database Operations**: SQL integration with full CRUD capabilities (SQLite3)  
+3. **Database Operations**: SQL integration with full CRUD capabilities (SQLite3)
 4. **API Integration**: RESTful service communication and data processing
 5. **System Administration**: OS command execution and file operations
 6. **Testing**: Comprehensive mock frameworks for ADDRESS-based applications
+7. **Infrastructure Automation**: VM/container provisioning with QEMU, VirtualBox, Docker, Podman
+   - CI/CD test environments with automatic VM creation and teardown
+   - Multi-platform testing across different OS versions
+   - Development environment provisioning and configuration
+   - Container-based microservice orchestration
 
 ## Development Guidelines
 
