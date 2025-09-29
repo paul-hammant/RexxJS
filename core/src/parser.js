@@ -611,8 +611,8 @@ function parseStatement(tokens, startIndex) {
     };
   }
   
-  // LET assignment
-  const letMatch = line.match(/^LET\s+([a-zA-Z0-9_{}.]+)\s*=\s*(.*)/i);
+  // LET assignment - now includes brackets to catch and reject them
+  const letMatch = line.match(/^LET\s+([a-zA-Z0-9_{}.\[\]"']+)\s*=\s*(.*)/i);
   
   // Check for malformed LET statements
   if (line.match(/^LET\s*=/i)) {
@@ -625,6 +625,16 @@ function parseStatement(tokens, startIndex) {
   if (letMatch) {
     const variableName = letMatch[1];
     const expression = letMatch[2];
+    
+    // Check for LHS bracket syntax and reject it
+    if (variableName.includes('[') && variableName.includes(']')) {
+      const bracketMatch = variableName.match(/^([^[]+)\[([^\]]+)\]$/);
+      if (bracketMatch) {
+        const baseName = bracketMatch[1];
+        const indexExpr = bracketMatch[2];
+        throw new Error(`LHS array assignment syntax '${variableName} = ...' is not supported. Use ARRAY_SET(${baseName}, ${indexExpr}, value) for REXX 1-based indexing instead.`);
+      }
+    }
     
     // Debug logging removed
     
