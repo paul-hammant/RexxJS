@@ -1652,20 +1652,12 @@ function parseExpression(exprStr) {
   
   // Debug logging removed
   
-  // Handle array access first, e.g., "myArray[5]" or "myArray[other_var]"
+  // Reject array access syntax in expressions - not supported
   const arrayAccessMatch = expr.match(/^([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\[(.+?)\]$/);
   if (arrayAccessMatch) {
     const variableName = arrayAccessMatch[1];
     const indexStr = arrayAccessMatch[2];
-
-    // Recursively parse the index as an expression
-    const indexExpr = parseExpression(indexStr);
-
-    return {
-      type: 'ARRAY_ACCESS',
-      variable: variableName,
-      index: indexExpr !== null ? indexExpr : indexStr
-    };
+    throw new Error(`Array access syntax '${variableName}[${indexStr}]' is not supported in expressions. Use ARRAY_GET(${variableName}, ${indexStr}) for REXX 1-based indexing instead.`);
   }
 
   // Handle array literals, e.g., ["apple", "banana", "cherry"] or [1, 2, 3]

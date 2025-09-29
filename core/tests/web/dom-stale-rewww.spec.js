@@ -367,7 +367,7 @@ LET count = buttons.length
 SAY "Found " || count || " buttons with index approach"
 
 DO i = 1 TO count
-    LET button = buttons[i]
+    LET button = ARRAY_GET(buttons, i)
     SAY "Processing button index: " || i
     LET text = DOM_ELEMENT_TEXT element=button
     DOM_ELEMENT_CLICK element=button

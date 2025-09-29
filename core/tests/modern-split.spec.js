@@ -66,7 +66,7 @@ describe('SPLIT vs MODERN_SPLIT', () => {
     const script = `
       LET text = "apple,banana,cherry"
       LET partz = MODERN_SPLIT string=text separator=","
-      LET first_item = partz[0]
+      LET first_item = ARRAY_GET(partz, 1)
     `;
     const commands = parse(script);
     const interpreter = new Interpreter();
@@ -79,7 +79,7 @@ describe('SPLIT vs MODERN_SPLIT', () => {
     const script = `
       LET content = "MIT License\\nCopyright notice\\nPermission text"
       LET lines = MODERN_SPLIT string=content separator="\\n"
-      LET first_line = lines[0]
+      LET first_line = ARRAY_GET(lines, 1)
       SAY "First line type:" TYPEOF(first_line)
       SAY "First line value:" first_line
     `;
@@ -103,7 +103,7 @@ describe('SPLIT vs MODERN_SPLIT', () => {
     const script = `
       LET license_content = "MIT License\\n\\nCopyright (c) 2025 Paul Hammant"
       LET license_lines = MODERN_SPLIT string=license_content separator="\\n"
-      LET first_line = license_lines[0]
+      LET first_line = ARRAY_GET(license_lines, 1)
       LET first_line = STRIP(first_line)
     `;
     const commands = parse(script);
