@@ -108,17 +108,18 @@ const executeSectionedWorkflow = async (sections, gcpHandler) => {
 
 const GCP_ADDRESS_META = {
   name: 'GCP',
-  description: 'Google Cloud Platform unified orchestration interface with enhanced grammar',
-  version: '2.0.0',
-  services: ['SHEETS', 'BIGQUERY', 'FIRESTORE', 'STORAGE', 'PUBSUB', 'FUNCTIONS', 'RUN', 'COMPUTE'],
+  description: 'Google Cloud Platform unified orchestration interface with enhanced grammar and rate limiting',
+  version: '2.1.0',
+  services: ['SHEETS', 'BIGQUERY', 'FIRESTORE', 'STORAGE', 'PUBSUB', 'FUNCTIONS', 'RUN', 'COMPUTE', 'RATELIMIT'],
   grammar: {
-    features: ['aliases', 'result-chains', 'natural-language', 'batch-operations', 'sections'],
+    features: ['aliases', 'result-chains', 'natural-language', 'batch-operations', 'sections', 'rate-limiting'],
     examples: {
       'alias-usage': 'SHEETS ALIAS orders="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"',
       'result-chains': 'SHEETS SELECT * FROM orders.\'Sales\' → sales_data',
       'natural-language': 'SHEETS SELECT * FROM \'Orders\' WHERE amount ABOVE 1000',
       'batch-operations': 'SHEETS BATCH ["SELECT * FROM \'Q1\'", "SELECT * FROM \'Q2\'"]',
       'standardized-params': 'STORAGE UPLOAD file="report.pdf" bucket="company-docs" as="reports/monthly.pdf"',
+      'rate-limiting': 'RATELIMIT SET sheets 50 60',
       'sectioned-workflow': `@SECTION data-extraction
 SHEETS SELECT * FROM orders WHERE date IS today → daily_orders
 
@@ -127,6 +128,23 @@ BIGQUERY INSERT INTO staging SELECT * FROM @daily_orders
 
 @SECTION notifications
 PUBSUB PUBLISH topic="alerts" message="Daily report ready"`
+    },
+    'rate-limiting': {
+      description: 'Local rate limiting for all GCP API calls',
+      commands: {
+        'RATELIMIT ENABLE': 'Enable rate limiting for all services',
+        'RATELIMIT DISABLE': 'Disable rate limiting for all services',
+        'RATELIMIT STATUS': 'Show current rate limit status and usage',
+        'RATELIMIT RESET [service]': 'Reset rate limit counters',
+        'RATELIMIT SET service requests window_seconds': 'Set rate limit for a service',
+        'RATELIMIT HELP': 'Show help for rate limiting commands'
+      },
+      services: ['global', 'sheets', 'bigquery', 'firestore', 'storage', 'pubsub', 'functions', 'run'],
+      defaults: {
+        requests: 100,
+        windowSeconds: 60,
+        enabled: false
+      }
     }
   }
 };
@@ -142,6 +160,102 @@ let globalVariableStore = {};
 
 // Global alias store for sheet references
 let globalAliasStore = {};
+
+// Rate limiting management
+class RateLimiter {
+  constructor() {
+    this.limits = {
+      global: { requests: 100, window: 60000 }, // 100 requests per minute by default
+      sheets: { requests: 100, window: 60000 },
+      bigquery: { requests: 100, window: 60000 },
+      storage: { requests: 100, window: 60000 },
+      firestore: { requests: 100, window: 60000 },
+      pubsub: { requests: 100, window: 60000 },
+      functions: { requests: 100, window: 60000 },
+      run: { requests: 100, window: 60000 }
+    };
+    
+    this.counters = {};
+    this.enabled = false;
+  }
+
+  setLimit(service, requests, windowMs) {
+    if (service === 'global' || this.limits[service]) {
+      this.limits[service] = { requests, window: windowMs };
+      // Reset counter for this service
+      delete this.counters[service];
+      return true;
+    }
+    return false;
+  }
+
+  enable() {
+    this.enabled = true;
+  }
+
+  disable() {
+    this.enabled = false;
+  }
+
+  async checkLimit(service = 'global') {
+    if (!this.enabled) return true;
+
+    const now = Date.now();
+    const limit = this.limits[service] || this.limits.global;
+    
+    if (!this.counters[service]) {
+      this.counters[service] = { count: 0, windowStart: now };
+    }
+
+    const counter = this.counters[service];
+    
+    // Reset window if expired
+    if (now - counter.windowStart >= limit.window) {
+      counter.count = 0;
+      counter.windowStart = now;
+    }
+
+    // Check if limit exceeded
+    if (counter.count >= limit.requests) {
+      const timeUntilReset = limit.window - (now - counter.windowStart);
+      throw new Error(`Rate limit exceeded for ${service}. Try again in ${Math.ceil(timeUntilReset / 1000)} seconds. Limit: ${limit.requests} requests per ${limit.window / 1000} seconds.`);
+    }
+
+    counter.count++;
+    return true;
+  }
+
+  getStatus() {
+    const now = Date.now();
+    const status = { enabled: this.enabled, limits: this.limits, current: {} };
+    
+    for (const [service, counter] of Object.entries(this.counters)) {
+      const limit = this.limits[service] || this.limits.global;
+      const timeInWindow = now - counter.windowStart;
+      const remaining = Math.max(0, limit.requests - counter.count);
+      const resetIn = Math.max(0, limit.window - timeInWindow);
+      
+      status.current[service] = {
+        used: counter.count,
+        remaining,
+        resetInMs: resetIn,
+        resetInSeconds: Math.ceil(resetIn / 1000)
+      };
+    }
+    
+    return status;
+  }
+
+  reset(service = null) {
+    if (service) {
+      delete this.counters[service];
+    } else {
+      this.counters = {};
+    }
+  }
+}
+
+let globalRateLimiter = new RateLimiter();
 
 // Initialize handlers on first use
 const initGcpHandler = async () => {
@@ -1312,29 +1426,41 @@ class UnifiedGcpHandler {
     // Extract service identifier
     const firstWord = trimmed.split(/\s+/)[0].toUpperCase();
 
+    // Handle rate limiting commands first
+    if (firstWord === 'RATELIMIT') {
+      return await this.handleRateLimit(trimmed.substring(9).trim());
+    }
+
     // Route to appropriate service handler (no shorthand codes)
     switch (firstWord) {
       case 'SHEET':
       case 'SHEETS':
+        await globalRateLimiter.checkLimit('sheets');
         return await this.services.sheets.handle(trimmed.substring(firstWord.length).trim());
 
       case 'BIGQUERY':
+        await globalRateLimiter.checkLimit('bigquery');
         return await this.services.bigquery.handle(trimmed.substring(firstWord.length).trim());
 
       case 'FIRESTORE':
+        await globalRateLimiter.checkLimit('firestore');
         return await this.services.firestore.handle(trimmed.substring(firstWord.length).trim());
 
       case 'STORAGE':
+        await globalRateLimiter.checkLimit('storage');
         return await this.services.storage.handle(trimmed.substring(firstWord.length).trim());
 
       case 'PUBSUB':
+        await globalRateLimiter.checkLimit('pubsub');
         return await this.services.pubsub.handle(trimmed.substring(firstWord.length).trim());
 
       case 'FUNCTIONS':
       case 'FUNCTION':
+        await globalRateLimiter.checkLimit('functions');
         return await this.services.functions.handle(trimmed.substring(firstWord.length).trim());
 
       case 'RUN':
+        await globalRateLimiter.checkLimit('run');
         return await this.services.run.handle(trimmed.substring(firstWord.length).trim());
 
       // Legacy gcloud-like syntax for backward compatibility
@@ -1342,11 +1468,117 @@ class UnifiedGcpHandler {
       case 'LIST':
       case 'DELETE':
       case 'CREATE':
+        await globalRateLimiter.checkLimit('global');
         return await this.handleLegacyCommand(trimmed);
 
       default:
-        throw new Error(`Unknown GCP service: ${firstWord}. Available services: SHEETS, BIGQUERY, FIRESTORE, STORAGE, PUBSUB, FUNCTIONS, RUN`);
+        throw new Error(`Unknown GCP service: ${firstWord}. Available services: SHEETS, BIGQUERY, FIRESTORE, STORAGE, PUBSUB, FUNCTIONS, RUN, RATELIMIT`);
     }
+  }
+
+  async handleRateLimit(command) {
+    const trimmed = command.trim();
+    const upperCommand = trimmed.toUpperCase();
+
+    // RATELIMIT ENABLE
+    if (upperCommand === 'ENABLE') {
+      globalRateLimiter.enable();
+      return {
+        success: true,
+        action: 'enabled',
+        message: 'Rate limiting enabled for all GCP services'
+      };
+    }
+
+    // RATELIMIT DISABLE
+    if (upperCommand === 'DISABLE') {
+      globalRateLimiter.disable();
+      return {
+        success: true,
+        action: 'disabled',
+        message: 'Rate limiting disabled for all GCP services'
+      };
+    }
+
+    // RATELIMIT STATUS
+    if (upperCommand === 'STATUS') {
+      return {
+        success: true,
+        action: 'status',
+        ...globalRateLimiter.getStatus()
+      };
+    }
+
+    // RATELIMIT RESET [service]
+    if (upperCommand.startsWith('RESET')) {
+      const parts = trimmed.split(/\s+/);
+      const service = parts[1] ? parts[1].toLowerCase() : null;
+      globalRateLimiter.reset(service);
+      return {
+        success: true,
+        action: 'reset',
+        service: service || 'all',
+        message: service ? `Rate limit counter reset for ${service}` : 'All rate limit counters reset'
+      };
+    }
+
+    // RATELIMIT SET service requests window_seconds
+    if (upperCommand.startsWith('SET ')) {
+      const parts = trimmed.split(/\s+/);
+      if (parts.length < 4) {
+        throw new Error('Invalid RATELIMIT SET syntax. Use: RATELIMIT SET service requests window_seconds');
+      }
+
+      const service = parts[1].toLowerCase();
+      const requests = parseInt(parts[2]);
+      const windowSeconds = parseInt(parts[3]);
+
+      if (isNaN(requests) || isNaN(windowSeconds) || requests <= 0 || windowSeconds <= 0) {
+        throw new Error('Requests and window_seconds must be positive numbers');
+      }
+
+      const windowMs = windowSeconds * 1000;
+      const success = globalRateLimiter.setLimit(service, requests, windowMs);
+
+      if (!success) {
+        throw new Error(`Unknown service: ${service}. Available services: global, sheets, bigquery, firestore, storage, pubsub, functions, run`);
+      }
+
+      return {
+        success: true,
+        action: 'set_limit',
+        service,
+        requests,
+        windowSeconds,
+        message: `Rate limit set for ${service}: ${requests} requests per ${windowSeconds} seconds`
+      };
+    }
+
+    // RATELIMIT help or unknown command
+    if (upperCommand === 'HELP' || !trimmed) {
+      return {
+        success: true,
+        action: 'help',
+        commands: {
+          'RATELIMIT ENABLE': 'Enable rate limiting for all services',
+          'RATELIMIT DISABLE': 'Disable rate limiting for all services',
+          'RATELIMIT STATUS': 'Show current rate limit status and usage',
+          'RATELIMIT RESET [service]': 'Reset rate limit counters (all services or specific service)',
+          'RATELIMIT SET service requests window_seconds': 'Set rate limit for a service',
+          'RATELIMIT HELP': 'Show this help message'
+        },
+        services: ['global', 'sheets', 'bigquery', 'firestore', 'storage', 'pubsub', 'functions', 'run'],
+        examples: {
+          'Enable rate limiting': 'RATELIMIT ENABLE',
+          'Set sheets limit to 50 requests per 30 seconds': 'RATELIMIT SET sheets 50 30',
+          'Check current status': 'RATELIMIT STATUS',
+          'Reset all counters': 'RATELIMIT RESET',
+          'Reset only sheets counter': 'RATELIMIT RESET sheets'
+        }
+      };
+    }
+
+    throw new Error(`Unknown RATELIMIT command: ${trimmed.split(' ')[0]}. Use RATELIMIT HELP for available commands.`);
   }
 
   async handleLegacyCommand(command) {
@@ -1380,6 +1612,9 @@ class UnifiedGcpHandler {
 
   // Core execution method
   async execCommand(command, args = [], options = {}) {
+    // Apply global rate limiting to all gcloud commands
+    await globalRateLimiter.checkLimit('global');
+    
     return new Promise((resolve, reject) => {
       const proc = this.spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
