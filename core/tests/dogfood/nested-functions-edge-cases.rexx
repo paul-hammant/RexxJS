@@ -6,7 +6,7 @@
 /* @test-tags nested-functions, edge-cases, boundary-testing, dogfood */
 /* @description Nested Function Edge Cases - Boundary Conditions and Error Scenarios */
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Nested Function Edge Cases Testing..."

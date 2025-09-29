@@ -6,7 +6,7 @@
 /* @test-tags nested-functions, advanced, comprehensive, dogfood */
 /* @description Advanced Nested Function Call Patterns - Complex Multi-Step Chains */
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Advanced Nested Function Tests Starting..."

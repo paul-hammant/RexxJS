@@ -6,7 +6,7 @@
 /* @test-tags comparison-operators, conditional-logic, comprehensive, dogfood */
 /* @description Comprehensive Comparison Operators Test - All Supported REXX Comparison Operators: =, ==, \=, !=, <>, ¬=, ><, >, <, >=, <= */
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Comprehensive Comparison Operators Test Suite Starting..."

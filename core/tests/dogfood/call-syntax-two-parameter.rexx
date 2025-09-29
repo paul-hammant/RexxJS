@@ -6,7 +6,7 @@
 /* @test-tags call-syntax, two-parameter, functions, dogfood */
 /* @description CALL FUNCTION_NAME Syntax Tests - Two Parameter Functions */
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Test Suite Starting (Two Parameters)..."

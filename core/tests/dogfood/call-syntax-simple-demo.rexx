@@ -6,7 +6,7 @@
 /* @test-tags call-syntax, simple-demo, educational, dogfood */
 /* @description Simple CALL Syntax Demonstration - Function vs CALL Differences */
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Simple CALL Syntax Demonstration Starting..."

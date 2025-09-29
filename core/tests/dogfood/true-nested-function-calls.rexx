@@ -6,7 +6,7 @@
 /* @test-tags nested-functions, functions, true-nesting, dogfood */
 /* @description True Nested Function Call Tests - Actual nesting syntax */
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 True Nested Function Calls Test Suite Starting..."

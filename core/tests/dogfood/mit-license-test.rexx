@@ -3,7 +3,7 @@
 // Copyright (c) 2025 Paul Hammant
 // Licensed under the MIT License
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* @test-tags license, file-operations, validation, dogfood */
 /* @description MIT License File Validation Test */
@@ -40,7 +40,11 @@ LicenseValidationTest:
   LET license_lines = MODERN_SPLIT(license_content, "\n")
 
   /* Get first line - canonical array access */
-  LET first_line = license_lines[0]
+  LET first_line = ARRAY_GET(license_lines, 1)
+  LET first_line = STRIP(first_line)
 
-  ADDRESS EXPECTATIONS "{first_line} should equal 'MIT License'"
+  SAY "First line is: " || first_line
+  SAY "About to test: first_line should equal 'MIT License'"
+  SAY "first_line variable contains: " || first_line
+  ADDRESS EXPECTATIONS "first_line should equal 'MIT License'"
 RETURN

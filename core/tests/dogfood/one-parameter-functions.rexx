@@ -3,7 +3,7 @@
 // Copyright (c) 2025 Paul Hammant
 // Licensed under the MIT License
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "./core/src/expectations-address.js"
 
 /* @test-tags functions, one-parameter, string-functions, math-functions, dogfood */
 /* @description Single Parameter Function Test - Functions with Parentheses */
