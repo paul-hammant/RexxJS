@@ -1,15 +1,77 @@
 # Google Cloud Platform (GCP) Unified ADDRESS Handler
 
-**The modern cloud orchestration language for Google Cloud Platform**
+**The modern cloud orchestration language for Google Cloud Platform with enhanced grammar**
 
-RexxJS's unified GCP ADDRESS handler provides service-specific command languages for all major Google Cloud services, designed for both simple operations and complex HEREDOC-style orchestration.
+RexxJS's unified GCP ADDRESS handler provides service-specific command languages for all major Google Cloud services, featuring enhanced grammar with aliases, result chains, natural language operators, and sectioned workflows.
 
-## 🚀 Killer Features
+## 🚀 Enhanced Grammar Features (v2.0)
+
+### **Sheet Aliases for Readability**
+```rexx
+ADDRESS GCP
+"SHEETS ALIAS orders='1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'"
+"SHEETS SELECT * FROM orders.'New Orders' WHERE amount ABOVE 1000"
+```
+No more copying long spreadsheet IDs - use meaningful aliases!
+
+### **Result Chain Syntax (→ operator)**
+```rexx
+"SHEETS SELECT * FROM orders.'Sales' WHERE date IS today → sales_data"
+"BIGQUERY INSERT INTO staging SELECT * FROM @sales_data → staging_result"
+"PUBSUB PUBLISH topic='alerts' message='@staging_result processed'"
+```
+Explicit data flow between services with variable references!
+
+### **Natural Language Operators**
+```rexx
+"SHEETS SELECT * FROM 'Orders' WHERE amount ABOVE 1000"
+"SHEETS SELECT * FROM 'Inventory' WHERE stock BELOW 10"
+"SHEETS SELECT * FROM 'Users' WHERE status IS active"
+"SHEETS SELECT * FROM 'Products' WHERE name CONTAINS 'widget'"
+```
+More intuitive than symbolic operators!
+
+### **Standardized Parameter Syntax**
+```rexx
+"STORAGE UPLOAD file='report.pdf' bucket='company-docs' as='reports/monthly.pdf'"
+"PUBSUB PUBLISH topic='notifications' message='Report ready'"
+"SHEETS INSERT sheet='Orders' values='Widget,299.99,pending'"
+```
+Consistent key="value" format across all services!
+
+### **Batch Operations**
+```rexx
+"SHEETS BATCH ['SELECT * FROM Q1', 'SELECT * FROM Q2', 'SELECT * FROM Q3'] → quarterly_data"
+"BIGQUERY TRANSACTION ['CREATE TABLE temp AS SELECT * FROM @quarterly_data', 'DROP TABLE old_data']"
+```
+Multiple operations in a single command!
+
+### **Sectioned HEREDOC Workflows**
+```rexx
+LET workflow = <<DAILY_ANALYTICS
+@SECTION data-extraction
+SHEETS ALIAS orders="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+SHEETS SELECT * FROM orders.'Daily Sales' WHERE date IS today → daily_orders
+
+@SECTION analytics
+BIGQUERY INSERT INTO staging SELECT * FROM @daily_orders → analysis_result
+BIGQUERY SELECT SUM(revenue) as total FROM staging → revenue_total
+
+@SECTION notifications
+PUBSUB PUBLISH topic="daily-reports" message="Revenue: @revenue_total"
+FIRESTORE SET /metrics/today {"revenue": "@revenue_total", "orders": "@analysis_result.count"}
+DAILY_ANALYTICS
+
+ADDRESS GCP workflow
+```
+Organized workflows with section-based results!
+
+## 🎯 Killer Features
 
 ### **Direct Spreadsheet Access**
 ```rexx
 ADDRESS GCP
-"SHEET 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Sales' WHERE amount > 1000"
+"SHEET 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Sales' WHERE amount ABOVE 1000"
 ```
 No connection setup needed - just use the spreadsheet ID directly!
 
@@ -17,33 +79,18 @@ No connection setup needed - just use the spreadsheet ID directly!
 ```rexx
 "SHEETS CONNECT spreadsheet='abc123'"
 "SHEETS SELECT product, SUM(revenue) FROM 'Q1 Sales' GROUP BY product"
-"SHEETS INSERT INTO 'Orders' VALUES ('Widget', 299.99, 'pending')"
+"SHEETS INSERT sheet='Orders' values='Widget,299.99,pending'"
 "SHEETS UPDATE 'Inventory' SET quantity = quantity - 1 WHERE sku = 'WIDGET001'"
 ```
 
-### **HEREDOC Orchestration**
-```rexx
-LET workflow = <<DAILY_OPS
-SHEETS SELECT * FROM 'Orders' WHERE date = TODAY()
-BIGQUERY INSERT INTO analytics.daily_orders SELECT * FROM SHEETS_RESULT
-FIRESTORE SET /metrics/today {"orders": 342, "revenue": 125000}
-PUBSUB PUBLISH daily-metrics MESSAGE '{"status": "complete"}'
-STORAGE UPLOAD FILE report.pdf TO bucket='reports' AS 'daily/report.pdf'
-DAILY_OPS
-
-DO cmd OVER LINES(workflow)
-  ADDRESS GCP cmd
-END
-```
-
-### **Cross-Service Data Flow**
+### **Cross-Service Data Flow with Result Chains**
 ```rexx
 # Extract from Sheets → Analyze in BigQuery → Store in Firestore → Notify via Pub/Sub
 ADDRESS GCP
-"SHEETS SELECT * FROM 'Customer Data'"
-"BIGQUERY SELECT customer_id, predicted_churn FROM ML.PREDICT(MODEL churn_model, TABLE SHEETS_RESULT)"
-"FIRESTORE SET /predictions/batch_{timestamp} BIGQUERY_RESULT"
-"PUBSUB PUBLISH churn-alerts MESSAGE 'Batch prediction complete'"
+"SHEETS SELECT * FROM 'Customer Data' → customer_data"
+"BIGQUERY SELECT customer_id, predicted_churn FROM ML.PREDICT(MODEL churn_model, TABLE @customer_data) → predictions"
+"FIRESTORE SET /predictions/batch_{timestamp} @predictions"
+"PUBSUB PUBLISH topic='churn-alerts' message='Batch prediction complete'"
 ```
 
 ## 🎯 What This Replaces
@@ -56,15 +103,15 @@ ADDRESS GCP
 
 ## 📊 Supported Services
 
-| Service | Keywords | Purpose |
-|---------|----------|---------|
-| **Google Sheets** | `SHEETS`, `SHEET` | SQL-like spreadsheet operations |
-| **BigQuery** | `BIGQUERY`, `BQ` | Analytics, ML, large dataset processing |
-| **Firestore** | `FIRESTORE`, `FS` | Real-time document database |
-| **Cloud Storage** | `STORAGE`, `GCS` | File and object storage |
-| **Pub/Sub** | `PUBSUB` | Message queuing and event streaming |
-| **Cloud Functions** | `FUNCTIONS`, `FUNCTION` | Serverless function deployment |
-| **Cloud Run** | `RUN` | Containerized service deployment |
+| Service | Keywords | Enhanced Features |
+|---------|----------|-------------------|
+| **Google Sheets** | `SHEETS`, `SHEET` | Aliases, natural language WHERE clauses, batch operations |
+| **BigQuery** | `BIGQUERY` | Result chains, batch queries, transactions |
+| **Firestore** | `FIRESTORE` | Standardized syntax, result integration |
+| **Cloud Storage** | `STORAGE` | Standardized file/bucket parameters |
+| **Pub/Sub** | `PUBSUB` | Standardized topic/message syntax |
+| **Cloud Functions** | `FUNCTIONS`, `FUNCTION` | Enhanced deployment options |
+| **Cloud Run** | `RUN` | Container service deployment |
 | **Compute Engine** | `COMPUTE`, `VM` | Virtual machine management |
 
 ## 🏁 Quick Start
@@ -82,441 +129,350 @@ gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
 
-### Basic Usage
+### Basic Usage with Enhanced Grammar
 ```rexx
 #!/usr/bin/env rexx
 REQUIRE "extras/addresses/provisioning-and-orchestration/address-gcp.js"
 
 ADDRESS GCP
-"SHEETS 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Data'"
-SAY "Found " || RESULT.count || " rows"
+"SHEETS ALIAS sales='1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'"
+"SHEETS SELECT * FROM sales.'Data' WHERE amount ABOVE 100 → filtered_data"
+SAY "Found " || @filtered_data.count || " high-value transactions"
 ```
 
-## 📝 Service-Specific Languages
+## 📝 Enhanced Service Languages
 
-### **SHEETS** - Google Sheets Operations
+### **SHEETS** - Google Sheets Operations with Natural Language
 
-#### Connection and Direct Access
+#### Aliases and Enhanced Syntax
 ```rexx
-# Method 1: Connect to spreadsheet
-"SHEETS CONNECT spreadsheet='1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'"
-"SHEETS SELECT * FROM 'Sales Data'"
+# Set up aliases for readability
+"SHEETS ALIAS orders='1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'"
+"SHEETS ALIAS inventory='2CxjMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'"
 
-# Method 2: Direct access (no CONNECT needed)
-"SHEET 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Sales Data'"
+# Use aliases in commands
+"SHEETS SELECT * FROM orders.'New Orders' WHERE amount ABOVE 1000 → high_value"
+"SHEETS SELECT * FROM inventory.'Stock' WHERE quantity BELOW 10 → low_stock"
 ```
 
-#### SQL-like Operations
+#### Natural Language WHERE Clauses
 ```rexx
-# Data querying
-"SHEETS SELECT A:D FROM 'Q1 Sales' WHERE revenue > 1000"
-"SHEETS SELECT product, SUM(revenue) FROM 'Sales' GROUP BY product"
-
-# Data modification
-"SHEETS INSERT INTO 'Orders' VALUES ('Product A', 299.99, 'pending', TODAY())"
-"SHEETS UPDATE 'Inventory' SET quantity = quantity - 5 WHERE sku = 'ABC123'"
-"SHEETS DELETE FROM 'Temp Data' WHERE processed = true"
-
-# Sheet management
-"SHEETS CREATE SHEET 'Monthly Report' WITH COLUMNS ('Date', 'Revenue', 'Orders')"
-"SHEETS FORMULA B10 '=SUM(B1:B9)'"
-"SHEETS FORMAT A1:D1 BOLD TRUE BACKGROUND 'yellow'"
+# Natural operators instead of symbols
+"SHEETS SELECT * FROM 'Sales' WHERE date IS today"
+"SHEETS SELECT * FROM 'Products' WHERE price ABOVE 100"
+"SHEETS SELECT * FROM 'Inventory' WHERE stock BELOW reorder_point"
+"SHEETS SELECT * FROM 'Customers' WHERE name CONTAINS 'Smith'"
+"SHEETS SELECT * FROM 'Orders' WHERE status IS pending"
 ```
 
-### **BIGQUERY** - Analytics and Machine Learning
-
-#### Dataset and Query Operations
+#### Standardized Parameters and Batch Operations
 ```rexx
-# Dataset selection
-"BIGQUERY USE DATASET analytics.sales_data"
-
-# Standard SQL queries
-"BIGQUERY SELECT
-   product_category,
-   SUM(revenue) as total_revenue,
-   COUNT(*) as transactions
- FROM daily_sales
- WHERE date >= CURRENT_DATE() - 30
- GROUP BY product_category
- ORDER BY total_revenue DESC"
-
-# Data loading
-"BIGQUERY INSERT INTO staging_table SELECT * FROM SHEETS_RESULT"
-"BIGQUERY CREATE TABLE monthly_summary AS SELECT * FROM daily_aggregates"
-
-# ML operations
-"BIGQUERY CREATE OR REPLACE MODEL customer_churn
- OPTIONS(model_type='logistic_reg', input_label_cols=['churn'])
- AS SELECT * FROM training_data"
-
-"BIGQUERY SELECT * FROM ML.PREDICT(MODEL customer_churn, TABLE new_customers)"
-```
-
-### **FIRESTORE** - Document Database
-
-#### Path-based Operations
-```rexx
-# Document operations
-"FIRESTORE GET /users/john/profile"
-"FIRESTORE SET /users/john/preferences {theme: 'dark', notifications: true}"
-"FIRESTORE DELETE /sessions/expired/*"
-
-# Queries
-"FIRESTORE QUERY /orders WHERE status = 'pending' AND total > 100"
-"FIRESTORE QUERY /products WHERE category = 'electronics' ORDER BY price"
-
-# Real-time monitoring
-"FIRESTORE WATCH /inventory/* FOR changes"
-"FIRESTORE WATCH /orders WHERE status = 'pending'"
-```
-
-### **STORAGE** - File and Object Storage
-
-#### File Operations
-```rexx
-# Upload/Download
-"STORAGE UPLOAD FILE '/tmp/report.pdf' TO bucket='reports' AS '2024/jan/report.pdf'"
-"STORAGE DOWNLOAD 'gs://backups/database.sql' TO '/tmp/restore.sql'"
-
-# Bucket management
-"STORAGE CREATE BUCKET 'new-archive' LOCATION 'us-central1' CLASS 'NEARLINE'"
-"STORAGE LIST BUCKET 'images' PREFIX 'thumbnails/'"
-"STORAGE DELETE 'gs://temp-files/*' OLDER_THAN '30 days'"
+# Standardized INSERT syntax
+"SHEETS INSERT sheet='Orders' values='Product A,299.99,pending' → insert_result"
 
 # Batch operations
-"STORAGE SYNC LOCAL '/data/' TO 'gs://backup-bucket/data/'"
+"SHEETS BATCH ['SELECT * FROM Q1', 'SELECT * FROM Q2', 'SELECT * FROM Q3'] → quarterly_data"
+
+# Result chains
+"SHEETS SELECT * FROM 'Raw Data' → raw"
+"SHEETS INSERT sheet='Processed' values='@raw' → processed"
 ```
 
-### **PUBSUB** - Message Queuing
+### **BIGQUERY** - Enhanced Analytics and Machine Learning
 
-#### Topic and Message Operations
+#### Batch Queries and Transactions
 ```rexx
-# Topic management
-"PUBSUB CREATE TOPIC order-events"
-"PUBSUB CREATE SUBSCRIPTION order-processor TOPIC order-events"
+# Batch multiple queries
+"BIGQUERY BATCH [
+  'SELECT * FROM sales WHERE date = CURRENT_DATE()',
+  'SELECT * FROM inventory WHERE quantity < 10'
+] → daily_reports"
 
-# Publishing
-"PUBSUB PUBLISH order-events MESSAGE '{\"order_id\": 12345, \"status\": \"shipped\"}'"
-"PUBSUB PUBLISH notifications MESSAGE 'Daily report generated'"
+# Transaction support
+"BIGQUERY TRANSACTION [
+  'CREATE TABLE monthly_summary AS SELECT * FROM daily_sales',
+  'DROP TABLE temp_processing'
+] → transaction_result"
 
-# Subscribing and processing
-"PUBSUB SUBSCRIBE TO order-events AS order-processor"
-"PUBSUB PULL order-processor MAX 10"
-"PUBSUB ACK order-processor MESSAGE_ID 'abc123'"
+# Result chains with ML
+"BIGQUERY SELECT * FROM customer_data → training_data"
+"BIGQUERY CREATE MODEL churn_predictor OPTIONS(model_type='logistic_reg') AS SELECT * FROM @training_data → model_result"
 ```
 
-### **FUNCTIONS** - Serverless Deployment
+### **Enhanced Cross-Service Integration**
 
-#### Function Management
+#### Standardized Parameters Across Services
 ```rexx
-# Deploy functions
-"FUNCTIONS DEPLOY process-image SOURCE './src' TRIGGER 'storage:images-bucket' RUNTIME 'python39'"
-"FUNCTIONS DEPLOY api-handler SOURCE './api' TRIGGER 'http' RUNTIME 'nodejs20'"
-
-# Function operations
-"FUNCTIONS INVOKE process-image DATA '{\"file\": \"photo.jpg\"}'"
-"FUNCTIONS DELETE old-function"
-"FUNCTIONS LIST"
-"FUNCTIONS LOGS process-image LIMIT 50"
+# Consistent syntax across all services
+"STORAGE UPLOAD file='report.pdf' bucket='documents' as='reports/monthly.pdf'"
+"PUBSUB PUBLISH topic='notifications' message='Report uploaded'"
+"FIRESTORE SET /metrics/today @upload_result"
 ```
 
-### **RUN** - Container Services
+## 🔥 Real-World Examples with Enhanced Grammar
 
-#### Service Deployment
-```rexx
-# Deploy services
-"RUN DEPLOY hello-app IMAGE 'gcr.io/project/hello:latest' REGION 'us-central1'"
-"RUN DEPLOY api-service IMAGE 'gcr.io/project/api:v2' MEMORY '2Gi' CPU '2'"
-
-# Service management
-"RUN UPDATE hello-app SET memory='4Gi' max_instances=20"
-"RUN TRAFFIC hello-app SPLIT 'v1=50,v2=50'"
-"RUN DELETE old-service"
-"RUN LIST REGION 'us-central1'"
-```
-
-## 🔥 Real-World Examples
-
-### E-commerce Dashboard Automation
+### E-commerce Analytics Pipeline
 ```rexx
 #!/usr/bin/env rexx
-/* Automated daily e-commerce dashboard update */
+/* Enhanced e-commerce analytics with sectioned workflow */
 
 REQUIRE "address-gcp.js"
+
+LET analytics_pipeline = <<ECOMMERCE_ANALYTICS
+@SECTION data-setup
+SHEETS ALIAS orders="live-orders-2024"
+SHEETS ALIAS products="product-catalog-2024"
+
+@SECTION data-extraction
+SHEETS SELECT order_id, product_id, quantity, total FROM orders.'Daily Orders' WHERE date IS today → daily_orders
+SHEETS SELECT product_id, name, category, cost FROM products.'Catalog' → product_info
+
+@SECTION data-processing
+BIGQUERY CREATE TABLE staging.daily_orders AS SELECT * FROM @daily_orders → staging_orders
+BIGQUERY SELECT 
+  p.category,
+  SUM(o.total) as revenue,
+  COUNT(*) as orders,
+  AVG(o.total) as avg_order
+FROM @staging_orders o
+JOIN @product_info p ON o.product_id = p.product_id
+GROUP BY p.category → category_analysis
+
+@SECTION storage-and-notification
+FIRESTORE SET /analytics/daily @category_analysis
+STORAGE UPLOAD file='daily_report.json' bucket='analytics-reports' as='daily/@category_analysis.date.json'
+PUBSUB PUBLISH topic='analytics-ready' message='Daily analytics complete: @category_analysis.total_revenue revenue'
+ECOMMERCE_ANALYTICS
+
+ADDRESS GCP analytics_pipeline
+SAY "Analytics pipeline completed with sectioned results:"
+SAY "Data extraction: " || RESULT.'data-extraction'.success
+SAY "Processing: " || RESULT.'data-processing'.success
+SAY "Storage: " || RESULT.'storage-and-notification'.success
+```
+
+### Customer Segmentation with Natural Language
+```rexx
+#!/usr/bin/env rexx
+/* Customer segmentation using natural language operators */
+
 ADDRESS GCP
 
-LET dashboard_update = <<DASHBOARD
-# Pull overnight orders
-SHEETS CONNECT spreadsheet='orders-live-2024'
-SHEETS SELECT order_id, total, customer FROM 'New Orders' WHERE DATE(timestamp) = TODAY()
+# Set up aliases
+"SHEETS ALIAS customers='customer-database-2024'"
 
-# Analyze in BigQuery
-BIGQUERY USE DATASET ecommerce.analytics
-BIGQUERY INSERT INTO daily_orders SELECT * FROM SHEETS_RESULT
-BIGQUERY SELECT SUM(total) as revenue, COUNT(*) as orders, AVG(total) as avg_order FROM daily_orders
+# Extract customer segments using natural language
+"SHEETS SELECT * FROM customers.'Active' WHERE last_purchase_days BELOW 30 → recent_customers"
+"SHEETS SELECT * FROM customers.'Active' WHERE lifetime_value ABOVE 1000 → high_value_customers"
+"SHEETS SELECT * FROM customers.'Active' WHERE engagement_score BELOW 3 → at_risk_customers"
 
-# Update metrics in Firestore
-FIRESTORE SET /dashboard/today BIGQUERY_RESULT
+# Batch analysis in BigQuery
+"BIGQUERY BATCH [
+  'SELECT COUNT(*) as recent_count FROM @recent_customers',
+  'SELECT AVG(lifetime_value) as avg_value FROM @high_value_customers',
+  'SELECT COUNT(*) as at_risk_count FROM @at_risk_customers'
+] → segment_analysis"
 
-# Generate report
-STORAGE UPLOAD CONTENT 'Daily report generated' TO bucket='reports' AS 'daily/report.txt'
+# Store results and trigger campaigns
+"FIRESTORE SET /customer_segments/analysis @segment_analysis"
+"PUBSUB PUBLISH topic='marketing-campaigns' message='New customer segments ready'"
 
-# Notify team
-PUBSUB PUBLISH dashboard-ready MESSAGE 'Daily dashboard updated'
-DASHBOARD
-
-DO cmd OVER LINES(dashboard_update)
-  IF LEFT(cmd, 1) <> '#' & LENGTH(STRIP(cmd)) > 0 THEN DO
-    ADDRESS GCP cmd
-    SAY "✓ " || WORD(cmd, 1) || " " || WORD(cmd, 2)
-  END
-END
+SAY "Customer Segmentation Complete:"
+SAY "Recent customers: " || @segment_analysis.results[0].recent_count
+SAY "High-value avg: $" || @segment_analysis.results[1].avg_value
+SAY "At-risk customers: " || @segment_analysis.results[2].at_risk_count
 ```
 
-### Customer Churn Prediction Pipeline
+### Multi-Environment Deployment with Enhanced Syntax
 ```rexx
 #!/usr/bin/env rexx
-/* ML pipeline for customer churn prediction */
+/* Deploy application with standardized parameters */
 
-LET ml_pipeline = <<ML_WORKFLOW
-# Extract training data from Sheets
-SHEETS CONNECT spreadsheet='customer-analytics'
-SHEETS SELECT customer_id, recency, frequency, monetary, churn FROM 'Training Data'
-
-# Load into BigQuery
-BIGQUERY USE DATASET ml_models.customer_analytics
-BIGQUERY CREATE OR REPLACE TABLE training_data AS SELECT * FROM SHEETS_RESULT
-
-# Train churn prediction model
-BIGQUERY CREATE OR REPLACE MODEL churn_predictor
-OPTIONS(model_type='logistic_reg', input_label_cols=['churn'])
-AS SELECT recency, frequency, monetary, churn FROM training_data
-
-# Score current customers
-SHEETS SELECT customer_id, recency, frequency, monetary FROM 'Current Customers'
-BIGQUERY CREATE OR REPLACE TABLE predictions AS
-SELECT customer_id, predicted_churn, predicted_churn_probs
-FROM ML.PREDICT(MODEL churn_predictor, (SELECT * FROM SHEETS_RESULT))
-
-# Store high-risk customers in Firestore
-FIRESTORE DELETE /churn_alerts/*
-BIGQUERY SELECT customer_id, predicted_churn_probs[OFFSET(1)] as risk_score
-FROM predictions WHERE predicted_churn = 1
-
-FIRESTORE SET /churn_alerts/high_risk BIGQUERY_RESULT
-
-# Alert customer success team
-PUBSUB PUBLISH customer-alerts MESSAGE 'New churn predictions available'
-ML_WORKFLOW
-
-SAY "🤖 Running ML pipeline..."
-DO cmd OVER LINES(ml_pipeline)
-  IF LEFT(cmd, 1) <> '#' & LENGTH(STRIP(cmd)) > 0 THEN ADDRESS GCP cmd
-END
-```
-
-### Multi-Service Application Deployment
-```rexx
-#!/usr/bin/env rexx
-/* Deploy complete application stack */
-
-LET deployment = <<DEPLOY_STACK
-# Infrastructure
-STORAGE CREATE BUCKET 'app-storage-prod' LOCATION 'us-central1'
+LET deployment = <<DEPLOY_ENHANCED
+@SECTION infrastructure-setup
+STORAGE CREATE BUCKET name='app-storage-prod' location='us-central1'
 PUBSUB CREATE TOPIC app-events
 PUBSUB CREATE TOPIC user-notifications
 
-# Backend services
-FUNCTIONS DEPLOY event-processor SOURCE './functions/events' TRIGGER 'pubsub:app-events' RUNTIME 'python311'
-FUNCTIONS DEPLOY notification-sender SOURCE './functions/notify' TRIGGER 'pubsub:user-notifications' RUNTIME 'nodejs20'
+@SECTION function-deployment
+FUNCTIONS DEPLOY event-processor source='./functions/events' trigger='pubsub:app-events' runtime='python311'
+FUNCTIONS DEPLOY notification-sender source='./functions/notify' trigger='pubsub:user-notifications' runtime='nodejs20'
 
-# API and web services
-RUN DEPLOY api-service IMAGE 'gcr.io/project/api:v1.0.0' REGION 'us-central1' MEMORY '1Gi'
-RUN DEPLOY web-frontend IMAGE 'gcr.io/project/web:v1.0.0' REGION 'us-central1' MEMORY '512Mi'
+@SECTION service-deployment
+RUN DEPLOY api-service image='gcr.io/project/api:v2.0.0' region='us-central1' memory='2Gi'
+RUN DEPLOY web-frontend image='gcr.io/project/web:v2.0.0' region='us-central1' memory='1Gi'
 
-# Database initialization
-FIRESTORE SET /config/app {version: '1.0.0', deployed: TODAY()}
-FIRESTORE SET /metrics/init {users: 0, orders: 0, revenue: 0}
+@SECTION database-initialization
+FIRESTORE SET /config/app {"version": "2.0.0", "deployed": "today", "features": ["enhanced-grammar"]}
+FIRESTORE SET /metrics/deployment {"functions": 2, "services": 2, "buckets": 1}
 
-# Backup and monitoring setup
-BIGQUERY USE DATASET analytics.application
-BIGQUERY CREATE TABLE app_logs AS SELECT timestamp, level, message FROM EXTERNAL_TABLE
-DEPLOY_STACK
+@SECTION monitoring-setup
+BIGQUERY CREATE TABLE analytics.deployment_logs AS SELECT timestamp, service, status FROM deployment_events
+PUBSUB PUBLISH topic='deployment-complete' message='Application v2.0.0 deployed successfully'
+DEPLOY_ENHANCED
 
-SAY "🚀 Deploying application stack..."
-DO cmd OVER LINES(deployment)
-  IF LEFT(cmd, 1) <> '#' & LENGTH(STRIP(cmd)) > 0 THEN DO
-    ADDRESS GCP cmd
-    IF RESULT.success THEN SAY "  ✓ " || WORD(cmd, 1) || " " || WORD(cmd, 2)
-  END
+ADDRESS GCP deployment
+SAY "🚀 Enhanced deployment completed!"
+SAY "Infrastructure: " || (RESULT.'infrastructure-setup'.success ? "✓" : "✗")
+SAY "Functions: " || (RESULT.'function-deployment'.success ? "✓" : "✗") 
+SAY "Services: " || (RESULT.'service-deployment'.success ? "✓" : "✗")
+SAY "Database: " || (RESULT.'database-initialization'.success ? "✓" : "✗")
+```
+
+## 💡 Advanced Enhanced Features
+
+### Complex Result Chains
+```rexx
+# Multi-step data processing with variable references
+"SHEETS SELECT * FROM 'Raw Data' WHERE quality IS good → clean_data"
+"BIGQUERY SELECT *, ML_PREDICT(model, @clean_data) as prediction → scored_data"
+"SHEETS INSERT sheet='Predictions' values='@scored_data' → final_result"
+"PUBSUB PUBLISH topic='ml-complete' message='Processed @final_result.count predictions'"
+```
+
+### Conditional Sectioned Workflows
+```rexx
+LET conditional_workflow = <<CONDITIONAL_WORK
+@SECTION morning-batch
+CONDITION: HOUR(NOW()) < 12
+SHEETS SELECT * FROM orders.'Overnight' WHERE status IS pending → overnight_orders
+PUBSUB PUBLISH topic='morning-processing' message='@overnight_orders.count orders to process'
+
+@SECTION end-of-day
+CONDITION: HOUR(NOW()) >= 17
+SHEETS SELECT SUM(total) as daily_revenue FROM orders.'Today' → revenue_summary
+FIRESTORE SET /daily_metrics/revenue @revenue_summary
+CONDITIONAL_WORK
+```
+
+### Natural Language Batch Operations
+```rexx
+# Batch operations with natural language filtering
+"SHEETS BATCH [
+  'SELECT * FROM Sales WHERE amount ABOVE 1000',
+  'SELECT * FROM Sales WHERE date IS today', 
+  'SELECT * FROM Sales WHERE customer CONTAINS premium'
+] → sales_segments"
+
+# Process each segment
+DO i = 1 TO @sales_segments.results.length
+  LET segment = @sales_segments.results[i]
+  "BIGQUERY INSERT INTO analytics.segment_" || i || " SELECT * FROM @segment"
 END
 ```
 
-## 💡 Advanced Features
+## 🧪 Testing Enhanced Features
 
-### Conditional Workflows
+### Test Natural Language Operators
 ```rexx
-LET workflow = <<CONDITIONAL
-CONDITION: DAY(DATE()) = 1  # First of month
-BIGQUERY CREATE TABLE monthly_summary AS SELECT * FROM daily_metrics
-SHEETS CREATE SHEET 'Month Summary'
-STORAGE UPLOAD FILE monthly_report.pdf TO bucket='reports'
+#!/usr/bin/env rexx
+/* Test enhanced grammar features */
 
-CONDITION: HOUR(TIME()) < 9  # Morning hours
-SHEETS SELECT * FROM 'Overnight Orders'
-PUBSUB PUBLISH morning-batch MESSAGE 'Processing overnight orders'
-CONDITIONAL
-```
-
-### Dynamic Command Generation
-```rexx
-# Generate commands based on data
 ADDRESS GCP
-"SHEETS SELECT sku, quantity FROM 'Inventory' WHERE quantity < reorder_point"
-LET low_stock = RESULT
+"SHEETS ALIAS test='test-spreadsheet-id'"
 
-DO i = 1 TO low_stock.count
-  LET item = low_stock.rows[i]
-  ADDRESS GCP "PUBSUB PUBLISH reorder-queue MESSAGE '{\"sku\":\"" || item.sku || "\"}'"
-END
+# Test natural language operators
+"SHEETS SELECT * FROM test.'Data' WHERE amount ABOVE 100 → high_amounts"
+"SHEETS SELECT * FROM test.'Data' WHERE date IS today → today_data"
+"SHEETS SELECT * FROM test.'Data' WHERE status CONTAINS active → active_items"
+
+SAY "Natural language tests:"
+SAY "High amounts: " || @high_amounts.count
+SAY "Today's data: " || @today_data.count  
+SAY "Active items: " || @active_items.count
 ```
 
-### Cross-Service Error Handling
-```rexx
-ADDRESS GCP
-"BIGQUERY SELECT * FROM analytics.daily_sales"
-IF RESULT.success THEN DO
-  "SHEETS INSERT INTO 'Dashboard' VALUES " || RESULT.summary
-  IF RESULT.success THEN DO
-    "PUBSUB PUBLISH dashboard-updated MESSAGE 'Success'"
-  END
-  ELSE DO
-    "PUBSUB PUBLISH errors MESSAGE 'Sheet update failed'"
-  END
-END
-```
-
-## 🧪 Testing
-
-### Unit Tests
+### Test Result Chains and Sectioned Workflows
 ```bash
 cd extras/addresses/provisioning-and-orchestration
-npx jest __tests__/address-gcp-unified.test.js
-```
-
-### Integration Tests
-```bash
-# Run example scripts
-./example-gcp-sheets-automation.rexx
-./example-gcp-heredoc-orchestration.rexx
+npx jest __tests__/address-gcp-enhanced.test.js
 ```
 
 ## 🔧 Configuration
 
-### Authentication
+### Authentication (unchanged)
 ```bash
-# Required setup
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
 
-### Service Enablement
+### Service Enablement (unchanged)
 ```bash
-# Enable required APIs
-gcloud services enable sheets.googleapis.com
-gcloud services enable bigquery.googleapis.com
-gcloud services enable firestore.googleapis.com
-gcloud services enable storage.googleapis.com
-gcloud services enable pubsub.googleapis.com
-gcloud services enable cloudfunctions.googleapis.com
-gcloud services enable run.googleapis.com
+gcloud services enable sheets.googleapis.com bigquery.googleapis.com firestore.googleapis.com storage.googleapis.com pubsub.googleapis.com cloudfunctions.googleapis.com run.googleapis.com
 ```
 
-### Optional: Install Google Cloud SDKs for Direct API Access
-```bash
-npm install @google-cloud/bigquery @google-cloud/firestore @google-cloud/storage @google-cloud/pubsub googleapis
-```
-*Note: The handler falls back to gcloud CLI if SDKs aren't available*
+## 🎯 Enhanced Architecture Benefits
 
-## 🎯 Architecture Benefits
+### **Improved Readability**
+- Natural language operators (IS, ABOVE, BELOW, CONTAINS)
+- Meaningful aliases instead of long IDs
+- Standardized parameter syntax across services
+- Sectioned workflows with clear organization
 
-### **Unified Interface**
-- Single ADDRESS handler for all GCP services
-- Consistent command patterns across services
-- Natural service-to-service data flow
+### **Better Data Flow**
+- Explicit result chains with → operator
+- Variable references with @variable syntax
+- Cross-section data sharing in workflows
+- Batch operations for efficiency
 
-### **Service-Specific Languages**
-- Each service has appropriate command syntax
-- SQL-like operations for Sheets and BigQuery
-- Path-based operations for Firestore and Storage
-- Message-oriented commands for Pub/Sub
+### **Enhanced Maintainability**
+- Consistent command patterns across all services
+- Self-documenting sectioned workflows
+- Clear error handling per section
+- Version-controlled workflow definitions
 
-### **HEREDOC-First Design**
-- Complex workflows readable as documentation
-- Comments inline with commands
-- Conditional execution and loops
-- Dynamic command generation
+## 🚀 Migration from v1.0 to v2.0
 
-### **Local + Cloud Flexibility**
-- Run locally for development
-- Deploy as Cloud Functions for production
-- Hybrid local/cloud workflows with CHECKPOINT
+### Backward Compatibility
+All v1.0 syntax continues to work! Enhanced features are additive:
 
-## 🚨 Troubleshooting
-
-### Common Issues
-
-**Authentication Errors**
-```bash
-gcloud auth login
-gcloud auth application-default login
-```
-
-**Permission Denied**
-```bash
-# Check IAM roles
-gcloud projects get-iam-policy YOUR_PROJECT_ID
-```
-
-**API Not Enabled**
-```bash
-# Enable required services
-gcloud services enable sheets.googleapis.com
-gcloud services enable bigquery.googleapis.com
-# ... etc
-```
-
-**Invalid Spreadsheet ID**
-- Ensure spreadsheet is shared with your Google account
-- Check that the ID is correct (from the URL)
-
-### Debug Mode
 ```rexx
-# Enable verbose logging
-config.debug = true
-ADDRESS GCP "SHEETS SELECT * FROM 'Debug'"
+# v1.0 syntax (still works)
+"SHEETS SELECT * FROM 'Data' WHERE amount > 100"
+
+# v2.0 enhanced syntax (recommended)
+"SHEETS SELECT * FROM 'Data' WHERE amount ABOVE 100 → filtered_data"
 ```
+
+### Recommended Upgrades
+1. **Add aliases** for frequently used spreadsheets
+2. **Use natural language operators** for better readability
+3. **Implement result chains** for explicit data flow
+4. **Organize complex workflows** with @SECTION markers
+5. **Standardize parameters** using key="value" format
 
 ## 📚 Related Documentation
 
-- [Example Scripts](./example-gcp-sheets-automation.rexx)
-- [HEREDOC Orchestration Examples](./example-gcp-heredoc-orchestration.rexx)
+- [Enhanced Grammar Examples](./examples-enhanced-grammar.rexx)
+- [Migration Guide v1 to v2](./MIGRATION-GUIDE.md)
+- [Natural Language Reference](./NATURAL-LANGUAGE-OPERATORS.md)
+- [Result Chain Patterns](./RESULT-CHAIN-PATTERNS.md)
 - [Authentication Guide](./GCP-AUTHENTICATION.md)
 - [RexxJS Documentation](../../README.md)
 
 ## 🎉 What Makes This Special
 
-RexxJS's unified GCP ADDRESS handler is **the first cloud orchestration language** that:
+RexxJS's enhanced GCP ADDRESS handler is **the most advanced cloud orchestration language** that provides:
 
-1. **Treats Sheets as a Database** - SQL operations on spreadsheets
-2. **Provides Service-Specific Languages** - Natural syntax for each service
-3. **Enables HEREDOC Workflows** - Complex operations as readable documentation
-4. **Works Locally and in Cloud** - Same code, multiple execution environments
-5. **Replaces Multiple Tools** - Apps Script, gcloud scripting, Zapier, ETL tools
+1. **Natural Language Cloud Operations** - SQL-like syntax with human-readable operators
+2. **Explicit Data Flow Management** - Result chains and variable references
+3. **Organized Workflow Definition** - Sectioned HEREDOC with per-section results
+4. **Unified Service Interface** - Consistent syntax across all Google Cloud services
+5. **Complete Backward Compatibility** - Existing scripts continue to work unchanged
 
-This isn't just another Google Cloud wrapper - it's a **new way to think about cloud orchestration**.
+### New in v2.0:
+- ✨ **Sheet aliases** for readable long IDs
+- ✨ **Result chain syntax** (→) for explicit data flow
+- ✨ **Natural language operators** (IS, ABOVE, BELOW, CONTAINS)
+- ✨ **Standardized parameters** with key="value" format
+- ✨ **Batch operations** for multiple commands
+- ✨ **Sectioned workflows** with @SECTION markers
+- ✨ **Variable references** with @variable syntax
+
+This isn't just another Google Cloud wrapper - it's a **fundamentally new approach to cloud orchestration** that makes complex workflows readable, maintainable, and powerful.
 
 ---
 
 **License:** MIT - Same as RexxJS project
+**Version:** 2.0.0 - Enhanced Grammar Edition

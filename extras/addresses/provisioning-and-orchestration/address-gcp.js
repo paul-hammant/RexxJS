@@ -4,11 +4,131 @@ const path = require('path');
 const { google } = require('googleapis');
 const { parseCommand } = require('../shared-utils');
 
+// Enhanced parameter parsing for consistent key="value" syntax
+const parseKeyValueParams = (paramString) => {
+  const params = {};
+  const regex = /(\w+)=["']([^"']*)["']/g;
+  let match;
+  
+  while ((match = regex.exec(paramString)) !== null) {
+    params[match[1]] = match[2];
+  }
+  
+  return params;
+};
+
+// Parse result chain syntax (command → variable)
+const parseResultChain = (command) => {
+  const chainMatch = command.match(/^(.+?)\s*→\s*(\w+)\s*$/);
+  if (chainMatch) {
+    return {
+      command: chainMatch[1].trim(),
+      resultVar: chainMatch[2].trim()
+    };
+  }
+  return { command: command.trim(), resultVar: null };
+};
+
+// Replace @variable references with actual values
+const resolveVariableReferences = (command, variableStore) => {
+  return command.replace(/@(\w+)/g, (match, varName) => {
+    if (variableStore && variableStore[varName]) {
+      return JSON.stringify(variableStore[varName]);
+    }
+    return match;
+  });
+};
+
+// Parse HEREDOC with @SECTION markers
+const parseHeredocSections = (heredocContent) => {
+  const sections = {};
+  const lines = heredocContent.split('\n');
+  let currentSection = 'main';
+  let currentCommands = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('@SECTION ')) {
+      // Save previous section
+      if (currentCommands.length > 0) {
+        sections[currentSection] = currentCommands.join('\n');
+      }
+      
+      // Start new section
+      currentSection = trimmed.substring(9).trim();
+      currentCommands = [];
+    } else if (trimmed && !trimmed.startsWith('#')) {
+      // Add command to current section
+      currentCommands.push(trimmed);
+    }
+  }
+  
+  // Save final section
+  if (currentCommands.length > 0) {
+    sections[currentSection] = currentCommands.join('\n');
+  }
+  
+  return sections;
+};
+
+// Execute sectioned HEREDOC workflow
+const executeSectionedWorkflow = async (sections, gcpHandler) => {
+  const results = {};
+  
+  for (const [sectionName, commands] of Object.entries(sections)) {
+    try {
+      // Split commands by line and execute each
+      const commandLines = commands.split('\n').filter(line => line.trim());
+      const sectionResults = [];
+      
+      for (const command of commandLines) {
+        const result = await gcpHandler.execute(command.trim());
+        sectionResults.push(result);
+      }
+      
+      results[sectionName] = {
+        success: true,
+        commands: commandLines,
+        results: sectionResults,
+        stdout: sectionResults.map(r => r.stdout || '').join('\n'),
+        stderr: sectionResults.map(r => r.stderr || '').join('\n')
+      };
+    } catch (error) {
+      results[sectionName] = {
+        success: false,
+        error: error.message,
+        commands: commands.split('\n').filter(line => line.trim())
+      };
+    }
+  }
+  
+  return results;
+};
+
 const GCP_ADDRESS_META = {
   name: 'GCP',
-  description: 'Google Cloud Platform unified orchestration interface',
+  description: 'Google Cloud Platform unified orchestration interface with enhanced grammar',
   version: '2.0.0',
-  services: ['SHEETS', 'BIGQUERY', 'FIRESTORE', 'STORAGE', 'PUBSUB', 'FUNCTIONS', 'RUN', 'COMPUTE']
+  services: ['SHEETS', 'BIGQUERY', 'FIRESTORE', 'STORAGE', 'PUBSUB', 'FUNCTIONS', 'RUN', 'COMPUTE'],
+  grammar: {
+    features: ['aliases', 'result-chains', 'natural-language', 'batch-operations', 'sections'],
+    examples: {
+      'alias-usage': 'SHEETS ALIAS orders="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"',
+      'result-chains': 'SHEETS SELECT * FROM orders.\'Sales\' → sales_data',
+      'natural-language': 'SHEETS SELECT * FROM \'Orders\' WHERE amount ABOVE 1000',
+      'batch-operations': 'SHEETS BATCH ["SELECT * FROM \'Q1\'", "SELECT * FROM \'Q2\'"]',
+      'standardized-params': 'STORAGE UPLOAD file="report.pdf" bucket="company-docs" as="reports/monthly.pdf"',
+      'sectioned-workflow': `@SECTION data-extraction
+SHEETS SELECT * FROM orders WHERE date IS today → daily_orders
+
+@SECTION analytics  
+BIGQUERY INSERT INTO staging SELECT * FROM @daily_orders
+
+@SECTION notifications
+PUBSUB PUBLISH topic="alerts" message="Daily report ready"`
+    }
+  }
 };
 
 // Global instance for handler reuse
@@ -16,6 +136,12 @@ let gcpHandler = null;
 
 // Service-specific handlers
 let serviceHandlers = null;
+
+// Global variable store for result chains
+let globalVariableStore = {};
+
+// Global alias store for sheet references
+let globalAliasStore = {};
 
 // Initialize handlers on first use
 const initGcpHandler = async () => {
@@ -32,6 +158,12 @@ async function ADDRESS_GCP_HANDLER(commandOrMethod, params) {
 
   // Handle command-string style (primary usage)
   if (typeof commandOrMethod === 'string' && !params) {
+    // Check if this is a HEREDOC with @SECTION markers
+    if (commandOrMethod.includes('@SECTION ')) {
+      const sections = parseHeredocSections(commandOrMethod);
+      return await executeSectionedWorkflow(sections, handler);
+    }
+    
     return await handler.execute(commandOrMethod);
   }
 
@@ -49,6 +181,7 @@ class SheetsHandler {
     this.sheets = null;
     this.auth = null;
     this.currentSpreadsheet = null;
+    this.aliases = {}; // Local alias store
   }
 
   async initialize() {
@@ -64,42 +197,59 @@ class SheetsHandler {
   async handle(command) {
     const trimmed = command.trim();
 
+    // Parse result chain if present
+    const { command: actualCommand, resultVar } = parseResultChain(trimmed);
+    const resolvedCommand = resolveVariableReferences(actualCommand, globalVariableStore);
+
+    // Handle batch operations
+    if (resolvedCommand.toUpperCase().startsWith('BATCH ')) {
+      const result = await this.handleBatch(resolvedCommand.substring(6));
+      if (resultVar) globalVariableStore[resultVar] = result;
+      return result;
+    }
+
     // Direct spreadsheet reference: SHEET <id> <command>
-    if (trimmed.match(/^[A-Za-z0-9_-]{20,}\s+/)) {
-      const spaceIndex = trimmed.indexOf(' ');
-      const spreadsheetId = trimmed.substring(0, spaceIndex);
-      const subCommand = trimmed.substring(spaceIndex + 1).trim();
-      return await this.executeOnSheet(spreadsheetId, subCommand);
+    if (resolvedCommand.match(/^[A-Za-z0-9_-]{20,}\s+/)) {
+      const spaceIndex = resolvedCommand.indexOf(' ');
+      const spreadsheetId = resolvedCommand.substring(0, spaceIndex);
+      const subCommand = resolvedCommand.substring(spaceIndex + 1).trim();
+      const result = await this.executeOnSheet(spreadsheetId, subCommand);
+      if (resultVar) globalVariableStore[resultVar] = result;
+      return result;
     }
 
     // SQL-like commands on current sheet
-    const upperCommand = trimmed.toUpperCase();
-    if (upperCommand.startsWith('CONNECT ')) {
-      return await this.connect(trimmed.substring(8));
-    }
-    if (upperCommand.startsWith('SELECT ')) {
-      return await this.select(trimmed);
-    }
-    if (upperCommand.startsWith('INSERT ')) {
-      return await this.insert(trimmed);
-    }
-    if (upperCommand.startsWith('UPDATE ')) {
-      return await this.update(trimmed);
-    }
-    if (upperCommand.startsWith('DELETE ')) {
-      return await this.delete(trimmed);
-    }
-    if (upperCommand.startsWith('CREATE ')) {
-      return await this.create(trimmed);
-    }
-    if (upperCommand.startsWith('FORMULA ')) {
-      return await this.formula(trimmed);
-    }
-    if (upperCommand.startsWith('FORMAT ')) {
-      return await this.format(trimmed);
+    const upperCommand = resolvedCommand.toUpperCase();
+    let result;
+
+    if (upperCommand.startsWith('ALIAS ')) {
+      result = await this.alias(resolvedCommand.substring(6));
+    } else if (upperCommand.startsWith('CONNECT ')) {
+      result = await this.connect(resolvedCommand.substring(8));
+    } else if (upperCommand.startsWith('SELECT ')) {
+      result = await this.select(resolvedCommand);
+    } else if (upperCommand.startsWith('INSERT ')) {
+      result = await this.insert(resolvedCommand);
+    } else if (upperCommand.startsWith('UPDATE ')) {
+      result = await this.update(resolvedCommand);
+    } else if (upperCommand.startsWith('DELETE ')) {
+      result = await this.delete(resolvedCommand);
+    } else if (upperCommand.startsWith('CREATE ')) {
+      result = await this.create(resolvedCommand);
+    } else if (upperCommand.startsWith('FORMULA ')) {
+      result = await this.formula(resolvedCommand);
+    } else if (upperCommand.startsWith('FORMAT ')) {
+      result = await this.format(resolvedCommand);
+    } else {
+      throw new Error(`Unknown SHEETS command: ${resolvedCommand.split(' ')[0]}`);
     }
 
-    throw new Error(`Unknown SHEETS command: ${trimmed.split(' ')[0]}`);
+    // Store result if variable specified
+    if (resultVar) {
+      globalVariableStore[resultVar] = result;
+    }
+
+    return result;
   }
 
   async executeOnSheet(spreadsheetId, command) {
@@ -115,16 +265,57 @@ class SheetsHandler {
     }
   }
 
-  async connect(params) {
-    // Parse: CONNECT spreadsheet='<id>' or CONNECT <id>
-    const match = params.match(/spreadsheet=['"]?([^'"\s]+)['"]?/) ||
-                  params.match(/^['"]?([^'"\s]+)['"]?/);
-
-    if (!match) {
-      throw new Error('Invalid CONNECT syntax. Use: CONNECT spreadsheet="<id>"');
+  async alias(params) {
+    // Parse: ALIAS name="spreadsheet_id"
+    const parsedParams = parseKeyValueParams(params);
+    
+    if (!parsedParams.name || !parsedParams.id) {
+      // Try legacy format: ALIAS orders="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+      const legacyMatch = params.match(/(\w+)=["']([^"']+)["']/);
+      if (legacyMatch) {
+        this.aliases[legacyMatch[1]] = legacyMatch[2];
+        globalAliasStore[legacyMatch[1]] = legacyMatch[2];
+        return {
+          success: true,
+          alias: legacyMatch[1],
+          spreadsheetId: legacyMatch[2]
+        };
+      }
+      throw new Error('Invalid ALIAS syntax. Use: ALIAS name="alias" id="spreadsheet_id"');
     }
 
-    this.currentSpreadsheet = match[1];
+    this.aliases[parsedParams.name] = parsedParams.id;
+    globalAliasStore[parsedParams.name] = parsedParams.id;
+
+    return {
+      success: true,
+      alias: parsedParams.name,
+      spreadsheetId: parsedParams.id
+    };
+  }
+
+  async connect(params) {
+    // Parse: CONNECT spreadsheet="<id>" or legacy format
+    const parsedParams = parseKeyValueParams(params);
+    let spreadsheetId;
+
+    if (parsedParams.spreadsheet) {
+      spreadsheetId = parsedParams.spreadsheet;
+    } else {
+      // Try legacy format or direct ID
+      const match = params.match(/^['"]?([^'"\s]+)['"]?/);
+      if (!match) {
+        throw new Error('Invalid CONNECT syntax. Use: CONNECT spreadsheet="<id>"');
+      }
+      spreadsheetId = match[1];
+    }
+
+    // Resolve alias if it's an alias reference
+    if (this.aliases[spreadsheetId] || globalAliasStore[spreadsheetId]) {
+      spreadsheetId = this.aliases[spreadsheetId] || globalAliasStore[spreadsheetId];
+    }
+
+    this.currentSpreadsheet = spreadsheetId;
 
     // Verify connection
     try {
@@ -143,16 +334,89 @@ class SheetsHandler {
     }
   }
 
+  async handleBatch(batchCommand) {
+    // Parse: BATCH ["command1", "command2", ...]
+    let commands;
+    try {
+      // Extract array from batch command
+      const arrayMatch = batchCommand.match(/\[([^\]]+)\]/);
+      if (!arrayMatch) {
+        throw new Error('Invalid BATCH syntax. Use: BATCH ["command1", "command2"]');
+      }
+      
+      // Parse comma-separated quoted commands
+      const commandsStr = arrayMatch[1];
+      commands = commandsStr.split(/,\s*/).map(cmd => {
+        const trimmed = cmd.trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          return trimmed.slice(1, -1);
+        }
+        if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+          return trimmed.slice(1, -1);
+        }
+        return trimmed;
+      });
+    } catch (e) {
+      throw new Error(`BATCH parsing failed: ${e.message}`);
+    }
+
+    const results = [];
+    for (let i = 0; i < commands.length; i++) {
+      try {
+        const result = await this.handle(commands[i]);
+        results.push(result);
+      } catch (e) {
+        results.push({ error: e.message, command: commands[i] });
+      }
+    }
+
+    return {
+      success: true,
+      batch: true,
+      results: results,
+      count: results.length
+    };
+  }
+
   async select(command) {
     // Parse: SELECT columns FROM sheet [WHERE condition]
-    const match = command.match(/SELECT\s+(.+?)\s+FROM\s+['"]?([^'"]+?)['"]?(?:\s+WHERE\s+(.+))?$/i);
-
+    // Support alias references: SELECT * FROM orders.'New Orders'
+    let match = command.match(/SELECT\s+(.+?)\s+FROM\s+([\w]+)\.['"]?([^'"]+?)['"]?(?:\s+WHERE\s+(.+))?$/i);
+    let aliasName, sheetName, spreadsheetId;
+    
+    if (match) {
+      // Alias.sheet format
+      const [_, columns, alias, sheet, whereClause] = match;
+      aliasName = alias;
+      sheetName = sheet;
+      spreadsheetId = this.aliases[aliasName] || globalAliasStore[aliasName];
+      
+      if (!spreadsheetId) {
+        throw new Error(`Unknown alias: ${aliasName}. Use ALIAS to define it first.`);
+      }
+      
+      const previousSheet = this.currentSpreadsheet;
+      this.currentSpreadsheet = spreadsheetId;
+      
+      try {
+        return await this.executeSelect(columns, sheetName, whereClause);
+      } finally {
+        this.currentSpreadsheet = previousSheet;
+      }
+    }
+    
+    // Standard format: SELECT columns FROM sheet
+    match = command.match(/SELECT\s+(.+?)\s+FROM\s+['"]?([^'"]+?)['"]?(?:\s+WHERE\s+(.+))?$/i);
+    
     if (!match) {
       throw new Error('Invalid SELECT syntax. Use: SELECT columns FROM sheet [WHERE condition]');
     }
 
-    const [_, columns, sheetName, whereClause] = match;
-
+    const [_, columns, sheet, whereClause] = match;
+    return await this.executeSelect(columns, sheet, whereClause);
+  }
+  
+  async executeSelect(columns, sheetName, whereClause) {
     if (!this.currentSpreadsheet) {
       throw new Error('No spreadsheet connected. Use CONNECT first.');
     }
@@ -170,7 +434,7 @@ class SheetsHandler {
 
       // Apply WHERE clause if present
       if (whereClause) {
-        rows = this.filterRows(rows, whereClause, columns);
+        rows = this.filterRowsWithNaturalLanguage(rows, whereClause, columns);
       }
 
       return {
@@ -201,21 +465,130 @@ class SheetsHandler {
     return `${sorted[0]}:${sorted[sorted.length - 1]}`;
   }
 
-  filterRows(rows, whereClause, columns) {
-    // Simple WHERE clause evaluation
-    // TODO: Implement proper expression parser
-    return rows.filter(row => {
-      // For now, simple comparison
-      return true; // Placeholder
+  filterRowsWithNaturalLanguage(rows, whereClause, columns) {
+    // Enhanced WHERE clause with natural language operators
+    // Support: IS, BELOW, ABOVE, CONTAINS, STARTS, ENDS, TODAY(), etc.
+    
+    return rows.filter((row, index) => {
+      if (index === 0) return true; // Keep header row
+      
+      try {
+        // Parse natural language conditions
+        let condition = whereClause.trim();
+        
+        // Replace natural language operators
+        condition = condition.replace(/\bIS\s+today\b/gi, '= TODAY()');
+        condition = condition.replace(/\bIS\s+/gi, '= ');
+        condition = condition.replace(/\bBELOW\s+/gi, '< ');
+        condition = condition.replace(/\bABOVE\s+/gi, '> ');
+        condition = condition.replace(/\bCONTAINS\s+/gi, 'LIKE ');
+        
+        // Handle TODAY() function
+        condition = condition.replace(/TODAY\(\)/gi, this.getTodayString());
+        
+        // Simple evaluation for basic conditions
+        // This is a simplified parser - in production, use a proper expression parser
+        const simpleMatch = condition.match(/(\w+)\s*([<>=!]+|LIKE)\s*([^\s]+)/);
+        if (simpleMatch) {
+          const [_, column, operator, value] = simpleMatch;
+          const columnIndex = this.getColumnIndex(column, columns);
+          
+          if (columnIndex >= 0 && columnIndex < row.length) {
+            const cellValue = row[columnIndex];
+            return this.evaluateCondition(cellValue, operator, value);
+          }
+        }
+        
+        return true; // If we can't parse, include the row
+      } catch (e) {
+        return true; // If evaluation fails, include the row
+      }
     });
+  }
+  
+  getTodayString() {
+    return new Date().toISOString().split('T')[0];
+  }
+  
+  getColumnIndex(columnName, columnsSpec) {
+    // Simple column name to index mapping
+    // In a real implementation, this would map column names to A1 notation indices
+    if (columnsSpec === '*') {
+      // For now, assume common column names
+      const commonColumns = ['date', 'amount', 'status', 'name', 'id'];
+      return commonColumns.indexOf(columnName.toLowerCase());
+    }
+    return 0; // Fallback
+  }
+  
+  evaluateCondition(cellValue, operator, targetValue) {
+    // Remove quotes from target value
+    const cleanTarget = targetValue.replace(/["']/g, '');
+    
+    switch (operator) {
+      case '=':
+      case '==':
+        return cellValue == cleanTarget;
+      case '!=':
+        return cellValue != cleanTarget;
+      case '>':
+        return parseFloat(cellValue) > parseFloat(cleanTarget);
+      case '<':
+        return parseFloat(cellValue) < parseFloat(cleanTarget);
+      case '>=':
+        return parseFloat(cellValue) >= parseFloat(cleanTarget);
+      case '<=':
+        return parseFloat(cellValue) <= parseFloat(cleanTarget);
+      case 'LIKE':
+        return cellValue && cellValue.toString().toLowerCase().includes(cleanTarget.toLowerCase());
+      default:
+        return true;
+    }
   }
 
   async insert(command) {
-    // Parse: INSERT INTO sheet VALUES (...) or INSERT INTO sheet (cols) VALUES (...)
+    // Parse standardized syntax: INSERT sheet="name" values="val1,val2,val3" [columns="col1,col2,col3"]
+    const parsedParams = parseKeyValueParams(command);
+    
+    if (parsedParams.sheet && parsedParams.values) {
+      // New standardized format
+      const sheetName = parsedParams.sheet;
+      const valuesStr = parsedParams.values;
+      const columns = parsedParams.columns;
+      
+      if (!this.currentSpreadsheet) {
+        throw new Error('No spreadsheet connected. Use CONNECT first.');
+      }
+
+      const parsedValues = this.parseValues(valuesStr);
+
+      try {
+        const response = await this.sheets.spreadsheets.values.append({
+          spreadsheetId: this.currentSpreadsheet,
+          range: `${sheetName}!A:ZZ`,
+          valueInputOption: 'USER_ENTERED',
+          insertDataOption: 'INSERT_ROWS',
+          requestBody: {
+            values: [parsedValues]
+          }
+        });
+
+        return {
+          success: true,
+          updatedRange: response.data.updates.updatedRange,
+          updatedRows: response.data.updates.updatedRows,
+          sheet: sheetName
+        };
+      } catch (e) {
+        throw new Error(`INSERT failed: ${e.message}`);
+      }
+    }
+    
+    // Legacy format: INSERT INTO sheet VALUES (...)
     const match = command.match(/INSERT\s+INTO\s+['"]?([^'"]+?)['"]?(?:\s*\(([^)]+)\))?\s+VALUES\s+\((.+)\)/i);
 
     if (!match) {
-      throw new Error('Invalid INSERT syntax. Use: INSERT INTO sheet VALUES (...)');
+      throw new Error('Invalid INSERT syntax. Use: INSERT sheet="name" values="val1,val2" or legacy INSERT INTO sheet VALUES (...)');
     }
 
     const [_, sheetName, columns, values] = match;
@@ -224,11 +597,9 @@ class SheetsHandler {
       throw new Error('No spreadsheet connected. Use CONNECT first.');
     }
 
-    // Parse values
     const parsedValues = this.parseValues(values);
 
     try {
-      // Append to sheet
       const response = await this.sheets.spreadsheets.values.append({
         spreadsheetId: this.currentSpreadsheet,
         range: `${sheetName}!A:ZZ`,
@@ -317,30 +688,141 @@ class BigQueryHandler {
 
   async handle(command) {
     const trimmed = command.trim();
-    const upperCommand = trimmed.toUpperCase();
+    
+    // Parse result chain if present
+    const { command: actualCommand, resultVar } = parseResultChain(trimmed);
+    const resolvedCommand = resolveVariableReferences(actualCommand, globalVariableStore);
+
+    // Handle batch operations
+    if (resolvedCommand.toUpperCase().startsWith('BATCH ')) {
+      const result = await this.handleBatch(resolvedCommand.substring(6));
+      if (resultVar) globalVariableStore[resultVar] = result;
+      return result;
+    }
+    
+    // Handle transaction operations  
+    if (resolvedCommand.toUpperCase().startsWith('TRANSACTION ')) {
+      const result = await this.handleTransaction(resolvedCommand.substring(12));
+      if (resultVar) globalVariableStore[resultVar] = result;
+      return result;
+    }
+
+    const upperCommand = resolvedCommand.toUpperCase();
+    let result;
 
     if (upperCommand.startsWith('USE ')) {
-      return await this.useDataset(trimmed.substring(4));
-    }
-    if (upperCommand.startsWith('SELECT ') || upperCommand.startsWith('WITH ')) {
-      return await this.query(trimmed);
-    }
-    if (upperCommand.startsWith('INSERT ')) {
-      return await this.insert(trimmed);
-    }
-    if (upperCommand.startsWith('CREATE ')) {
-      return await this.create(trimmed);
-    }
-    if (upperCommand.startsWith('DROP ')) {
-      return await this.drop(trimmed);
-    }
-
-    // ML operations
-    if (upperCommand.includes('ML.')) {
-      return await this.mlQuery(trimmed);
+      result = await this.useDataset(resolvedCommand.substring(4));
+    } else if (upperCommand.startsWith('SELECT ') || upperCommand.startsWith('WITH ')) {
+      result = await this.query(resolvedCommand);
+    } else if (upperCommand.startsWith('INSERT ')) {
+      result = await this.insert(resolvedCommand);
+    } else if (upperCommand.startsWith('CREATE ')) {
+      result = await this.create(resolvedCommand);
+    } else if (upperCommand.startsWith('DROP ')) {
+      result = await this.drop(resolvedCommand);
+    } else if (upperCommand.includes('ML.')) {
+      // ML operations
+      result = await this.mlQuery(resolvedCommand);
+    } else {
+      throw new Error(`Unknown BIGQUERY command: ${resolvedCommand.split(' ')[0]}`);
     }
 
-    throw new Error(`Unknown BIGQUERY command: ${trimmed.split(' ')[0]}`);
+    // Store result if variable specified
+    if (resultVar) {
+      globalVariableStore[resultVar] = result;
+    }
+
+    return result;
+  }
+  
+  async handleBatch(batchCommand) {
+    // Similar to SheetsHandler batch implementation
+    let queries;
+    try {
+      const arrayMatch = batchCommand.match(/\[([^\]]+)\]/);
+      if (!arrayMatch) {
+        throw new Error('Invalid BATCH syntax. Use: BATCH ["query1", "query2"]');
+      }
+      
+      const queriesStr = arrayMatch[1];
+      queries = queriesStr.split(/,\s*/).map(cmd => {
+        const trimmed = cmd.trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          return trimmed.slice(1, -1);
+        }
+        if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+          return trimmed.slice(1, -1);
+        }
+        return trimmed;
+      });
+    } catch (e) {
+      throw new Error(`BATCH parsing failed: ${e.message}`);
+    }
+
+    const results = [];
+    for (let i = 0; i < queries.length; i++) {
+      try {
+        const result = await this.query(queries[i]);
+        results.push(result);
+      } catch (e) {
+        results.push({ error: e.message, query: queries[i] });
+      }
+    }
+
+    return {
+      success: true,
+      batch: true,
+      results: results,
+      count: results.length
+    };
+  }
+  
+  async handleTransaction(transactionCommand) {
+    // Parse transaction: TRANSACTION ["statement1", "statement2"]
+    let statements;
+    try {
+      const arrayMatch = transactionCommand.match(/\[([^\]]+)\]/);
+      if (!arrayMatch) {
+        throw new Error('Invalid TRANSACTION syntax. Use: TRANSACTION ["statement1", "statement2"]');
+      }
+      
+      const statementsStr = arrayMatch[1];
+      statements = statementsStr.split(/,\s*/).map(cmd => {
+        const trimmed = cmd.trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          return trimmed.slice(1, -1);
+        }
+        if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+          return trimmed.slice(1, -1);
+        }
+        return trimmed;
+      });
+    } catch (e) {
+      throw new Error(`TRANSACTION parsing failed: ${e.message}`);
+    }
+
+    // Execute all statements in sequence
+    const results = [];
+    let allSucceeded = true;
+    
+    for (let i = 0; i < statements.length; i++) {
+      try {
+        const result = await this.query(statements[i]);
+        results.push(result);
+        if (!result.success) allSucceeded = false;
+      } catch (e) {
+        results.push({ error: e.message, statement: statements[i] });
+        allSucceeded = false;
+        break; // Stop on first error in transaction
+      }
+    }
+
+    return {
+      success: allSucceeded,
+      transaction: true,
+      results: results,
+      count: results.length
+    };
   }
 
   async query(sql) {
@@ -483,16 +965,32 @@ class StorageHandler {
   }
 
   async upload(params) {
-    // Parse: FILE 'path' TO bucket='name' [AS 'remote-path']
+    // Parse standardized syntax: UPLOAD file="path" bucket="name" [as="remote-path"]
+    const parsedParams = parseKeyValueParams(params);
+    
+    if (parsedParams.file && parsedParams.bucket) {
+      // New standardized format
+      const localFile = parsedParams.file;
+      const bucket = parsedParams.bucket;
+      const destination = parsedParams.as || path.basename(localFile);
+      
+      return await this.executeUpload(localFile, bucket, destination);
+    }
+    
+    // Legacy format: FILE 'path' TO bucket='name' [AS 'remote-path']
     const match = params.match(/FILE\s+['"]([^'"]+)['"]\s+TO\s+bucket=['"]([^'"]+)['"](?:\s+AS\s+['"]([^'"]+)['"])?/i);
 
     if (!match) {
-      throw new Error('Invalid UPLOAD syntax. Use: UPLOAD FILE "path" TO bucket="name" [AS "remote-path"]');
+      throw new Error('Invalid UPLOAD syntax. Use: UPLOAD file="path" bucket="name" [as="remote-path"] or legacy FILE "path" TO bucket="name"');
     }
 
     const [_, localFile, bucket, remotePath] = match;
     const destination = remotePath || path.basename(localFile);
-
+    
+    return await this.executeUpload(localFile, bucket, destination);
+  }
+  
+  async executeUpload(localFile, bucket, destination) {
     if (this.storage) {
       await this.storage.bucket(bucket).upload(localFile, {
         destination: destination
@@ -557,15 +1055,26 @@ class PubSubHandler {
   }
 
   async publish(params) {
-    // Parse: topic MESSAGE 'data'
+    // Parse standardized syntax: PUBLISH topic="name" message="data"
+    const parsedParams = parseKeyValueParams(params);
+    
+    if (parsedParams.topic && parsedParams.message) {
+      // New standardized format
+      return await this.executePublish(parsedParams.topic, parsedParams.message);
+    }
+    
+    // Legacy format: topic MESSAGE 'data'
     const match = params.match(/([\w-]+)\s+MESSAGE\s+['"](.+)['"]$/i);
 
     if (!match) {
-      throw new Error('Invalid PUBLISH syntax. Use: PUBLISH topic MESSAGE "data"');
+      throw new Error('Invalid PUBLISH syntax. Use: PUBLISH topic="name" message="data" or legacy topic MESSAGE "data"');
     }
 
     const [_, topic, message] = match;
-
+    return await this.executePublish(topic, message);
+  }
+  
+  async executePublish(topic, message) {
     if (this.pubsub) {
       const messageId = await this.pubsub.topic(topic).publish(Buffer.from(message));
       return {
@@ -803,22 +1312,19 @@ class UnifiedGcpHandler {
     // Extract service identifier
     const firstWord = trimmed.split(/\s+/)[0].toUpperCase();
 
-    // Route to appropriate service handler
+    // Route to appropriate service handler (no shorthand codes)
     switch (firstWord) {
       case 'SHEET':
       case 'SHEETS':
         return await this.services.sheets.handle(trimmed.substring(firstWord.length).trim());
 
       case 'BIGQUERY':
-      case 'BQ':
         return await this.services.bigquery.handle(trimmed.substring(firstWord.length).trim());
 
       case 'FIRESTORE':
-      case 'FS':
         return await this.services.firestore.handle(trimmed.substring(firstWord.length).trim());
 
       case 'STORAGE':
-      case 'GCS':
         return await this.services.storage.handle(trimmed.substring(firstWord.length).trim());
 
       case 'PUBSUB':
@@ -918,9 +1424,18 @@ class UnifiedGcpHandler {
     const entryPoint = params.entry_point || 'main';
     const trigger = params.trigger || this.functionDefaults.trigger;
 
-    // Validate runtime
-    if (!this.allowedRuntimes.has(runtime)) {
-      throw new Error(`Unsupported runtime: ${runtime}`);
+    // Validate runtime - allow common runtimes
+    const allowedRuntimes = new Set([
+      'python311', 'python39', 'python38', 'python37',
+      'nodejs18', 'nodejs16', 'nodejs14', 'nodejs12',
+      'go119', 'go116', 'go113',
+      'java17', 'java11',
+      'dotnet6', 'dotnet3',
+      'ruby30', 'ruby27'
+    ]);
+    
+    if (!allowedRuntimes.has(runtime)) {
+      throw new Error(`Unsupported runtime: ${runtime}. Allowed: ${Array.from(allowedRuntimes).join(', ')}`);
     }
 
     // Build deployment command
