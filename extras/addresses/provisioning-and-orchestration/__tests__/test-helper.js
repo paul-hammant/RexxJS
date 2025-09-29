@@ -725,6 +725,119 @@ nodeinfo                10             1          functions/nodeinfo:latest`;
       return createMockSpawn(0, '');
     }
 
+    // Handle GCP gcloud commands
+    if (command === 'gcloud' && args) {
+      if (args.includes('config') && args.includes('get-value') && args.includes('project')) {
+        return createMockSpawn(0, 'test-project-123');
+      }
+
+      // Cloud Functions commands
+      if (args.includes('functions')) {
+        if (args.includes('deploy')) {
+          const funcName = args[args.indexOf('deploy') + 1];
+          return createMockSpawn(0, `Function deployed successfully: ${funcName}`);
+        }
+
+        if (args.includes('describe')) {
+          const funcName = args[args.indexOf('describe') + 1];
+          if (args.some(arg => arg.includes('httpsTrigger.url'))) {
+            return createMockSpawn(0, `https://us-central1-test-project-123.cloudfunctions.net/${funcName}`);
+          }
+          return createMockSpawn(0, `Function: ${funcName}\nStatus: ACTIVE`);
+        }
+
+        if (args.includes('call')) {
+          return createMockSpawn(0, 'Function executed successfully');
+        }
+
+        if (args.includes('delete')) {
+          return createMockSpawn(0, 'Function deleted');
+        }
+
+        if (args.includes('list')) {
+          const functions = [
+            {
+              name: 'hello-function',
+              runtime: 'python311',
+              httpsTrigger: { url: 'https://us-central1-test-project-123.cloudfunctions.net/hello-function' }
+            },
+            {
+              name: 'pubsub-function',
+              runtime: 'nodejs20',
+              eventTrigger: { eventType: 'google.pubsub.topic.publish' }
+            }
+          ];
+          return createMockSpawn(0, JSON.stringify(functions));
+        }
+      }
+
+      // Cloud Run commands
+      if (args.includes('run')) {
+        if (args.includes('deploy')) {
+          const serviceName = args[args.indexOf('deploy') + 1];
+          return createMockSpawn(0, `Service deployed successfully: ${serviceName}`);
+        }
+
+        if (args.includes('services') && args.includes('describe')) {
+          const serviceName = args[args.indexOf('describe') + 1];
+          if (args.some(arg => arg.includes('status.url'))) {
+            return createMockSpawn(0, 'https://hello-service-abc123-uc.a.run.app');
+          }
+          return createMockSpawn(0, `Service: ${serviceName}\nStatus: Ready`);
+        }
+
+        if (args.includes('services') && args.includes('list')) {
+          const services = [
+            {
+              metadata: { name: 'hello-service' },
+              status: { url: 'https://hello-service-abc123-uc.a.run.app' }
+            },
+            {
+              metadata: { name: 'api-service' },
+              status: { url: 'https://api-service-def456-uc.a.run.app' }
+            }
+          ];
+          return createMockSpawn(0, JSON.stringify(services));
+        }
+
+        if (args.includes('services') && args.includes('delete')) {
+          return createMockSpawn(0, 'Service deleted');
+        }
+      }
+
+      // Storage commands
+      if (args.includes('storage')) {
+        if (args.includes('buckets') && args.includes('create')) {
+          return createMockSpawn(0, 'Bucket created successfully');
+        }
+
+        if (args.includes('buckets') && args.includes('list')) {
+          const buckets = [
+            { name: 'test-bucket-123', location: 'us-central1' },
+            { name: 'another-bucket', location: 'europe-west1' }
+          ];
+          return createMockSpawn(0, JSON.stringify(buckets));
+        }
+
+        if (args.includes('cp')) {
+          return createMockSpawn(0, 'File uploaded successfully');
+        }
+      }
+
+      // Pub/Sub commands
+      if (args.includes('pubsub')) {
+        if (args.includes('topics') && args.includes('create')) {
+          return createMockSpawn(0, 'Topic created successfully');
+        }
+
+        if (args.includes('topics') && args.includes('publish')) {
+          return createMockSpawn(0, 'Message published successfully');
+        }
+      }
+
+      return createMockSpawn(0, '');
+    }
+
     // Handle VirtualBox VBoxManage commands
     if (command === 'VBoxManage' && args) {
       if (args.includes('createvm')) {
@@ -1046,6 +1159,46 @@ async function createLambdaTestHandler(config = {}) {
   return handler;
 }
 
+/**
+ * Create a GCP handler instance with mocked dependencies
+ */
+async function createGcpTestHandler(config = {}) {
+  setupDefaultMocks();
+
+  const { AddressGcpHandler } = require('../address-gcp');
+  const handler = new AddressGcpHandler();
+
+  // Mock filesystem operations
+  handler.fs = {
+    existsSync: jest.fn((path) => {
+      return !path.includes('nonexistent');
+    }),
+    mkdirSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    readFileSync: jest.fn((path, encoding) => {
+      if (path.includes('.rexx')) {
+        return 'SAY "Hello from RexxJS GCP!"';
+      }
+      return 'mock file content';
+    }),
+    rmSync: jest.fn()
+  };
+
+  // Mock path operations
+  handler.path = {
+    basename: jest.fn((filePath, ext) => {
+      if (ext) return filePath.replace(ext, '').split('/').pop();
+      return filePath.split('/').pop();
+    }),
+    dirname: jest.fn((filePath) => {
+      return filePath.substring(0, filePath.lastIndexOf('/'));
+    })
+  };
+
+  await handler.initialize(config);
+  return handler;
+}
+
 describe('Test Helper', () => {
   test('should be a test helper', () => {
     expect(true).toBe(true);
@@ -1061,5 +1214,6 @@ module.exports = {
   createQemuTestHandler,
   createVirtualBoxTestHandler,
   createOpenFaaSTestHandler,
-  createLambdaTestHandler
+  createLambdaTestHandler,
+  createGcpTestHandler
 };

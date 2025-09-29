@@ -34,7 +34,15 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - Supports both traditional command strings (`"CREATE TABLE users"`) and modern method calls (`execute sql="CREATE TABLE users"`)
 
 ### Provisioning & Orchestration (`extras/addresses/provisioning-and-orchestration/`)
-Comprehensive infrastructure management with VM and container automation:
+Comprehensive infrastructure management with VM, container automation, and **cloud orchestration**:
+
+**Google Cloud Platform (`address-gcp.js`) - The Modern Cloud Orchestration Language:**
+- **🚀 Killer Feature: Direct Spreadsheet Access** - `"SHEET 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Sales'"`
+- **SQL-like operations on Google Sheets** - Treat spreadsheets as databases with SELECT, INSERT, UPDATE
+- **Service-specific command languages** - SHEETS, BIGQUERY, FIRESTORE, STORAGE, PUBSUB, FUNCTIONS, RUN
+- **HEREDOC orchestration workflows** - Complex multi-service operations as readable documentation
+- **Cross-service data flow** - Sheets → BigQuery → Firestore → Pub/Sub in single scripts
+- **Replaces Google Apps Script, gcloud scripting, Zapier/IFTTT, ETL tools**
 
 **Container Management:**
 - **Docker** (`address-docker.js`) - Full Docker container lifecycle
@@ -52,8 +60,9 @@ Comprehensive infrastructure management with VM and container automation:
   - Full lifecycle with pause/resume, save/restore state
 
 **Key Capabilities:**
+- **Cloud-native orchestration**: Single unified interface for all Google Cloud services
 - **Exec without SSH**: Run commands directly in VMs/containers like `docker exec`
-- **RexxJS deployment**: Automatically deploy and execute RexxJS scripts in VMs
+- **RexxJS deployment**: Automatically deploy and execute RexxJS scripts in VMs/cloud
 - **Idempotent operations**: `start_if_stopped`, `stop_if_running` for automation
 - **Lifecycle management**: Create, start, stop, pause, resume, restart, snapshot, restore
 - **Production features**: Host verification, permissions setup, ISO downloads, guest agent installation
@@ -136,6 +145,14 @@ ADDRESS DOCKER
 "create image=node:18 name=app-container"
 "exec container=app-container command=\"npm install\""
 "exec container=app-container command=\"npm test\""
+
+-- Google Cloud Platform orchestration
+ADDRESS GCP
+"SHEET 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Orders' WHERE date = TODAY()"
+"BIGQUERY INSERT INTO analytics.daily_orders SELECT * FROM SHEETS_RESULT"
+"FIRESTORE SET /metrics/today {\"orders\": 342, \"revenue\": 125000}"
+"PUBSUB PUBLISH daily-metrics MESSAGE 'Dashboard updated'"
+"FUNCTIONS DEPLOY process-orders SOURCE './functions' TRIGGER 'pubsub:orders' RUNTIME 'python311'"
 ```
 
 ### Modern Extensions
@@ -166,6 +183,12 @@ The codebase follows a modular design:
    - Multi-platform testing across different OS versions
    - Development environment provisioning and configuration
    - Container-based microservice orchestration
+8. **Cloud Orchestration**: Google Cloud Platform service automation and data workflows
+   - Google Sheets as database with SQL-like operations
+   - Cross-service data pipelines (Sheets → BigQuery → Firestore → Pub/Sub)
+   - Serverless function deployment and management
+   - Real-time analytics and machine learning pipelines
+   - Business intelligence dashboard automation
 
 ## Development Guidelines
 
