@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
-const { parseCommand } = require('../shared-utils');
+const { parseCommand } = require('../shared-utils/index.js');
 
 // Enhanced parameter parsing for consistent key="value" syntax
 const parseKeyValueParams = (paramString) => {
