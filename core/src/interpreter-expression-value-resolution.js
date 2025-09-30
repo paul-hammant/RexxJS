@@ -51,14 +51,21 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
       // Auto-parse JSON if delimiter contains 'json' (case-insensitive)
       if (value.delimiter && value.delimiter.toLowerCase().includes('json')) {
         const content = value.content.trim();
+        if (!content) {
+          // NO FALLBACK - throw exception for empty content with JSON delimiter
+          throw new Error(`Empty content in HEREDOC with JSON delimiter '${value.delimiter}'`);
+        }
         if ((content.startsWith('{') && content.endsWith('}')) ||
             (content.startsWith('[') && content.endsWith(']'))) {
           try {
             return JSON.parse(content);
           } catch (e) {
-            // If JSON parsing fails, return as string
-            return value.content;
+            // NO FALLBACK - throw exception when JSON parsing fails with JSON delimiter
+            throw new Error(`Invalid JSON in HEREDOC with JSON delimiter: ${e.message}`);
           }
+        } else {
+          // NO FALLBACK - throw exception for non-JSON content with JSON delimiter
+          throw new Error(`Content does not appear to be JSON but uses JSON delimiter '${value.delimiter}'. Content must be valid JSON when using JSON delimiter.`);
         }
       }
       return value.content;
@@ -294,14 +301,21 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
       // Auto-parse JSON if delimiter contains 'json' (case-insensitive)
       if (expr.delimiter && expr.delimiter.toLowerCase().includes('json')) {
         const content = expr.content.trim();
+        if (!content) {
+          // NO FALLBACK - throw exception for empty content with JSON delimiter
+          throw new Error(`Empty content in HEREDOC with JSON delimiter '${expr.delimiter}'`);
+        }
         if ((content.startsWith('{') && content.endsWith('}')) ||
             (content.startsWith('[') && content.endsWith(']'))) {
           try {
             return JSON.parse(content);
           } catch (e) {
-            // If JSON parsing fails, return as string
-            return expr.content;
+            // NO FALLBACK - throw exception when JSON parsing fails with JSON delimiter
+            throw new Error(`Invalid JSON in HEREDOC with JSON delimiter: ${e.message}`);
           }
+        } else {
+          // NO FALLBACK - throw exception for non-JSON content with JSON delimiter
+          throw new Error(`Content does not appear to be JSON but uses JSON delimiter '${expr.delimiter}'. Content must be valid JSON when using JSON delimiter.`);
         }
       }
       return expr.content;

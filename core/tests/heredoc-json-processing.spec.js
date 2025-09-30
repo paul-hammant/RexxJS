@@ -163,4 +163,120 @@ MYJSON
     expect(typeof data3).toBe('object');
     expect(data3.test).toBe('contains');
   });
+
+  describe('Exception Handling for Invalid JSON', () => {
+    test('should throw exception when <<JSON contains invalid JSON syntax', async () => {
+      const script = `
+        LET broken_data = <<JSON
+{
+  "name": "Alice",
+  "age": 30,
+  "settings": {
+    "theme": "dark"
+    // Missing closing brace and comma
+JSON
+      `;
+      
+      const commands = parse(script);
+      
+      // Should throw an exception due to invalid JSON - NO FALLBACK
+      await expect(interpreter.run(commands)).rejects.toThrow(/Content does not appear to be JSON but uses JSON delimiter|Invalid JSON/);
+      
+      // Should not create the variable
+      expect(interpreter.getVariable('broken_data')).toBeUndefined();
+    });
+
+    test('should throw exception when <<JSON contains non-JSON content', async () => {
+      const script = `
+        LET not_json = <<JSON
+This is just plain text, not JSON at all!
+It has multiple lines and no JSON structure.
+JSON
+      `;
+      
+      const commands = parse(script);
+      
+      // Should throw an exception because content is not JSON - NO FALLBACK
+      await expect(interpreter.run(commands)).rejects.toThrow(/Content does not appear to be JSON but uses JSON delimiter|Invalid JSON/);
+      
+      // Should not create the variable
+      expect(interpreter.getVariable('not_json')).toBeUndefined();
+    });
+
+    test('should throw exception when <<JSON contains malformed JSON objects', async () => {
+      const script = `
+        LET malformed_data = <<JSON
+{
+  "name": "Bob",
+  "age": thirty,
+  "active": yes,
+  "scores": [85, 90, ninety-five]
+}
+JSON
+      `;
+      
+      const commands = parse(script);
+      
+      // Should throw an exception due to unquoted values and invalid syntax - NO FALLBACK
+      await expect(interpreter.run(commands)).rejects.toThrow(/Invalid JSON|JSON.*parse|Unexpected token|SyntaxError/);
+      
+      // Should not create the variable
+      expect(interpreter.getVariable('malformed_data')).toBeUndefined();
+    });
+
+    test('should throw exception when <<JSON contains JSON with trailing commas', async () => {
+      const script = `
+        LET trailing_comma = <<JSON
+{
+  "name": "Charlie",
+  "age": 25,
+  "settings": {
+    "theme": "light",
+    "notifications": true,
+  },        
+}
+JSON
+      `;
+      
+      const commands = parse(script);
+      
+      // Should throw an exception due to trailing commas (invalid in strict JSON) - NO FALLBACK
+      await expect(interpreter.run(commands)).rejects.toThrow(/Invalid JSON in HEREDOC with JSON delimiter|Expected double-quoted property name/);
+      
+      // Should not create the variable
+      expect(interpreter.getVariable('trailing_comma')).toBeUndefined();
+    });
+
+    test('should throw exception when <<JSON contains empty content', async () => {
+      const script = `
+        LET empty_json = <<JSON
+JSON
+      `;
+      
+      const commands = parse(script);
+      
+      // Should throw an exception due to empty JSON content - NO FALLBACK
+      await expect(interpreter.run(commands)).rejects.toThrow(/Invalid JSON|JSON.*parse|Unexpected token|SyntaxError|empty/);
+      
+      // Should not create the variable
+      expect(interpreter.getVariable('empty_json')).toBeUndefined();
+    });
+
+    test('should throw exception when <<JSON contains only whitespace', async () => {
+      const script = `
+        LET whitespace_json = <<JSON
+        
+        
+JSON
+      `;
+      
+      const commands = parse(script);
+      
+      // Should throw an exception due to whitespace-only content - NO FALLBACK
+      await expect(interpreter.run(commands)).rejects.toThrow(/Invalid JSON|JSON.*parse|Unexpected token|SyntaxError|empty|whitespace/);
+      
+      // Should not create the variable
+      expect(interpreter.getVariable('whitespace_json')).toBeUndefined();
+    });
+  });
 });
