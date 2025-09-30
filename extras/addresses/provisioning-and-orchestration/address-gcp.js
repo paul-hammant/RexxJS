@@ -1,3 +1,9 @@
+/**
+ * @rexxjs-meta=GCP_ADDRESS_META
+ * @provides: addressTarget=GCP
+ * @interpreterHandlesInterpolation: true
+ */
+
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -7,13 +13,15 @@ const { parseCommand } = require('../shared-utils/index.js');
 // Enhanced parameter parsing for consistent key="value" syntax
 const parseKeyValueParams = (paramString) => {
   const params = {};
-  const regex = /(\w+)=["']([^"']*)["']/g;
+  // Support both quoted and unquoted values: key="value" or key=value
+  // For unquoted values, capture until the next key= pattern or end of string
+  const regex = /(\w+)=(?:["']([^"']*)["']|([^"'\s]\S*(?:\s+(?!\w+=)[^\s]\S*)*))/g;
   let match;
-  
+
   while ((match = regex.exec(paramString)) !== null) {
-    params[match[1]] = match[2];
+    params[match[1]] = match[2] || match[3]; // Use quoted value (match[2]) or unquoted (match[3])
   }
-  
+
   return params;
 };
 
@@ -110,6 +118,10 @@ const GCP_ADDRESS_META = {
   name: 'GCP',
   description: 'Google Cloud Platform unified orchestration interface with enhanced grammar and rate limiting',
   version: '2.1.0',
+  provides: { addressTarget: 'GCP' },
+  libraryMetadata: {
+    interpreterHandlesInterpolation: true
+  },
   services: ['SHEETS', 'BIGQUERY', 'FIRESTORE', 'STORAGE', 'PUBSUB', 'FUNCTIONS', 'RUN', 'COMPUTE', 'RATELIMIT'],
   grammar: {
     features: ['aliases', 'result-chains', 'natural-language', 'batch-operations', 'sections', 'rate-limiting'],
@@ -266,23 +278,49 @@ const initGcpHandler = async () => {
   return gcpHandler;
 };
 
+// Variable interpolation - resolve {variable} patterns from context
+// Implements same pattern as expectations-address.js (lines 706-729)
+function resolveVariablesInCommand(commandString, context) {
+  if (!context || typeof context !== 'object') return commandString;
+
+  // Replace {variable} patterns with actual values from context
+  return commandString.replace(/\{(\w+(?:\.\w+)*)\}/g, (match, path) => {
+    const keys = path.split('.');
+    let value = context;
+
+    for (const key of keys) {
+      if (value == null) return match; // Keep original if not found
+      value = value[key];
+    }
+
+    return value !== undefined ? value : match;
+  });
+}
+
 // ADDRESS target handler function
-async function ADDRESS_GCP_HANDLER(commandOrMethod, params) {
+async function ADDRESS_GCP_HANDLER(commandOrMethod, paramsOrContext, sourceContext) {
   const handler = await initGcpHandler();
 
   // Handle command-string style (primary usage)
-  if (typeof commandOrMethod === 'string' && !params) {
+  // When called from RexxJS interpreter: (commandString, contextObject, sourceContextObject)
+  // When called as method: (methodName, paramsObject)
+  if (typeof commandOrMethod === 'string' &&
+      (!paramsOrContext || typeof paramsOrContext === 'object' && !paramsOrContext.params)) {
+
+    // Interpolate {variable} patterns from context (global variable pool)
+    let commandString = resolveVariablesInCommand(commandOrMethod, paramsOrContext);
+
     // Check if this is a HEREDOC with @SECTION markers
-    if (commandOrMethod.includes('@SECTION ')) {
-      const sections = parseHeredocSections(commandOrMethod);
+    if (commandString.includes('@SECTION ')) {
+      const sections = parseHeredocSections(commandString);
       return await executeSectionedWorkflow(sections, handler);
     }
-    
-    return await handler.execute(commandOrMethod);
+
+    return await handler.execute(commandString);
   }
 
   // Handle method-call style (backward compatibility)
-  return await handler.handle(commandOrMethod, params);
+  return await handler.handle(commandOrMethod, paramsOrContext);
 }
 
 // ============================================
@@ -301,9 +339,13 @@ class SheetsHandler {
   async initialize() {
     // Initialize Google Sheets API
     try {
+      console.log('[SheetsHandler] Initializing...');
       this.auth = await this.parent.getAuth('sheets');
+      console.log('[SheetsHandler] Auth obtained:', this.auth ? 'SUCCESS' : 'NULL');
       this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+      console.log('[SheetsHandler] Sheets API initialized');
     } catch (e) {
+      console.error('[SheetsHandler] Initialization error:', e.message);
       // Auth will be set up on first use if not available
     }
   }
@@ -382,7 +424,7 @@ class SheetsHandler {
   async alias(params) {
     // Parse: ALIAS name="spreadsheet_id"
     const parsedParams = parseKeyValueParams(params);
-    
+
     if (!parsedParams.name || !parsedParams.id) {
       // Try legacy format: ALIAS orders="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
       const legacyMatch = params.match(/(\w+)=["']([^"']+)["']/);
@@ -393,6 +435,17 @@ class SheetsHandler {
           success: true,
           alias: legacyMatch[1],
           spreadsheetId: legacyMatch[2]
+        };
+      }
+      // Also try format without quotes: ALIAS testdata=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms
+      const unquotedMatch = params.match(/(\w+)=([A-Za-z0-9_-]+)/);
+      if (unquotedMatch) {
+        this.aliases[unquotedMatch[1]] = unquotedMatch[2];
+        globalAliasStore[unquotedMatch[1]] = unquotedMatch[2];
+        return {
+          success: true,
+          alias: unquotedMatch[1],
+          spreadsheetId: unquotedMatch[2]
         };
       }
       throw new Error('Invalid ALIAS syntax. Use: ALIAS name="alias" id="spreadsheet_id"');
@@ -410,7 +463,9 @@ class SheetsHandler {
 
   async connect(params) {
     // Parse: CONNECT spreadsheet="<id>" or legacy format
+    console.log('[CONNECT] params:', params);
     const parsedParams = parseKeyValueParams(params);
+    console.log('[CONNECT] parsedParams:', parsedParams);
     let spreadsheetId;
 
     if (parsedParams.spreadsheet) {
@@ -430,6 +485,9 @@ class SheetsHandler {
     }
 
     this.currentSpreadsheet = spreadsheetId;
+    console.log('[CONNECT] Attempting to connect to:', spreadsheetId);
+    console.log('[CONNECT] Auth available:', this.auth ? 'YES' : 'NO');
+    console.log('[CONNECT] Sheets client available:', this.sheets ? 'YES' : 'NO');
 
     // Verify connection
     try {
@@ -437,6 +495,7 @@ class SheetsHandler {
         spreadsheetId: this.currentSpreadsheet
       });
 
+      console.log('[CONNECT] Success! Title:', metadata.data.properties.title);
       return {
         success: true,
         spreadsheetId: this.currentSpreadsheet,
@@ -444,6 +503,7 @@ class SheetsHandler {
         sheets: metadata.data.sheets.map(s => s.properties.title)
       };
     } catch (e) {
+      console.error('[CONNECT] Error:', e.message, 'Code:', e.code);
       throw new Error(`Failed to connect to spreadsheet: ${e.message}`);
     }
   }
@@ -662,13 +722,16 @@ class SheetsHandler {
 
   async insert(command) {
     // Parse standardized syntax: INSERT sheet="name" values="val1,val2,val3" [columns="col1,col2,col3"]
+    console.log('[INSERT] command:', command);
     const parsedParams = parseKeyValueParams(command);
-    
+    console.log('[INSERT] parsedParams:', parsedParams);
+
     if (parsedParams.sheet && parsedParams.values) {
       // New standardized format
       const sheetName = parsedParams.sheet;
       const valuesStr = parsedParams.values;
       const columns = parsedParams.columns;
+      console.log('[INSERT] valuesStr:', valuesStr);
       
       if (!this.currentSpreadsheet) {
         throw new Error('No spreadsheet connected. Use CONNECT first.');
@@ -1410,9 +1473,24 @@ class UnifiedGcpHandler {
   }
 
   async getAuth(scope) {
-    // Get Google auth for APIs
-    // TODO: Implement OAuth2 flow
-    return null;
+    // Use Google Application Default Credentials
+    // This will automatically use GOOGLE_APPLICATION_CREDENTIALS env var
+    try {
+      const { GoogleAuth } = require('google-auth-library');
+      console.log('[GCP Auth] GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
+      const auth = new GoogleAuth({
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.readonly'
+        ]
+      });
+      const client = await auth.getClient();
+      console.log('[GCP Auth] Successfully created auth client');
+      return client;
+    } catch (e) {
+      console.error('[GCP Auth] Failed to get Google auth:', e.message);
+      return null;
+    }
   }
 
   // New unified execute method for string commands
@@ -2084,47 +2162,64 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     UnifiedGcpHandler,
     AddressGcpHandler: UnifiedGcpHandler, // Alias for backward compatibility
-    GCP_ADDRESS_META,
-    ADDRESS_GCP_HANDLER
+    // Export as function (not constant) for RexxJS metadata detection
+    GCP_ADDRESS_META: function() { return GCP_ADDRESS_META; },
+    ADDRESS_GCP_HANDLER,
+    // Also export the handler functions
+    ADDRESS_GCP_MAIN: function() { return GCP_ADDRESS_META; }
   };
 }
 
 // Register as global for RexxJS
-if (typeof global !== 'undefined') {
-  global.UnifiedGcpHandler = UnifiedGcpHandler;
-  global.AddressGcpHandler = UnifiedGcpHandler; // Alias for backward compatibility
-  global.GCP_ADDRESS_META = GCP_ADDRESS_META;
-  global.ADDRESS_GCP_HANDLER = ADDRESS_GCP_HANDLER;
+const globalScope = (typeof global !== 'undefined') ? global : (typeof window !== 'undefined') ? window : {};
+if (typeof globalScope === 'object') {
+  globalScope.UnifiedGcpHandler = UnifiedGcpHandler;
+  globalScope.AddressGcpHandler = UnifiedGcpHandler; // Alias for backward compatibility
+
+  // Store metadata constant before overwriting with function
+  const GCP_META_DATA = GCP_ADDRESS_META;
+
+  globalScope.ADDRESS_GCP_HANDLER = ADDRESS_GCP_HANDLER;
+
+  // Detection function for RexxJS REQUIRE system
+  globalScope.ADDRESS_GCP_MAIN = function() {
+    return GCP_META_DATA;
+  };
+
+  // Export metadata as a function for @rexxjs-meta detection
+  globalScope.GCP_ADDRESS_META = function() {
+    return GCP_META_DATA;
+  };
 
   // Use shared handler instance for first-class method access
 
   // First-class method exports
-  global.GCP_DEPLOY_SERVICE = async (params) => {
+  globalScope.GCP_DEPLOY_SERVICE = async (params) => {
     const handler = await initGcpHandler();
     return await handler.deployService(params);
   };
 
-  global.GCP_DELETE_SERVICE = async (name, region) => {
+  globalScope.GCP_DELETE_SERVICE = async (name, region) => {
     const handler = await initGcpHandler();
     return await handler.deleteService(name, region);
   };
 
-  global.GCP_LIST_SERVICES = async (region) => {
+  globalScope.GCP_LIST_SERVICES = async (region) => {
     const handler = await initGcpHandler();
     return await handler.listServices(region);
   };
 
-  global.GCP_DEPLOY_FUNCTION = async (params) => {
+  globalScope.GCP_DEPLOY_FUNCTION = async (params) => {
     const handler = await initGcpHandler();
     return await handler.deployFunction(params);
   };
 
-  global.GCP_LIST_FUNCTIONS = async () => {
+  globalScope.GCP_LIST_FUNCTIONS = async () => {
     const handler = await initGcpHandler();
     return await handler.listFunctions();
   };
 
-  global.GCP_INFO = async () => {
+  globalScope.GCP_INFO = async () => {
     const handler = await initGcpHandler();
     return await handler.handle('info');
   };
