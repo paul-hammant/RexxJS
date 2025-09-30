@@ -77,19 +77,19 @@ const interpolateString = async function(template, resolveValueFn) {
       } else if (typeof window !== 'undefined' && window.InterpolationConfig) {
         pattern = window.InterpolationConfig.getCurrentPattern();
       } else {
-        // Fallback to default RexxJS pattern if config not available
+        // Fallback to default handlebars pattern if config not available
         pattern = {
-          regex: /\{([^}]+)\}/g,
-          hasDelims: (str) => str.includes('{'),
-          extractVar: (match) => match.slice(1, -1)
+          regex: /\{\{([^}]*)\}\}/g,
+          hasDelims: (str) => str.includes('{{'),
+          extractVar: (match) => match.slice(2, -2)
         };
       }
     } catch (error) {
       // Fallback to default pattern if config loading fails
       pattern = {
-        regex: /\{([^}]+)\}/g,
-        hasDelims: (str) => str.includes('{'),
-        extractVar: (match) => match.slice(1, -1)
+        regex: /\{\{([^}]*)\}\}/g,
+        hasDelims: (str) => str.includes('{{'),
+        extractVar: (match) => match.slice(2, -2)
       };
     }
     

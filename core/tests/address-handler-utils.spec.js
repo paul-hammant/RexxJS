@@ -21,7 +21,7 @@ const {
 describe('Address Handler Utilities', () => {
   describe('interpolateMessage', () => {
     test('should interpolate simple variables', async () => {
-      const template = 'Hello {name}, you are {age} years old';
+      const template = 'Hello {{name}}, you are {{age}} years old';
       const context = { name: 'Alice', age: 30 };
       
       const result = await interpolateMessage(template, context);
@@ -29,15 +29,15 @@ describe('Address Handler Utilities', () => {
     });
 
     test('should handle missing variables with default behavior', async () => {
-      const template = 'Hello {name}, you scored {score}';
+      const template = 'Hello {{name}}, you scored {{score}}';
       const context = { name: 'Bob' }; // missing 'score'
       
       const result = await interpolateMessage(template, context);
-      expect(result).toBe('Hello Bob, you scored {score}'); // keeps original {score}
+      expect(result).toBe('Hello Bob, you scored {{score}}'); // keeps original {{score}}
     });
 
     test('should throw on missing variables when configured', async () => {
-      const template = 'Hello {missing}';
+      const template = 'Hello {{missing}}';
       const context = {};
       
       await expect(interpolateMessage(template, context, { throwOnMissing: true }))
@@ -45,7 +45,7 @@ describe('Address Handler Utilities', () => {
     });
 
     test('should use custom placeholder for missing variables', async () => {
-      const template = 'Value: {missing}';
+      const template = 'Value: {{missing}}';
       const context = {};
       
       const result = await interpolateMessage(template, context, { 
@@ -55,7 +55,7 @@ describe('Address Handler Utilities', () => {
     });
 
     test('should apply transform function to values', async () => {
-      const template = 'Score: {score}, Grade: {grade}';
+      const template = 'Score: {{score}}, Grade: {{grade}}';
       const context = { score: 95, grade: 'A' };
       
       const result = await interpolateMessage(template, context, {
@@ -76,7 +76,7 @@ describe('Address Handler Utilities', () => {
     });
 
     test('should handle multiple occurrences of same variable', async () => {
-      const template = '{name} said hello to {name} in the mirror';
+      const template = '{{name}} said hello to {{name}} in the mirror';
       const context = { name: 'Alice' };
       
       const result = await interpolateMessage(template, context);
@@ -84,7 +84,7 @@ describe('Address Handler Utilities', () => {
     });
 
     test('should handle complex variable names', async () => {
-      const template = 'User: {user_name}, ID: {user_id}, Status: {is_active}';
+      const template = 'User: {{user_name}}, ID: {{user_id}}, Status: {{is_active}}';
       const context = { user_name: 'john_doe', user_id: 123, is_active: true };
       
       const result = await interpolateMessage(template, context);
@@ -94,7 +94,7 @@ describe('Address Handler Utilities', () => {
 
   describe('extractVariables', () => {
     test('should extract variable names from template', () => {
-      const template = 'Hello {name}, you have {count} messages';
+      const template = 'Hello {{name}}, you have {{count}} messages';
       const variables = extractVariables(template);
       expect(variables).toEqual(['name', 'count']);
     });
@@ -106,13 +106,13 @@ describe('Address Handler Utilities', () => {
     });
 
     test('should handle duplicate variables', () => {
-      const template = '{user} logged in as {user}';
+      const template = '{{user}} logged in as {{user}}';
       const variables = extractVariables(template);
       expect(variables).toEqual(['user', 'user']);
     });
 
     test('should handle complex variable names', () => {
-      const template = '{user_name} and {user_id} and {is_admin}';
+      const template = '{{user_name}} and {{user_id}} and {{is_admin}}';
       const variables = extractVariables(template);
       expect(variables).toEqual(['user_name', 'user_id', 'is_admin']);
     });
@@ -120,7 +120,7 @@ describe('Address Handler Utilities', () => {
 
   describe('validateContext', () => {
     test('should validate when all variables present', () => {
-      const template = 'Hello {name}, age {age}';
+      const template = 'Hello {{name}}, age {{age}}';
       const context = { name: 'Alice', age: 30, extra: 'ignored' };
       
       const result = validateContext(template, context);
@@ -132,7 +132,7 @@ describe('Address Handler Utilities', () => {
     });
 
     test('should identify missing variables', () => {
-      const template = 'Hello {name}, score {score}';
+      const template = 'Hello {{name}}, score {{score}}';
       const context = { name: 'Bob' }; // missing 'score'
       
       const result = validateContext(template, context);
@@ -340,7 +340,7 @@ describe('Address Handler Utilities', () => {
       const mockHandler = jest.fn().mockResolvedValue('processed');
       const wrapped = wrapHandler('test', mockHandler, { autoInterpolate: true });
       
-      await wrapped('Hello {name}', { name: 'Alice' }, {});
+      await wrapped('Hello {{name}}', { name: 'Alice' }, {});
       
       expect(mockHandler).toHaveBeenCalledWith('Hello Alice', { name: 'Alice' }, {});
     });
@@ -353,7 +353,7 @@ describe('Address Handler Utilities', () => {
       });
       
       // Missing 'age' variable
-      const result = await wrapped('Hello {name}', { name: 'Alice' }, {});
+      const result = await wrapped('Hello {{name}}', { name: 'Alice' }, {});
       
       expect(result).toMatchObject({
         success: false,
@@ -399,7 +399,7 @@ describe('Address Handler Utilities', () => {
         logCalls: true // Would log to console
       });
       
-      const result = await wrapped('User: {user}', { user: 'Alice' }, {});
+      const result = await wrapped('User: {{user}}', { user: 'Alice' }, {});
       
       expect(mockHandler).toHaveBeenCalledWith('User: Alice', { user: 'Alice' }, {});
       expect(result).toMatchObject({
@@ -455,7 +455,7 @@ describe('Address Handler Utilities', () => {
       };
       
       const result = await wrappedHandler(
-        'send to={to} subject={subject}',
+        'send to={{to}} subject={{subject}}',
         context,
         {}
       );
@@ -483,9 +483,9 @@ describe('Address Handler Utilities', () => {
       });
       
       // Simulate ADDRESS MATCHING call
-      // Original line: "LOG: User {name} performed {action}"
-      // Extracted by MATCHING("^LOG: (.*)$"): "User {name} performed {action}"
-      const extractedMessage = 'User {name} performed {action}';
+      // Original line: "LOG: User {{name}} performed {{action}}"
+      // Extracted by MATCHING("^LOG: (.*)$"): "User {{name}} performed {{action}}"
+      const extractedMessage = 'User {{name}} performed {{action}}';
       const rexxContext = { 
         name: 'Bob', 
         action: 'login',

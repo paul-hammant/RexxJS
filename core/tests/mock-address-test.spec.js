@@ -255,8 +255,8 @@ describe('Mock ADDRESS Target', () => {
       LET mykey = "testkey"
       LET myvalue = "testvalue"
       ADDRESS MOCK
-      "SET {mykey} {myvalue}"
-      "GET {mykey}"
+      "SET {{mykey}} {{myvalue}}"
+      "GET {{mykey}}"
     `;
     const commands = parse(script);
     await interpreter.run(commands);
@@ -325,8 +325,8 @@ describe('Mock ADDRESS Target', () => {
       ADDRESS MOCK
       "RESET"
       DO i = 1 TO 3
-        "SET item_{i} value{i}"
-        LET result_{i} = GET key="item_{i}"
+        "SET item_{{i}} value{{i}}"
+        LET result_{{i}} = GET key="item_{{i}}"
       END
       LET final_status = STATUS
     `;

@@ -48,14 +48,14 @@ describe('ADDRESS HEREDOC functionality', () => {
         LET result = 25
         ADDRESS mockaddress
         <<EXPECTATION
-        {result} should equal 25
+        {{result}} should equal 25
         EXPECTATION
       `;
       
       await executeRexxCode(rexxCode);
       
       expect(mockAddressHandler).toHaveBeenCalledWith(
-        '        {result} should equal 25', 
+        '        {{result}} should equal 25', 
         expect.objectContaining({ result: 25 }),
         expect.anything()
       );
@@ -66,8 +66,8 @@ describe('ADDRESS HEREDOC functionality', () => {
         LET test_value = 100  
         ADDRESS mockaddress
         <<EXPECTATIONS
-        {test_value} should equal 100
-        {test_value} should be greater than 50
+        {{test_value}} should equal 100
+        {{test_value}} should be greater than 50
         EXPECTATIONS
       `;
       
@@ -75,7 +75,7 @@ describe('ADDRESS HEREDOC functionality', () => {
       
       expect(mockAddressHandler).toHaveBeenCalledTimes(1);
       expect(mockAddressHandler).toHaveBeenCalledWith(
-        '        {test_value} should equal 100\n        {test_value} should be greater than 50', 
+        '        {{test_value}} should equal 100\n        {{test_value}} should be greater than 50', 
         expect.objectContaining({ test_value: 100 }),
         expect.anything()
       );
@@ -102,15 +102,15 @@ describe('ADDRESS HEREDOC functionality', () => {
         ADDRESS mockaddress
         <<SQL
         SELECT * FROM users 
-        WHERE id = {userId} 
-          AND status = '{status}'
+        WHERE id = {{userId}} 
+          AND status = '{{status}}'
         ORDER BY created_at DESC
         SQL
       `;
       
       await executeRexxCode(rexxCode);
       
-      const expectedSQL = "        SELECT * FROM users \n        WHERE id = {userId} \n          AND status = '{status}'\n        ORDER BY created_at DESC";
+      const expectedSQL = "        SELECT * FROM users \n        WHERE id = {{userId}} \n          AND status = '{{status}}'\n        ORDER BY created_at DESC";
       expect(mockAddressHandler).toHaveBeenCalledWith(
         expectedSQL,
         expect.objectContaining({ userId: 42, status: "active" }),
@@ -149,26 +149,26 @@ describe('ADDRESS HEREDOC functionality', () => {
         LET value = 123
         ADDRESS mockaddress
         <<TEST1
-        First test with {value}
+        First test with {{value}}
         TEST1
         
         ADDRESS mockaddress2
         <<TEST2
-        Second test with {value}
+        Second test with {{value}}
         TEST2
       `;
       
       await executeRexxCode(rexxCode);
       
       expect(mockAddressHandler).toHaveBeenCalledWith(
-        '        First test with {value}',
+        '        First test with {{value}}',
         expect.objectContaining({ value: 123 }),
         expect.anything()
       );
       
       const mockHandler2 = interpreter.addressTargets.get('mockaddress2').handler;
       expect(mockHandler2).toHaveBeenCalledWith(
-        '        Second test with {value}',
+        '        Second test with {{value}}',
         expect.objectContaining({ value: 123 }),
         expect.anything()
       );

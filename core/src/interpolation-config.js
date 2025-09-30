@@ -10,20 +10,10 @@
  * Predefined interpolation patterns for common use cases
  */
 const INTERPOLATION_PATTERNS = {
-  // Standard RexxJS pattern: {variable}
-  rexx: {
-    name: 'rexx',
-    regex: /\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g,
-    startDelim: '{',
-    endDelim: '}',
-    hasDelims: (str) => str.includes('{'),
-    extractVar: (match) => match.slice(1, -1)
-  },
-  
-  // Double curly braces: {{variable}}
+  // Double curly braces: {{variable}} - DEFAULT
   handlebars: {
     name: 'handlebars',
-    regex: /\{\{([^}]+)\}\}/g,
+    regex: /\{\{([^}]*)\}\}/g,
     startDelim: '{{',
     endDelim: '}}',
     hasDelims: (str) => str.includes('{{'),
@@ -51,30 +41,54 @@ const INTERPOLATION_PATTERNS = {
   },
   
   // Double dollar: $$variable$$
-  custom: {
-    name: 'custom',
+  doubledollar: {
+    name: 'doubledollar',
     regex: /\$\$([^$]+)\$\$/g,
     startDelim: '$$',
     endDelim: '$$',
     hasDelims: (str) => str.includes('$$'),
     extractVar: (match) => match.slice(2, -2)
-  },
-  
-  // Square brackets: [variable]
-  brackets: {
-    name: 'brackets',
-    regex: /\[([^\]]+)\]/g,
-    startDelim: '[',
-    endDelim: ']',
-    hasDelims: (str) => str.includes('['),
-    extractVar: (match) => match.slice(1, -1)
   }
 };
 
 /**
  * Global interpolation configuration state
  */
-let currentPattern = INTERPOLATION_PATTERNS.rexx; // Default to RexxJS pattern
+let currentPattern = INTERPOLATION_PATTERNS.handlebars; // Default to handlebars pattern
+
+/**
+ * Parse a pattern example with 'v' placeholder to create a pattern configuration
+ * @param {string} example - Pattern example like "{{v}}", "${v}", "%v%", etc.
+ * @returns {Object|null} Pattern configuration or null if invalid
+ */
+function parsePatternExample(example) {
+  if (typeof example !== 'string' || !example.includes('v')) {
+    return null;
+  }
+  
+  const vIndex = example.indexOf('v');
+  if (vIndex === -1 || vIndex === 0 || vIndex === example.length - 1) {
+    return null; // 'v' must have something on both sides
+  }
+  
+  const startDelim = example.substring(0, vIndex);
+  const endDelim = example.substring(vIndex + 1);
+  
+  if (!startDelim || !endDelim) {
+    return null; // Must have non-empty delimiters on both sides
+  }
+  
+  // Check if this matches any existing predefined pattern
+  for (const [name, config] of Object.entries(INTERPOLATION_PATTERNS)) {
+    if (config.startDelim === startDelim && config.endDelim === endDelim) {
+      return { ...config }; // Return a copy of the existing pattern
+    }
+  }
+  
+  // Create new custom pattern
+  const patternName = `custom_${startDelim.replace(/[^a-zA-Z0-9]/g, '')}_${endDelim.replace(/[^a-zA-Z0-9]/g, '')}`;
+  return createCustomPattern(patternName, startDelim, endDelim);
+}
 
 /**
  * Get the current interpolation pattern configuration
@@ -86,16 +100,26 @@ function getCurrentPattern() {
 
 /**
  * Set the global interpolation pattern
- * @param {string|Object} pattern - Pattern name or custom pattern object
+ * @param {string|Object} pattern - Pattern name, pattern example (e.g. "{{v}}"), or custom pattern object
  * @returns {Object} The configured pattern
  */
 function setInterpolationPattern(pattern) {
   if (typeof pattern === 'string') {
+    // First try as predefined pattern name
     const predefinedPattern = INTERPOLATION_PATTERNS[pattern.toLowerCase()];
-    if (!predefinedPattern) {
-      throw new Error(`Unknown interpolation pattern: ${pattern}. Available patterns: ${Object.keys(INTERPOLATION_PATTERNS).join(', ')}`);
+    if (predefinedPattern) {
+      currentPattern = predefinedPattern;
+      return currentPattern;
     }
-    currentPattern = predefinedPattern;
+    
+    // Try parsing as pattern example with 'v' placeholder
+    const parsedPattern = parsePatternExample(pattern);
+    if (parsedPattern) {
+      currentPattern = parsedPattern;
+      return currentPattern;
+    }
+    
+    throw new Error(`Unknown interpolation pattern: ${pattern}. Available patterns: ${Object.keys(INTERPOLATION_PATTERNS).join(', ')}, or provide a pattern example like "{{v}}", "\${v}", "%v%", etc.`);
   } else if (typeof pattern === 'object' && pattern !== null) {
     // Validate custom pattern object
     const required = ['name', 'regex', 'startDelim', 'endDelim', 'hasDelims', 'extractVar'];
@@ -106,17 +130,17 @@ function setInterpolationPattern(pattern) {
     }
     currentPattern = { ...pattern };
   } else {
-    throw new Error('Pattern must be a string name or pattern object');
+    throw new Error('Pattern must be a string name, pattern example, or pattern object');
   }
   
   return currentPattern;
 }
 
 /**
- * Reset to default RexxJS pattern
+ * Reset to default handlebars pattern
  */
 function resetToDefault() {
-  currentPattern = INTERPOLATION_PATTERNS.rexx;
+  currentPattern = INTERPOLATION_PATTERNS.handlebars;
   return currentPattern;
 }
 
@@ -171,7 +195,8 @@ if (typeof module !== 'undefined' && module.exports) {
     setInterpolationPattern,
     resetToDefault,
     getAvailablePatterns,
-    createCustomPattern
+    createCustomPattern,
+    parsePatternExample
   };
 } else if (typeof window !== 'undefined') {
   // Browser environment
@@ -181,7 +206,8 @@ if (typeof module !== 'undefined' && module.exports) {
     setInterpolationPattern,
     resetToDefault,
     getAvailablePatterns,
-    createCustomPattern
+    createCustomPattern,
+    parsePatternExample
   };
   
   window.InterpolationConfig = InterpolationConfig;

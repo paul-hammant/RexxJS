@@ -57,17 +57,17 @@ describe('Interpolation Pattern Integration Tests', () => {
     return await interpreter.run(commands, rexxCode);
   };
 
-  describe('Default RexxJS Pattern {var}', () => {
-    test('should interpolate with default RexxJS pattern', async () => {
+  describe('Default Handlebars Pattern {{var}}', () => {
+    test('should interpolate with default handlebars pattern', async () => {
       const context = { username: 'Alice', status: 'active' };
-      const template = 'User {username} is {status}';
+      const template = 'User {{username}} is {{status}}';
       
       const result = await interpolateMessage(template, context);
       expect(result).toBe('User Alice is active');
     });
 
     test('should extract variables with default pattern', () => {
-      const template = 'Hello {first} and {second}';
+      const template = 'Hello {{first}} and {{second}}';
       const variables = extractVariables(template);
       expect(variables).toEqual(['first', 'second']);
     });
@@ -78,13 +78,13 @@ describe('Interpolation Pattern Integration Tests', () => {
         LET user_score = 95
         
         ADDRESS testaddress
-        "User {user_name} scored {user_score} points"
+        "User {{user_name}} scored {{user_score}} points"
       `;
       
       await executeRexxCode(rexxCode);
       
       expect(mockAddressHandler).toHaveBeenCalledWith(
-        'User {user_name} scored {user_score} points',
+        'User {{user_name}} scored {{user_score}} points',
         expect.objectContaining({ user_name: 'Bob', user_score: 95 }),
         expect.anything()
       );
@@ -110,14 +110,14 @@ describe('Interpolation Pattern Integration Tests', () => {
       expect(variables).toEqual(['first', 'second']);
     });
 
-    test('should not interpolate RexxJS pattern when handlebars is active', async () => {
+    test('should not interpolate shell pattern when handlebars is active', async () => {
       setInterpolationPattern('handlebars');
       
       const context = { username: 'Dave', status: 'user' };
-      const template = 'User {username} is {{status}}'; // Mixed patterns
+      const template = 'User ${username} is {{status}}'; // Mixed patterns
       
       const result = await interpolateMessage(template, context);
-      expect(result).toBe('User {username} is user'); // Only {{status}} interpolated
+      expect(result).toBe('User ${username} is user'); // Only {{status}} interpolated
     });
 
     test('should work in ADDRESS context with handlebars pattern', async () => {
@@ -194,9 +194,9 @@ describe('Interpolation Pattern Integration Tests', () => {
     });
   });
 
-  describe('Custom Pattern $$var$$', () => {
-    test('should switch to custom pattern and interpolate', async () => {
-      setInterpolationPattern('custom');
+  describe('Doubledollar Pattern $$var$$', () => {
+    test('should switch to doubledollar pattern and interpolate', async () => {
+      setInterpolationPattern('doubledollar');
       
       const context = { service: 'web-api', port: '8080' };
       const template = 'Service $$service$$ running on port $$port$$';
@@ -205,8 +205,8 @@ describe('Interpolation Pattern Integration Tests', () => {
       expect(result).toBe('Service web-api running on port 8080');
     });
 
-    test('should extract variables with custom pattern', () => {
-      setInterpolationPattern('custom');
+    test('should extract variables with doubledollar pattern', () => {
+      setInterpolationPattern('doubledollar');
       
       const template = 'Deploy $$app$$ to $$environment$$';
       const variables = extractVariables(template);
@@ -214,25 +214,6 @@ describe('Interpolation Pattern Integration Tests', () => {
     });
   });
 
-  describe('Brackets Pattern [var]', () => {
-    test('should switch to brackets pattern and interpolate', async () => {
-      setInterpolationPattern('brackets');
-      
-      const context = { section: 'database', key: 'connection_string' };
-      const template = 'Configuration: [section].[key]';
-      
-      const result = await interpolateMessage(template, context);
-      expect(result).toBe('Configuration: database.connection_string');
-    });
-
-    test('should extract variables with brackets pattern', () => {
-      setInterpolationPattern('brackets');
-      
-      const template = 'Config [host]:[port] with [protocol]';
-      const variables = extractVariables(template);
-      expect(variables).toEqual(['host', 'port', 'protocol']);
-    });
-  });
 
   describe('Custom Pattern Creation', () => {
     test('should create and use custom angle bracket pattern', async () => {
@@ -260,24 +241,24 @@ describe('Interpolation Pattern Integration Tests', () => {
 
   describe('Pattern Switching During Runtime', () => {
     test('should handle pattern switching between operations', async () => {
-      // Start with default pattern
+      // Start with default pattern (handlebars)
       let context = { name: 'Alice' };
-      let result1 = await interpolateMessage('Hello {name}', context);
+      let result1 = await interpolateMessage('Hello {{name}}', context);
       expect(result1).toBe('Hello Alice');
-      
-      // Switch to handlebars
-      setInterpolationPattern('handlebars');
-      let result2 = await interpolateMessage('Hello {{name}}', context);
-      expect(result2).toBe('Hello Alice');
       
       // Switch to shell
       setInterpolationPattern('shell');
-      let result3 = await interpolateMessage('Hello ${name}', context);
+      let result2 = await interpolateMessage('Hello ${name}', context);
+      expect(result2).toBe('Hello Alice');
+      
+      // Switch to batch
+      setInterpolationPattern('batch');
+      let result3 = await interpolateMessage('Hello %name%', context);
       expect(result3).toBe('Hello Alice');
       
-      // Reset to default
+      // Reset to default (handlebars)
       resetToDefault();
-      let result4 = await interpolateMessage('Hello {name}', context);
+      let result4 = await interpolateMessage('Hello {{name}}', context);
       expect(result4).toBe('Hello Alice');
     });
   });
@@ -287,14 +268,12 @@ describe('Interpolation Pattern Integration Tests', () => {
       const context = { username: 'test', password: 'secret' };
       
       // Test with each pattern
-      const patterns = ['rexx', 'handlebars', 'shell', 'batch', 'custom', 'brackets'];
+      const patterns = ['handlebars', 'shell', 'batch', 'doubledollar'];
       const templates = [
-        'Login {username} with {password}',
         'Login {{username}} with {{password}}',
         'Login ${username} with ${password}',
         'Login %username% with %password%',
-        'Login $$username$$ with $$password$$',
-        'Login [username] with [password]'
+        'Login $$username$$ with $$password$$'
       ];
       
       patterns.forEach((patternName, index) => {
@@ -321,9 +300,9 @@ describe('Interpolation Pattern Integration Tests', () => {
     test('should handle missing variables gracefully with all patterns', async () => {
       const context = { name: 'Alice' }; // Missing 'age'
       const patterns = [
-        { name: 'rexx', template: '{name} is {age} years old' },
         { name: 'handlebars', template: '{{name}} is {{age}} years old' },
-        { name: 'shell', template: '${name} is ${age} years old' }
+        { name: 'shell', template: '${name} is ${age} years old' },
+        { name: 'batch', template: '%name% is %age% years old' }
       ];
       
       for (const { name, template } of patterns) {

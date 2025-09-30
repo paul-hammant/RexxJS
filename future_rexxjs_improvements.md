@@ -32,29 +32,6 @@ FINALLY
 END
 ```
 
-## 3. Async/Await Pattern for ADDRESS
-
-Make ADDRESS calls truly asynchronous and composable.
-
-```rexx
--- Single async call
-LET result = AWAIT ADDRESS GCP "SHEETS SELECT * FROM 'Orders'"
-
--- Parallel execution
-LET [orders, inventory] = AWAIT ALL [
-  ADDRESS GCP "SHEETS SELECT * FROM 'Orders'",
-  ADDRESS GCP "SHEETS SELECT * FROM 'Inventory'"
-]
-
--- Sequential with error handling
-TRY
-  LET data = AWAIT ADDRESS API "GET /users"
-  LET processed = AWAIT processData(data)
-CATCH error
-  SAY "Async operation failed: " error
-END
-```
-
 ## 4. Native JSON Manipulation
 
 More intuitive JSON handling without string manipulation.

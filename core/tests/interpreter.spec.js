@@ -1035,7 +1035,7 @@ describe('Rexx-lite Interpreter', () => {
       const script = `
         LET mealName = "Special Dinner"
         ADDRESS kitchen
-        prepareDish name="Today's {mealName}" servings=4
+        prepareDish name="Today's {{mealName}}" servings=4
       `;
       
       const commands = parse(script);
@@ -1051,7 +1051,7 @@ describe('Rexx-lite Interpreter', () => {
       const script = `
         LET firstName = "John"
         LET lastName = "Doe"
-        LET message = "Welcome {firstName} {lastName}"
+        LET message = "Welcome {{firstName}} {{lastName}}"
         ADDRESS kitchen
         prepareDish name=message servings=2
       `;
@@ -1070,7 +1070,7 @@ describe('Rexx-lite Interpreter', () => {
     it('should handle missing variables by keeping placeholder', async () => {
       const script = `
         LET knownVar = "Known"
-        LET message = "Hello {knownVar}, missing: {unknownVar}"
+        LET message = "Hello {{knownVar}}, missing: {{unknownVar}}"
         ADDRESS kitchen
         prepareDish name=message servings=1
       `;
@@ -1080,16 +1080,16 @@ describe('Rexx-lite Interpreter', () => {
       await interpreter.run(commands);
       
       const message = interpreter.getVariable('message');
-      expect(message).toBe("Hello Known, missing: {unknownVar}");
+      expect(message).toBe("Hello Known, missing: {{unknownVar}}");
       
       const meals = kitchenService.getMeals();
-      expect(meals[0].name).toBe("Hello Known, missing: {unknownVar}");
+      expect(meals[0].name).toBe("Hello Known, missing: {{unknownVar}}");
     });
 
     it('should interpolate complex variable paths', async () => {
       const script = `
         LET stock = checkStock item=chicken
-        LET status = "Current stock: {stock.quantity} units"
+        LET status = "Current stock: {{stock.quantity}} units"
         ADDRESS kitchen
         prepareDish name=status servings=1
       `;
@@ -1109,7 +1109,7 @@ describe('Rexx-lite Interpreter', () => {
       const script = `
         LET count = 42
         LET temperature = 375
-        LET message = "Recipe #{count} at {temperature} degrees"
+        LET message = "Recipe #{{count}} at {{temperature}} degrees"
         ADDRESS kitchen
         prepareDish name=message servings=count
       `;
@@ -1149,9 +1149,9 @@ describe('Rexx-lite Interpreter', () => {
         LET mealType = "Dinner"
         LET stock = checkStock item=chicken
         IF stock.quantity > 3 THEN
-          prepareDish name="Special {mealType}" servings=4
+          prepareDish name="Special {{mealType}}" servings=4
         ELSE
-          prepareDish name="Light {mealType}" servings=2
+          prepareDish name="Light {{mealType}}" servings=2
         ENDIF
       `;
       
@@ -1168,7 +1168,7 @@ describe('Rexx-lite Interpreter', () => {
       const script = `
         LET base = "Meal"
         DO i = 1 TO 3
-          prepareDish name="{base} #{i}" servings=i
+          prepareDish name="{{base}} #{{i}}" servings=i
         END
       `;
       
@@ -1191,10 +1191,10 @@ describe('Rexx-lite Interpreter', () => {
         LET guest = "VIP"
         LET location = "private room"
         LET timeSlot = "evening"
-        LET complexMessage = "Prepare {guest} meal for {location} during {timeSlot}"
+        LET complexMessage = "Prepare {{guest}} meal for {{location}} during {{timeSlot}}"
         ADDRESS kitchen
         prepareDish name=complexMessage servings=1
-        createMeal chicken=2 potatoes=3 note="For {guest} in {location}"
+        createMeal chicken=2 potatoes=3 note="For {{guest}} in {{location}}"
       `;
       
       const commands = parse(script);
@@ -1607,7 +1607,7 @@ describe('Rexx-lite Interpreter', () => {
           LET text = "abc"
           LET textLength = LENGTH string=text
           DO i = 1 TO textLength
-            prepareDish name="Item {i}" servings=i
+            prepareDish name="Item {{i}}" servings=i
           END
         `;
         
@@ -1627,7 +1627,7 @@ describe('Rexx-lite Interpreter', () => {
           LET name = "chef"
           LET upperName = UPPER string=name
           LET date = DATE
-          LET message = "Welcome {upperName} on {date}"
+          LET message = "Welcome {{upperName}} on {{date}}"
           ADDRESS kitchen
           prepareDish name=message servings=1
         `;
@@ -2450,7 +2450,7 @@ describe('Rexx-lite Interpreter', () => {
         const script = `
           LET data = '{"title": "Recipe", "version": 2}'
           LET parsed = JSON_PARSE string=data
-          LET message = "Processing {parsed.title} v{parsed.version}"
+          LET message = "Processing {{parsed.title}} v{{parsed.version}}"
           ADDRESS kitchen
           prepareDish name=message servings=1
         `;
@@ -2478,7 +2478,7 @@ describe('Rexx-lite Interpreter', () => {
           IF isValidConfig THEN
             IF config.enabled THEN
               DO i = 1 TO config.maxItems
-                prepareDish name="Item {i}" servings=i
+                prepareDish name="Item {{i}}" servings=i
               END
             ELSE
               prepareDish name="Disabled" servings=0
@@ -2635,7 +2635,7 @@ describe('Rexx-lite Interpreter', () => {
         const script = `
           LET baseUrl = "https://api.example.com"
           LET parsed = URL_PARSE url=baseUrl
-          LET message = "API host is {parsed.hostname}"
+          LET message = "API host is {{parsed.hostname}}"
           ADDRESS kitchen
           prepareDish name=message servings=1
         `;
@@ -2932,7 +2932,7 @@ describe('Rexx-lite Interpreter', () => {
       it('should use ID functions in string interpolation', async () => {
         const script = `
           LET id = NANOID length=8
-          LET message = "Generated ID: {id}"
+          LET message = "Generated ID: {{id}}"
           ADDRESS kitchen
           prepareDish name=message servings=1
         `;
@@ -3427,7 +3427,7 @@ describe('Rexx-lite Interpreter', () => {
           LET slug = SLUG string=name
           LET email = LOWER string=name
           LET cleanEmail = REGEX_REPLACE string=email pattern="\\s+" replacement=""
-          LET message = "User slug: {slug}, email base: {cleanEmail}"
+          LET message = "User slug: {{slug}}, email base: {{cleanEmail}}"
           ADDRESS kitchen
           prepareDish name=message servings=1
         `;
@@ -3666,7 +3666,7 @@ describe('Rexx-lite Interpreter', () => {
           IF totalItems > 5 THEN
             createMeal potatoes=3 chicken=2 rice=5 note="Array-based meal"
           ENDIF
-          prepareDish name="Ingredient: {firstIngredient}" servings=totalItems
+          prepareDish name="Ingredient: {{firstIngredient}}" servings=totalItems
         `;
         
         const commands = parse(script);
@@ -3738,7 +3738,7 @@ describe('Rexx-lite Interpreter', () => {
           LET vegetables = "[\"carrot\", \"lettuce\"]"
           LET combined = ARRAY_CONCAT array1=fruits array2=vegetables
           LET joinedList = JOIN array=combined separator=", "
-          LET message = "Shopping list: {joinedList}"
+          LET message = "Shopping list: {{joinedList}}"
           
           ADDRESS kitchen
           prepareDish name=message servings=4
@@ -3797,7 +3797,7 @@ describe('Rexx-lite Interpreter', () => {
         const script = `
           LET name = "Alice"
           LET score = 95
-          SAY "Student {name} scored {score} points"
+          SAY "Student {{name}} scored {{score}} points"
         `;
         
         const commands = parse(script);
@@ -3959,7 +3959,7 @@ describe('Rexx-lite Interpreter', () => {
       it('should handle single quotes without interpolation', async () => {
         const script = `
           LET name = "John"
-          SAY 'Hello {name}' "vs" "Hello {name}"
+          SAY 'Hello {name}' "vs" "Hello {{name}}"
         `;
         
         const commands = parse(script);
@@ -4258,10 +4258,10 @@ describe('Rexx-lite Interpreter', () => {
           LET filename = "dynamic.txt"
           LET message = "Hello from Rexx"
           
-          LET writeResult = FILE_WRITE filename=filename content="Content: {message}"
+          LET writeResult = FILE_WRITE filename=filename content="Content: {{message}}"
           LET readResult = FILE_READ filename=filename
           
-          SAY "File {filename} contains: {readResult.content}"
+          SAY "File {{filename}} contains: {{readResult.content}}"
         `;
         
         const commands = parse(script);
@@ -4281,7 +4281,7 @@ describe('Rexx-lite Interpreter', () => {
           
           DO i = 1 TO 3
             LET counter = counter + 1
-            LET logEntry = "Processing item {i} at step {counter}"
+            LET logEntry = "Processing item {{i}} at step {{counter}}"
             LET appendResult = FILE_APPEND filename=logFile content=logEntry
             
             IF i = 2 THEN
@@ -4330,7 +4330,7 @@ describe('Rexx-lite Interpreter', () => {
           LET allFiles = FILE_LIST
           LET configCount = ARRAY_LENGTH array=allFiles
           
-          SAY "Configuration system ready with {configCount} files"
+          SAY "Configuration system ready with {{configCount}} files"
         `;
         
         const commands = parse(script);

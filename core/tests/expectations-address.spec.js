@@ -55,14 +55,14 @@ describe('Expectations Address', () => {
   describe('ADDRESS_EXPECTATIONS_HANDLER', () => {
     test('should parse simple equality assertion', async () => {
       const context = { age: 25 };
-      const result = await assert('{age} should be 25', context);
+      const result = await assert('{{age}} should be 25', context);
       
       expect(result.success).toBe(true);
     });
 
     test('should parse simple inequality assertion', async () => {
       const context = { age: 30 };
-      const result = await assert('{age} should not be 25', context);
+      const result = await assert('{{age}} should not be 25', context);
       
       expect(result.success).toBe(true);
     });
@@ -70,7 +70,7 @@ describe('Expectations Address', () => {
     test('should fail on incorrect equality assertion', async () => {
       const context = { age: 30 };
       
-      const result = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{age} should be 25', context });
+      const result = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{{age}} should be 25', context });
       expect(result.success).toBe(false);
       expect(result.error).toContain('25 (number) expected, but 30 (number) encountered');
     });
@@ -78,30 +78,30 @@ describe('Expectations Address', () => {
     test('should handle greater than assertion', async () => {
       const context = { score: 85 };
       
-      const passResult = await assert('{score} should be greater than 80', context);
+      const passResult = await assert('{{score}} should be greater than 80', context);
       expect(passResult.success).toBe(true);
       
-      const failResult = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{score} should be greater than 90', context });
+      const failResult = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{{score}} should be greater than 90', context });
       expect(failResult.success).toBe(false);
     });
 
     test('should handle less than assertion', async () => {
       const context = { temp: 20 };
       
-      const passResult = await assert('{temp} should be less than 30', context);
+      const passResult = await assert('{{temp}} should be less than 30', context);
       expect(passResult.success).toBe(true);
       
-      const failResult = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{temp} should be less than 15', context });
+      const failResult = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{{temp}} should be less than 15', context });
       expect(failResult.success).toBe(false);
     });
 
     test('should handle contain assertion for strings', async () => {
       const context = { message: 'Hello World' };
       
-      const passResult = await assert('{message} should contain "World"', context);
+      const passResult = await assert('{{message}} should contain "World"', context);
       expect(passResult.success).toBe(true);
       
-      const failResult = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{message} should contain "Goodbye"', context });
+      const failResult = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{{message}} should contain "Goodbye"', context });
       expect(failResult.success).toBe(false);
     });
 
@@ -111,13 +111,13 @@ describe('Expectations Address', () => {
         fullList: [1, 2, 3]
       };
       
-      const emptyPass = await assert('{emptyList} should be empty', context);
+      const emptyPass = await assert('{{emptyList}} should be empty', context);
       expect(emptyPass.success).toBe(true);
       
-      const fullPass = await assert('{fullList} should not be empty', context);
+      const fullPass = await assert('{{fullList}} should not be empty', context);
       expect(fullPass.success).toBe(true);
       
-      const emptyFail = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{fullList} should be empty', context });
+      const emptyFail = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{{fullList}} should be empty', context });
       expect(emptyFail.success).toBe(false);
     });
 
@@ -128,19 +128,19 @@ describe('Expectations Address', () => {
         definedValue: 'test'
       };
       
-      const nullPass = await assert('{nullValue} should be null', context);
+      const nullPass = await assert('{{nullValue}} should be null', context);
       expect(nullPass.success).toBe(true);
       
-      const undefinedPass = await assert('{undefinedValue} should be undefined', context);
+      const undefinedPass = await assert('{{undefinedValue}} should be undefined', context);
       expect(undefinedPass.success).toBe(true);
       
-      const definedPass = await assert('{definedValue} should not be null', context);
+      const definedPass = await assert('{{definedValue}} should not be null', context);
       expect(definedPass.success).toBe(true);
     });
 
     test('should handle missing context variable', async () => {
       const context = {};
-      const result = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{missing} should be 10', context });
+      const result = await ADDRESS_EXPECTATIONS_HANDLER('expect', { expression: '{{missing}} should be 10', context });
       
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -169,7 +169,7 @@ describe('Expectations Address', () => {
         user: { profile: { age: 25 } }
       };
       
-      const result = await assert('{user.profile.age} should be 25', context);
+      const result = await assert('{{user.profile.age}} should be 25', context);
       
       expect(result).toBeDefined();
       expect(typeof result.success).toBe('boolean');
@@ -180,7 +180,7 @@ describe('Expectations Address', () => {
         items: [1, 2, 3, 4, 5]
       };
       
-      const result = await assert('{items} should have length 5', context);
+      const result = await assert('{{items}} should have length 5', context);
       
       expect(result).toBeDefined();
       expect(typeof result.success).toBe('boolean');

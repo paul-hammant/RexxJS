@@ -18,6 +18,7 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 
 ### Function Libraries (core `src/` and modular `extras/functions/`)
 - **Core functions**: String processing, JSON/Web, security, validation (in `src/`)
+- **HTTP functions**: RESTful API integration with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` (in `src/`)
 - **R-style functions**: Statistical computing (data frames, factors, mathematical operations) - relocated to `extras/functions/r-inspired/`
 - **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`  
 - **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
@@ -115,9 +116,11 @@ press button="+"
 press button="3"
 LET result = getDisplay
 
--- API integration
-ADDRESS api
-LET response = GET endpoint="/users" params='{"limit": 10}'
+-- HTTP API integration
+LET response = HTTP_GET("https://api.example.com/users")
+LET user_data = HTTP_POST("https://api.example.com/users", '{"name": "Alice", "email": "alice@example.com"}')
+LET updated = HTTP_PUT("https://api.example.com/users/123", '{"name": "Alice Smith"}')
+LET deleted = HTTP_DELETE("https://api.example.com/users/123")
 ```
 
 ### Infrastructure Automation
@@ -160,6 +163,7 @@ ADDRESS GCP
 - Functional programming constructs (`MAP`, `FILTER`, `REDUCE`)
 - Async/await patterns for browser operations
 - Real-time progress monitoring with `CHECKPOINT()`
+- Configurable string interpolation patterns (handlebars `{{var}}`, shell `${var}`, batch `%var%`, custom delimiters)
 
 ## Architecture
 
@@ -175,7 +179,7 @@ The codebase follows a modular design:
 1. **Scientific Computing**: R/SciPy-compatible functions for data analysis
 2. **Web Automation**: Cross-iframe scripting and browser control
 3. **Database Operations**: SQL integration with full CRUD capabilities (SQLite3)
-4. **API Integration**: RESTful service communication and data processing
+4. **HTTP API Integration**: RESTful service communication with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` functions
 5. **System Administration**: OS command execution and file operations
 6. **Testing**: Comprehensive mock frameworks for ADDRESS-based applications
 7. **Infrastructure Automation**: VM/container provisioning with QEMU, VirtualBox, Docker, Podman

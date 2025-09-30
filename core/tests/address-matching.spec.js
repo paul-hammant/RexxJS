@@ -85,7 +85,7 @@ describe('ADDRESS HEREDOC functionality', () => {
         LET tableName = "users"
         ADDRESS mockaddress
         <<QUERY
-        SELECT * FROM {tableName} WHERE id = {userId}
+        SELECT * FROM {{tableName}} WHERE id = {{userId}}
         QUERY
       `;
 
@@ -93,7 +93,7 @@ describe('ADDRESS HEREDOC functionality', () => {
 
       const calls = mockAddressHandler.getCalls();
       expect(calls).toHaveLength(1);
-      expect(calls[0].payload).toBe('        SELECT * FROM {tableName} WHERE id = {userId}');
+      expect(calls[0].payload).toBe('        SELECT * FROM {{tableName}} WHERE id = {{userId}}');
     });
   });
 
