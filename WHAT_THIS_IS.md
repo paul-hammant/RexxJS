@@ -32,6 +32,8 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - **Assertions**: not just for the build in test framework
 - **System commands**: OS-level operations
 - **Mock testing**: Comprehensive test framework (`core/tests/mock-address.js`)
+- **HEREDOC with interpolation**: `<<SQL` supports variable interpolation with configurable patterns (`{{var}}`, `${var}`, custom)
+- **HEREDOC JSON auto-parsing**: `LET config = <<JSON` automatically parses to JavaScript objects
 - Supports both traditional command strings (`"CREATE TABLE users"`) and modern method calls (`execute sql="CREATE TABLE users"`)
 
 ### Provisioning & Orchestration (`extras/addresses/provisioning-and-orchestration/`)

@@ -147,28 +147,6 @@ END
 MODULE EXPORT LET VERSION = "1.0.0"
 ```
 
-## 10. Interpolated Strings
-
-Template literals for cleaner string building.
-
-```rexx
--- Basic interpolation
-LET sheetId = "abc123"
-LET range = "A1:Z100"
-ADDRESS GCP `SHEETS SELECT * FROM '${sheetId}' RANGE '${range}'`
-
--- With expressions
-SAY `Found ${RESULT.count} rows at ${TIME()}`
-
--- Multi-line with formatting
-LET query = `
-  SELECT * FROM orders
-  WHERE customer_id = ${customerId}
-    AND date >= '${startDate}'
-    AND total > ${minAmount}
-`
-```
-
 ## 11. Native Credential Management
 
 Built-in secure credential handling for cloud services.
@@ -184,49 +162,6 @@ ADDRESS GCP WITH CREDENTIAL "google-api"
 
 -- Credential rotation
 CREDENTIAL ROTATE "api-key" WITH FUNCTION refreshToken
-```
-
-## 12. Better HEREDOC with Variables
-
-Enhanced HEREDOC syntax supporting interpolation.
-
-```rexx
--- Current HEREDOC is static, proposed enhancement:
-LET date = DATE()
-LET status = "pending"
-LET workflow = <<SQL WITH INTERPOLATION
-  SELECT * FROM orders
-  WHERE date = '${date}'
-  AND status = '${status}'
-  ORDER BY total DESC
-SQL
-
--- With conditional sections
-LET query = <<QUERY WITH INTERPOLATION
-  SELECT * FROM users
-  ${IF filterActive THEN "WHERE status = 'active'" END}
-  ${IF sortBy THEN "ORDER BY ${sortBy}" END}
-QUERY
-```
-
-## 13. Native HTTP Client
-
-Built-in HTTP client without needing ADDRESS.
-
-```rexx
--- Simple requests
-LET response = HTTP.GET("https://api.example.com/data")
-LET result = HTTP.POST("https://api.example.com/users", {
-  headers: {"Content-Type": "application/json"},
-  body: userData
-})
-
--- With configuration
-HTTP.CONFIG({
-  baseURL: "https://api.example.com",
-  timeout: 5000,
-  retry: 3
-})
 ```
 
 ## 14. Debugger Integration
