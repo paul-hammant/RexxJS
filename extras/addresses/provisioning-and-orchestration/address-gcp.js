@@ -179,6 +179,9 @@ class RateLimiter {
     this.limits = {
       global: { requests: 100, window: 60000 }, // 100 requests per minute by default
       sheets: { requests: 100, window: 60000 },
+      docs: { requests: 60, window: 60000 }, // Google Docs API: 60 requests per minute
+      slides: { requests: 100, window: 60000 }, // Google Slides API: 100 requests per minute
+      apps_script: { requests: 20, window: 60000 }, // Apps Script API: 20 requests per 60 seconds
       bigquery: { requests: 100, window: 60000 },
       storage: { requests: 100, window: 60000 },
       firestore: { requests: 100, window: 60000 },
@@ -186,7 +189,7 @@ class RateLimiter {
       functions: { requests: 100, window: 60000 },
       run: { requests: 100, window: 60000 }
     };
-    
+
     this.counters = {};
     this.enabled = false;
   }
@@ -327,720 +330,25 @@ async function ADDRESS_GCP_HANDLER(commandOrMethod, paramsOrContext, sourceConte
 // Service-Specific Command Languages
 // ============================================
 
-class SheetsHandler {
-  constructor(parent) {
-    this.parent = parent;
-    this.sheets = null;
-    this.auth = null;
-    this.currentSpreadsheet = null;
-    this.aliases = {}; // Local alias store
-  }
-
-  async initialize() {
-    // Initialize Google Sheets API
-    try {
-      console.log('[SheetsHandler] Initializing...');
-      this.auth = await this.parent.getAuth('sheets');
-      console.log('[SheetsHandler] Auth obtained:', this.auth ? 'SUCCESS' : 'NULL');
-      this.sheets = google.sheets({ version: 'v4', auth: this.auth });
-      console.log('[SheetsHandler] Sheets API initialized');
-    } catch (e) {
-      console.error('[SheetsHandler] Initialization error:', e.message);
-      // Auth will be set up on first use if not available
-    }
-  }
-
-  async handle(command) {
-    const trimmed = command.trim();
-
-    // Parse result chain if present
-    const { command: actualCommand, resultVar } = parseResultChain(trimmed);
-    const resolvedCommand = resolveVariableReferences(actualCommand, globalVariableStore);
-
-    // Handle batch operations
-    if (resolvedCommand.toUpperCase().startsWith('BATCH ')) {
-      const result = await this.handleBatch(resolvedCommand.substring(6));
-      if (resultVar) globalVariableStore[resultVar] = result;
-      return result;
-    }
-
-    // Direct spreadsheet reference: SHEET <id> <command>
-    if (resolvedCommand.match(/^[A-Za-z0-9_-]{20,}\s+/)) {
-      const spaceIndex = resolvedCommand.indexOf(' ');
-      const spreadsheetId = resolvedCommand.substring(0, spaceIndex);
-      const subCommand = resolvedCommand.substring(spaceIndex + 1).trim();
-      const result = await this.executeOnSheet(spreadsheetId, subCommand);
-      if (resultVar) globalVariableStore[resultVar] = result;
-      return result;
-    }
-
-    // SQL-like commands on current sheet
-    const upperCommand = resolvedCommand.toUpperCase();
-    let result;
-
-    if (upperCommand.startsWith('ALIAS ')) {
-      result = await this.alias(resolvedCommand.substring(6));
-    } else if (upperCommand.startsWith('CONNECT ')) {
-      result = await this.connect(resolvedCommand.substring(8));
-    } else if (upperCommand.startsWith('SELECT ')) {
-      result = await this.select(resolvedCommand);
-    } else if (upperCommand.startsWith('INSERT ')) {
-      result = await this.insert(resolvedCommand);
-    } else if (upperCommand.startsWith('UPDATE ')) {
-      result = await this.update(resolvedCommand);
-    } else if (upperCommand.startsWith('DELETE ')) {
-      result = await this.delete(resolvedCommand);
-    } else if (upperCommand.startsWith('CREATE ')) {
-      result = await this.create(resolvedCommand);
-    } else if (upperCommand.startsWith('FORMULA ')) {
-      result = await this.formula(resolvedCommand);
-    } else if (upperCommand.startsWith('FORMAT ')) {
-      result = await this.format(resolvedCommand);
-    } else {
-      throw new Error(`Unknown SHEETS command: ${resolvedCommand.split(' ')[0]}`);
-    }
-
-    // Store result if variable specified
-    if (resultVar) {
-      globalVariableStore[resultVar] = result;
-    }
-
-    return result;
-  }
-
-  async executeOnSheet(spreadsheetId, command) {
-    const previousSheet = this.currentSpreadsheet;
-    this.currentSpreadsheet = spreadsheetId;
-
-    try {
-      const result = await this.handle(command);
-      result.spreadsheetId = spreadsheetId;
-      return result;
-    } finally {
-      this.currentSpreadsheet = previousSheet;
-    }
-  }
-
-  async alias(params) {
-    // Parse: ALIAS name="spreadsheet_id"
-    const parsedParams = parseKeyValueParams(params);
-
-    if (!parsedParams.name || !parsedParams.id) {
-      // Try legacy format: ALIAS orders="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-      const legacyMatch = params.match(/(\w+)=["']([^"']+)["']/);
-      if (legacyMatch) {
-        this.aliases[legacyMatch[1]] = legacyMatch[2];
-        globalAliasStore[legacyMatch[1]] = legacyMatch[2];
-        return {
-          success: true,
-          alias: legacyMatch[1],
-          spreadsheetId: legacyMatch[2]
-        };
-      }
-      // Also try format without quotes: ALIAS testdata=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms
-      const unquotedMatch = params.match(/(\w+)=([A-Za-z0-9_-]+)/);
-      if (unquotedMatch) {
-        this.aliases[unquotedMatch[1]] = unquotedMatch[2];
-        globalAliasStore[unquotedMatch[1]] = unquotedMatch[2];
-        return {
-          success: true,
-          alias: unquotedMatch[1],
-          spreadsheetId: unquotedMatch[2]
-        };
-      }
-      throw new Error('Invalid ALIAS syntax. Use: ALIAS name="alias" id="spreadsheet_id"');
-    }
-
-    this.aliases[parsedParams.name] = parsedParams.id;
-    globalAliasStore[parsedParams.name] = parsedParams.id;
-
-    return {
-      success: true,
-      alias: parsedParams.name,
-      spreadsheetId: parsedParams.id
-    };
-  }
-
-  async connect(params) {
-    // Parse: CONNECT spreadsheet="<id>" or legacy format
-    console.log('[CONNECT] params:', params);
-    const parsedParams = parseKeyValueParams(params);
-    console.log('[CONNECT] parsedParams:', parsedParams);
-    let spreadsheetId;
-
-    if (parsedParams.spreadsheet) {
-      spreadsheetId = parsedParams.spreadsheet;
-    } else {
-      // Try legacy format or direct ID
-      const match = params.match(/^['"]?([^'"\s]+)['"]?/);
-      if (!match) {
-        throw new Error('Invalid CONNECT syntax. Use: CONNECT spreadsheet="<id>"');
-      }
-      spreadsheetId = match[1];
-    }
-
-    // Resolve alias if it's an alias reference
-    if (this.aliases[spreadsheetId] || globalAliasStore[spreadsheetId]) {
-      spreadsheetId = this.aliases[spreadsheetId] || globalAliasStore[spreadsheetId];
-    }
-
-    this.currentSpreadsheet = spreadsheetId;
-    console.log('[CONNECT] Attempting to connect to:', spreadsheetId);
-    console.log('[CONNECT] Auth available:', this.auth ? 'YES' : 'NO');
-    console.log('[CONNECT] Sheets client available:', this.sheets ? 'YES' : 'NO');
-
-    // Verify connection
-    try {
-      const metadata = await this.sheets.spreadsheets.get({
-        spreadsheetId: this.currentSpreadsheet
-      });
-
-      console.log('[CONNECT] Success! Title:', metadata.data.properties.title);
-      return {
-        success: true,
-        spreadsheetId: this.currentSpreadsheet,
-        title: metadata.data.properties.title,
-        sheets: metadata.data.sheets.map(s => s.properties.title)
-      };
-    } catch (e) {
-      console.error('[CONNECT] Error:', e.message, 'Code:', e.code);
-      throw new Error(`Failed to connect to spreadsheet: ${e.message}`);
-    }
-  }
-
-  async handleBatch(batchCommand) {
-    // Parse: BATCH ["command1", "command2", ...]
-    let commands;
-    try {
-      // Extract array from batch command
-      const arrayMatch = batchCommand.match(/\[([^\]]+)\]/);
-      if (!arrayMatch) {
-        throw new Error('Invalid BATCH syntax. Use: BATCH ["command1", "command2"]');
-      }
-      
-      // Parse comma-separated quoted commands
-      const commandsStr = arrayMatch[1];
-      commands = commandsStr.split(/,\s*/).map(cmd => {
-        const trimmed = cmd.trim();
-        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-          return trimmed.slice(1, -1);
-        }
-        if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
-          return trimmed.slice(1, -1);
-        }
-        return trimmed;
-      });
-    } catch (e) {
-      throw new Error(`BATCH parsing failed: ${e.message}`);
-    }
-
-    const results = [];
-    for (let i = 0; i < commands.length; i++) {
-      try {
-        const result = await this.handle(commands[i]);
-        results.push(result);
-      } catch (e) {
-        results.push({ error: e.message, command: commands[i] });
-      }
-    }
-
-    return {
-      success: true,
-      batch: true,
-      results: results,
-      count: results.length
-    };
-  }
-
-  async select(command) {
-    // Parse: SELECT columns FROM sheet [WHERE condition]
-    // Support alias references: SELECT * FROM orders.'New Orders'
-    let match = command.match(/SELECT\s+(.+?)\s+FROM\s+([\w]+)\.['"]?([^'"]+?)['"]?(?:\s+WHERE\s+(.+))?$/i);
-    let aliasName, sheetName, spreadsheetId;
-    
-    if (match) {
-      // Alias.sheet format
-      const [_, columns, alias, sheet, whereClause] = match;
-      aliasName = alias;
-      sheetName = sheet;
-      spreadsheetId = this.aliases[aliasName] || globalAliasStore[aliasName];
-      
-      if (!spreadsheetId) {
-        throw new Error(`Unknown alias: ${aliasName}. Use ALIAS to define it first.`);
-      }
-      
-      const previousSheet = this.currentSpreadsheet;
-      this.currentSpreadsheet = spreadsheetId;
-      
-      try {
-        return await this.executeSelect(columns, sheetName, whereClause);
-      } finally {
-        this.currentSpreadsheet = previousSheet;
-      }
-    }
-    
-    // Standard format: SELECT columns FROM sheet
-    match = command.match(/SELECT\s+(.+?)\s+FROM\s+['"]?([^'"]+?)['"]?(?:\s+WHERE\s+(.+))?$/i);
-    
-    if (!match) {
-      throw new Error('Invalid SELECT syntax. Use: SELECT columns FROM sheet [WHERE condition]');
-    }
-
-    const [_, columns, sheet, whereClause] = match;
-    return await this.executeSelect(columns, sheet, whereClause);
-  }
-  
-  async executeSelect(columns, sheetName, whereClause) {
-    if (!this.currentSpreadsheet) {
-      throw new Error('No spreadsheet connected. Use CONNECT first.');
-    }
-
-    // Convert column spec to A1 notation
-    const range = `${sheetName}!${this.normalizeColumns(columns)}`;
-
-    try {
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId: this.currentSpreadsheet,
-        range: range
-      });
-
-      let rows = response.data.values || [];
-
-      // Apply WHERE clause if present
-      if (whereClause) {
-        rows = this.filterRowsWithNaturalLanguage(rows, whereClause, columns);
-      }
-
-      return {
-        success: true,
-        rows: rows,
-        count: rows.length,
-        columns: columns,
-        sheet: sheetName
-      };
-    } catch (e) {
-      throw new Error(`SELECT failed: ${e.message}`);
-    }
-  }
-
-  normalizeColumns(columns) {
-    // Handle various column specifications
-    // * -> A:ZZ
-    // A,B,C -> A:C
-    // A:D -> A:D
-    if (columns === '*') return 'A:ZZ';
-    if (columns.includes(':')) return columns;
-
-    const cols = columns.split(',').map(c => c.trim());
-    if (cols.length === 1) return cols[0];
-
-    // Find min and max columns
-    const sorted = cols.sort();
-    return `${sorted[0]}:${sorted[sorted.length - 1]}`;
-  }
-
-  filterRowsWithNaturalLanguage(rows, whereClause, columns) {
-    // Enhanced WHERE clause with natural language operators
-    // Support: IS, BELOW, ABOVE, CONTAINS, STARTS, ENDS, TODAY(), etc.
-    
-    return rows.filter((row, index) => {
-      if (index === 0) return true; // Keep header row
-      
-      try {
-        // Parse natural language conditions
-        let condition = whereClause.trim();
-        
-        // Replace natural language operators
-        condition = condition.replace(/\bIS\s+today\b/gi, '= TODAY()');
-        condition = condition.replace(/\bIS\s+/gi, '= ');
-        condition = condition.replace(/\bBELOW\s+/gi, '< ');
-        condition = condition.replace(/\bABOVE\s+/gi, '> ');
-        condition = condition.replace(/\bCONTAINS\s+/gi, 'LIKE ');
-        
-        // Handle TODAY() function
-        condition = condition.replace(/TODAY\(\)/gi, this.getTodayString());
-        
-        // Simple evaluation for basic conditions
-        // This is a simplified parser - in production, use a proper expression parser
-        const simpleMatch = condition.match(/(\w+)\s*([<>=!]+|LIKE)\s*([^\s]+)/);
-        if (simpleMatch) {
-          const [_, column, operator, value] = simpleMatch;
-          const columnIndex = this.getColumnIndex(column, columns);
-          
-          if (columnIndex >= 0 && columnIndex < row.length) {
-            const cellValue = row[columnIndex];
-            return this.evaluateCondition(cellValue, operator, value);
-          }
-        }
-        
-        return true; // If we can't parse, include the row
-      } catch (e) {
-        return true; // If evaluation fails, include the row
-      }
-    });
-  }
-  
-  getTodayString() {
-    return new Date().toISOString().split('T')[0];
-  }
-  
-  getColumnIndex(columnName, columnsSpec) {
-    // Simple column name to index mapping
-    // In a real implementation, this would map column names to A1 notation indices
-    if (columnsSpec === '*') {
-      // For now, assume common column names
-      const commonColumns = ['date', 'amount', 'status', 'name', 'id'];
-      return commonColumns.indexOf(columnName.toLowerCase());
-    }
-    return 0; // Fallback
-  }
-  
-  evaluateCondition(cellValue, operator, targetValue) {
-    // Remove quotes from target value
-    const cleanTarget = targetValue.replace(/["']/g, '');
-    
-    switch (operator) {
-      case '=':
-      case '==':
-        return cellValue == cleanTarget;
-      case '!=':
-        return cellValue != cleanTarget;
-      case '>':
-        return parseFloat(cellValue) > parseFloat(cleanTarget);
-      case '<':
-        return parseFloat(cellValue) < parseFloat(cleanTarget);
-      case '>=':
-        return parseFloat(cellValue) >= parseFloat(cleanTarget);
-      case '<=':
-        return parseFloat(cellValue) <= parseFloat(cleanTarget);
-      case 'LIKE':
-        return cellValue && cellValue.toString().toLowerCase().includes(cleanTarget.toLowerCase());
-      default:
-        return true;
-    }
-  }
-
-  async insert(command) {
-    // Parse standardized syntax: INSERT sheet="name" values="val1,val2,val3" [columns="col1,col2,col3"]
-    console.log('[INSERT] command:', command);
-    const parsedParams = parseKeyValueParams(command);
-    console.log('[INSERT] parsedParams:', parsedParams);
-
-    if (parsedParams.sheet && parsedParams.values) {
-      // New standardized format
-      const sheetName = parsedParams.sheet;
-      const valuesStr = parsedParams.values;
-      const columns = parsedParams.columns;
-      console.log('[INSERT] valuesStr:', valuesStr);
-      
-      if (!this.currentSpreadsheet) {
-        throw new Error('No spreadsheet connected. Use CONNECT first.');
-      }
-
-      const parsedValues = this.parseValues(valuesStr);
-
-      try {
-        const response = await this.sheets.spreadsheets.values.append({
-          spreadsheetId: this.currentSpreadsheet,
-          range: `${sheetName}!A:ZZ`,
-          valueInputOption: 'USER_ENTERED',
-          insertDataOption: 'INSERT_ROWS',
-          requestBody: {
-            values: [parsedValues]
-          }
-        });
-
-        return {
-          success: true,
-          updatedRange: response.data.updates.updatedRange,
-          updatedRows: response.data.updates.updatedRows,
-          sheet: sheetName
-        };
-      } catch (e) {
-        throw new Error(`INSERT failed: ${e.message}`);
-      }
-    }
-    
-    // Legacy format: INSERT INTO sheet VALUES (...)
-    const match = command.match(/INSERT\s+INTO\s+['"]?([^'"]+?)['"]?(?:\s*\(([^)]+)\))?\s+VALUES\s+\((.+)\)/i);
-
-    if (!match) {
-      throw new Error('Invalid INSERT syntax. Use: INSERT sheet="name" values="val1,val2" or legacy INSERT INTO sheet VALUES (...)');
-    }
-
-    const [_, sheetName, columns, values] = match;
-
-    if (!this.currentSpreadsheet) {
-      throw new Error('No spreadsheet connected. Use CONNECT first.');
-    }
-
-    const parsedValues = this.parseValues(values);
-
-    try {
-      const response = await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.currentSpreadsheet,
-        range: `${sheetName}!A:ZZ`,
-        valueInputOption: 'USER_ENTERED',
-        insertDataOption: 'INSERT_ROWS',
-        requestBody: {
-          values: [parsedValues]
-        }
-      });
-
-      return {
-        success: true,
-        updatedRange: response.data.updates.updatedRange,
-        updatedRows: response.data.updates.updatedRows,
-        sheet: sheetName
-      };
-    } catch (e) {
-      throw new Error(`INSERT failed: ${e.message}`);
-    }
-  }
-
-  parseValues(valuesStr) {
-    // Parse comma-separated values, handling quotes
-    const values = [];
-    let current = '';
-    let inQuotes = false;
-    let quoteChar = null;
-
-    for (let i = 0; i < valuesStr.length; i++) {
-      const char = valuesStr[i];
-
-      if ((char === '"' || char === "'") && (i === 0 || valuesStr[i-1] !== '\\')) {
-        if (!inQuotes) {
-          inQuotes = true;
-          quoteChar = char;
-        } else if (char === quoteChar) {
-          inQuotes = false;
-          quoteChar = null;
-        } else {
-          current += char;
-        }
-      } else if (char === ',' && !inQuotes) {
-        values.push(this.parseValue(current.trim()));
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-
-    if (current) {
-      values.push(this.parseValue(current.trim()));
-    }
-
-    return values;
-  }
-
-  parseValue(value) {
-    // Convert string to appropriate type
-    if (value === 'NULL' || value === 'null') return null;
-    if (value === 'TRUE' || value === 'true') return true;
-    if (value === 'FALSE' || value === 'false') return false;
-    if (/^-?\d+$/.test(value)) return parseInt(value);
-    if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
-    return value;
-  }
-}
-
-class BigQueryHandler {
-  constructor(parent) {
-    this.parent = parent;
-    this.bigquery = null;
-    this.currentDataset = null;
-  }
-
-  async initialize() {
-    // Initialize BigQuery client
-    try {
-      const { BigQuery } = require('@google-cloud/bigquery');
-      this.bigquery = new BigQuery({
-        projectId: this.parent.project
-      });
-    } catch (e) {
-      // BigQuery SDK not available, will use gcloud fallback
-    }
-  }
-
-  async handle(command) {
-    const trimmed = command.trim();
-    
-    // Parse result chain if present
-    const { command: actualCommand, resultVar } = parseResultChain(trimmed);
-    const resolvedCommand = resolveVariableReferences(actualCommand, globalVariableStore);
-
-    // Handle batch operations
-    if (resolvedCommand.toUpperCase().startsWith('BATCH ')) {
-      const result = await this.handleBatch(resolvedCommand.substring(6));
-      if (resultVar) globalVariableStore[resultVar] = result;
-      return result;
-    }
-    
-    // Handle transaction operations  
-    if (resolvedCommand.toUpperCase().startsWith('TRANSACTION ')) {
-      const result = await this.handleTransaction(resolvedCommand.substring(12));
-      if (resultVar) globalVariableStore[resultVar] = result;
-      return result;
-    }
-
-    const upperCommand = resolvedCommand.toUpperCase();
-    let result;
-
-    if (upperCommand.startsWith('USE ')) {
-      result = await this.useDataset(resolvedCommand.substring(4));
-    } else if (upperCommand.startsWith('SELECT ') || upperCommand.startsWith('WITH ')) {
-      result = await this.query(resolvedCommand);
-    } else if (upperCommand.startsWith('INSERT ')) {
-      result = await this.insert(resolvedCommand);
-    } else if (upperCommand.startsWith('CREATE ')) {
-      result = await this.create(resolvedCommand);
-    } else if (upperCommand.startsWith('DROP ')) {
-      result = await this.drop(resolvedCommand);
-    } else if (upperCommand.includes('ML.')) {
-      // ML operations
-      result = await this.mlQuery(resolvedCommand);
-    } else {
-      throw new Error(`Unknown BIGQUERY command: ${resolvedCommand.split(' ')[0]}`);
-    }
-
-    // Store result if variable specified
-    if (resultVar) {
-      globalVariableStore[resultVar] = result;
-    }
-
-    return result;
-  }
-  
-  async handleBatch(batchCommand) {
-    // Similar to SheetsHandler batch implementation
-    let queries;
-    try {
-      const arrayMatch = batchCommand.match(/\[([^\]]+)\]/);
-      if (!arrayMatch) {
-        throw new Error('Invalid BATCH syntax. Use: BATCH ["query1", "query2"]');
-      }
-      
-      const queriesStr = arrayMatch[1];
-      queries = queriesStr.split(/,\s*/).map(cmd => {
-        const trimmed = cmd.trim();
-        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-          return trimmed.slice(1, -1);
-        }
-        if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
-          return trimmed.slice(1, -1);
-        }
-        return trimmed;
-      });
-    } catch (e) {
-      throw new Error(`BATCH parsing failed: ${e.message}`);
-    }
-
-    const results = [];
-    for (let i = 0; i < queries.length; i++) {
-      try {
-        const result = await this.query(queries[i]);
-        results.push(result);
-      } catch (e) {
-        results.push({ error: e.message, query: queries[i] });
-      }
-    }
-
-    return {
-      success: true,
-      batch: true,
-      results: results,
-      count: results.length
-    };
-  }
-  
-  async handleTransaction(transactionCommand) {
-    // Parse transaction: TRANSACTION ["statement1", "statement2"]
-    let statements;
-    try {
-      const arrayMatch = transactionCommand.match(/\[([^\]]+)\]/);
-      if (!arrayMatch) {
-        throw new Error('Invalid TRANSACTION syntax. Use: TRANSACTION ["statement1", "statement2"]');
-      }
-      
-      const statementsStr = arrayMatch[1];
-      statements = statementsStr.split(/,\s*/).map(cmd => {
-        const trimmed = cmd.trim();
-        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-          return trimmed.slice(1, -1);
-        }
-        if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
-          return trimmed.slice(1, -1);
-        }
-        return trimmed;
-      });
-    } catch (e) {
-      throw new Error(`TRANSACTION parsing failed: ${e.message}`);
-    }
-
-    // Execute all statements in sequence
-    const results = [];
-    let allSucceeded = true;
-    
-    for (let i = 0; i < statements.length; i++) {
-      try {
-        const result = await this.query(statements[i]);
-        results.push(result);
-        if (!result.success) allSucceeded = false;
-      } catch (e) {
-        results.push({ error: e.message, statement: statements[i] });
-        allSucceeded = false;
-        break; // Stop on first error in transaction
-      }
-    }
-
-    return {
-      success: allSucceeded,
-      transaction: true,
-      results: results,
-      count: results.length
-    };
-  }
-
-  async query(sql) {
-    if (this.bigquery) {
-      // Use native SDK
-      const options = {
-        query: sql,
-        location: this.parent.region
-      };
-
-      const [job] = await this.bigquery.createQueryJob(options);
-      const [rows] = await job.getQueryResults();
-
-      return {
-        success: true,
-        rows: rows,
-        count: rows.length,
-        jobId: job.id
-      };
-    } else {
-      // Fallback to gcloud
-      const result = await this.parent.execCommand('bq', [
-        'query',
-        '--format=json',
-        '--use_legacy_sql=false',
-        sql
-      ]);
-
-      if (result.success) {
-        const rows = JSON.parse(result.stdout || '[]');
-        return {
-          success: true,
-          rows: rows,
-          count: rows.length
-        };
-      }
-
-      throw new Error(`Query failed: ${result.stderr}`);
-    }
-  }
-}
+// ============================================================================
+// SheetsHandler - Now loaded lazily from gcp-handlers/sheets-handler.js
+// ============================================================================
+
+// ============================================================================
+// DocsHandler - Now loaded lazily from gcp-handlers/docs-handler.js
+// ============================================================================
+
+// ============================================================================
+// SlidesHandler - Now loaded lazily from gcp-handlers/slides-handler.js
+// ============================================================================
+
+// ============================================================================
+// AppsScriptHandler - Now loaded lazily from gcp-handlers/apps-script-handler.js
+// ============================================================================
+
+// ============================================================================
+// BigQueryHandler - Now loaded lazily from gcp-handlers/bigquery-handler.js
+// ============================================================================
 
 class FirestoreHandler {
   constructor(parent) {
@@ -1405,10 +713,14 @@ class UnifiedGcpHandler {
     this.project = null; // Will be set from gcloud config or params
     this.region = 'us-central1';
 
-    // Service handlers
+    // Service handlers - lazy loaded for better modularity
     this.services = {
-      sheets: new SheetsHandler(this),
-      bigquery: new BigQueryHandler(this),
+      sheets: null, // Lazy loaded from gcp-handlers/sheets-handler.js
+      docs: null, // Lazy loaded from gcp-handlers/docs-handler.js
+      slides: null, // Lazy loaded from gcp-handlers/slides-handler.js
+      apps_script: null, // Lazy loaded from gcp-handlers/apps-script-handler.js
+      bigquery: null, // Lazy loaded from gcp-handlers/bigquery-handler.js
+      billing: null, // Lazy loaded from gcp-handlers/billing-handler.js
       firestore: new FirestoreHandler(this),
       storage: new StorageHandler(this),
       pubsub: new PubSubHandler(this),
@@ -1462,9 +774,9 @@ class UnifiedGcpHandler {
       }
     }
 
-    // Initialize service handlers
+    // Initialize service handlers (skip null/lazy-loaded services)
     for (const service of Object.values(this.services)) {
-      if (typeof service.initialize === 'function') {
+      if (service && typeof service.initialize === 'function') {
         await service.initialize();
       }
     }
@@ -1472,20 +784,91 @@ class UnifiedGcpHandler {
     return this;
   }
 
-  async getAuth(scope) {
+  // Lazy load service handlers for better modularity
+  async ensureSheetsHandler() {
+    if (!this.services.sheets) {
+      const { SheetsHandler } = require('./gcp-handlers/sheets-handler.js');
+      this.services.sheets = new SheetsHandler(this, parseKeyValueParams);
+      if (typeof this.services.sheets.initialize === 'function') {
+        await this.services.sheets.initialize();
+      }
+    }
+    return this.services.sheets;
+  }
+
+  async ensureAppsScriptHandler() {
+    if (!this.services.apps_script) {
+      const { AppsScriptHandler } = require('./gcp-handlers/apps-script-handler.js');
+      this.services.apps_script = new AppsScriptHandler(this, parseKeyValueParams);
+      if (typeof this.services.apps_script.initialize === 'function') {
+        await this.services.apps_script.initialize();
+      }
+    }
+    return this.services.apps_script;
+  }
+
+  async ensureBigQueryHandler() {
+    if (!this.services.bigquery) {
+      const { BigQueryHandler } = require('./gcp-handlers/bigquery-handler.js');
+      this.services.bigquery = new BigQueryHandler(this, parseKeyValueParams);
+      if (typeof this.services.bigquery.initialize === 'function') {
+        await this.services.bigquery.initialize();
+      }
+    }
+    return this.services.bigquery;
+  }
+
+  async ensureBillingHandler() {
+    if (!this.services.billing) {
+      const { BillingHandler } = require('./gcp-handlers/billing-handler.js');
+      this.services.billing = new BillingHandler(this, parseKeyValueParams);
+      if (typeof this.services.billing.initialize === 'function') {
+        await this.services.billing.initialize();
+      }
+    }
+    return this.services.billing;
+  }
+
+  async ensureDocsHandler() {
+    if (!this.services.docs) {
+      const { DocsHandler } = require('./gcp-handlers/docs-handler.js');
+      this.services.docs = new DocsHandler(this, parseKeyValueParams);
+      if (typeof this.services.docs.initialize === 'function') {
+        await this.services.docs.initialize();
+      }
+    }
+    return this.services.docs;
+  }
+
+  async ensureSlidesHandler() {
+    if (!this.services.slides) {
+      const { SlidesHandler } = require('./gcp-handlers/slides-handler.js');
+      this.services.slides = new SlidesHandler(this, parseKeyValueParams);
+      if (typeof this.services.slides.initialize === 'function') {
+        await this.services.slides.initialize();
+      }
+    }
+    return this.services.slides;
+  }
+
+  async getAuth(scopes) {
     // Use Google Application Default Credentials
     // This will automatically use GOOGLE_APPLICATION_CREDENTIALS env var
     try {
       const { GoogleAuth } = require('google-auth-library');
       console.log('[GCP Auth] GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
+
+      // Default scopes if none provided
+      const authScopes = scopes || [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive.readonly'
+      ];
+
       const auth = new GoogleAuth({
-        scopes: [
-          'https://www.googleapis.com/auth/spreadsheets',
-          'https://www.googleapis.com/auth/drive.readonly'
-        ]
+        scopes: authScopes
       });
       const client = await auth.getClient();
-      console.log('[GCP Auth] Successfully created auth client');
+      console.log('[GCP Auth] Successfully created auth client with scopes:', authScopes);
       return client;
     } catch (e) {
       console.error('[GCP Auth] Failed to get Google auth:', e.message);
@@ -1514,11 +897,30 @@ class UnifiedGcpHandler {
       case 'SHEET':
       case 'SHEETS':
         await globalRateLimiter.checkLimit('sheets');
-        return await this.services.sheets.handle(trimmed.substring(firstWord.length).trim());
+        const sheetsHandler = await this.ensureSheetsHandler();
+        return await sheetsHandler.handle(trimmed.substring(firstWord.length).trim());
+
+      case 'DOC':
+      case 'DOCS':
+        await globalRateLimiter.checkLimit('docs');
+        const docsHandler = await this.ensureDocsHandler();
+        return await docsHandler.execute(trimmed.substring(firstWord.length).trim());
+
+      case 'SLIDE':
+      case 'SLIDES':
+        await globalRateLimiter.checkLimit('slides');
+        const slidesHandler = await this.ensureSlidesHandler();
+        return await slidesHandler.execute(trimmed.substring(firstWord.length).trim());
 
       case 'BIGQUERY':
         await globalRateLimiter.checkLimit('bigquery');
-        return await this.services.bigquery.handle(trimmed.substring(firstWord.length).trim());
+        const bigqueryHandler = await this.ensureBigQueryHandler();
+        return await bigqueryHandler.handle(trimmed.substring(firstWord.length).trim());
+
+      case 'BILLING':
+        await globalRateLimiter.checkLimit('billing');
+        const billingHandler = await this.ensureBillingHandler();
+        return await billingHandler.execute(trimmed.substring(firstWord.length).trim());
 
       case 'FIRESTORE':
         await globalRateLimiter.checkLimit('firestore');
@@ -1541,6 +943,11 @@ class UnifiedGcpHandler {
         await globalRateLimiter.checkLimit('run');
         return await this.services.run.handle(trimmed.substring(firstWord.length).trim());
 
+      case 'APPS_SCRIPT':
+        await globalRateLimiter.checkLimit('apps_script');
+        const appsScriptHandler = await this.ensureAppsScriptHandler();
+        return await appsScriptHandler.execute(trimmed.substring(firstWord.length).trim());
+
       // Legacy gcloud-like syntax for backward compatibility
       case 'DEPLOY':
       case 'LIST':
@@ -1550,7 +957,7 @@ class UnifiedGcpHandler {
         return await this.handleLegacyCommand(trimmed);
 
       default:
-        throw new Error(`Unknown GCP service: ${firstWord}. Available services: SHEETS, BIGQUERY, FIRESTORE, STORAGE, PUBSUB, FUNCTIONS, RUN, RATELIMIT`);
+        throw new Error(`Unknown GCP service: ${firstWord}. Available services: SHEETS, APPS_SCRIPT, BIGQUERY, FIRESTORE, STORAGE, PUBSUB, FUNCTIONS, RUN, RATELIMIT`);
     }
   }
 
