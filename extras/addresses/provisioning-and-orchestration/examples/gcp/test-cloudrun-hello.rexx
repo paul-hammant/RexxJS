@@ -47,36 +47,81 @@ ADDRESS GCP "RUN DEPLOY {SERVICE_NAME} IMAGE {imageUrl} REGION {REGION}"
 IF RC \= 0 THEN DO
   SAY "✗ DEPLOY FAILED"
   SAY ""
-  SAY "Common issues:"
-  SAY "  1. gcloud not installed: sudo apt install google-cloud-sdk"
-  SAY "  2. Not authenticated: gcloud auth login"
-  SAY "  3. Cloud Run API not enabled - visit:"
-  SAY "     https://console.cloud.google.com/apis/library/run.googleapis.com"
-  SAY "  4. No billing account (even for free tier)"
-  SAY ""
-  SAY "Error details:"
-  SAY RESULT.stderr
+
+  /* Parse error message for specific issues */
+  LET errorText = RESULT.stderr
+  LET hasApiDisabled = POS('API has not been used', errorText)
+  LET hasPermission = POS('Permission', errorText)
+  LET hasPermissionDenied = POS('denied', errorText)
+
+  /* Detect specific error conditions and provide actionable guidance */
+  IF hasApiDisabled > 0 THEN DO
+    SAY "❌ CLOUD RUN API NOT ENABLED"
+    SAY ""
+    SAY "The Cloud Run API needs to be enabled for your project."
+    SAY ""
+    SAY "▶ ACTION REQUIRED:"
+    SAY "   1. Visit this URL (opens in browser):"
+    SAY "      https://console.cloud.google.com/apis/library/run.googleapis.com"
+    SAY ""
+    SAY "   2. Make sure you're logged into the correct Google account"
+    SAY ""
+    SAY "   3. Select your project from the dropdown at the top"
+    SAY ""
+    SAY "   4. Click the 'ENABLE' button"
+    SAY ""
+    SAY "   5. Wait 1-2 minutes for the API to be fully enabled"
+    SAY ""
+    SAY "   6. Re-run this script"
+    SAY ""
+  END
+  ELSE DO
+    IF hasPermission > 0 & hasPermissionDenied > 0 THEN DO
+      SAY "❌ INSUFFICIENT PERMISSIONS"
+      SAY ""
+      SAY "Your service account lacks the required Cloud Run permissions."
+      SAY ""
+      SAY "▶ ACTION REQUIRED:"
+      SAY "   1. Visit the IAM page:"
+      SAY "      https://console.cloud.google.com/iam-admin/iam"
+      SAY ""
+      SAY "   2. Find your service account in the list"
+      SAY ""
+      SAY "   3. Click the pencil (✏️) icon to edit permissions"
+      SAY ""
+      SAY "   4. Click '+ ADD ANOTHER ROLE'"
+      SAY ""
+      SAY "   5. Search for and add: 'Cloud Run Admin'"
+      SAY "      (Also add 'Service Account User' if not already present)"
+      SAY ""
+      SAY "   6. Click 'SAVE'"
+      SAY ""
+      SAY "   7. Wait 30 seconds for permissions to propagate"
+      SAY ""
+      SAY "   8. Re-run this script"
+      SAY ""
+    END
+    ELSE DO
+      SAY "Common issues:"
+      SAY "  • gcloud CLI not installed: sudo apt install google-cloud-sdk"
+      SAY "  • Not authenticated: gcloud auth login"
+      SAY "  • No billing account linked to project"
+      SAY ""
+    END
+  END
+
+  SAY "Full error details:"
+  SAY "─────────────────────────────────────────"
+  SAY errorText
+  SAY "─────────────────────────────────────────"
   EXIT 1
 END
 
 SAY "✓ Service deployed successfully!"
 SAY ""
 
-/* Extract service URL from RESULT - it's in the stderr */
-LET serviceUrl = ''
-LET urlPos = POS('https://', RESULT.stderr)
-
-IF urlPos > 0 THEN DO
-  LET afterUrl = SUBSTR(RESULT.stderr, urlPos, 100)
-  LET escPos = POS('[', afterUrl)
-  IF escPos > 0 THEN DO
-    LET urlLen = escPos - 1
-    serviceUrl = SUBSTR(afterUrl, 1, urlLen)
-  END
-  ELSE DO
-    serviceUrl = afterUrl
-  END
-END
+/* Get service URL from structured JSON response */
+LET serviceUrl = RESULT.url
 
 IF serviceUrl \= '' THEN DO
   SAY "  Service URL: " || serviceUrl
@@ -105,8 +150,9 @@ IF serviceUrl \= '' THEN DO
   END
 END
 ELSE DO
-  SAY "⚠️  Could not extract service URL from output"
+  SAY "⚠️  Could not get service URL from deployment"
   SAY "   Check Cloud Console: https://console.cloud.google.com/run"
+  SAY "   The service may still be deploying or initializing"
 END
 
 SAY ""

@@ -110,9 +110,22 @@ ADDRESS GCP
 | **Firestore** | `FIRESTORE` | Standardized syntax, result integration |
 | **Cloud Storage** | `STORAGE` | Standardized file/bucket parameters |
 | **Pub/Sub** | `PUBSUB` | Standardized topic/message syntax |
-| **Cloud Functions** | `FUNCTIONS`, `FUNCTION` | Enhanced deployment options |
-| **Cloud Run** | `RUN` | Container service deployment |
+| **Cloud Functions (2nd gen)** | `FUNCTIONS`, `FUNCTION` | 2nd gen deployment, JSON-based URL extraction, intelligent error detection |
+| **Cloud Run** | `RUN` | Container deployment from images or source, JSON-based URL extraction |
 | **Compute Engine** | `COMPUTE`, `VM` | Virtual machine management |
+
+### Cloud Functions & Cloud Run - Production-Ready Examples
+
+**✅ Working end-to-end tests with automatic cleanup**:
+- `examples/gcp/test-cloudfunction-inline-python-helloworld.rexx` - Cloud Functions 2nd gen with inline Python code (HEREDOC)
+- `examples/gcp/test-cloudrun-hello.rexx` - Cloud Run container deployment from pre-built image
+
+Both tests include:
+- ✅ **JSON-based URL extraction** (no stderr parsing!)
+- ✅ **Intelligent error detection** (auto-detects API/permission issues with fix instructions)
+- ✅ **HTTP_GET testing** with structured response objects
+- ✅ **Automatic cleanup** (delete deployed resources)
+- ✅ **Cost tracking** (all within free tier)
 
 ## 🏁 Quick Start
 
@@ -127,6 +140,36 @@ gcloud init
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
+```
+
+### Cloud Functions & Cloud Run Setup
+
+**Required APIs** (enable at https://console.cloud.google.com/apis):
+- Cloud Functions API (`cloudfunctions.googleapis.com`)
+- Cloud Run API (`run.googleapis.com`)
+- Cloud Build API (`cloudbuild.googleapis.com`)
+- **Cloud Resource Manager API** (`cloudresourcemanager.googleapis.com`) - Required for 2nd gen functions!
+
+**Required IAM Roles** (for service account):
+- Cloud Run Admin
+- Service Account User
+- Cloud Build Editor
+
+**Quick enable via gcloud**:
+```bash
+gcloud services enable cloudfunctions.googleapis.com run.googleapis.com cloudbuild.googleapis.com cloudresourcemanager.googleapis.com
+```
+
+**Test your setup**:
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your-service-account-key.json"
+
+# Test Cloud Run (container deployment)
+node core/src/rexxjs-cli.js extras/addresses/provisioning-and-orchestration/examples/gcp/test-cloudrun-hello.rexx
+
+# Test Cloud Functions (inline Python)
+mkdir -p /tmp/rexxjs-cloudfunction-hello
+node core/src/rexxjs-cli.js extras/addresses/provisioning-and-orchestration/examples/gcp/test-cloudfunction-inline-python-helloworld.rexx
 ```
 
 ### Basic Usage with Enhanced Grammar

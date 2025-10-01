@@ -18,7 +18,7 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 
 ### Function Libraries (core `src/` and modular `extras/functions/`)
 - **Core functions**: String processing, JSON/Web, security, validation (in `src/`)
-- **HTTP functions**: RESTful API integration with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` (in `src/`)
+- **HTTP functions**: RESTful API integration with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` returning structured `{status, body, headers, ok}` objects (in `src/`)
 - **R-style functions**: Statistical computing (data frames, factors, mathematical operations) - relocated to `extras/functions/r-inspired/`
 - **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`  
 - **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
@@ -29,8 +29,8 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - **Alien parsable/interpretable language** (Sql, bash, english assertion grammar, others)
 - **implementations** can modify RC and RESULT vars (the latter a dict if needed)
 - **SQL**: SQLite database operations
+- **SYSTEM**: OS-level shell command execution (`ADDRESS SYSTEM "ls -la"`, `ADDRESS SYSTEM "cat > file.txt <<'EOF' ... EOF"`)
 - **Assertions**: not just for the build in test framework
-- **System commands**: OS-level operations
 - **Mock testing**: Comprehensive test framework (`core/tests/mock-address.js`)
 - **HEREDOC with interpolation**: `<<SQL` supports variable interpolation with configurable patterns (`{{var}}`, `${var}`, custom)
 - **HEREDOC JSON auto-parsing**: `LET config = <<JSON` automatically parses to JavaScript objects
@@ -43,9 +43,11 @@ Comprehensive infrastructure management with VM, container automation, and **clo
 - **🚀 Killer Feature: Direct Spreadsheet Access** - `"SHEET 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Sales'"`
 - **SQL-like operations on Google Sheets** - Treat spreadsheets as databases with SELECT, INSERT, UPDATE
 - **Service-specific command languages** - SHEETS, BIGQUERY, FIRESTORE, STORAGE, PUBSUB, FUNCTIONS, RUN
+- **Production-ready Cloud Functions & Cloud Run** - 2nd gen functions with JSON-based URL extraction, intelligent error detection
 - **HEREDOC orchestration workflows** - Complex multi-service operations as readable documentation
-- **Cross-service data flow** - Sheets → BigQuery → Firestore → Pub/Sub in single scripts
+- **Cross-service data flow** - Sheets → BigQuery → Firestore → Pub/Sub → Functions → Cloud Run in single scripts
 - **Replaces Google Apps Script, gcloud scripting, Zapier/IFTTT, ETL tools**
+- **Built-in test examples** - Working end-to-end tests with automatic cleanup (all within free tier)
 
 **Container Management:**
 - **Docker** (`address-docker.js`) - Full Docker container lifecycle

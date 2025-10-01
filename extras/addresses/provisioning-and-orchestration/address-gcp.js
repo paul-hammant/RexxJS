@@ -609,19 +609,26 @@ class FunctionsHandler {
 
   async deploy(params) {
     // Deploy a cloud function
-    // DEPLOY name SOURCE 'path' TRIGGER 'http' RUNTIME 'python39'
+    // DEPLOY name SOURCE 'path' TRIGGER 'http' RUNTIME 'python311' REGION 'us-central1' ENTRYPOINT 'main'
     const name = params[0];
     const sourceIndex = params.findIndex(p => p.toUpperCase() === 'SOURCE');
     const triggerIndex = params.findIndex(p => p.toUpperCase() === 'TRIGGER');
     const runtimeIndex = params.findIndex(p => p.toUpperCase() === 'RUNTIME');
+    const regionIndex = params.findIndex(p => p.toUpperCase() === 'REGION');
+    const entrypointIndex = params.findIndex(p => p.toUpperCase() === 'ENTRYPOINT');
 
-    const source = sourceIndex >= 0 ? params[sourceIndex + 1].replace(/['"]\./g, '') : '.';
+    const source = sourceIndex >= 0 ? params[sourceIndex + 1].replace(/['"]/g, '') : '.';
     const trigger = triggerIndex >= 0 ? params[triggerIndex + 1].replace(/['"]/g, '') : 'http';
     const runtime = runtimeIndex >= 0 ? params[runtimeIndex + 1].replace(/['"]/g, '') : 'python311';
+    const region = regionIndex >= 0 ? params[regionIndex + 1].replace(/['"]/g, '') : 'us-central1';
+    const entrypoint = entrypointIndex >= 0 ? params[entrypointIndex + 1].replace(/['"]/g, '') : name.replace(/-/g, '_');
 
     const args = ['functions', 'deploy', name];
+    args.push('--gen2');  // Use 2nd generation Cloud Functions
     args.push('--runtime', runtime);
     args.push('--source', source);
+    args.push('--entry-point', entrypoint);
+    args.push('--region', region);
 
     if (trigger === 'http') {
       args.push('--trigger-http', '--allow-unauthenticated');
@@ -634,11 +641,110 @@ class FunctionsHandler {
 
     const result = await this.parent.execCommand('gcloud', args);
 
+    // If deploy succeeded, get function details in JSON format
+    if (result.success) {
+      const describeArgs = ['functions', 'describe', name, '--region', region, '--format=json'];
+      if (this.parent.project) describeArgs.push('--project', this.parent.project);
+
+      const describeResult = await this.parent.execCommand('gcloud', describeArgs);
+
+      if (describeResult.success && describeResult.stdout) {
+        try {
+          const functionData = JSON.parse(describeResult.stdout);
+          return {
+            success: true,
+            name: name,
+            trigger: trigger,
+            runtime: runtime,
+            region: region,
+            entrypoint: entrypoint,
+            url: functionData.serviceConfig?.uri || null,
+            state: functionData.state,
+            updateTime: functionData.updateTime,
+            data: functionData,
+            stdout: result.stdout,
+            stderr: result.stderr
+          };
+        } catch (e) {
+          // JSON parse failed, return basic result
+        }
+      }
+    }
+
     return {
       success: result.success,
       name: name,
       trigger: trigger,
       runtime: runtime,
+      region: region,
+      entrypoint: entrypoint,
+      stdout: result.stdout,
+      stderr: result.stderr
+    };
+  }
+
+  async delete(functionName) {
+    // DELETE function_name [REGION region]
+    const args = ['functions', 'delete', functionName, '--quiet'];
+
+    // Note: For 2nd gen functions, region is required; for 1st gen, it's optional
+    // We'll let gcloud handle the default
+    if (this.parent.region) args.push('--region', this.parent.region);
+    if (this.parent.project) args.push('--project', this.parent.project);
+
+    const result = await this.parent.execCommand('gcloud', args);
+
+    return {
+      success: result.success,
+      name: functionName,
+      stdout: result.stdout,
+      stderr: result.stderr
+    };
+  }
+
+  async invoke(params) {
+    // INVOKE function_name [DATA '{"key":"value"}']
+    const name = params[0];
+    const dataIndex = params.findIndex(p => p.toUpperCase() === 'DATA');
+    const data = dataIndex >= 0 ? params[dataIndex + 1].replace(/^['"]|['"]$/g, '') : null;
+
+    const args = ['functions', 'call', name];
+
+    if (data) args.push('--data', data);
+    if (this.parent.region) args.push('--region', this.parent.region);
+    if (this.parent.project) args.push('--project', this.parent.project);
+
+    const result = await this.parent.execCommand('gcloud', args);
+
+    return {
+      success: result.success,
+      name: name,
+      stdout: result.stdout,
+      stderr: result.stderr
+    };
+  }
+
+  async list() {
+    // LIST all functions
+    const args = ['functions', 'list', '--format', 'json'];
+
+    if (this.parent.project) args.push('--project', this.parent.project);
+
+    const result = await this.parent.execCommand('gcloud', args);
+
+    let functions = [];
+    if (result.success && result.stdout) {
+      try {
+        functions = JSON.parse(result.stdout);
+      } catch (e) {
+        // Failed to parse JSON
+      }
+    }
+
+    return {
+      success: result.success,
+      functions: functions,
+      count: functions.length,
       stdout: result.stdout,
       stderr: result.stderr
     };
@@ -691,6 +797,33 @@ class CloudRunHandler {
     if (this.parent.project) args.push('--project', this.parent.project);
 
     const result = await this.parent.execCommand('gcloud', args);
+
+    // If deploy succeeded, get service details in JSON format
+    if (result.success) {
+      const describeArgs = ['run', 'services', 'describe', name, '--region', region, '--platform', 'managed', '--format=json'];
+      if (this.parent.project) describeArgs.push('--project', this.parent.project);
+
+      const describeResult = await this.parent.execCommand('gcloud', describeArgs);
+
+      if (describeResult.success && describeResult.stdout) {
+        try {
+          const serviceData = JSON.parse(describeResult.stdout);
+          return {
+            success: true,
+            name: name,
+            image: image,
+            region: region,
+            url: serviceData.status?.url || null,
+            ready: serviceData.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
+            data: serviceData,
+            stdout: result.stdout,
+            stderr: result.stderr
+          };
+        } catch (e) {
+          // JSON parse failed, return basic result
+        }
+      }
+    }
 
     return {
       success: result.success,
