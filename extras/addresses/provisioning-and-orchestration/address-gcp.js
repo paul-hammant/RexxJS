@@ -350,511 +350,12 @@ async function ADDRESS_GCP_HANDLER(commandOrMethod, paramsOrContext, sourceConte
 // BigQueryHandler - Now loaded lazily from gcp-handlers/bigquery-handler.js
 // ============================================================================
 
-class FirestoreHandler {
-  constructor(parent) {
-    this.parent = parent;
-    this.firestore = null;
-    this.currentDatabase = null;
-  }
-
-  async initialize() {
-    try {
-      const { Firestore } = require('@google-cloud/firestore');
-      this.firestore = new Firestore({
-        projectId: this.parent.project
-      });
-    } catch (e) {
-      // Firestore SDK not available
-    }
-  }
-
-  async handle(command) {
-    const trimmed = command.trim();
-
-    // Path-based operations
-    if (trimmed.startsWith('GET ')) {
-      return await this.get(trimmed.substring(4));
-    }
-    if (trimmed.startsWith('SET ')) {
-      return await this.set(trimmed.substring(4));
-    }
-    if (trimmed.startsWith('DELETE ')) {
-      return await this.delete(trimmed.substring(7));
-    }
-    if (trimmed.startsWith('QUERY ')) {
-      return await this.query(trimmed.substring(6));
-    }
-    if (trimmed.startsWith('WATCH ')) {
-      return await this.watch(trimmed.substring(6));
-    }
-
-    throw new Error(`Unknown FIRESTORE command: ${trimmed.split(' ')[0]}`);
-  }
-
-  async get(path) {
-    if (this.firestore) {
-      const doc = await this.firestore.doc(path).get();
-      return {
-        success: true,
-        exists: doc.exists,
-        data: doc.exists ? doc.data() : null,
-        id: doc.id,
-        path: path
-      };
-    }
-
-    // Fallback to REST API
-    // TODO: Implement REST fallback
-    throw new Error('Firestore SDK not available');
-  }
-}
-
-class StorageHandler {
-  constructor(parent) {
-    this.parent = parent;
-    this.storage = null;
-  }
-
-  async initialize() {
-    try {
-      const { Storage } = require('@google-cloud/storage');
-      this.storage = new Storage({
-        projectId: this.parent.project
-      });
-    } catch (e) {
-      // Storage SDK not available, will use gsutil
-    }
-  }
-
-  async handle(command) {
-    const trimmed = command.trim();
-    const upperCommand = trimmed.toUpperCase();
-
-    if (upperCommand.startsWith('UPLOAD ')) {
-      return await this.upload(trimmed.substring(7));
-    }
-    if (upperCommand.startsWith('DOWNLOAD ')) {
-      return await this.download(trimmed.substring(9));
-    }
-    if (upperCommand.startsWith('LIST ')) {
-      return await this.list(trimmed.substring(5));
-    }
-    if (upperCommand.startsWith('DELETE ')) {
-      return await this.delete(trimmed.substring(7));
-    }
-    if (upperCommand.startsWith('CREATE BUCKET ')) {
-      return await this.createBucket(trimmed.substring(14));
-    }
-
-    throw new Error(`Unknown STORAGE command: ${trimmed.split(' ')[0]}`);
-  }
-
-  async upload(params) {
-    // Parse standardized syntax: UPLOAD file="path" bucket="name" [as="remote-path"]
-    const parsedParams = parseKeyValueParams(params);
-    
-    if (parsedParams.file && parsedParams.bucket) {
-      // New standardized format
-      const localFile = parsedParams.file;
-      const bucket = parsedParams.bucket;
-      const destination = parsedParams.as || path.basename(localFile);
-      
-      return await this.executeUpload(localFile, bucket, destination);
-    }
-    
-    // Legacy format: FILE 'path' TO bucket='name' [AS 'remote-path']
-    const match = params.match(/FILE\s+['"]([^'"]+)['"]\s+TO\s+bucket=['"]([^'"]+)['"](?:\s+AS\s+['"]([^'"]+)['"])?/i);
-
-    if (!match) {
-      throw new Error('Invalid UPLOAD syntax. Use: UPLOAD file="path" bucket="name" [as="remote-path"] or legacy FILE "path" TO bucket="name"');
-    }
-
-    const [_, localFile, bucket, remotePath] = match;
-    const destination = remotePath || path.basename(localFile);
-    
-    return await this.executeUpload(localFile, bucket, destination);
-  }
-  
-  async executeUpload(localFile, bucket, destination) {
-    if (this.storage) {
-      await this.storage.bucket(bucket).upload(localFile, {
-        destination: destination
-      });
-
-      return {
-        success: true,
-        bucket: bucket,
-        file: destination,
-        size: fs.statSync(localFile).size
-      };
-    } else {
-      // Fallback to gsutil
-      const result = await this.parent.execCommand('gsutil', [
-        'cp', localFile, `gs://${bucket}/${destination}`
-      ]);
-
-      return {
-        success: result.success,
-        bucket: bucket,
-        file: destination
-      };
-    }
-  }
-}
-
-class PubSubHandler {
-  constructor(parent) {
-    this.parent = parent;
-    this.pubsub = null;
-  }
-
-  async initialize() {
-    try {
-      const { PubSub } = require('@google-cloud/pubsub');
-      this.pubsub = new PubSub({
-        projectId: this.parent.project
-      });
-    } catch (e) {
-      // PubSub SDK not available
-    }
-  }
-
-  async handle(command) {
-    const trimmed = command.trim();
-    const upperCommand = trimmed.toUpperCase();
-
-    if (upperCommand.startsWith('CREATE TOPIC ')) {
-      return await this.createTopic(trimmed.substring(13));
-    }
-    if (upperCommand.startsWith('PUBLISH ')) {
-      return await this.publish(trimmed.substring(8));
-    }
-    if (upperCommand.startsWith('SUBSCRIBE ')) {
-      return await this.subscribe(trimmed.substring(10));
-    }
-    if (upperCommand.startsWith('PULL ')) {
-      return await this.pull(trimmed.substring(5));
-    }
-
-    throw new Error(`Unknown PUBSUB command: ${trimmed.split(' ')[0]}`);
-  }
-
-  async publish(params) {
-    // Parse standardized syntax: PUBLISH topic="name" message="data"
-    const parsedParams = parseKeyValueParams(params);
-    
-    if (parsedParams.topic && parsedParams.message) {
-      // New standardized format
-      return await this.executePublish(parsedParams.topic, parsedParams.message);
-    }
-    
-    // Legacy format: topic MESSAGE 'data'
-    const match = params.match(/([\w-]+)\s+MESSAGE\s+['"](.+)['"]$/i);
-
-    if (!match) {
-      throw new Error('Invalid PUBLISH syntax. Use: PUBLISH topic="name" message="data" or legacy topic MESSAGE "data"');
-    }
-
-    const [_, topic, message] = match;
-    return await this.executePublish(topic, message);
-  }
-  
-  async executePublish(topic, message) {
-    if (this.pubsub) {
-      const messageId = await this.pubsub.topic(topic).publish(Buffer.from(message));
-      return {
-        success: true,
-        messageId: messageId,
-        topic: topic
-      };
-    } else {
-      // Fallback to gcloud
-      const result = await this.parent.execCommand('gcloud', [
-        'pubsub', 'topics', 'publish', topic,
-        '--message', message
-      ]);
-
-      return {
-        success: result.success,
-        topic: topic
-      };
-    }
-  }
-}
-
+// FirestoreHandler - extracted to gcp-handlers/firestore-handler.js
+// StorageHandler - extracted to gcp-handlers/storage-handler.js
+// PubSubHandler - extracted to gcp-handlers/pubsub-handler.js
 // Legacy cloud functions and cloud run handlers remain
-class FunctionsHandler {
-  constructor(parent) {
-    this.parent = parent;
-  }
-
-  async handle(command) {
-    const trimmed = command.trim();
-    const parts = trimmed.split(/\s+/);
-    const action = parts[0].toUpperCase();
-
-    switch (action) {
-      case 'DEPLOY':
-        return await this.deploy(parts.slice(1));
-      case 'DELETE':
-        return await this.delete(parts[1]);
-      case 'INVOKE':
-        return await this.invoke(parts.slice(1));
-      case 'LIST':
-        return await this.list();
-      default:
-        throw new Error(`Unknown FUNCTIONS command: ${action}`);
-    }
-  }
-
-  async deploy(params) {
-    // Deploy a cloud function
-    // DEPLOY name SOURCE 'path' TRIGGER 'http' RUNTIME 'python311' REGION 'us-central1' ENTRYPOINT 'main'
-    const name = params[0];
-    const sourceIndex = params.findIndex(p => p.toUpperCase() === 'SOURCE');
-    const triggerIndex = params.findIndex(p => p.toUpperCase() === 'TRIGGER');
-    const runtimeIndex = params.findIndex(p => p.toUpperCase() === 'RUNTIME');
-    const regionIndex = params.findIndex(p => p.toUpperCase() === 'REGION');
-    const entrypointIndex = params.findIndex(p => p.toUpperCase() === 'ENTRYPOINT');
-
-    const source = sourceIndex >= 0 ? params[sourceIndex + 1].replace(/['"]/g, '') : '.';
-    const trigger = triggerIndex >= 0 ? params[triggerIndex + 1].replace(/['"]/g, '') : 'http';
-    const runtime = runtimeIndex >= 0 ? params[runtimeIndex + 1].replace(/['"]/g, '') : 'python311';
-    const region = regionIndex >= 0 ? params[regionIndex + 1].replace(/['"]/g, '') : 'us-central1';
-    const entrypoint = entrypointIndex >= 0 ? params[entrypointIndex + 1].replace(/['"]/g, '') : name.replace(/-/g, '_');
-
-    const args = ['functions', 'deploy', name];
-    args.push('--gen2');  // Use 2nd generation Cloud Functions
-    args.push('--runtime', runtime);
-    args.push('--source', source);
-    args.push('--entry-point', entrypoint);
-    args.push('--region', region);
-
-    if (trigger === 'http') {
-      args.push('--trigger-http', '--allow-unauthenticated');
-    } else if (trigger.includes(':')) {
-      const [type, resource] = trigger.split(':');
-      args.push(`--trigger-${type}`, resource);
-    }
-
-    if (this.parent.project) args.push('--project', this.parent.project);
-
-    const result = await this.parent.execCommand('gcloud', args);
-
-    // If deploy succeeded, get function details in JSON format
-    if (result.success) {
-      const describeArgs = ['functions', 'describe', name, '--region', region, '--format=json'];
-      if (this.parent.project) describeArgs.push('--project', this.parent.project);
-
-      const describeResult = await this.parent.execCommand('gcloud', describeArgs);
-
-      if (describeResult.success && describeResult.stdout) {
-        try {
-          const functionData = JSON.parse(describeResult.stdout);
-          return {
-            success: true,
-            name: name,
-            trigger: trigger,
-            runtime: runtime,
-            region: region,
-            entrypoint: entrypoint,
-            url: functionData.serviceConfig?.uri || null,
-            state: functionData.state,
-            updateTime: functionData.updateTime,
-            data: functionData,
-            stdout: result.stdout,
-            stderr: result.stderr
-          };
-        } catch (e) {
-          // JSON parse failed, return basic result
-        }
-      }
-    }
-
-    return {
-      success: result.success,
-      name: name,
-      trigger: trigger,
-      runtime: runtime,
-      region: region,
-      entrypoint: entrypoint,
-      stdout: result.stdout,
-      stderr: result.stderr
-    };
-  }
-
-  async delete(functionName) {
-    // DELETE function_name [REGION region]
-    const args = ['functions', 'delete', functionName, '--quiet'];
-
-    // Note: For 2nd gen functions, region is required; for 1st gen, it's optional
-    // We'll let gcloud handle the default
-    if (this.parent.region) args.push('--region', this.parent.region);
-    if (this.parent.project) args.push('--project', this.parent.project);
-
-    const result = await this.parent.execCommand('gcloud', args);
-
-    return {
-      success: result.success,
-      name: functionName,
-      stdout: result.stdout,
-      stderr: result.stderr
-    };
-  }
-
-  async invoke(params) {
-    // INVOKE function_name [DATA '{"key":"value"}']
-    const name = params[0];
-    const dataIndex = params.findIndex(p => p.toUpperCase() === 'DATA');
-    const data = dataIndex >= 0 ? params[dataIndex + 1].replace(/^['"]|['"]$/g, '') : null;
-
-    const args = ['functions', 'call', name];
-
-    if (data) args.push('--data', data);
-    if (this.parent.region) args.push('--region', this.parent.region);
-    if (this.parent.project) args.push('--project', this.parent.project);
-
-    const result = await this.parent.execCommand('gcloud', args);
-
-    return {
-      success: result.success,
-      name: name,
-      stdout: result.stdout,
-      stderr: result.stderr
-    };
-  }
-
-  async list() {
-    // LIST all functions
-    const args = ['functions', 'list', '--format', 'json'];
-
-    if (this.parent.project) args.push('--project', this.parent.project);
-
-    const result = await this.parent.execCommand('gcloud', args);
-
-    let functions = [];
-    if (result.success && result.stdout) {
-      try {
-        functions = JSON.parse(result.stdout);
-      } catch (e) {
-        // Failed to parse JSON
-      }
-    }
-
-    return {
-      success: result.success,
-      functions: functions,
-      count: functions.length,
-      stdout: result.stdout,
-      stderr: result.stderr
-    };
-  }
-}
-
-class CloudRunHandler {
-  constructor(parent) {
-    this.parent = parent;
-  }
-
-  async handle(command) {
-    const trimmed = command.trim();
-    const parts = trimmed.split(/\s+/);
-    const action = parts[0].toUpperCase();
-
-    switch (action) {
-      case 'DEPLOY':
-        return await this.deploy(parts.slice(1));
-      case 'DELETE':
-        return await this.delete(parts[1]);
-      case 'UPDATE':
-        return await this.update(parts.slice(1));
-      case 'LIST':
-        return await this.list();
-      default:
-        throw new Error(`Unknown RUN command: ${action}`);
-    }
-  }
-
-  async deploy(params) {
-    // DEPLOY name IMAGE 'image' REGION 'region'
-    const name = params[0];
-    const imageIndex = params.findIndex(p => p.toUpperCase() === 'IMAGE');
-    const regionIndex = params.findIndex(p => p.toUpperCase() === 'REGION');
-
-    if (imageIndex < 0) {
-      throw new Error('IMAGE is required for Cloud Run deployment');
-    }
-
-    const image = params[imageIndex + 1].replace(/['"]/g, '');
-    const region = regionIndex >= 0 ? params[regionIndex + 1].replace(/['"]/g, '') : 'us-central1';
-
-    const args = ['run', 'deploy', name];
-    args.push('--image', image);
-    args.push('--region', region);
-    args.push('--platform', 'managed');
-    args.push('--allow-unauthenticated');
-
-    if (this.parent.project) args.push('--project', this.parent.project);
-
-    const result = await this.parent.execCommand('gcloud', args);
-
-    // If deploy succeeded, get service details in JSON format
-    if (result.success) {
-      const describeArgs = ['run', 'services', 'describe', name, '--region', region, '--platform', 'managed', '--format=json'];
-      if (this.parent.project) describeArgs.push('--project', this.parent.project);
-
-      const describeResult = await this.parent.execCommand('gcloud', describeArgs);
-
-      if (describeResult.success && describeResult.stdout) {
-        try {
-          const serviceData = JSON.parse(describeResult.stdout);
-          return {
-            success: true,
-            name: name,
-            image: image,
-            region: region,
-            url: serviceData.status?.url || null,
-            ready: serviceData.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
-            data: serviceData,
-            stdout: result.stdout,
-            stderr: result.stderr
-          };
-        } catch (e) {
-          // JSON parse failed, return basic result
-        }
-      }
-    }
-
-    return {
-      success: result.success,
-      name: name,
-      image: image,
-      region: region,
-      stdout: result.stdout,
-      stderr: result.stderr
-    };
-  }
-
-  async delete(serviceName) {
-    // DELETE service_name [REGION region]
-    const args = ['run', 'services', 'delete', serviceName];
-    args.push('--platform', 'managed');
-    args.push('--region', this.parent.region || 'us-central1');
-    args.push('--quiet');
-
-    if (this.parent.project) args.push('--project', this.parent.project);
-
-    const result = await this.parent.execCommand('gcloud', args);
-
-    return {
-      success: result.success,
-      name: serviceName,
-      stdout: result.stdout,
-      stderr: result.stderr
-    };
-  }
-}
-
+// FunctionsHandler - extracted to gcp-handlers/functions-handler.js
+// CloudRunHandler - extracted to gcp-handlers/cloud-run-handler.js
 // ============================================
 // Unified GCP Handler
 // ============================================
@@ -873,11 +374,11 @@ class UnifiedGcpHandler {
       apps_script: null, // Lazy loaded from gcp-handlers/apps-script-handler.js
       bigquery: null, // Lazy loaded from gcp-handlers/bigquery-handler.js
       billing: null, // Lazy loaded from gcp-handlers/billing-handler.js
-      firestore: new FirestoreHandler(this),
-      storage: new StorageHandler(this),
-      pubsub: new PubSubHandler(this),
-      functions: new FunctionsHandler(this),
-      run: new CloudRunHandler(this),
+      firestore: null, // Lazy loaded from gcp-handlers/firestore-handler.js
+      storage: null, // Lazy loaded from gcp-handlers/storage-handler.js
+      pubsub: null, // Lazy loaded from gcp-handlers/pubsub-handler.js
+      functions: null, // Lazy loaded from gcp-handlers/functions-handler.js
+      run: null, // Lazy loaded from gcp-handlers/cloud-run-handler.js
       // Legacy handlers for backward compatibility
       activeFunctions: new Map(),
       activeServices: new Map()
@@ -1003,6 +504,38 @@ class UnifiedGcpHandler {
     return this.services.slides;
   }
 
+  // Generic service handler loader for all extracted handlers
+  async getServiceHandler(serviceName) {
+    if (this.services[serviceName] === null) {
+      const handlerMap = {
+        firestore: './gcp-handlers/firestore-handler.js',
+        storage: './gcp-handlers/storage-handler.js',
+        pubsub: './gcp-handlers/pubsub-handler.js',
+        functions: './gcp-handlers/functions-handler.js',
+        run: './gcp-handlers/cloud-run-handler.js',
+        monitoring: './gcp-handlers/monitoring-handler.js',
+        logging: './gcp-handlers/logging-handler.js',
+        dns: './gcp-handlers/dns-handler.js',
+        secrets: './gcp-handlers/secret-manager-handler.js',
+        tasks: './gcp-handlers/cloud-tasks-handler.js',
+        scheduler: './gcp-handlers/cloud-scheduler-handler.js',
+        artifacts: './gcp-handlers/artifact-registry-handler.js',
+        spanner: './gcp-handlers/spanner-handler.js'
+      };
+
+      if (handlerMap[serviceName]) {
+        const HandlerClass = require(handlerMap[serviceName]);
+        this.services[serviceName] = new HandlerClass(this);
+        if (typeof this.services[serviceName].initialize === 'function') {
+          await this.services[serviceName].initialize();
+        }
+      } else {
+        throw new Error(`Unknown service: ${serviceName}`);
+      }
+    }
+    return this.services[serviceName];
+  }
+
   async getAuth(scopes) {
     // Use Google Application Default Credentials
     // This will automatically use GOOGLE_APPLICATION_CREDENTIALS env var
@@ -1076,24 +609,24 @@ class UnifiedGcpHandler {
 
       case 'FIRESTORE':
         await globalRateLimiter.checkLimit('firestore');
-        return await this.services.firestore.handle(trimmed.substring(firstWord.length).trim());
+        return await this.getServiceHandler('firestore').handle(trimmed.substring(firstWord.length).trim());
 
       case 'STORAGE':
         await globalRateLimiter.checkLimit('storage');
-        return await this.services.storage.handle(trimmed.substring(firstWord.length).trim());
+        return await this.getServiceHandler('storage').handle(trimmed.substring(firstWord.length).trim());
 
       case 'PUBSUB':
         await globalRateLimiter.checkLimit('pubsub');
-        return await this.services.pubsub.handle(trimmed.substring(firstWord.length).trim());
+        return await this.getServiceHandler('pubsub').handle(trimmed.substring(firstWord.length).trim());
 
       case 'FUNCTIONS':
       case 'FUNCTION':
         await globalRateLimiter.checkLimit('functions');
-        return await this.services.functions.handle(trimmed.substring(firstWord.length).trim());
+        return await this.getServiceHandler('functions').handle(trimmed.substring(firstWord.length).trim());
 
       case 'RUN':
         await globalRateLimiter.checkLimit('run');
-        return await this.services.run.handle(trimmed.substring(firstWord.length).trim());
+        return await this.getServiceHandler('run').handle(trimmed.substring(firstWord.length).trim());
 
       case 'APPS_SCRIPT':
         await globalRateLimiter.checkLimit('apps_script');
