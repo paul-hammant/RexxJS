@@ -23,10 +23,13 @@ describe('HTTP Functions', () => {
   });
 
   describe('HTTP_GET function', () => {
-    test('should make GET request and return response body', async () => {
+    test('should make GET request and return response object', async () => {
       const mockResponse = 'Hello World';
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map([['content-type', 'text/plain']])
       });
 
       const result = await httpFunctions.HTTP_GET('https://api.example.com/test');
@@ -35,13 +38,21 @@ describe('HTTP Functions', () => {
         method: 'GET',
         headers: {}
       });
-      expect(result).toBe(mockResponse);
+      expect(result).toEqual({
+        status: 200,
+        body: mockResponse,
+        headers: { 'content-type': 'text/plain' },
+        ok: true
+      });
     });
 
     test('should handle GET request with custom headers', async () => {
       const mockResponse = '{"data": "test"}';
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const headers = {
@@ -58,7 +69,9 @@ describe('HTTP Functions', () => {
           'Accept': 'application/json'
         }
       });
-      expect(result).toBe(mockResponse);
+      expect(result.status).toBe(200);
+      expect(result.body).toBe(mockResponse);
+      expect(result.ok).toBe(true);
     });
 
     test('should handle fetch errors', async () => {
@@ -66,23 +79,44 @@ describe('HTTP Functions', () => {
 
       const result = await httpFunctions.HTTP_GET('https://api.example.com/test');
 
-      expect(result).toBe('ERROR: Network error');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'Network error'
+      });
     });
 
     test('should validate URL parameter', async () => {
       const result = await httpFunctions.HTTP_GET('');
-      expect(result).toBe('ERROR: HTTP_GET requires a valid URL string');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'HTTP_GET requires a valid URL string'
+      });
     });
 
     test('should handle non-string URL', async () => {
       const result = await httpFunctions.HTTP_GET(null);
-      expect(result).toBe('ERROR: HTTP_GET requires a valid URL string');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'HTTP_GET requires a valid URL string'
+      });
     });
 
     test('should trim URL whitespace', async () => {
       const mockResponse = 'test';
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       await httpFunctions.HTTP_GET('  https://api.example.com/test  ');
@@ -100,7 +134,10 @@ describe('HTTP Functions', () => {
       const requestBody = '{"name": "test"}';
 
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 201,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const result = await httpFunctions.HTTP_POST('https://api.example.com/create', requestBody);
@@ -112,7 +149,12 @@ describe('HTTP Functions', () => {
         },
         body: requestBody
       });
-      expect(result).toBe(mockResponse);
+      expect(result).toEqual({
+        status: 201,
+        body: mockResponse,
+        headers: {},
+        ok: true
+      });
     });
 
     test('should handle POST request with custom headers', async () => {
@@ -124,7 +166,10 @@ describe('HTTP Functions', () => {
       };
 
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const result = await httpFunctions.HTTP_POST('https://api.example.com/create', requestBody, headers);
@@ -137,14 +182,19 @@ describe('HTTP Functions', () => {
         },
         body: requestBody
       });
-      expect(result).toBe(mockResponse);
+      expect(result.status).toBe(200);
+      expect(result.body).toBe(mockResponse);
+      expect(result.ok).toBe(true);
     });
 
     test('should handle empty body', async () => {
       const mockResponse = 'OK';
 
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const result = await httpFunctions.HTTP_POST('https://api.example.com/create');
@@ -156,7 +206,7 @@ describe('HTTP Functions', () => {
         },
         body: ''
       });
-      expect(result).toBe(mockResponse);
+      expect(result.body).toBe(mockResponse);
     });
 
     test('should handle POST fetch errors', async () => {
@@ -164,12 +214,24 @@ describe('HTTP Functions', () => {
 
       const result = await httpFunctions.HTTP_POST('https://api.example.com/create', 'data');
 
-      expect(result).toBe('ERROR: Server error');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'Server error'
+      });
     });
 
     test('should validate POST URL parameter', async () => {
       const result = await httpFunctions.HTTP_POST('');
-      expect(result).toBe('ERROR: HTTP_POST requires a valid URL string');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'HTTP_POST requires a valid URL string'
+      });
     });
   });
 
@@ -179,7 +241,10 @@ describe('HTTP Functions', () => {
       const requestBody = '{"id": 123, "name": "updated"}';
 
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const result = await httpFunctions.HTTP_PUT('https://api.example.com/update/123', requestBody);
@@ -191,7 +256,12 @@ describe('HTTP Functions', () => {
         },
         body: requestBody
       });
-      expect(result).toBe(mockResponse);
+      expect(result).toEqual({
+        status: 200,
+        body: mockResponse,
+        headers: {},
+        ok: true
+      });
     });
 
     test('should handle PUT fetch errors', async () => {
@@ -199,12 +269,24 @@ describe('HTTP Functions', () => {
 
       const result = await httpFunctions.HTTP_PUT('https://api.example.com/update/123', 'data');
 
-      expect(result).toBe('ERROR: Update failed');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'Update failed'
+      });
     });
 
     test('should validate PUT URL parameter', async () => {
       const result = await httpFunctions.HTTP_PUT('');
-      expect(result).toBe('ERROR: HTTP_PUT requires a valid URL string');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'HTTP_PUT requires a valid URL string'
+      });
     });
   });
 
@@ -213,7 +295,10 @@ describe('HTTP Functions', () => {
       const mockResponse = 'Deleted';
 
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const result = await httpFunctions.HTTP_DELETE('https://api.example.com/delete/123');
@@ -222,7 +307,12 @@ describe('HTTP Functions', () => {
         method: 'DELETE',
         headers: {}
       });
-      expect(result).toBe(mockResponse);
+      expect(result).toEqual({
+        status: 200,
+        body: mockResponse,
+        headers: {},
+        ok: true
+      });
     });
 
     test('should handle DELETE request with custom headers', async () => {
@@ -232,7 +322,10 @@ describe('HTTP Functions', () => {
       };
 
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 204,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const result = await httpFunctions.HTTP_DELETE('https://api.example.com/delete/123', headers);
@@ -243,7 +336,9 @@ describe('HTTP Functions', () => {
           'Authorization': 'Bearer token123'
         }
       });
-      expect(result).toBe(mockResponse);
+      expect(result.status).toBe(204);
+      expect(result.body).toBe(mockResponse);
+      expect(result.ok).toBe(true);
     });
 
     test('should handle DELETE fetch errors', async () => {
@@ -251,12 +346,24 @@ describe('HTTP Functions', () => {
 
       const result = await httpFunctions.HTTP_DELETE('https://api.example.com/delete/123');
 
-      expect(result).toBe('ERROR: Delete failed');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'Delete failed'
+      });
     });
 
     test('should validate DELETE URL parameter', async () => {
       const result = await httpFunctions.HTTP_DELETE('');
-      expect(result).toBe('ERROR: HTTP_DELETE requires a valid URL string');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'HTTP_DELETE requires a valid URL string'
+      });
     });
   });
 
@@ -264,22 +371,34 @@ describe('HTTP Functions', () => {
     test('should handle complete REST workflow', async () => {
       // Mock GET request
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve('{"users": []}')
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve('{"users": []}'),
+        headers: new Map()
       });
 
       // Mock POST request
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve('{"id": 1, "name": "John"}')
+        status: 201,
+        ok: true,
+        text: () => Promise.resolve('{"id": 1, "name": "John"}'),
+        headers: new Map()
       });
 
       // Mock PUT request
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve('{"id": 1, "name": "John Updated"}')
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve('{"id": 1, "name": "John Updated"}'),
+        headers: new Map()
       });
 
       // Mock DELETE request
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve('{"success": true}')
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve('{"success": true}'),
+        headers: new Map()
       });
 
       // Execute REST workflow
@@ -288,10 +407,10 @@ describe('HTTP Functions', () => {
       const putResult = await httpFunctions.HTTP_PUT('https://api.example.com/users/1', '{"name": "John Updated"}');
       const deleteResult = await httpFunctions.HTTP_DELETE('https://api.example.com/users/1');
 
-      expect(getResult).toBe('{"users": []}');
-      expect(postResult).toBe('{"id": 1, "name": "John"}');
-      expect(putResult).toBe('{"id": 1, "name": "John Updated"}');
-      expect(deleteResult).toBe('{"success": true}');
+      expect(getResult.body).toBe('{"users": []}');
+      expect(postResult.body).toBe('{"id": 1, "name": "John"}');
+      expect(putResult.body).toBe('{"id": 1, "name": "John Updated"}');
+      expect(deleteResult.body).toBe('{"success": true}');
 
       // Verify all calls were made correctly
       expect(fetch).toHaveBeenCalledTimes(4);
@@ -300,7 +419,10 @@ describe('HTTP Functions', () => {
     test('should handle non-object headers gracefully', async () => {
       const mockResponse = 'OK';
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       // Test with null headers
@@ -310,13 +432,16 @@ describe('HTTP Functions', () => {
         method: 'GET',
         headers: {}
       });
-      expect(result).toBe(mockResponse);
+      expect(result.body).toBe(mockResponse);
     });
 
     test('should convert non-string values to strings', async () => {
       const mockResponse = 'OK';
       fetch.mockResolvedValueOnce({
-        text: () => Promise.resolve(mockResponse)
+        status: 200,
+        ok: true,
+        text: () => Promise.resolve(mockResponse),
+        headers: new Map()
       });
 
       const headers = {
@@ -344,7 +469,13 @@ describe('HTTP Functions', () => {
 
       const result = await httpFunctions.HTTP_GET('https://api.example.com/test');
 
-      expect(result).toBe('ERROR: HTTP_GET requires fetch API (available in browsers and modern Node.js)');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'HTTP_GET requires fetch API (available in browsers and modern Node.js)'
+      });
 
       // Restore fetch
       global.fetch = originalFetch;
@@ -355,7 +486,13 @@ describe('HTTP Functions', () => {
 
       const result = await httpFunctions.HTTP_POST('https://api.example.com/slow', 'data');
 
-      expect(result).toBe('ERROR: Timeout');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'Timeout'
+      });
     });
 
     test('should handle malformed URLs', async () => {
@@ -363,7 +500,13 @@ describe('HTTP Functions', () => {
 
       const result = await httpFunctions.HTTP_GET('not-a-url');
 
-      expect(result).toBe('ERROR: Invalid URL');
+      expect(result).toEqual({
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: 'Invalid URL'
+      });
     });
   });
 });

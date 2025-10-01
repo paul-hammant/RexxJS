@@ -29,8 +29,6 @@ SAY ""
 
 REQUIRE "./extras/addresses/provisioning-and-orchestration/address-gcp.js"
 
-ADDRESS GCP
-
 SERVICE_NAME = 'rexxjs-hello'
 REGION = 'us-central1'
 
@@ -44,7 +42,7 @@ SAY "⚠️  This requires gcloud CLI installed"
 SAY "   Deployment will take 30-60 seconds..."
 SAY ""
 
-"RUN DEPLOY " || SERVICE_NAME || " IMAGE " || imageUrl || " REGION " || REGION
+ADDRESS GCP "RUN DEPLOY {SERVICE_NAME} IMAGE {imageUrl} REGION {REGION}"
 
 IF RC \= 0 THEN DO
   SAY "✗ DEPLOY FAILED"
@@ -64,18 +62,19 @@ END
 SAY "✓ Service deployed successfully!"
 SAY ""
 
-/* Extract service URL from output (gcloud includes it) */
-serviceUrl = ''
-IF POS('https://', RESULT.stdout) > 0 THEN DO
-  /* Parse URL from gcloud output */
-  lines = RESULT.stdout
-  DO WHILE POS('https://', lines) > 0
-    p = POS('https://', lines)
-    urlLine = SUBSTR(lines, p)
-    urlEnd = POS(' ', urlLine)
-    IF urlEnd = 0 THEN urlEnd = LENGTH(urlLine) + 1
-    serviceUrl = SUBSTR(urlLine, 1, urlEnd - 1)
-    LEAVE
+/* Extract service URL from RESULT - it's in the stderr */
+LET serviceUrl = ''
+LET urlPos = POS('https://', RESULT.stderr)
+
+IF urlPos > 0 THEN DO
+  LET afterUrl = SUBSTR(RESULT.stderr, urlPos, 100)
+  LET escPos = POS('[', afterUrl)
+  IF escPos > 0 THEN DO
+    LET urlLen = escPos - 1
+    serviceUrl = SUBSTR(afterUrl, 1, urlLen)
+  END
+  ELSE DO
+    serviceUrl = afterUrl
   END
 END
 
@@ -83,20 +82,26 @@ IF serviceUrl \= '' THEN DO
   SAY "  Service URL: " || serviceUrl
   SAY ""
 
-  /* Step 2: Test the service */
-  SAY "Step 2: Testing service endpoint..."
+  /* Step 2: Test the service with HTTP_GET */
+  SAY "Step 2: Testing service endpoint with HTTP_GET..."
   SAY ""
 
-  /* Use curl to test (simple approach) */
-  ADDRESS SYSTEM 'curl -s ' || serviceUrl || ' | head -20'
+  LET response = HTTP_GET(serviceUrl)
+  LET status = response.status
+  LET body = response.body
+  LET hasContent = POS('Congratulations', body)
 
-  IF RC = 0 THEN DO
-    SAY ""
-    SAY "✓ Service responding!"
+  IF status = 200 THEN DO
+    SAY "✓ Service responding with HTTP " || status
+    IF hasContent > 0 THEN DO
+      SAY "✓ Received expected 'Congratulations' content from hello-world service"
+    END
+    ELSE DO
+      SAY "⚠️  Unexpected content (no 'Congratulations' found)"
+    END
   END
   ELSE DO
-    SAY "⚠️  Could not test service (curl might not be installed)"
-    SAY "   Visit: " || serviceUrl
+    SAY "⚠️  Service returned status: " || status
   END
 END
 ELSE DO
@@ -108,16 +113,24 @@ SAY ""
 SAY "========================================="
 SAY "✓ Cloud Run deployment test complete!"
 SAY ""
-SAY "Next steps:"
-SAY "  • Visit service URL to test"
-SAY "  • View logs: gcloud run services logs read " || SERVICE_NAME
-SAY "  • Monitor: https://console.cloud.google.com/run"
-SAY "  • Delete service: ADDRESS GCP 'RUN DELETE " || SERVICE_NAME || "'"
+
+/* Step 3: Clean up - delete the service */
+SAY "Step 3: Cleaning up test service..."
 SAY ""
-SAY "Cost info:"
-SAY "  • This deployment: FREE (within free tier)"
-SAY "  • Idle service (min-instances=0): $0/month"
-SAY "  • First 2M requests/month: FREE"
-SAY "  • Delete anytime with no cost"
+
+ADDRESS GCP "RUN DELETE {SERVICE_NAME}"
+
+IF RC = 0 THEN DO
+  SAY "✓ Service deleted successfully"
+  SAY ""
+  SAY "Cost: $0.00 (within free tier)"
+END
+ELSE DO
+  SAY "⚠️  Could not delete service"
+  SAY "   Manual cleanup: gcloud run services delete " || SERVICE_NAME || " --region=" || REGION
+END
+
+SAY ""
+SAY "Test complete - service deployed, tested, and cleaned up!"
 
 EXIT 0

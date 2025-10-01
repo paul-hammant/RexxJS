@@ -53,13 +53,32 @@ const httpFunctions = {
         headers: fetchHeaders
       });
 
-      // Return the response body as a string
+      // Get response body
       const body = await response.text();
-      return body;
+
+      // Convert headers to plain object
+      const responseHeaders = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      // Return structured response object
+      return {
+        status: response.status,
+        body: body,
+        headers: responseHeaders,
+        ok: response.ok
+      };
 
     } catch (error) {
-      // Return error message as string for Rexx to handle
-      return `ERROR: ${error.message}`;
+      // Return error object for Rexx to handle
+      return {
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: error.message
+      };
     }
   },
 
@@ -101,13 +120,32 @@ const httpFunctions = {
         body: requestBody
       });
 
-      // Return the response body as a string
+      // Get response body
       const responseBody = await response.text();
-      return responseBody;
+
+      // Convert headers to plain object
+      const responseHeaders = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      // Return structured response object
+      return {
+        status: response.status,
+        body: responseBody,
+        headers: responseHeaders,
+        ok: response.ok
+      };
 
     } catch (error) {
-      // Return error message as string for Rexx to handle
-      return `ERROR: ${error.message}`;
+      // Return error object for Rexx to handle
+      return {
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: error.message
+      };
     }
   },
 
@@ -149,13 +187,32 @@ const httpFunctions = {
         body: requestBody
       });
 
-      // Return the response body as a string
+      // Get response body
       const responseBody = await response.text();
-      return responseBody;
+
+      // Convert headers to plain object
+      const responseHeaders = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      // Return structured response object
+      return {
+        status: response.status,
+        body: responseBody,
+        headers: responseHeaders,
+        ok: response.ok
+      };
 
     } catch (error) {
-      // Return error message as string for Rexx to handle
-      return `ERROR: ${error.message}`;
+      // Return error object for Rexx to handle
+      return {
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: error.message
+      };
     }
   },
 
@@ -188,13 +245,32 @@ const httpFunctions = {
         headers: fetchHeaders
       });
 
-      // Return the response body as a string
+      // Get response body
       const body = await response.text();
-      return body;
+
+      // Convert headers to plain object
+      const responseHeaders = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      // Return structured response object
+      return {
+        status: response.status,
+        body: body,
+        headers: responseHeaders,
+        ok: response.ok
+      };
 
     } catch (error) {
-      // Return error message as string for Rexx to handle
-      return `ERROR: ${error.message}`;
+      // Return error object for Rexx to handle
+      return {
+        status: 0,
+        body: '',
+        headers: {},
+        ok: false,
+        error: error.message
+      };
     }
   }
 };

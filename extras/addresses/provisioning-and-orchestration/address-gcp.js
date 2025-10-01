@@ -701,6 +701,25 @@ class CloudRunHandler {
       stderr: result.stderr
     };
   }
+
+  async delete(serviceName) {
+    // DELETE service_name [REGION region]
+    const args = ['run', 'services', 'delete', serviceName];
+    args.push('--platform', 'managed');
+    args.push('--region', this.parent.region || 'us-central1');
+    args.push('--quiet');
+
+    if (this.parent.project) args.push('--project', this.parent.project);
+
+    const result = await this.parent.execCommand('gcloud', args);
+
+    return {
+      success: result.success,
+      name: serviceName,
+      stdout: result.stdout,
+      stderr: result.stderr
+    };
+  }
 }
 
 // ============================================
