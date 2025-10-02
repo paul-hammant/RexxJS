@@ -34,20 +34,7 @@ const { ADDRESS_EXPECTATIONS_HANDLER } = require('../core/src/expectations-addre
 // Pre-load Node.js modules for pkg environment
 require('./nodejs-modules.js');
 
-// Simple console output handler for Node.js
-class NodeOutputHandler {
-  write(content) {
-    process.stdout.write(content);
-  }
-  
-  writeLine(content) {
-    console.log(content);
-  }
-  
-  writeError(content) {
-    console.error(content);
-  }
-}
+const { NodeOutputHandler } = require('../core/src/output/node-output-handler.js');
 
 // Auto-discover and register bundled libraries
 function autoRegisterBundledLibraries() {

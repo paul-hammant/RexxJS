@@ -10,6 +10,16 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - Advanced control structures: `DO OVER` for iteration, `INTERPRET` for dynamic code execution
 - Function library system with 200+ built-in functions across multiple domains
 
+### Environment Detection & Awareness
+
+The interpreter automatically detects its execution environment—whether it's running in a standard
+Node.js process, as a standalone executable created by `pkg`, or within a web browser. This runtime
+context is exposed in two ways: globally to other JavaScript modules via the `REXX_ENVIRONMENT` 
+object, and directly to REXX scripts through special `ENV.` stem variables (e.g., `ENV.TYPE`, `ENV.
+IS_PKG`, `ENV.HAS_DOM`). This powerful feature allows both the core system and user scripts to 
+implement conditional logic that adapts to the capabilities of the host environment, such as 
+accessing the file system in Node.js or manipulating the DOM in a browser.
+
 ## CLI & Distribution
 
 - **./rexx** - Standalone binary (49MB, no Node.js required) created via `create-pkg-binary.js`

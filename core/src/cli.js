@@ -31,20 +31,7 @@ const path = require('path');
 const { executeScript } = require('./executor');
 const { ADDRESS_EXPECTATIONS_HANDLER } = require('./expectations-address.js');
 
-// Simple console output handler for Node.js
-class NodeOutputHandler {
-  write(content) {
-    process.stdout.write(content);
-  }
-  
-  writeLine(content) {
-    console.log(content);
-  }
-  
-  writeError(content) {
-    console.error(content);
-  }
-}
+const { NodeOutputHandler } = require('./output/node-output-handler.js');
 
 // Address sender for CLI execution
 class CLIAddressSender {
