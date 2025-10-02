@@ -421,6 +421,41 @@ nodeinfo                10             1          functions/nodeinfo:latest`;
 
     // Handle docker commands for OpenFaaS and containers
     if (command === 'docker' && args) {
+      // Check for script write command (cat > tempfile)
+      if (args.some(a => a.includes('cat >'))) {
+        const mockProcess = createMockSpawn(0, '');
+        mockProcess.stdin.write = jest.fn(data => {
+          scriptContent = data.toString();
+        });
+        return mockProcess;
+      }
+
+      // Check for RexxJS execution
+      if (args.some(a => a.includes('rexx'))) {
+        const dockerArgs = args.join(' ');
+        let output = '';
+
+        // Handle specific test cases for docker
+        if (scriptContent && scriptContent.includes("Hello from RexxJS")) {
+          output = 'Hello from RexxJS!';
+        }
+        else if (scriptContent && scriptContent.includes('Hello from script file')) {
+          output = 'Hello from script file!';
+        }
+        else if (scriptContent && scriptContent.includes('Hello from file')) {
+          output = 'Hello from file';
+        }
+        else {
+          // Generic SAY pattern matching
+          const sayMatch = scriptContent ? scriptContent.match(/SAY\s+['"](.*?)['"]/i) : null;
+          if (sayMatch) {
+            output = sayMatch[1];
+          }
+        }
+
+        return createMockSpawn(0, output);
+      }
+
       if (args.includes('info')) {
         return createMockSpawn(0, 'Swarm: active');
       }
@@ -430,6 +465,58 @@ nodeinfo                10             1          functions/nodeinfo:latest`;
       if (args.includes('version')) {
         return createMockSpawn(0, 'Docker version 20.10.0');
       }
+
+      // Default docker commands
+      return createMockSpawn(0, '');
+    }
+
+    if (command === 'podman' && args) {
+      // Check for script write command (cat > tempfile)
+      if (args.some(a => a.includes('cat >'))) {
+        const mockProcess = createMockSpawn(0, '');
+        mockProcess.stdin.write = jest.fn(data => {
+          scriptContent = data.toString();
+        });
+        return mockProcess;
+      }
+
+      // Check for RexxJS execution
+      if (args.some(a => a.includes('rexx'))) {
+        const podmanArgs = args.join(' ');
+        let output = '';
+
+        // Handle specific test cases for podman
+        if (scriptContent && scriptContent.includes("Hello from RexxJS")) {
+          output = 'Hello from RexxJS!';
+        }
+        else if (scriptContent && scriptContent.includes('Hello from script file')) {
+          output = 'Hello from script file!';
+        }
+        else if (scriptContent && scriptContent.includes('Hello from file')) {
+          output = 'Hello from file';
+        }
+        else {
+          // Generic SAY pattern matching
+          const sayMatch = scriptContent ? scriptContent.match(/SAY\s+['"](.*?)['"]/i) : null;
+          if (sayMatch) {
+            output = sayMatch[1];
+          }
+        }
+
+        return createMockSpawn(0, output);
+      }
+
+      if (args.includes('info')) {
+        return createMockSpawn(0, 'Swarm: active');
+      }
+      if (args.includes('build')) {
+        return createMockSpawn(0, 'Successfully built image');
+      }
+      if (args.includes('version')) {
+        return createMockSpawn(0, 'Podman version 4.5.0');
+      }
+
+      // Default podman commands
       return createMockSpawn(0, '');
     }
 

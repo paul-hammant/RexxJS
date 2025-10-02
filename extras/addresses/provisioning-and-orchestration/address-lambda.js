@@ -2,6 +2,14 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will fall back to legacy interpolation
+}
+
 const LAMBDA_ADDRESS_META = {
   name: 'LAMBDA',
   description: 'AWS Lambda serverless function management',
@@ -141,9 +149,33 @@ class AddressLambdaHandler {
     return 'local';
   }
 
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str, variablePool) {
+    if (!interpolationConfig || !variablePool) {
+      return str;
+    }
+
+    const pattern = interpolationConfig.getCurrentPattern();
+    if (!pattern.hasDelims(str)) {
+      return str;
+    }
+
+    return str.replace(pattern.regex, (match) => {
+      const varName = pattern.extractVar(match);
+      if (varName in variablePool) {
+        return variablePool[varName];
+      }
+      return match; // Variable not found - leave as-is
+    });
+  }
+
   async handleAddressCommand(command, context = {}) {
     try {
-      const parsed = this.parseCommand(command);
+      // Apply RexxJS variable interpolation
+      const interpolatedCommand = this.interpolateVariables(command, context);
+      const parsed = this.parseCommand(interpolatedCommand);
 
       if (!parsed.operation) {
         throw new Error('No operation specified');

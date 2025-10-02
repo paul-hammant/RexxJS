@@ -18,7 +18,7 @@ const {
   parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput,
   wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints,
   formatStatus
-} = require('../shared-utils');
+} = require('./shared-utils');
 
 const log = createLogFunction('ADDRESS_PROXMOX');
 

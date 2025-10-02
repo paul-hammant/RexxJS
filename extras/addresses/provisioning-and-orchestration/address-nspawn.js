@@ -5,17 +5,25 @@
 /**
  * ADDRESS NSPAWN Handler
  * Provides explicit ADDRESS NSPAWN integration for container operations
- * 
+ *
  * Usage:
  *   REQUIRE "rexxjs/address-nspawn" AS NSPAWN
  *   ADDRESS NSPAWN
  *   "create image=debian:stable name=test-container"
  *   "status"
  *   "list"
- * 
+ *
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */
+
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will fall back to legacy interpolation
+}
 
 // Environment-aware module loading for pkg support
 let spawn, fs, path, sharedUtils;
@@ -85,13 +93,13 @@ try {
     spawn = require('child_process').spawn;
     fs = require('fs');
     path = require('path');
-    sharedUtils = require('../shared-utils');
+    sharedUtils = require('./shared-utils');
   }
 } catch (error) {
   throw new Error(`Failed to load required modules: ${error.message}`);
 }
 
-const { interpolateMessage, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = sharedUtils;
+const { interpolateMessage, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, validateCommand, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = sharedUtils;
 // testRuntime and validateCommand were previously sourced locally; define simple versions here or import if available
 function testRuntime(runtime) {
   return new Promise((resolve, reject) => {
@@ -101,7 +109,7 @@ function testRuntime(runtime) {
     proc.on('error', err => { clearTimeout(to); reject(new Error(`${runtime} not found: ${err.message}`)); });
   });
 }
-function validateCommand(cmd) { return typeof cmd === 'string' && cmd.length > 0; }
+// Note: validateCommand is imported from shared-utils, not defined locally
 // Inline utility functions for universal compatibility (Node.js, pkg binary, web/DOM)
 
 // Helper function for logging

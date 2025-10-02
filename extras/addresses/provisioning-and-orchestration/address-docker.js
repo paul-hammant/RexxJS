@@ -19,6 +19,14 @@
 
 // Modules will be loaded dynamically in initialize method
 
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will fall back to legacy interpolation
+}
+
 class AddressDockerHandler {
   constructor() {
     this.activeContainers = new Map();
@@ -74,7 +82,7 @@ class AddressDockerHandler {
       this.path = require('path');
       
       // Import shared utilities
-      const sharedUtils = require('../shared-utils');
+      const sharedUtils = require('./shared-utils');
       this.interpolateMessage = sharedUtils.interpolateMessage;
       this.logActivity = sharedUtils.logActivity;
       this.createLogFunction = sharedUtils.createLogFunction;
@@ -116,7 +124,7 @@ class AddressDockerHandler {
     // Detect runtime availability
     await this.detectRuntime();
 
-    log('initialize', {
+    this.log('initialize', {
       securityMode: this.securityMode,
       maxContainers: this.maxContainers,
       runtime: this.runtime,
@@ -129,7 +137,7 @@ class AddressDockerHandler {
    */
   async detectRuntime() {
     try {
-      await testRuntime('docker');
+      await this.testRuntime('docker');
       this.runtime = 'docker';
       return;
     } catch (error) {
@@ -137,16 +145,43 @@ class AddressDockerHandler {
     }
   }
 
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str, variablePool) {
+    if (!variablePool) {
+      return str;
+    }
+
+    if (interpolationConfig) {
+      const pattern = interpolationConfig.getCurrentPattern();
+      if (!pattern.hasDelims(str)) {
+        return str;
+      }
+
+      return str.replace(pattern.regex, (match) => {
+        const varName = pattern.extractVar(match);
+        if (varName in variablePool) {
+          return variablePool[varName];
+        }
+        return match; // Variable not found - leave as-is
+      });
+    }
+
+    // Fallback to simple interpolation
+    return str.replace(/\{([^}]+)\}/g, (m, v) => (variablePool[v] !== undefined ? String(variablePool[v]) : m));
+  }
 
   /**
    * Main handler for ADDRESS DOCKER commands
    */
   async handleAddressCommand(command, context = {}) {
     try {
-      const interpolatedCommand = await interpolateMessage(command, context);
-      log('command', { command: interpolatedCommand });
+      // Apply RexxJS variable interpolation
+      const interpolatedCommand = this.interpolateVariables(command, context);
+      this.log('command', { command: interpolatedCommand });
 
-      const parsed = parseCommand(interpolatedCommand);
+      const parsed = this.parseCommand(interpolatedCommand);
       
       switch (parsed.operation) {
         case 'status':
@@ -193,7 +228,7 @@ class AddressDockerHandler {
           throw new Error(`Unknown ADDRESS DOCKER command: ${parsed.operation}`);
       }
     } catch (error) {
-      log('error', { error: error.message, command });
+      this.log('error', { error: error.message, command });
       return {
         success: false,
         operation: 'error',
@@ -218,7 +253,7 @@ class AddressDockerHandler {
       activeContainers: containerCount,
       maxContainers: this.maxContainers,
       securityMode: this.securityMode,
-      output: formatStatus(this.runtime, containerCount, this.maxContainers, this.securityMode)
+      output: this.formatStatus(this.runtime, containerCount, this.maxContainers, this.securityMode)
     };
   }
 
@@ -321,9 +356,9 @@ class AddressDockerHandler {
       createArgs.push('bash');
     }
     
-    log('docker_create_start', { containerName, image, args: createArgs });
+    this.log('docker_create_start', { containerName, image, args: createArgs });
     const result = await this.execPodmanCommand(createArgs);
-    log('docker_create_result', { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
+    this.log('docker_create_result', { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
     
     if (result.exitCode === 0) {
       const containerInfo = {
@@ -342,7 +377,7 @@ class AddressDockerHandler {
 
       this.activeContainers.set(containerName, containerInfo);
 
-      log('container_created', { name: containerName, image, containerId: containerInfo.containerId });
+      this.log('container_created', { name: containerName, image, containerId: containerInfo.containerId });
 
       return {
         success: true,
@@ -389,7 +424,7 @@ class AddressDockerHandler {
       container.status = 'running';
       container.started = new Date().toISOString();
 
-      log('container_started', { name });
+      this.log('container_started', { name });
 
       return {
         success: true,
@@ -427,7 +462,7 @@ class AddressDockerHandler {
       container.status = 'stopped';
       container.stopped = new Date().toISOString();
 
-      log('container_stopped', { name });
+      this.log('container_stopped', { name });
 
       return {
         success: true,
@@ -460,7 +495,7 @@ class AddressDockerHandler {
     if (result.exitCode === 0) {
         this.activeContainers.delete(name);
 
-        log('container_removed', { name });
+        this.log('container_removed', { name });
 
         return {
           success: true,
@@ -498,15 +533,15 @@ class AddressDockerHandler {
     }
 
     // Check if binary exists
-    const interpolatedBinary = await interpolateMessage(rexx_binary, context);
-    const interpolatedTarget = await interpolateMessage(target, context);
+    const interpolatedBinary = this.interpolateVariables(rexx_binary, context);
+    const interpolatedTarget = this.interpolateVariables(target, context);
     
     // Security validation
-    if (!validateBinaryPath(interpolatedBinary, this.securityMode, this.trustedBinaries, this.auditSecurityEvent.bind(this))) {
+    if (!this.validateBinaryPath(interpolatedBinary, this.securityMode, this.trustedBinaries, this.auditSecurityEvent.bind(this))) {
       throw new Error(`RexxJS binary path ${interpolatedBinary} not trusted by security policy`);
     }
     
-    if (!fs.existsSync(interpolatedBinary)) {
+    if (!this.fs.existsSync(interpolatedBinary)) {
       throw new Error(`RexxJS binary not found: ${interpolatedBinary}`);
     }
 
@@ -528,7 +563,7 @@ class AddressDockerHandler {
       container.rexxDeployed = true;
       container.rexxPath = interpolatedTarget;
 
-      log('binary_deployed', { 
+      this.log('binary_deployed', { 
         container: name, 
         binary: interpolatedBinary, 
         target: interpolatedTarget 
@@ -567,16 +602,16 @@ class AddressDockerHandler {
       throw new Error(`Container ${name} must be running to execute commands`);
     }
 
-    const interpolatedCmd = await interpolateMessage(cmd, context);
-    const interpolatedDir = working_dir ? await interpolateMessage(working_dir, context) : null;
+    const interpolatedCmd = this.interpolateVariables(cmd, context);
+    const interpolatedDir = working_dir ? this.interpolateVariables(working_dir, context) : null;
     
     // Security validation for command
-    const commandViolations = validateCommand(interpolatedCmd, this.securityPolicies.bannedCommands);
+    const commandViolations = this.validateCommand(interpolatedCmd, this.securityPolicies.bannedCommands);
     if (commandViolations.length > 0) {
-      this.auditSecurityEvent('command_blocked', { 
-        command: interpolatedCmd, 
-        violations: commandViolations, 
-        container: name 
+      this.auditSecurityEvent('command_blocked', {
+        command: interpolatedCmd,
+        violations: commandViolations,
+        container: name
       });
       throw new Error(`Command blocked by security policy: ${commandViolations.join('; ')}`);
     }
@@ -590,7 +625,7 @@ class AddressDockerHandler {
     try {
       const result = await this.execInContainer(name, fullCommand, { timeout: execTimeout });
 
-      log('command_executed', {
+      this.log('command_executed', {
         container: name,
         command: interpolatedCmd,
         exitCode: result.exitCode
@@ -640,10 +675,10 @@ class AddressDockerHandler {
 
     let rexxScript;
     if (script_file) {
-      const interpolatedFile = await interpolateMessage(script_file, context);
-      rexxScript = fs.readFileSync(interpolatedFile, 'utf8');
+      const interpolatedFile = this.interpolateVariables(script_file, context);
+      rexxScript = this.fs.readFileSync(interpolatedFile, 'utf8');
     } else {
-      rexxScript = await interpolateMessage(script, context);
+      rexxScript = this.interpolateVariables(script, context);
     }
 
     try {
@@ -654,7 +689,7 @@ class AddressDockerHandler {
         result = await this.executeRexxWithProgress(container, rexxScript, {
           timeout: execTimeout,
           progressCallback: (checkpoint, params) => {
-            log('rexx_progress', {
+            this.log('rexx_progress', {
               container: name,
               checkpoint: checkpoint,
               progress: params
@@ -675,7 +710,7 @@ class AddressDockerHandler {
         await this.execInContainer(name, `rm -f ${tempScript}`, { timeout: 5000 });
       }
 
-      log('rexx_executed', {
+      this.log('rexx_executed', {
         container: name,
         exitCode: result.exitCode,
         progressEnabled: enableProgressCallback
@@ -718,7 +753,7 @@ class AddressDockerHandler {
       const result = await this.execPodmanCommand(args);
       
       if (result.exitCode === 0) {
-        log('copy_to_success', {
+        this.log('copy_to_success', {
           container,
           local,
           remote
@@ -763,7 +798,7 @@ class AddressDockerHandler {
       const result = await this.execPodmanCommand(args);
       
       if (result.exitCode === 0) {
-        log('copy_from_success', {
+        this.log('copy_from_success', {
           container,
           remote,
           local
@@ -810,7 +845,7 @@ class AddressDockerHandler {
       const result = await this.execPodmanCommand(args);
       
       if (result.exitCode === 0) {
-        log('logs_success', {
+        this.log('logs_success', {
           container,
           lines: logLines,
           logLength: result.stdout.length
@@ -855,7 +890,7 @@ class AddressDockerHandler {
             this.activeContainers.delete(id);
             cleaned++;
           } catch (error) {
-            log('cleanup_error', {
+            this.log('cleanup_error', {
               containerId: id,
               error: error.message
             });
@@ -872,7 +907,7 @@ class AddressDockerHandler {
               this.activeContainers.delete(id);
               cleaned++;
             } catch (error) {
-              log('cleanup_error', {
+              this.log('cleanup_error', {
                 containerId: id,
                 error: error.message
               });
@@ -882,7 +917,7 @@ class AddressDockerHandler {
         }
       }
 
-      log('cleanup_completed', {
+      this.log('cleanup_completed', {
         cleaned,
         remaining: this.activeContainers.size,
         all: all === 'true'
@@ -910,7 +945,7 @@ class AddressDockerHandler {
       const startTime = Date.now();
       const timeout = options.timeout || this.defaultTimeout;
 
-      const exec = spawn('docker', ['exec', containerName, 'sh', '-c', command], {
+      const exec = this.spawn('docker', ['exec', containerName, 'sh', '-c', command], {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -954,7 +989,7 @@ class AddressDockerHandler {
    */
   async copyToContainer(containerName, localPath, remotePath) {
     return new Promise((resolve, reject) => {
-      const copy = spawn('docker', ['cp', localPath, `${containerName}:${remotePath}`], {
+      const copy = this.spawn('docker', ['cp', localPath, `${containerName}:${remotePath}`], {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -982,7 +1017,7 @@ class AddressDockerHandler {
    */
   async writeToContainer(containerName, remotePath, content) {
     return new Promise((resolve, reject) => {
-      const write = spawn('docker', ['exec', '-i', containerName, 'sh', '-c', `cat > ${remotePath}`], {
+      const write = this.spawn('docker', ['exec', '-i', containerName, 'sh', '-c', `cat > ${remotePath}`], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
@@ -1015,7 +1050,7 @@ class AddressDockerHandler {
     const timeout = options.timeout || this.defaultTimeout;
     
     return new Promise((resolve, reject) => {
-      const child = spawn('docker', args, {
+      const child = this.spawn('docker', args, {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -1090,7 +1125,7 @@ class AddressDockerHandler {
         await this.execInContainer(containerInfo.name, `rm -f ${tempScript}`, { timeout: 5000 });
       } catch (cleanupError) {
         // Log cleanup failure but don't mask original error
-        log('cleanup_error', { script: tempScript, error: cleanupError.message });
+        this.log('cleanup_error', { script: tempScript, error: cleanupError.message });
       }
       throw error;
     }
@@ -1108,8 +1143,7 @@ class AddressDockerHandler {
    */
   async execInContainerWithProgress(containerName, command, options = {}) {
     return new Promise((resolve, reject) => {
-      const { spawn } = require('child_process');
-      const child = spawn('docker', ['exec', '-i', containerName, 'sh', '-c', command], {
+      const child = this.spawn('docker', ['exec', '-i', containerName, 'sh', '-c', command], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
@@ -1163,14 +1197,6 @@ class AddressDockerHandler {
   }
 
   /**
-   * Parse key=value parameter string
-   */
-  parseKeyValueString(paramStr) {
-    return parseKeyValueString(paramStr);
-  }
-
-
-  /**
    * Enhanced security validation for container parameters
    */
   validateContainerSecurity(params) {
@@ -1178,8 +1204,8 @@ class AddressDockerHandler {
     
     // Validate memory limits
     if (params.memory) {
-      const memoryLimit = parseMemoryLimit(params.memory);
-      const maxMemoryLimit = parseMemoryLimit(this.securityPolicies.maxMemory);
+      const memoryLimit = this.parseMemoryLimit(params.memory);
+      const maxMemoryLimit = this.parseMemoryLimit(this.securityPolicies.maxMemory);
       if (memoryLimit > maxMemoryLimit) {
         violations.push(`Memory limit ${params.memory} exceeds maximum allowed ${this.securityPolicies.maxMemory}`);
       }
@@ -1199,7 +1225,7 @@ class AddressDockerHandler {
       const volumeMounts = params.volumes.split(',');
       for (const mount of volumeMounts) {
         const [hostPath] = mount.split(':');
-        if (!validateVolumePath(hostPath.trim(), this.securityMode, this.securityPolicies.allowedVolumePaths)) {
+        if (!this.validateVolumePath(hostPath.trim(), this.securityMode, this.securityPolicies.allowedVolumePaths)) {
           violations.push(`Volume path ${hostPath} not allowed by security policy`);
         }
       }
@@ -1253,7 +1279,7 @@ class AddressDockerHandler {
       this.checkContainerHealth();
     }, this.processMonitor.checkInterval);
 
-    log('process_monitoring_started', { 
+    this.log('process_monitoring_started', { 
       interval: this.processMonitor.checkInterval,
       containers: this.activeContainers.size 
     });
@@ -1266,7 +1292,7 @@ class AddressDockerHandler {
     if (this.monitoringTimer) {
       clearInterval(this.monitoringTimer);
       this.monitoringTimer = null;
-      log('process_monitoring_stopped');
+      this.log('process_monitoring_stopped');
     }
   }
 
@@ -1287,7 +1313,7 @@ class AddressDockerHandler {
           this.handleUnhealthyContainer(name, container, health);
         }
       } catch (error) {
-        log('health_check_error', { container: name, error: error.message });
+        this.log('health_check_error', { container: name, error: error.message });
       }
     }
   }
@@ -1311,11 +1337,11 @@ class AddressDockerHandler {
           pid: inspectData.State.Pid,
           memory: this.parseStatsMemory(statsResult.stdout),
           cpu: this.parseStatsCpu(statsResult.stdout),
-          uptime: calculateUptime(inspectData.State.StartedAt)
+          uptime: this.calculateUptime(inspectData.State.StartedAt)
         };
       }
     } catch (error) {
-      log('health_check_failed', { container: containerName, error: error.message });
+      this.log('health_check_failed', { container: containerName, error: error.message });
     }
 
     return {
@@ -1332,7 +1358,7 @@ class AddressDockerHandler {
    * Handle unhealthy containers
    */
   async handleUnhealthyContainer(name, container, health) {
-    log('unhealthy_container_detected', { 
+    this.log('unhealthy_container_detected', { 
       container: name, 
       status: health.status,
       lastKnownGood: container.status 
@@ -1351,10 +1377,10 @@ class AddressDockerHandler {
     // Auto-recovery logic for certain conditions
     if (health.status === 'exited' && container.autoRestart) {
       try {
-        log('attempting_auto_restart', { container: name });
+        this.log('attempting_auto_restart', { container: name });
         await this.startContainer({ name }, {});
       } catch (error) {
-        log('auto_restart_failed', { container: name, error: error.message });
+        this.log('auto_restart_failed', { container: name, error: error.message });
       }
     }
   }
@@ -1401,7 +1427,7 @@ class AddressDockerHandler {
       lastCheck: null
     });
 
-    log('health_check_configured', { 
+    this.log('health_check_configured', { 
       container, 
       enabled, 
       interval, 
@@ -1450,7 +1476,7 @@ class AddressDockerHandler {
       lastUpdate: null
     });
 
-    log('checkpoint_monitoring_setup', { 
+    this.log('checkpoint_monitoring_setup', { 
       container: containerName,
       bidirectional: true 
     });
@@ -1477,7 +1503,7 @@ class AddressDockerHandler {
     }
 
     // Log the checkpoint for debugging
-    log('checkpoint_received', {
+    this.log('checkpoint_received', {
       container: containerName,
       checkpoint: checkpointData.checkpoint,
       params: checkpointData.params
@@ -1489,8 +1515,7 @@ class AddressDockerHandler {
    */
   async execInContainerWithProgress(containerName, command, options = {}) {
     return new Promise((resolve, reject) => {
-      const { spawn } = require('child_process');
-      const child = spawn('docker', ['exec', '-i', containerName, 'sh', '-c', command], {
+      const child = this.spawn('docker', ['exec', '-i', containerName, 'sh', '-c', command], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 

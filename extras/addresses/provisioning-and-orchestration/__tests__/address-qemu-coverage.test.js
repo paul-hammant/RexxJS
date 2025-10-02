@@ -82,7 +82,8 @@ describe('ADDRESS QEMU Handler - Coverage Tests', () => {
     const wrapped = handler.wrapScriptWithCheckpoints(script, {});
 
     expect(typeof wrapped).toBe('string');
-    expect(wrapped).toBe(script); // Basic implementation just returns script
+    expect(wrapped).toContain(script);
+    expect(wrapped).toContain('CHECKPOINT');
   });
 
   test('should handle parseCheckpointOutput', async () => {

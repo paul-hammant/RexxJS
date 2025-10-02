@@ -9,9 +9,9 @@ describe('ADDRESS DOCKER Handler - Simple Tests', () => {
   
   test('should work with Jest mocking', async () => {
     const handler = await createDockerTestHandler();
-    
+
     const result = await handler.handleAddressCommand('create image=debian:stable name=test-container');
-    
+
     expect(result.success).toBe(true);
     expect(result.operation).toBe('create');
     expect(result.container).toBe('test-container');

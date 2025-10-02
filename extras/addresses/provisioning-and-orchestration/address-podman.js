@@ -19,6 +19,14 @@
 
 // Modules will be loaded dynamically in initialize method
 
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will fall back to legacy interpolation
+}
+
 class AddressPodmanHandler {
   constructor() {
     this.activeContainers = new Map();
@@ -74,7 +82,7 @@ class AddressPodmanHandler {
       this.path = require('path');
       
       // Import shared utilities
-      const sharedUtils = require('../shared-utils');
+      const sharedUtils = require('./shared-utils');
       this.interpolateMessage = sharedUtils.interpolateMessage;
       this.logActivity = sharedUtils.logActivity;
       this.createLogFunction = sharedUtils.createLogFunction;
@@ -137,13 +145,42 @@ class AddressPodmanHandler {
     }
   }
 
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str, variablePool) {
+    if (!variablePool) {
+      return str;
+    }
+
+    if (interpolationConfig) {
+      const pattern = interpolationConfig.getCurrentPattern();
+      if (!pattern.hasDelims(str)) {
+        return str;
+      }
+
+      return str.replace(pattern.regex, (match) => {
+        const varName = pattern.extractVar(match);
+        if (varName in variablePool) {
+          return variablePool[varName];
+        }
+        return match; // Variable not found - leave as-is
+      });
+    }
+
+    // Fallback to simple {var} pattern when interpolationConfig not available
+    return str.replace(/\{([^}]+)\}/g, (match, varName) => {
+      return (variablePool[varName] !== undefined ? String(variablePool[varName]) : match);
+    });
+  }
 
   /**
    * Main handler for ADDRESS PODMAN commands
    */
   async handleAddressCommand(command, context = {}) {
     try {
-      const interpolatedCommand = await this.interpolateMessage(command, context);
+      // Apply RexxJS variable interpolation
+      const interpolatedCommand = this.interpolateVariables(command, context);
       this.log('command', { command: interpolatedCommand });
 
       const parsed = this.parseCommand(interpolatedCommand);
@@ -498,15 +535,15 @@ class AddressPodmanHandler {
     }
 
     // Check if binary exists
-    const interpolatedBinary = await this.interpolateMessage(rexx_binary, context);
-    const interpolatedTarget = await this.interpolateMessage(target, context);
+    const interpolatedBinary = this.interpolateVariables(rexx_binary, context);
+    const interpolatedTarget = this.interpolateVariables(target, context);
     
     // Security validation
-    if (!validateBinaryPath(interpolatedBinary, this.securityMode, this.trustedBinaries, this.auditSecurityEvent.bind(this))) {
+    if (!this.validateBinaryPath(interpolatedBinary, this.securityMode, this.trustedBinaries, this.auditSecurityEvent.bind(this))) {
       throw new Error(`RexxJS binary path ${interpolatedBinary} not trusted by security policy`);
     }
     
-    if (!fs.existsSync(interpolatedBinary)) {
+    if (!this.fs.existsSync(interpolatedBinary)) {
       throw new Error(`RexxJS binary not found: ${interpolatedBinary}`);
     }
 
@@ -567,11 +604,11 @@ class AddressPodmanHandler {
       throw new Error(`Container ${name} must be running to execute commands`);
     }
 
-    const interpolatedCmd = await this.interpolateMessage(cmd, context);
-    const interpolatedDir = working_dir ? await this.interpolateMessage(working_dir, context) : null;
-    
+    const interpolatedCmd = this.interpolateVariables(cmd, context);
+    const interpolatedDir = working_dir ? this.interpolateVariables(working_dir, context) : null;
+
     // Security validation for command
-    const commandViolations = validateCommand(interpolatedCmd, this.securityPolicies.bannedCommands);
+    const commandViolations = this.validateCommand(interpolatedCmd, this.securityPolicies.bannedCommands);
     if (commandViolations.length > 0) {
       this.auditSecurityEvent('command_blocked', { 
         command: interpolatedCmd, 
@@ -640,10 +677,10 @@ class AddressPodmanHandler {
 
     let rexxScript;
     if (script_file) {
-      const interpolatedFile = await this.interpolateMessage(script_file, context);
+      const interpolatedFile = this.interpolateVariables(script_file, context);
       rexxScript = this.fs.readFileSync(interpolatedFile, 'utf8');
     } else {
-      rexxScript = await this.interpolateMessage(script, context);
+      rexxScript = this.interpolateVariables(script, context);
     }
 
     try {
@@ -1178,8 +1215,8 @@ class AddressPodmanHandler {
     
     // Validate memory limits
     if (params.memory) {
-      const memoryLimit = parseMemoryLimit(params.memory);
-      const maxMemoryLimit = parseMemoryLimit(this.securityPolicies.maxMemory);
+      const memoryLimit = this.parseMemoryLimit(params.memory);
+      const maxMemoryLimit = this.parseMemoryLimit(this.securityPolicies.maxMemory);
       if (memoryLimit > maxMemoryLimit) {
         violations.push(`Memory limit ${params.memory} exceeds maximum allowed ${this.securityPolicies.maxMemory}`);
       }
@@ -1199,7 +1236,7 @@ class AddressPodmanHandler {
       const volumeMounts = params.volumes.split(',');
       for (const mount of volumeMounts) {
         const [hostPath] = mount.split(':');
-        if (!validateVolumePath(hostPath.trim(), this.securityMode, this.securityPolicies.allowedVolumePaths)) {
+        if (!this.validateVolumePath(hostPath.trim(), this.securityMode, this.securityPolicies.allowedVolumePaths)) {
           violations.push(`Volume path ${hostPath} not allowed by security policy`);
         }
       }
@@ -1311,7 +1348,7 @@ class AddressPodmanHandler {
           pid: inspectData.State.Pid,
           memory: this.parseStatsMemory(statsResult.stdout),
           cpu: this.parseStatsCpu(statsResult.stdout),
-          uptime: calculateUptime(inspectData.State.StartedAt)
+          uptime: this.calculateUptime(inspectData.State.StartedAt)
         };
       }
     } catch (error) {

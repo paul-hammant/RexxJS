@@ -5,7 +5,7 @@
 /**
  * SQLite ADDRESS Library - Provides SQL database operations via ADDRESS interface
  * This is an ADDRESS target library, not a functions library
- * 
+ *
  * Usage:
  *   REQUIRE "sqlite-address" AS SQL
  *   ADDRESS SQL
@@ -14,10 +14,40 @@
  *   "SELECT * FROM users"
  *
  * Note: Only works in Node.js environment (command-line mode)
- * 
+ *
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */
+
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will work without interpolation
+}
+
+/**
+ * Interpolate variables using RexxJS global interpolation pattern
+ */
+function interpolateVariables(str, variablePool) {
+  if (!interpolationConfig || !variablePool) {
+    return str;
+  }
+
+  const pattern = interpolationConfig.getCurrentPattern();
+  if (!pattern.hasDelims(str)) {
+    return str;
+  }
+
+  return str.replace(pattern.regex, (match) => {
+    const varName = pattern.extractVar(match);
+    if (varName in variablePool) {
+      return variablePool[varName];
+    }
+    return match; // Variable not found - leave as-is
+  });
+}
 
 // SQLite ADDRESS metadata function
 function SQLITE_ADDRESS_META() {
@@ -73,21 +103,27 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
     }
     
     const db = global._sqliteConnection;
-    
+
+    // Apply RexxJS variable interpolation if command is a string
+    const variablePool = params || {};
+    const interpolatedCommand = typeof commandOrMethod === 'string'
+      ? interpolateVariables(commandOrMethod, variablePool)
+      : commandOrMethod;
+
     // Handle ADDRESS MATCHING pattern with multi-line input
-    if (typeof commandOrMethod === 'string' && params && params._addressMatchingPattern) {
-      return handleMatchingPatternSQL(db, commandOrMethod, params._addressMatchingPattern)
+    if (typeof interpolatedCommand === 'string' && params && params._addressMatchingPattern) {
+      return handleMatchingPatternSQL(db, interpolatedCommand, params._addressMatchingPattern)
         .then(result => formatSQLResultForREXX(result))
         .catch(error => {
-          const e = new Error(`${error.message} | SQL: ${commandOrMethod.trim()}`);
+          const e = new Error(`${error.message} | SQL: ${interpolatedCommand.trim()}`);
           throw e;
         });
     }
-    
+
     // Handle command-string style (traditional Rexx ADDRESS)
-    if (typeof commandOrMethod === 'string' && (!params || !params._addressMatchingPattern)) {
+    if (typeof interpolatedCommand === 'string' && (!params || !params._addressMatchingPattern)) {
       // Handle special status command as string
-      if (commandOrMethod.toLowerCase().trim() === 'status') {
+      if (interpolatedCommand.toLowerCase().trim() === 'status') {
         const statusResult = {
           service: 'sqlite',
           version: '3.x',
@@ -98,40 +134,42 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
         };
         return Promise.resolve(formatSQLResultForREXX(statusResult));
       }
-      
-      return handleSQLCommand(db, commandOrMethod)
+
+      return handleSQLCommand(db, interpolatedCommand)
         .then(result => formatSQLResultForREXX(result))
         .catch(error => {
-          const e = new Error(`${error.message} | SQL: ${commandOrMethod.trim()}`);
+          const e = new Error(`${error.message} | SQL: ${interpolatedCommand.trim()}`);
           throw e; // include SQL text for debugging
         });
     }
     
-    // Handle ADDRESS MATCHING multiline input 
-    if (typeof commandOrMethod === 'string' && params && params._addressMatchingPattern) {
+    // Handle ADDRESS MATCHING multiline input
+    if (typeof interpolatedCommand === 'string' && params && params._addressMatchingPattern) {
       // console.log('DEBUG: MATCHING pattern received:');
-      // console.log('  commandOrMethod:', JSON.stringify(commandOrMethod));
+      // console.log('  interpolatedCommand:', JSON.stringify(interpolatedCommand));
       // console.log('  pattern:', params._addressMatchingPattern);
-      // console.log('  contains newlines:', commandOrMethod.includes('\n'));
-      
-      return handleMatchingPatternSQL(db, commandOrMethod, params._addressMatchingPattern)
+      // console.log('  contains newlines:', interpolatedCommand.includes('\n'));
+
+      return handleMatchingPatternSQL(db, interpolatedCommand, params._addressMatchingPattern)
         .then(result => formatSQLResultForREXX(result))
         .catch(error => {
-          const e = new Error(`${error.message} | SQL: ${commandOrMethod.trim()}`);
+          const e = new Error(`${error.message} | SQL: ${interpolatedCommand.trim()}`);
           throw e;
         });
     }
-    
+
     // Handle method-call style (modern convenience)
     let resultPromise;
-    switch (commandOrMethod.toLowerCase()) {
+    switch (interpolatedCommand.toLowerCase()) {
       case 'execute':
       case 'run':
-        resultPromise = handleSQLCommand(db, params.sql || params.command);
+        const sql = interpolateVariables(params.sql || params.command || '', variablePool);
+        resultPromise = handleSQLCommand(db, sql);
         break;
-        
+
       case 'query':
-        resultPromise = handleSQLQuery(db, params.sql, params.params);
+        const querySql = interpolateVariables(params.sql || '', variablePool);
+        resultPromise = handleSQLQuery(db, querySql, params.params);
         break;
         
       case 'close':

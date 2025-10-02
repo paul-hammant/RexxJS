@@ -14,9 +14,50 @@
  * The following is a template for how the implementation might look.
  */
 
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will work without interpolation
+}
+
+/**
+ * Interpolate variables using RexxJS global interpolation pattern
+ */
+function interpolateVariables(str, variablePool) {
+  if (!interpolationConfig || !variablePool) {
+    return str;
+  }
+
+  const pattern = interpolationConfig.getCurrentPattern();
+  if (!pattern.hasDelims(str)) {
+    return str;
+  }
+
+  return str.replace(pattern.regex, (match) => {
+    const varName = pattern.extractVar(match);
+    if (varName in variablePool) {
+      return variablePool[varName];
+    }
+    return match; // Variable not found - leave as-is
+  });
+}
+
 // This function would be responsible for dispatching checkpoint requests.
 // It would be called by the REXX interpreter when `ADDRESS "openai-chat"` is used.
 async function ADDRESS_OPENAI_CHAT_HANDLER(commandOrMethod, params) {
+    // Apply RexxJS variable interpolation to params
+    const variablePool = params || {};
+    const interpolatedParams = {};
+    for (const [key, value] of Object.entries(params || {})) {
+        if (typeof value === 'string') {
+            interpolatedParams[key] = interpolateVariables(value, variablePool);
+        } else {
+            interpolatedParams[key] = value;
+        }
+    }
+
     // 1. Generate a unique request ID.
     const requestId = generateRequestId(); // This function would need to be available.
 
@@ -28,8 +69,8 @@ async function ADDRESS_OPENAI_CHAT_HANDLER(commandOrMethod, params) {
             operation: 'CHAT_COMPLETION',
             // Extract parameters from the REXX command or method call.
             parameters: {
-                model: params.model || 'gpt-3.5-turbo',
-                messages: params.messages,
+                model: interpolatedParams.model || 'gpt-3.5-turbo',
+                messages: interpolatedParams.messages,
                 // other OpenAI API parameters...
             }
         }

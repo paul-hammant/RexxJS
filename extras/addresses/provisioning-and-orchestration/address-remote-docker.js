@@ -24,7 +24,7 @@ class AddressRemoteDockerHandler {
     
     try {
       // Import shared utilities
-      const sharedUtils = require('../shared-utils');
+      const sharedUtils = require('./shared-utils');
       this.interpolateMessage = sharedUtils.interpolateMessage;
       this.createLogFunction = sharedUtils.createLogFunction;
       this.parseCommand = sharedUtils.parseCommand;

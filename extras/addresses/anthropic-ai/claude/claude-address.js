@@ -5,7 +5,7 @@
 /**
  * Claude API ADDRESS Library - Provides AI chat operations via ADDRESS interface
  * This is an ADDRESS target library, not a functions library
- * 
+ *
  * Usage:
  *   REQUIRE "claude-address" AS CLAUDE
  *   ADDRESS CLAUDE
@@ -16,10 +16,40 @@
  *
  * Environment Variable Required:
  *   ANTHROPIC_API_KEY - Your Anthropic API key
- * 
+ *
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */
+
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will work without interpolation
+}
+
+/**
+ * Interpolate variables using RexxJS global interpolation pattern
+ */
+function interpolateVariables(str, variablePool) {
+  if (!interpolationConfig || !variablePool) {
+    return str;
+  }
+
+  const pattern = interpolationConfig.getCurrentPattern();
+  if (!pattern.hasDelims(str)) {
+    return str;
+  }
+
+  return str.replace(pattern.regex, (match) => {
+    const varName = pattern.extractVar(match);
+    if (varName in variablePool) {
+      return variablePool[varName];
+    }
+    return match; // Variable not found - leave as-is
+  });
+}
 
 // Session storage for multi-turn conversations
 const chatSessions = new Map();
@@ -68,23 +98,32 @@ async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params) {
       throw new Error('Claude ADDRESS library requires ANTHROPIC_API_KEY environment variable');
     }
 
+    // Apply RexxJS variable interpolation
+    const variablePool = params || {};
+    const interpolatedCommand = typeof commandOrMethod === 'string'
+      ? interpolateVariables(commandOrMethod, variablePool)
+      : commandOrMethod;
+
     // Handle command-string style (traditional Rexx ADDRESS)
-    if (typeof commandOrMethod === 'string' && !params) {
-      const result = await handleClaudeCommand(commandOrMethod, apiKey);
+    if (typeof interpolatedCommand === 'string' && !params) {
+      const result = await handleClaudeCommand(interpolatedCommand, apiKey);
       return formatClaudeResultForREXX(result);
     }
     
     // Handle method-call style (modern convenience)
     let resultPromise;
-    switch (commandOrMethod.toLowerCase()) {
+    switch (interpolatedCommand.toLowerCase()) {
       case 'chat':
       case 'message':
-        resultPromise = handleChatMessage(params.message || params.text, params.chat_id, apiKey, params.system);
+        const message = interpolateVariables(params.message || params.text || '', variablePool);
+        const system = params.system ? interpolateVariables(params.system, variablePool) : params.system;
+        resultPromise = handleChatMessage(message, params.chat_id, apiKey, system);
         break;
-        
+
       case 'start':
       case 'session':
-        resultPromise = handleStartSession(params.system || params.role, apiKey);
+        const systemRole = interpolateVariables(params.system || params.role || '', variablePool);
+        resultPromise = handleStartSession(systemRole, apiKey);
         break;
         
       case 'end':

@@ -20,6 +20,36 @@
  *   -- response is in checkpointResult.response
  */
 
+// Try to import RexxJS interpolation config for variable interpolation
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will work without interpolation
+}
+
+/**
+ * Interpolate variables using RexxJS global interpolation pattern
+ */
+function interpolateVariables(str, variablePool) {
+  if (!interpolationConfig || !variablePool) {
+    return str;
+  }
+
+  const pattern = interpolationConfig.getCurrentPattern();
+  if (!pattern.hasDelims(str)) {
+    return str;
+  }
+
+  return str.replace(pattern.regex, (match) => {
+    const varName = pattern.extractVar(match);
+    if (varName in variablePool) {
+      return variablePool[varName];
+    }
+    return match; // Variable not found - leave as-is
+  });
+}
+
 // Gemini Pro ADDRESS metadata function
 function GEMINI_PRO_ADDRESS_META() {
   return {
@@ -52,7 +82,19 @@ function ADDRESS_GEMINI_PRO_HANDLER(method, params) {
   // executeAddress method for this to work.
 
   const operation = method.toUpperCase();
-  const parameters = { ...params, model: 'gemini-pro' };
+
+  // Apply RexxJS variable interpolation to params
+  const variablePool = params || {};
+  const interpolatedParams = {};
+  for (const [key, value] of Object.entries(params || {})) {
+    if (typeof value === 'string') {
+      interpolatedParams[key] = interpolateVariables(value, variablePool);
+    } else {
+      interpolatedParams[key] = value;
+    }
+  }
+
+  const parameters = { ...interpolatedParams, model: 'gemini-pro' };
 
   // This is a special return value that the interpreter understands
   // as a request to initiate a CHECKPOINT.
