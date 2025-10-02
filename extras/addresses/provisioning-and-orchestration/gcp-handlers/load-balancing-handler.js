@@ -8,14 +8,54 @@
  * - Forwarding rules
  * - Health checks
  * - SSL certificates
+ *
+ * Supports both imperative (key=value) and declarative (block) syntax.
  */
 
-const { parseKeyValueParams } = require('../../../shared-utils/gcp-utils.js');
+const fs = require('fs');
+// Try to import interpolation config from RexxJS core
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will use simpler variable resolution
+}
+
+const os = require('os');
+const path = require('path');
+const { parseKeyValueParams } = require('../../shared-utils/gcp-utils.js');
+const { DeclarativeParser, toGcpYaml } = require('../../../shared-utils/declarative-parser.js');
 
 class LoadBalancingHandler {
   constructor(parent) {
     this.parent = parent;
   }
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str) {
+    if (!interpolationConfig) {
+      return str;
+    }
+
+    const variablePool = this.parent.variablePool || {};
+    const pattern = interpolationConfig.getCurrentPattern();
+
+    if (!pattern.hasDelims(str)) {
+      return str;
+    }
+
+    return str.replace(pattern.regex, (match) => {
+      const varName = pattern.extractVar(match);
+
+      if (varName in variablePool) {
+        return variablePool[varName];
+      }
+
+      return match; // Variable not found - leave as-is
+    });
+  }
+
 
   async initialize() {
     // No special initialization needed
@@ -23,6 +63,11 @@ class LoadBalancingHandler {
 
   async handle(command) {
     const upperCommand = command.toUpperCase().trim();
+
+    // Check for declarative block syntax: LOAD-BALANCER name WITH ... END
+    if (upperCommand.match(/^LOAD-BALANCER\s+\S+\s+WITH/)) {
+      return await this.createLoadBalancerDeclarative(command);
+    }
 
     // Backend services
     if (upperCommand.startsWith('CREATE BACKEND-SERVICE') || upperCommand.startsWith('CREATE BACKEND')) {
@@ -713,6 +758,276 @@ class LoadBalancingHandler {
     };
   }
 
+  /**
+   * Create a complete load balancer using declarative block syntax
+   *
+   * Example:
+   *   LOAD-BALANCER my-lb WITH
+   *     backend_service "web-backend" {
+   *       protocol HTTP
+   *       health_check { port 80 }
+   *     }
+   *     frontend { port 80 }
+   *   END
+   */
+  async createLoadBalancerDeclarative(command) {
+    // Extract load balancer name
+    const nameMatch = command.match(/LOAD-BALANCER\s+(\S+)\s+WITH/i);
+    if (!nameMatch) {
+      throw new Error('Load balancer name is required: LOAD-BALANCER <name> WITH ... END');
+    }
+    const lbName = nameMatch[1];
+
+    // Extract the declarative block between WITH and END
+    const blockMatch = command.match(/WITH\s+([\s\S]+?)\s+END/i);
+    if (!blockMatch) {
+      throw new Error('Declarative syntax requires WITH...END block');
+    }
+    const blockContent = blockMatch[1];
+
+    // Parse the declarative block with variable pool from parent
+    // Variable pool is read-only, passed from RexxJS interpreter
+    const variablePool = this.parent.variablePool || {};
+    const parser = new DeclarativeParser(variablePool);
+    let parsed;
+    try {
+      parsed = parser.parse(blockContent);
+    } catch (e) {
+      throw new Error(`Failed to parse declarative block: ${e.message}`);
+    }
+
+    // Track resources created for rollback on failure
+    const created = {
+      healthChecks: [],
+      backendServices: [],
+      urlMaps: [],
+      targetProxies: [],
+      forwardingRules: []
+    };
+
+    try {
+      // Step 1: Create health checks (if specified)
+      if (parsed.backend_service && parsed.backend_service.health_check) {
+        const hcName = `${lbName}-health-check`;
+        await this.createHealthCheckFromDeclarative(hcName, parsed.backend_service.health_check);
+        created.healthChecks.push(hcName);
+      }
+
+      // Step 2: Create backend service
+      if (parsed.backend_service) {
+        const backendName = parsed.backend_service.name || lbName;
+        await this.createBackendServiceFromDeclarative(backendName, parsed.backend_service, created.healthChecks[0]);
+        created.backendServices.push(backendName);
+      }
+
+      // Step 3: Create URL map
+      const urlMapName = parsed.url_map?.name || `${lbName}-url-map`;
+      await this.createUrlMapFromDeclarative(urlMapName, parsed.url_map || {}, created.backendServices[0]);
+      created.urlMaps.push(urlMapName);
+
+      // Step 4: Create target proxy
+      const proxyName = `${lbName}-proxy`;
+      const isHttps = parsed.frontend?.protocol?.toUpperCase() === 'HTTPS';
+
+      if (isHttps) {
+        // Create SSL certificate if needed
+        if (parsed.frontend.ssl_certificate) {
+          const certName = `${lbName}-cert`;
+          await this.createSslCertificateFromDeclarative(certName, parsed.frontend.ssl_certificate);
+        }
+        await this.createTargetHttpsProxyFromDeclarative(proxyName, urlMapName, `${lbName}-cert`);
+      } else {
+        await this.createTargetHttpProxyFromDeclarative(proxyName, urlMapName);
+      }
+      created.targetProxies.push(proxyName);
+
+      // Step 5: Create forwarding rule
+      const ruleName = parsed.frontend?.name || `${lbName}-rule`;
+      await this.createForwardingRuleFromDeclarative(ruleName, parsed.frontend || {}, proxyName, isHttps);
+      created.forwardingRules.push(ruleName);
+
+      return {
+        success: true,
+        action: 'create_load_balancer_declarative',
+        data: {
+          name: lbName,
+          resources: created
+        },
+        stdout: `Load balancer '${lbName}' created successfully with declarative syntax`,
+        stderr: ''
+      };
+
+    } catch (error) {
+      // Rollback on failure (delete created resources in reverse order)
+      console.error(`Failed to create load balancer: ${error.message}`);
+      console.error('Rolling back created resources...');
+
+      // TODO: Implement rollback logic
+
+      throw new Error(`Failed to create load balancer '${lbName}': ${error.message}`);
+    }
+  }
+
+  /**
+   * Helper: Create health check from declarative config
+   */
+  async createHealthCheckFromDeclarative(name, config) {
+    const protocol = config.protocol || 'HTTP';
+    const args = ['compute', 'health-checks', 'create', protocol.toLowerCase(), name];
+
+    if (config.port) args.push('--port', String(config.port));
+    if (config.request_path) args.push('--request-path', config.request_path);
+    if (config.check_interval) args.push('--check-interval', config.check_interval);
+    if (config.timeout) args.push('--timeout', config.timeout);
+    if (config.healthy_threshold) args.push('--healthy-threshold', String(config.healthy_threshold));
+    if (config.unhealthy_threshold) args.push('--unhealthy-threshold', String(config.unhealthy_threshold));
+
+    args.push('--global');
+
+    const result = await this.executeGcloud(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create health check: ${result.stderr}`);
+    }
+  }
+
+  /**
+   * Helper: Create backend service from declarative config
+   */
+  async createBackendServiceFromDeclarative(name, config, healthCheckName) {
+    const args = ['compute', 'backend-services', 'create', name];
+
+    args.push('--protocol', config.protocol || 'HTTP');
+    args.push('--global');
+
+    if (healthCheckName) {
+      args.push('--health-checks', healthCheckName);
+    }
+
+    if (config.port_name) args.push('--port-name', config.port_name);
+    if (config.timeout) args.push('--timeout', config.timeout);
+
+    if (config.cdn?.enabled) {
+      args.push('--enable-cdn');
+    }
+
+    const result = await this.executeGcloud(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create backend service: ${result.stderr}`);
+    }
+
+    // Add backends if specified
+    if (config.backend) {
+      const backend = config.backend;
+      const backendArgs = ['compute', 'backend-services', 'add-backend', name, '--global'];
+
+      if (backend.instance_group) {
+        backendArgs.push('--instance-group', backend.instance_group.split('/').pop());
+        const zone = backend.instance_group.match(/zones\/([^/]+)/)?.[1];
+        if (zone) backendArgs.push('--instance-group-zone', zone);
+      }
+
+      if (backend.balancing_mode) backendArgs.push('--balancing-mode', backend.balancing_mode);
+      if (backend.max_utilization) backendArgs.push('--max-utilization', String(backend.max_utilization));
+      if (backend.max_rate_per_instance) backendArgs.push('--max-rate-per-instance', String(backend.max_rate_per_instance));
+
+      await this.executeGcloud(backendArgs);
+    }
+  }
+
+  /**
+   * Helper: Create URL map from declarative config
+   */
+  async createUrlMapFromDeclarative(name, config, defaultService) {
+    const args = ['compute', 'url-maps', 'create', name];
+    args.push('--default-service', config.default_service || defaultService);
+    args.push('--global');
+
+    const result = await this.executeGcloud(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create URL map: ${result.stderr}`);
+    }
+  }
+
+  /**
+   * Helper: Create target HTTP proxy from declarative config
+   */
+  async createTargetHttpProxyFromDeclarative(name, urlMapName) {
+    const args = ['compute', 'target-http-proxies', 'create', name];
+    args.push('--url-map', urlMapName);
+    args.push('--global');
+
+    const result = await this.executeGcloud(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create target HTTP proxy: ${result.stderr}`);
+    }
+  }
+
+  /**
+   * Helper: Create target HTTPS proxy from declarative config
+   */
+  async createTargetHttpsProxyFromDeclarative(name, urlMapName, certName) {
+    const args = ['compute', 'target-https-proxies', 'create', name];
+    args.push('--url-map', urlMapName);
+    args.push('--ssl-certificates', certName);
+    args.push('--global');
+
+    const result = await this.executeGcloud(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create target HTTPS proxy: ${result.stderr}`);
+    }
+  }
+
+  /**
+   * Helper: Create SSL certificate from declarative config
+   */
+  async createSslCertificateFromDeclarative(name, config) {
+    const args = ['compute', 'ssl-certificates', 'create', name];
+
+    if (config.managed && config.domains) {
+      const domains = Array.isArray(config.domains) ? config.domains.join(',') : config.domains;
+      args.push('--domains', domains);
+    } else if (config.certificate && config.private_key) {
+      args.push('--certificate', config.certificate);
+      args.push('--private-key', config.private_key);
+    }
+
+    args.push('--global');
+
+    const result = await this.executeGcloud(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create SSL certificate: ${result.stderr}`);
+    }
+  }
+
+  /**
+   * Helper: Create forwarding rule from declarative config
+   */
+  async createForwardingRuleFromDeclarative(name, config, targetProxy, isHttps) {
+    const args = ['compute', 'forwarding-rules', 'create', name];
+    args.push('--global');
+
+    if (isHttps) {
+      args.push('--target-https-proxy', targetProxy);
+      args.push('--ports', config.port || '443');
+    } else {
+      args.push('--target-http-proxy', targetProxy);
+      args.push('--ports', config.port || '80');
+    }
+
+    if (config.ip_address) {
+      args.push('--address', config.ip_address);
+    }
+
+    if (config.ip_protocol) {
+      args.push('--ip-protocol', config.ip_protocol);
+    }
+
+    const result = await this.executeGcloud(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create forwarding rule: ${result.stderr}`);
+    }
+  }
+
   getInfo() {
     return {
       service: 'load-balancing',
@@ -724,7 +1039,8 @@ class LoadBalancingHandler {
         'Create target HTTP proxy': 'LOAD-BALANCING CREATE TARGET-HTTP-PROXY name=my-proxy url-map=my-map',
         'Create forwarding rule': 'LOAD-BALANCING CREATE FORWARDING-RULE name=my-rule target-http-proxy=my-proxy ports=80',
         'Create health check': 'LOAD-BALANCING CREATE HEALTH-CHECK name=my-check protocol=HTTP port=80',
-        'Create SSL certificate': 'LOAD-BALANCING CREATE SSL-CERTIFICATE name=my-cert domains=example.com managed=true'
+        'Create SSL certificate': 'LOAD-BALANCING CREATE SSL-CERTIFICATE name=my-cert domains=example.com managed=true',
+        'Declarative load balancer': 'LOAD-BALANCER my-lb WITH backend_service "web" { protocol HTTP } END'
       }
     };
   }

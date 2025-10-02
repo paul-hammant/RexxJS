@@ -1,14 +1,51 @@
 /* Cloud Functions Handler - Serverless function execution */
 
-const { parseKeyValueParams } = require('../../../shared-utils/gcp-utils.js');
+const { parseKeyValueParams } = require('../../shared-utils/gcp-utils.js');
+// Try to import interpolation config from RexxJS core
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will use simpler variable resolution
+}
+
 
 class FunctionsHandler {
   constructor(parent) {
     this.parent = parent;
   }
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str) {
+    if (!interpolationConfig) {
+      return str;
+    }
+
+    const variablePool = this.parent.variablePool || {};
+    const pattern = interpolationConfig.getCurrentPattern();
+
+    if (!pattern.hasDelims(str)) {
+      return str;
+    }
+
+    return str.replace(pattern.regex, (match) => {
+      const varName = pattern.extractVar(match);
+
+      if (varName in variablePool) {
+        return variablePool[varName];
+      }
+
+      return match; // Variable not found - leave as-is
+    });
+  }
+
 
   async handle(command) {
     const trimmed = command.trim();
+
+    // Apply RexxJS variable interpolation
+    const interpolated = this.interpolateVariables(trimmed);
     const parts = trimmed.split(/\s+/);
     const action = parts[0].toUpperCase();
 

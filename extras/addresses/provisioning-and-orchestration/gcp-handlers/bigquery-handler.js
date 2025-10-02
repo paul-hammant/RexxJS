@@ -3,6 +3,14 @@
  * Handles BigQuery SQL operations including batch and transactions
  */
 
+// Try to import interpolation config from RexxJS core
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will use simpler variable resolution
+}
+
 // Global stores for variables
 const globalVariableStore = {};
 
@@ -35,6 +43,32 @@ class BigQueryHandler {
     this.bigquery = null;
     this.currentDataset = null;
   }
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str) {
+    if (!interpolationConfig) {
+      return str;
+    }
+
+    const variablePool = this.parent.variablePool || {};
+    const pattern = interpolationConfig.getCurrentPattern();
+
+    if (!pattern.hasDelims(str)) {
+      return str;
+    }
+
+    return str.replace(pattern.regex, (match) => {
+      const varName = pattern.extractVar(match);
+
+      if (varName in variablePool) {
+        return variablePool[varName];
+      }
+
+      return match; // Variable not found - leave as-is
+    });
+  }
+
 
   async initialize() {
     // Initialize BigQuery client
@@ -53,7 +87,10 @@ class BigQueryHandler {
 
     // Parse result chain if present
     const { command: actualCommand, resultVar } = parseResultChain(trimmed);
-    const resolvedCommand = resolveVariableReferences(actualCommand, globalVariableStore);
+    let resolvedCommand = this.interpolateVariables(actualCommand);
+
+    // Also apply legacy @variable resolution for backward compatibility
+    resolvedCommand = resolveVariableReferences(resolvedCommand, globalVariableStore);
 
     // Handle batch operations
     if (resolvedCommand.toUpperCase().startsWith('BATCH ')) {

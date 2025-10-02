@@ -319,7 +319,8 @@ async function ADDRESS_GCP_HANDLER(commandOrMethod, paramsOrContext, sourceConte
       return await executeSectionedWorkflow(sections, handler);
     }
 
-    return await handler.execute(commandString);
+    // Pass variable pool (context) to execute() for declarative syntax interpolation
+    return await handler.execute(commandString, paramsOrContext || {});
   }
 
   // Handle method-call style (backward compatibility)
@@ -378,32 +379,8 @@ class UnifiedGcpHandler {
       storage: null, // Lazy loaded from gcp-handlers/storage-handler.js
       pubsub: null, // Lazy loaded from gcp-handlers/pubsub-handler.js
       functions: null, // Lazy loaded from gcp-handlers/functions-handler.js
-      run: null, // Lazy loaded from gcp-handlers/cloud-run-handler.js
-      // Legacy handlers for backward compatibility
-      activeFunctions: new Map(),
-      activeServices: new Map()
+      run: null // Lazy loaded from gcp-handlers/cloud-run-handler.js
     };
-
-    // Legacy settings for backward compatibility
-    this.functionDefaults = {
-      runtime: 'python311',
-      memory: '256MB',
-      timeout: '60s',
-      maxInstances: 100,
-      minInstances: 0,
-      trigger: 'http'
-    };
-
-    this.cloudRunDefaults = {
-      platform: 'managed',
-      memory: '512Mi',
-      cpu: '1',
-      maxInstances: 100,
-      minInstances: 0,
-      port: 8080
-    };
-
-    this.auditLog = [];
 
     // Child process reference
     this.spawn = spawn;
@@ -525,7 +502,7 @@ class UnifiedGcpHandler {
 
       if (handlerMap[serviceName]) {
         const HandlerClass = require(handlerMap[serviceName]);
-        this.services[serviceName] = new HandlerClass(this);
+        this.services[serviceName] = new HandlerClass(this, parseKeyValueParams);
         if (typeof this.services[serviceName].initialize === 'function') {
           await this.services[serviceName].initialize();
         }
@@ -562,12 +539,15 @@ class UnifiedGcpHandler {
   }
 
   // New unified execute method for string commands
-  async execute(command) {
+  async execute(command, variablePool = {}) {
     const trimmed = command.trim();
 
     if (!trimmed) {
       throw new Error('Empty command');
     }
+
+    // Store variable pool for handlers to access (read-only)
+    this.variablePool = Object.freeze({ ...variablePool });
 
     // Extract service identifier
     const firstWord = trimmed.split(/\s+/)[0].toUpperCase();
@@ -609,24 +589,24 @@ class UnifiedGcpHandler {
 
       case 'FIRESTORE':
         await globalRateLimiter.checkLimit('firestore');
-        return await this.getServiceHandler('firestore').handle(trimmed.substring(firstWord.length).trim());
+        return await (await this.getServiceHandler('firestore')).handle(trimmed.substring(firstWord.length).trim());
 
       case 'STORAGE':
         await globalRateLimiter.checkLimit('storage');
-        return await this.getServiceHandler('storage').handle(trimmed.substring(firstWord.length).trim());
+        return await (await this.getServiceHandler('storage')).handle(trimmed.substring(firstWord.length).trim());
 
       case 'PUBSUB':
         await globalRateLimiter.checkLimit('pubsub');
-        return await this.getServiceHandler('pubsub').handle(trimmed.substring(firstWord.length).trim());
+        return await (await this.getServiceHandler('pubsub')).handle(trimmed.substring(firstWord.length).trim());
 
       case 'FUNCTIONS':
       case 'FUNCTION':
         await globalRateLimiter.checkLimit('functions');
-        return await this.getServiceHandler('functions').handle(trimmed.substring(firstWord.length).trim());
+        return await (await this.getServiceHandler('functions')).handle(trimmed.substring(firstWord.length).trim());
 
       case 'RUN':
         await globalRateLimiter.checkLimit('run');
-        return await this.getServiceHandler('run').handle(trimmed.substring(firstWord.length).trim());
+        return await (await this.getServiceHandler('run')).handle(trimmed.substring(firstWord.length).trim());
 
       case 'APPS_SCRIPT':
         await globalRateLimiter.checkLimit('apps_script');
@@ -821,432 +801,6 @@ class UnifiedGcpHandler {
     });
   }
 
-  // Cloud Functions operations
-  async deployFunction(params, context) {
-    const functionName = params.name || `rexx-function-${Date.now()}`;
-    const source = params.source || '.';
-    const runtime = params.runtime || this.functionDefaults.runtime;
-    const entryPoint = params.entry_point || 'main';
-    const trigger = params.trigger || this.functionDefaults.trigger;
-
-    // Validate runtime - allow common runtimes
-    const allowedRuntimes = new Set([
-      'python311', 'python39', 'python38', 'python37',
-      'nodejs18', 'nodejs16', 'nodejs14', 'nodejs12',
-      'go119', 'go116', 'go113',
-      'java17', 'java11',
-      'dotnet6', 'dotnet3',
-      'ruby30', 'ruby27'
-    ]);
-    
-    if (!allowedRuntimes.has(runtime)) {
-      throw new Error(`Unsupported runtime: ${runtime}. Allowed: ${Array.from(allowedRuntimes).join(', ')}`);
-    }
-
-    // Build deployment command
-    const args = ['functions', 'deploy', functionName];
-
-    args.push('--runtime', runtime);
-    args.push('--entry-point', entryPoint);
-    args.push('--source', source);
-
-    // Add trigger
-    if (trigger === 'http') {
-      args.push('--trigger-http');
-      args.push('--allow-unauthenticated');
-    } else if (trigger.startsWith('topic:')) {
-      args.push('--trigger-topic', trigger.substring(6));
-    } else if (trigger.startsWith('bucket:')) {
-      args.push('--trigger-bucket', trigger.substring(7));
-    }
-
-    // Add optional parameters
-    if (params.region) args.push('--region', params.region);
-    if (params.memory) args.push('--memory', params.memory);
-    if (params.timeout) args.push('--timeout', params.timeout);
-    if (params.max_instances) args.push('--max-instances', params.max_instances);
-    if (params.min_instances) args.push('--min-instances', params.min_instances);
-    if (params.env_vars) {
-      const envVars = Object.entries(params.env_vars)
-        .map(([k, v]) => `${k}=${v}`)
-        .join(',');
-      args.push('--set-env-vars', envVars);
-    }
-
-    if (this.project) args.push('--project', this.project);
-
-    const result = await this.execCommand('gcloud', args);
-
-    if (result.success) {
-      this.activeFunctions.set(functionName, {
-        name: functionName,
-        runtime,
-        trigger,
-        deployedAt: new Date().toISOString()
-      });
-
-      // Get function URL if HTTP triggered
-      if (trigger === 'http') {
-        const describeResult = await this.execCommand('gcloud', [
-          'functions', 'describe', functionName,
-          '--format', 'value(httpsTrigger.url)',
-          '--project', this.project
-        ]);
-
-        if (describeResult.success && describeResult.stdout) {
-          result.url = describeResult.stdout.trim();
-        }
-      }
-    }
-
-    return result;
-  }
-
-  async invokeFunction(name, data = null) {
-    const args = ['functions', 'call', name];
-
-    if (data !== null) {
-      args.push('--data', JSON.stringify(data));
-    }
-
-    if (this.project) args.push('--project', this.project);
-
-    return await this.execCommand('gcloud', args);
-  }
-
-  async deleteFunction(name) {
-    const args = ['functions', 'delete', name, '--quiet'];
-
-    if (this.project) args.push('--project', this.project);
-
-    const result = await this.execCommand('gcloud', args);
-
-    if (result.success) {
-      this.activeFunctions.delete(name);
-    }
-
-    return result;
-  }
-
-  async listFunctions() {
-    const args = ['functions', 'list', '--format', 'json'];
-
-    if (this.project) args.push('--project', this.project);
-
-    const result = await this.execCommand('gcloud', args);
-
-    if (result.success) {
-      try {
-        result.functions = JSON.parse(result.stdout);
-      } catch (e) {
-        result.functions = [];
-      }
-    }
-
-    return result;
-  }
-
-  // Cloud Run operations
-  async deployService(params, context) {
-    const serviceName = params.name || `rexx-service-${Date.now()}`;
-    const image = params.image;
-
-    if (!image) {
-      throw new Error('Image is required for Cloud Run deployment');
-    }
-
-    const args = ['run', 'deploy', serviceName];
-
-    args.push('--image', image);
-    args.push('--platform', params.platform || this.cloudRunDefaults.platform);
-
-    // Add configuration
-    if (params.region) args.push('--region', params.region);
-    if (params.memory) args.push('--memory', params.memory);
-    if (params.cpu) args.push('--cpu', params.cpu);
-    if (params.port) args.push('--port', params.port);
-    if (params.max_instances) args.push('--max-instances', params.max_instances);
-    if (params.min_instances) args.push('--min-instances', params.min_instances);
-
-    // Allow unauthenticated by default for demo
-    if (params.allow_unauthenticated !== false) {
-      args.push('--allow-unauthenticated');
-    }
-
-    if (params.env_vars) {
-      const envVars = Object.entries(params.env_vars)
-        .map(([k, v]) => `${k}=${v}`)
-        .join(',');
-      args.push('--set-env-vars', envVars);
-    }
-
-    if (this.project) args.push('--project', this.project);
-
-    const result = await this.execCommand('gcloud', args);
-
-    if (result.success) {
-      this.activeServices.set(serviceName, {
-        name: serviceName,
-        image,
-        deployedAt: new Date().toISOString()
-      });
-
-      // Get service URL
-      const describeResult = await this.execCommand('gcloud', [
-        'run', 'services', 'describe', serviceName,
-        '--platform', params.platform || this.cloudRunDefaults.platform,
-        '--region', params.region || this.region,
-        '--format', 'value(status.url)',
-        '--project', this.project
-      ]);
-
-      if (describeResult.success && describeResult.stdout) {
-        result.url = describeResult.stdout.trim();
-      }
-    }
-
-    return result;
-  }
-
-  async deleteService(name, region = null) {
-    const args = ['run', 'services', 'delete', name, '--quiet'];
-
-    args.push('--platform', 'managed');
-    if (region) args.push('--region', region);
-    if (this.project) args.push('--project', this.project);
-
-    const result = await this.execCommand('gcloud', args);
-
-    if (result.success) {
-      this.activeServices.delete(name);
-    }
-
-    return result;
-  }
-
-  async listServices(region = null) {
-    const args = ['run', 'services', 'list', '--platform', 'managed', '--format', 'json'];
-
-    if (region) args.push('--region', region);
-    if (this.project) args.push('--project', this.project);
-
-    const result = await this.execCommand('gcloud', args);
-
-    if (result.success) {
-      try {
-        result.services = JSON.parse(result.stdout);
-      } catch (e) {
-        result.services = [];
-      }
-    }
-
-    return result;
-  }
-
-  // Storage operations
-  async createBucket(name, location = 'us-central1') {
-    const args = ['storage', 'buckets', 'create', `gs://${name}`];
-
-    args.push('--location', location);
-    if (this.project) args.push('--project', this.project);
-
-    return await this.execCommand('gcloud', args);
-  }
-
-  async uploadToBucket(bucketName, localFile, remotePath = null) {
-    const destination = remotePath
-      ? `gs://${bucketName}/${remotePath}`
-      : `gs://${bucketName}/${path.basename(localFile)}`;
-
-    const args = ['storage', 'cp', localFile, destination];
-
-    if (this.project) args.push('--project', this.project);
-
-    return await this.execCommand('gcloud', args);
-  }
-
-  async listBuckets() {
-    const args = ['storage', 'buckets', 'list', '--format', 'json'];
-
-    if (this.project) args.push('--project', this.project);
-
-    const result = await this.execCommand('gcloud', args);
-
-    if (result.success) {
-      try {
-        result.buckets = JSON.parse(result.stdout);
-      } catch (e) {
-        result.buckets = [];
-      }
-    }
-
-    return result;
-  }
-
-  // Pub/Sub operations
-  async createTopic(name) {
-    const args = ['pubsub', 'topics', 'create', name];
-
-    if (this.project) args.push('--project', this.project);
-
-    return await this.execCommand('gcloud', args);
-  }
-
-  async publishMessage(topic, message) {
-    const args = ['pubsub', 'topics', 'publish', topic];
-
-    args.push('--message', JSON.stringify(message));
-    if (this.project) args.push('--project', this.project);
-
-    return await this.execCommand('gcloud', args);
-  }
-
-  // Deployment helper for RexxJS scripts
-  async deployRexxFunction(scriptPath, functionName = null) {
-    const script = this.fs.readFileSync(scriptPath, 'utf8');
-    const name = functionName || `rexx-${path.basename(scriptPath, '.rexx')}-${Date.now()}`;
-
-    // Create temporary directory for function
-    const tempDir = `/tmp/gcp-function-${name}`;
-    if (this.fs.existsSync(tempDir)) {
-      this.fs.rmSync(tempDir, { recursive: true });
-    }
-    this.fs.mkdirSync(tempDir, { recursive: true });
-
-    // Create Python wrapper for RexxJS
-    const pythonWrapper = `
-import json
-import subprocess
-import tempfile
-import os
-
-def main(request):
-    """HTTP Cloud Function that executes RexxJS script."""
-
-    # Get request data
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    # Create temp file with RexxJS script
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.rexx', delete=False) as f:
-        f.write('''${script}''')
-        script_path = f.name
-
-    try:
-        # Execute RexxJS script
-        result = subprocess.run(
-            ['rexx', script_path],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            env={**os.environ, 'GCP_REQUEST': json.dumps(request_json or {})}
-        )
-
-        # Parse output
-        output = result.stdout.strip()
-
-        # Try to parse as JSON, otherwise return as text
-        try:
-            response = json.loads(output)
-            return response
-        except:
-            return {'output': output, 'exitCode': result.returncode}
-
-    except subprocess.TimeoutExpired:
-        return {'error': 'Script execution timeout'}, 500
-    except Exception as e:
-        return {'error': str(e)}, 500
-    finally:
-        # Clean up temp file
-        if os.path.exists(script_path):
-            os.unlink(script_path)
-`;
-
-    // Write wrapper to temp directory
-    this.fs.writeFileSync(`${tempDir}/main.py`, pythonWrapper);
-
-    // Create requirements.txt if needed
-    const requirements = '';
-    this.fs.writeFileSync(`${tempDir}/requirements.txt`, requirements);
-
-    // Deploy function
-    const result = await this.deployFunction({
-      name,
-      source: tempDir,
-      runtime: 'python311',
-      entry_point: 'main',
-      trigger: 'http'
-    });
-
-    // Clean up temp directory
-    if (this.fs.existsSync(tempDir)) {
-      this.fs.rmSync(tempDir, { recursive: true });
-    }
-
-    return result;
-  }
-
-  // Main handler method
-  async handle(method, params = {}, context = {}) {
-    // Audit logging
-    this.auditLog.push({
-      timestamp: new Date().toISOString(),
-      method,
-      params: { ...params, project: this.project }
-    });
-
-    switch (method.toLowerCase()) {
-      // Cloud Functions
-      case 'deploy_function':
-        return await this.deployFunction(params, context);
-      case 'invoke_function':
-        return await this.invokeFunction(params.name || params.function, params.data);
-      case 'delete_function':
-        return await this.deleteFunction(params.name || params.function);
-      case 'list_functions':
-        return await this.listFunctions();
-
-      // Cloud Run
-      case 'deploy_service':
-        return await this.deployService(params, context);
-      case 'delete_service':
-        return await this.deleteService(params.name || params.service, params.region);
-      case 'list_services':
-        return await this.listServices(params.region);
-
-      // Storage
-      case 'create_bucket':
-        return await this.createBucket(params.name || params.bucket, params.location);
-      case 'upload':
-        return await this.uploadToBucket(params.bucket, params.file, params.path);
-      case 'list_buckets':
-        return await this.listBuckets();
-
-      // Pub/Sub
-      case 'create_topic':
-        return await this.createTopic(params.name || params.topic);
-      case 'publish':
-        return await this.publishMessage(params.topic, params.message);
-
-      // RexxJS deployment
-      case 'deploy_rexx':
-        return await this.deployRexxFunction(params.script, params.name);
-
-      // Info
-      case 'info':
-        return {
-          handler: 'GCP',
-          version: '1.0.0',
-          project: this.project,
-          region: this.region,
-          activeFunctions: Array.from(this.activeFunctions.keys()),
-          activeServices: Array.from(this.activeServices.keys())
-        };
-
-      default:
-        throw new Error(`Unknown GCP method: ${method}`);
-    }
-  }
 }
 
 // Export for Node.js
@@ -1258,7 +812,9 @@ if (typeof module !== 'undefined' && module.exports) {
     GCP_ADDRESS_META: function() { return GCP_ADDRESS_META; },
     ADDRESS_GCP_HANDLER,
     // Also export the handler functions
-    ADDRESS_GCP_MAIN: function() { return GCP_ADDRESS_META; }
+    ADDRESS_GCP_MAIN: function() { return GCP_ADDRESS_META; },
+    // Export utility functions for testing
+    parseKeyValueParams
   };
 }
 
@@ -1283,36 +839,4 @@ if (typeof globalScope === 'object') {
     return GCP_META_DATA;
   };
 
-  // Use shared handler instance for first-class method access
-
-  // First-class method exports
-  globalScope.GCP_DEPLOY_SERVICE = async (params) => {
-    const handler = await initGcpHandler();
-    return await handler.deployService(params);
-  };
-
-  globalScope.GCP_DELETE_SERVICE = async (name, region) => {
-    const handler = await initGcpHandler();
-    return await handler.deleteService(name, region);
-  };
-
-  globalScope.GCP_LIST_SERVICES = async (region) => {
-    const handler = await initGcpHandler();
-    return await handler.listServices(region);
-  };
-
-  globalScope.GCP_DEPLOY_FUNCTION = async (params) => {
-    const handler = await initGcpHandler();
-    return await handler.deployFunction(params);
-  };
-
-  globalScope.GCP_LIST_FUNCTIONS = async () => {
-    const handler = await initGcpHandler();
-    return await handler.listFunctions();
-  };
-
-  globalScope.GCP_INFO = async () => {
-    const handler = await initGcpHandler();
-    return await handler.handle('info');
-  };
 }

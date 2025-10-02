@@ -16,6 +16,32 @@ class DocsHandler {
     this.auth = null;
     this.currentDocId = null;
   }
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str) {
+    if (!interpolationConfig) {
+      return str;
+    }
+
+    const variablePool = this.parent.variablePool || {};
+    const pattern = interpolationConfig.getCurrentPattern();
+
+    if (!pattern.hasDelims(str)) {
+      return str;
+    }
+
+    return str.replace(pattern.regex, (match) => {
+      const varName = pattern.extractVar(match);
+
+      if (varName in variablePool) {
+        return variablePool[varName];
+      }
+
+      return match; // Variable not found - leave as-is
+    });
+  }
+
 
   async initialize() {
     console.log('[DocsHandler] Initializing...');
@@ -41,7 +67,10 @@ class DocsHandler {
     }
 
     const trimmed = command.trim();
-    const upperCommand = trimmed.toUpperCase();
+
+    // Apply RexxJS variable interpolation
+    const interpolated = this.interpolateVariables(trimmed);
+    const upperCommand = interpolated.toUpperCase();
 
     // INFO command
     if (upperCommand === 'INFO') {

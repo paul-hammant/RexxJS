@@ -5,6 +5,14 @@
 
 const { google } = require('googleapis');
 
+// Try to import interpolation config from RexxJS core
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will use simpler variable resolution
+}
+
 // Global stores for variables and aliases
 const globalVariableStore = {};
 const globalAliasStore = {};
@@ -41,6 +49,32 @@ class SheetsHandler {
     this.aliases = {}; // Local alias store
   }
 
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str) {
+    if (!interpolationConfig) {
+      return str;
+    }
+
+    const variablePool = this.parent.variablePool || {};
+    const pattern = interpolationConfig.getCurrentPattern();
+
+    if (!pattern.hasDelims(str)) {
+      return str;
+    }
+
+    return str.replace(pattern.regex, (match) => {
+      const varName = pattern.extractVar(match);
+
+      if (varName in variablePool) {
+        return variablePool[varName];
+      }
+
+      return match; // Variable not found - leave as-is
+    });
+  }
+
   async initialize() {
     // Initialize Google Sheets API
     try {
@@ -63,7 +97,12 @@ class SheetsHandler {
 
     // Parse result chain if present
     const { command: actualCommand, resultVar } = parseResultChain(trimmed);
-    const resolvedCommand = resolveVariableReferences(actualCommand, globalVariableStore);
+
+    // Apply RexxJS variable interpolation ({{var}} pattern)
+    let resolvedCommand = this.interpolateVariables(actualCommand);
+
+    // Also apply legacy @variable resolution for backward compatibility
+    resolvedCommand = resolveVariableReferences(resolvedCommand, globalVariableStore);
 
     // Handle batch operations
     if (resolvedCommand.toUpperCase().startsWith('BATCH ')) {

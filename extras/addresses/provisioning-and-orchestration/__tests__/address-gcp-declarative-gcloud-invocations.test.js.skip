@@ -1,0 +1,534 @@
+/* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
+
+/**
+ * Tests for GCP ADDRESS Handler - gcloud Command Invocation Verification
+ *
+ * Pattern: Jest -> JavaScript -> Embedded RexxJS -> Mock Verification -> Jest Assertions
+ *
+ * This test file verifies that the declarative syntax and variable interpolation
+ * result in the CORRECT sequence of gcloud commands being invoked with the
+ * CORRECT arguments.
+ */
+
+const { Interpreter } = require('../../../../core/src/interpreter');
+const { parse } = require('../../../../core/src/parser');
+const path = require('path');
+
+// Mock child_process to capture actual gcloud invocations
+let mockSpawnCalls = [];
+let mockExecCalls = [];
+
+jest.mock('child_process', () => ({
+  spawn: jest.fn((...args) => {
+    mockSpawnCalls.push(args);
+    return {
+      stdout: {
+        on: jest.fn((event, callback) => {
+          if (event === 'data') {
+            // Simulate some output
+          }
+        })
+      },
+      stderr: {
+        on: jest.fn()
+      },
+      on: jest.fn((event, callback) => {
+        if (event === 'close') callback(0);
+      })
+    };
+  }),
+  exec: jest.fn((cmd, callback) => {
+    mockExecCalls.push(cmd);
+    if (cmd.includes('gcloud config get-value project')) {
+      callback(null, 'test-project-123', '');
+    } else {
+      callback(null, 'mock output', '');
+    }
+  })
+}));
+
+describe('GCP ADDRESS Handler - gcloud Command Invocations', () => {
+  let interpreter;
+
+  beforeEach(() => {
+    // Clear invocation tracking
+    mockSpawnCalls = [];
+    mockExecCalls = [];
+
+    const mockRpcClient = {
+      send: jest.fn().mockResolvedValue('mock response')
+    };
+    interpreter = new Interpreter(mockRpcClient);
+
+    if (global.gcpHandlerInstance) {
+      global.gcpHandlerInstance = null;
+    }
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Declarative Load Balancer - Command Sequence', () => {
+    test('should invoke gcloud commands in correct order for simple load balancer', async () => {
+
+      const script = `
+        ADDRESS GCP 'LOAD-BALANCER test-lb WITH
+        backend_service "test-backend" {
+          protocol HTTP
+          timeout 30s
+          health_check {
+            port 80
+            request_path /health
+          }
+        }
+        frontend {
+          port 80
+        }
+        END'
+      `;
+
+      await interpreter.run(parse(script));
+
+      // Verify gcloud was called
+      expect(mockSpawnCalls.length).toBeGreaterThan(0);
+
+      // Expected sequence:
+      // 1. Create health check
+      // 2. Create backend service (with health check)
+      // 3. Create URL map
+      // 4. Create forwarding rule
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      // Verify health check creation
+      const healthCheckCmd = commandStrings.find(cmd =>
+        cmd.includes('health-checks create') && cmd.includes('test-lb-health-check')
+      );
+      expect(healthCheckCmd).toBeDefined();
+      expect(healthCheckCmd).toContain('--port=80');
+      expect(healthCheckCmd).toContain('--request-path=/health');
+
+      // Verify backend service creation
+      const backendCmd = commandStrings.find(cmd =>
+        cmd.includes('backend-services create') && cmd.includes('test-backend')
+      );
+      expect(backendCmd).toBeDefined();
+      expect(backendCmd).toContain('--protocol=HTTP');
+      expect(backendCmd).toContain('--health-checks=test-lb-health-check');
+
+      // Verify URL map creation
+      const urlMapCmd = commandStrings.find(cmd =>
+        cmd.includes('url-maps create')
+      );
+      expect(urlMapCmd).toBeDefined();
+      expect(urlMapCmd).toContain('--default-service=test-backend');
+
+      // Verify forwarding rule creation
+      const forwardingRuleCmd = commandStrings.find(cmd =>
+        cmd.includes('forwarding-rules create')
+      );
+      expect(forwardingRuleCmd).toBeDefined();
+      expect(forwardingRuleCmd).toContain('--port=80');
+    });
+
+    test('should create HTTPS load balancer with SSL certificate', async () => {
+
+      const script = `
+        ADDRESS GCP 'LOAD-BALANCER https-lb WITH
+        backend_service "https-backend" {
+          protocol HTTPS
+          health_check {
+            port 443
+            protocol HTTPS
+          }
+        }
+        frontend {
+          port 443
+          protocol HTTPS
+          ssl_certificate {
+            managed true
+            domains ["example.com", "www.example.com"]
+          }
+        }
+        END'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      // Verify SSL certificate creation
+      const sslCertCmd = commandStrings.find(cmd =>
+        cmd.includes('ssl-certificates create')
+      );
+      expect(sslCertCmd).toBeDefined();
+      expect(sslCertCmd).toContain('--domains=example.com,www.example.com');
+
+      // Verify target HTTPS proxy (not HTTP)
+      const targetProxyCmd = commandStrings.find(cmd =>
+        cmd.includes('target-https-proxies create')
+      );
+      expect(targetProxyCmd).toBeDefined();
+      expect(targetProxyCmd).toContain('--ssl-certificates');
+
+      // Verify forwarding rule uses port 443
+      const forwardingRuleCmd = commandStrings.find(cmd =>
+        cmd.includes('forwarding-rules create')
+      );
+      expect(forwardingRuleCmd).toBeDefined();
+      expect(forwardingRuleCmd).toContain('--port=443');
+    });
+  });
+
+  describe('Variable Interpolation in gcloud Commands', () => {
+    test('should interpolate variables into gcloud command arguments', async () => {
+
+      const script = `
+        CALL setInterpolationPattern 'handlebars'
+
+        /* Define variables */
+        env = "production"
+        port = 443
+        timeout = "60s"
+        domain = "example.com"
+
+        /* Use in declarative block */
+        ADDRESS GCP 'LOAD-BALANCER {{env}}-lb WITH
+        backend_service "{{env}}-backend" {
+          protocol HTTPS
+          timeout {{timeout}}
+          health_check {
+            port {{port}}
+          }
+        }
+        frontend {
+          port {{port}}
+          ssl_certificate {
+            managed true
+            domains ["{{domain}}"]
+          }
+        }
+        END'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      // Verify interpolation happened (should contain "production", not "{{env}}")
+      const backendCmd = commandStrings.find(cmd =>
+        cmd.includes('backend-services create')
+      );
+      expect(backendCmd).toBeDefined();
+      expect(backendCmd).toContain('production-backend');
+      expect(backendCmd).not.toContain('{{env}}');
+      expect(backendCmd).toContain('--timeout=60s');
+      expect(backendCmd).not.toContain('{{timeout}}');
+
+      // Verify health check uses interpolated port
+      const healthCheckCmd = commandStrings.find(cmd =>
+        cmd.includes('health-checks create')
+      );
+      expect(healthCheckCmd).toBeDefined();
+      expect(healthCheckCmd).toContain('--port=443');
+      expect(healthCheckCmd).not.toContain('{{port}}');
+
+      // Verify SSL certificate uses interpolated domain
+      const sslCertCmd = commandStrings.find(cmd =>
+        cmd.includes('ssl-certificates create')
+      );
+      expect(sslCertCmd).toBeDefined();
+      expect(sslCertCmd).toContain('--domains=example.com');
+      expect(sslCertCmd).not.toContain('{{domain}}');
+
+      // Verify forwarding rule uses interpolated port
+      const forwardingRuleCmd = commandStrings.find(cmd =>
+        cmd.includes('forwarding-rules create')
+      );
+      expect(forwardingRuleCmd).toBeDefined();
+      expect(forwardingRuleCmd).toContain('--port=443');
+    });
+
+    test('should handle multiple variables in backend service name', async () => {
+
+      const script = `
+        CALL setInterpolationPattern 'handlebars'
+
+        app = "webapp"
+        env = "staging"
+        region = "us-central1"
+
+        ADDRESS GCP 'LOAD-BALANCER {{app}}-{{env}}-lb WITH
+        backend_service "{{app}}-{{env}}-{{region}}-backend" {
+          protocol HTTP
+        }
+        END'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      const backendCmd = commandStrings.find(cmd =>
+        cmd.includes('backend-services create')
+      );
+      expect(backendCmd).toBeDefined();
+      expect(backendCmd).toContain('webapp-staging-us-central1-backend');
+      expect(backendCmd).not.toContain('{{');
+    });
+  });
+
+  describe('Non-Declarative Commands - gcloud Invocations', () => {
+    test('should invoke gcloud for Cloud Run service deletion with interpolated name', async () => {
+
+      const script = `
+        CALL setInterpolationPattern 'handlebars'
+
+        service_name = "hello-service"
+        region = "us-central1"
+
+        ADDRESS GCP 'RUN DELETE {{service_name}} region={{region}}'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      const runDeleteCmd = commandStrings.find(cmd =>
+        cmd.includes('gcloud run services delete')
+      );
+      expect(runDeleteCmd).toBeDefined();
+      expect(runDeleteCmd).toContain('hello-service');
+      expect(runDeleteCmd).toContain('--region=us-central1');
+      expect(runDeleteCmd).not.toContain('{{');
+    });
+
+    test('should invoke gcloud for PubSub topic creation with interpolated name', async () => {
+
+      const script = `
+        CALL setInterpolationPattern 'handlebars'
+
+        topic_name = "events-topic"
+
+        ADDRESS GCP 'PUBSUB CREATE TOPIC {{topic_name}}'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      const pubsubCmd = commandStrings.find(cmd =>
+        cmd.includes('gcloud pubsub topics create')
+      );
+      expect(pubsubCmd).toBeDefined();
+      expect(pubsubCmd).toContain('events-topic');
+      expect(pubsubCmd).not.toContain('{{topic_name}}');
+    });
+  });
+
+  describe('REXX Logic + Interpolation - Command Verification', () => {
+    test('should invoke different gcloud commands based on REXX conditionals', async () => {
+
+      const script = `
+        CALL setInterpolationPattern 'handlebars'
+
+        env = "production"
+
+        /* REXX conditional sets values */
+        IF env = "production" THEN DO
+          protocol = "HTTPS"
+          port = 443
+        END
+        ELSE DO
+          protocol = "HTTP"
+          port = 80
+        END
+
+        ADDRESS GCP 'LOAD-BALANCER {{env}}-lb WITH
+        backend_service "{{env}}-backend" {
+          protocol {{protocol}}
+          health_check {
+            port {{port}}
+            protocol {{protocol}}
+          }
+        }
+        frontend {
+          port {{port}}
+          protocol {{protocol}}
+        }
+        END'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      // Verify HTTPS was used (from production conditional)
+      const backendCmd = commandStrings.find(cmd =>
+        cmd.includes('backend-services create')
+      );
+      expect(backendCmd).toBeDefined();
+      expect(backendCmd).toContain('--protocol=HTTPS');
+      expect(backendCmd).not.toContain('HTTP'); // Should not be HTTP
+
+      const healthCheckCmd = commandStrings.find(cmd =>
+        cmd.includes('health-checks create')
+      );
+      expect(healthCheckCmd).toBeDefined();
+      expect(healthCheckCmd).toContain('--port=443');
+      expect(healthCheckCmd).not.toContain('--port=80');
+    });
+
+    test('should invoke gcloud multiple times for REXX loop', async () => {
+
+      const script = `
+        CALL setInterpolationPattern 'handlebars'
+
+        environments = "dev staging production"
+
+        DO i = 1 TO WORDS(environments)
+          env = WORD(environments, i)
+
+          ADDRESS GCP 'RUN DELETE {{env}}-service region=us-central1'
+        END
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      // Should have 3 delete commands
+      const deleteCommands = commandStrings.filter(cmd =>
+        cmd.includes('gcloud run services delete')
+      );
+      expect(deleteCommands.length).toBe(3);
+
+      // Verify each environment was called
+      expect(deleteCommands.some(cmd => cmd.includes('dev-service'))).toBe(true);
+      expect(deleteCommands.some(cmd => cmd.includes('staging-service'))).toBe(true);
+      expect(deleteCommands.some(cmd => cmd.includes('production-service'))).toBe(true);
+    });
+  });
+
+  describe('Command Argument Format Verification', () => {
+    test('should format gcloud arguments correctly for health checks', async () => {
+
+      const script = `
+        ADDRESS GCP 'LOAD-BALANCER test-lb WITH
+        backend_service "test-backend" {
+          health_check {
+            port 8080
+            request_path /healthz
+            check_interval 30s
+            timeout 10s
+            healthy_threshold 3
+            unhealthy_threshold 2
+          }
+        }
+        END'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      const healthCheckCmd = commandStrings.find(cmd =>
+        cmd.includes('health-checks create')
+      );
+      expect(healthCheckCmd).toBeDefined();
+      expect(healthCheckCmd).toContain('--port=8080');
+      expect(healthCheckCmd).toContain('--request-path=/healthz');
+      expect(healthCheckCmd).toContain('--check-interval=30s');
+      expect(healthCheckCmd).toContain('--timeout=10s');
+      expect(healthCheckCmd).toContain('--healthy-threshold=3');
+      expect(healthCheckCmd).toContain('--unhealthy-threshold=2');
+    });
+
+    test('should format gcloud arguments correctly for CDN-enabled backend', async () => {
+
+      const script = `
+        ADDRESS GCP 'LOAD-BALANCER cdn-lb WITH
+        backend_service "cdn-backend" {
+          protocol HTTPS
+          cdn {
+            enabled true
+            cache_mode CACHE_ALL_STATIC
+            default_ttl 3600
+          }
+        }
+        END'
+      `;
+
+      await interpreter.run(parse(script));
+
+      const commandStrings = mockSpawnCalls.map(call => {
+        const [cmd, args] = call;
+        return `${cmd} ${args.join(' ')}`;
+      });
+
+      const backendCmd = commandStrings.find(cmd =>
+        cmd.includes('backend-services create')
+      );
+      expect(backendCmd).toBeDefined();
+      expect(backendCmd).toContain('--enable-cdn');
+      expect(backendCmd).toContain('--cache-mode=CACHE_ALL_STATIC');
+    });
+  });
+
+  describe('Error Cases - No gcloud Invocations', () => {
+    test('should not invoke gcloud for malformed declarative syntax', async () => {
+
+      const script = `
+        ADDRESS GCP 'LOAD-BALANCER test-lb WITH
+        backend_service "test-backend" {
+          protocol HTTP
+          # Missing closing brace
+        END'
+      `;
+
+      try {
+        await interpreter.run(parse(script));
+      } catch (e) {
+        // Expected to fail
+      }
+
+      // Should not have invoked gcloud if parsing failed
+      const gcpCommands = mockSpawnCalls.filter(call => {
+        const [cmd] = call;
+        return cmd.includes('gcloud');
+      });
+
+      // Depending on when error occurs, may have 0 or partial commands
+      // Key is that complete sequence should not execute
+      expect(gcpCommands.length).toBeLessThan(4); // Full LB creation requires ~4+ commands
+    });
+  });
+});

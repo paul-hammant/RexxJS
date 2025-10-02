@@ -1,16 +1,53 @@
 /* Secret Manager Handler - Secure secret storage */
 
-const { parseKeyValueParams } = require('../../../shared-utils/gcp-utils.js');
+const { parseKeyValueParams } = require('../../shared-utils/gcp-utils.js');
+// Try to import interpolation config from RexxJS core
+let interpolationConfig = null;
+try {
+  interpolationConfig = require('../../../../core/src/interpolation-config.js');
+} catch (e) {
+  // Not available - will use simpler variable resolution
+}
+
 const { spawn } = require('child_process');
 
 class SecretManagerHandler {
   constructor(parent) {
     this.parent = parent;
   }
+  /**
+   * Interpolate variables using RexxJS global interpolation pattern
+   */
+  interpolateVariables(str) {
+    if (!interpolationConfig) {
+      return str;
+    }
+
+    const variablePool = this.parent.variablePool || {};
+    const pattern = interpolationConfig.getCurrentPattern();
+
+    if (!pattern.hasDelims(str)) {
+      return str;
+    }
+
+    return str.replace(pattern.regex, (match) => {
+      const varName = pattern.extractVar(match);
+
+      if (varName in variablePool) {
+        return variablePool[varName];
+      }
+
+      return match; // Variable not found - leave as-is
+    });
+  }
+
 
   async handle(command) {
     const trimmed = command.trim();
-    const upperCommand = trimmed.toUpperCase();
+
+    // Apply RexxJS variable interpolation
+    const interpolated = this.interpolateVariables(trimmed);
+    const upperCommand = interpolated.toUpperCase();
 
     // Secret operations
     if (upperCommand.startsWith('CREATE ')) {

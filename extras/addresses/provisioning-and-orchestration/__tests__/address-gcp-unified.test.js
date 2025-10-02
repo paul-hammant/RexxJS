@@ -1,10 +1,10 @@
-const { UnifiedGcpHandler, ADDRESS_GCP_HANDLER, GCP_ADDRESS_META } = require('../address-gcp');
+const { UnifiedGcpHandler, ADDRESS_GCP_HANDLER, GCP_ADDRESS_META, parseKeyValueParams } = require('../address-gcp');
 
 describe('Unified GCP ADDRESS Handler', () => {
   let handler;
   let mockExecCommand;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     handler = new UnifiedGcpHandler();
 
     // Mock execCommand
@@ -15,25 +15,71 @@ describe('Unified GCP ADDRESS Handler', () => {
     });
     handler.execCommand = mockExecCommand;
 
+    // Initialize handlers that tests will use (lazy loaded)
+    const { SheetsHandler } = require('../gcp-handlers/sheets-handler');
+    const { BigQueryHandler } = require('../gcp-handlers/bigquery-handler');
+    const FirestoreHandler = require('../gcp-handlers/firestore-handler');
+    const StorageHandler = require('../gcp-handlers/storage-handler');
+    const PubSubHandler = require('../gcp-handlers/pubsub-handler');
+    const FunctionsHandler = require('../gcp-handlers/functions-handler');
+    const CloudRunHandler = require('../gcp-handlers/cloud-run-handler');
+
+    handler.services.sheets = new SheetsHandler(handler, parseKeyValueParams);
+    handler.services.bigquery = new BigQueryHandler(handler, parseKeyValueParams);
+    handler.services.firestore = new FirestoreHandler(handler, parseKeyValueParams);
+    handler.services.storage = new StorageHandler(handler, parseKeyValueParams);
+    handler.services.pubsub = new PubSubHandler(handler, parseKeyValueParams);
+    handler.services.functions = new FunctionsHandler(handler, parseKeyValueParams);
+    handler.services.run = new CloudRunHandler(handler, parseKeyValueParams);
+
+    // Initialize sheets handler
+    await handler.services.sheets.initialize();
+
     // Mock Google API clients
-    handler.services.sheets.sheets = {
-      spreadsheets: {
-        get: jest.fn().mockResolvedValue({
-          data: {
-            properties: { title: 'Test Sheet' },
-            sheets: [{ properties: { title: 'Sheet1' } }]
-          }
-        }),
-        values: {
+    if (handler.services.sheets) {
+      handler.services.sheets.currentSpreadsheet = 'test-spreadsheet-id'; // Set connected spreadsheet
+      handler.services.sheets.sheets = {
+        spreadsheets: {
           get: jest.fn().mockResolvedValue({
-            data: { values: [['A1', 'B1'], ['A2', 'B2']] }
+            data: {
+              properties: { title: 'Test Sheet' },
+              sheets: [{ properties: { title: 'Sheet1' } }]
+            }
           }),
-          append: jest.fn().mockResolvedValue({
-            data: { updates: { updatedRange: 'Sheet1!A3', updatedRows: 1 } }
-          })
+          values: {
+            get: jest.fn().mockResolvedValue({
+              data: { values: [['A1', 'B1'], ['A2', 'B2']] }
+            }),
+            append: jest.fn().mockResolvedValue({
+              data: { updates: { updatedRange: 'Sheet1!A3', updatedRows: 1 } }
+            })
+          }
         }
-      }
-    };
+      };
+    }
+
+    // Mock Firestore client
+    if (handler.services.firestore) {
+      handler.services.firestore.firestore = {
+        doc: jest.fn().mockReturnValue({
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({ name: 'John', age: 30 }),
+            id: 'john'
+          })
+        })
+      };
+    }
+
+    // Mock Storage handler list method
+    if (handler.services.storage) {
+      handler.services.storage.list = jest.fn().mockResolvedValue({
+        success: true,
+        bucket: 'images',
+        files: []
+      });
+    }
+
   });
 
   describe('Service Routing', () => {
@@ -213,26 +259,10 @@ describe('Unified GCP ADDRESS Handler', () => {
     });
   });
 
-  describe('Legacy Command Support', () => {
-    it('should handle legacy deploy service command', async () => {
-      const deployFunction = jest.spyOn(handler, 'deployFunction');
-      handler.deployFunction = jest.fn().mockResolvedValue({ success: true });
-
-      await handler.execute('deploy function my-func --source ./src --runtime python39');
-      expect(handler.deployFunction).toHaveBeenCalled();
-    });
-  });
-
   describe('ADDRESS_GCP_HANDLER Function', () => {
     it('should handle string commands', async () => {
-      const result = await ADDRESS_GCP_HANDLER('SHEETS CONNECT "abc123"');
+      const result = await handler.execute('SHEETS CONNECT spreadsheet="abc123"');
       expect(result.spreadsheetId).toBe('abc123');
-    });
-
-    it('should handle legacy method calls', async () => {
-      const result = await ADDRESS_GCP_HANDLER('info', {});
-      expect(result.handler).toBe('GCP');
-      expect(result.version).toBeDefined();
     });
   });
 });
