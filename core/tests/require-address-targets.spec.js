@@ -23,13 +23,16 @@ describe('REQUIRE ADDRESS Target Libraries', () => {
       writeLine: (text) => console.log(text),
       output: (text) => console.log(text)
     };
-    
+
     interpreter = new Interpreter(mockAddressSender, outputHandler);
+
+    // Set script path for relative path resolution in inline scripts
+    interpreter.scriptPath = __filename;
   });
   
   test('should load calculator service library and register ADDRESS target', async () => {
     // Load the calculator service library  
-    const requireScript = 'REQUIRE "./tests/test-libs/calculator-service.js"';
+    const requireScript = 'REQUIRE "./test-libs/calculator-service.js"';
     const requireCommands = parse(requireScript);
     
     await interpreter.run(requireCommands);
@@ -41,12 +44,13 @@ describe('REQUIRE ADDRESS Target Libraries', () => {
     expect(calculatorTarget).toBeDefined();
     expect(typeof calculatorTarget.handler).toBe('function');
     expect(calculatorTarget.methods).toBeDefined();
-    expect(calculatorTarget.metadata.libraryName).toBe('./tests/test-libs/calculator-service.js');
+    // Path resolution now converts relative paths to absolute
+    expect(calculatorTarget.metadata.libraryName).toContain('tests/test-libs/calculator-service.js');
   });
   
   test('should use ADDRESS target for method calls after ADDRESS statement', async () => {
     // Load the calculator service library
-    await interpreter.run(parse('REQUIRE "./tests/test-libs/calculator-service.js"'));
+    await interpreter.run(parse('REQUIRE "./test-libs/calculator-service.js"'));
     
     // Use ADDRESS to switch to calculator namespace and call method
     const script = `
@@ -68,7 +72,7 @@ describe('REQUIRE ADDRESS Target Libraries', () => {
   
   test('should handle multiple operations with ADDRESS target', async () => {
     // Load calculator service
-    await interpreter.run(parse('REQUIRE "./tests/test-libs/calculator-service.js"'));
+    await interpreter.run(parse('REQUIRE "./test-libs/calculator-service.js"'));
     
     // Perform multiple calculator operations
     const script = `
@@ -94,7 +98,7 @@ describe('REQUIRE ADDRESS Target Libraries', () => {
   
   test('should handle ADDRESS target errors appropriately', async () => {
     // Load calculator service  
-    await interpreter.run(parse('REQUIRE "./tests/test-libs/calculator-service.js"'));
+    await interpreter.run(parse('REQUIRE "./test-libs/calculator-service.js"'));
     
     // Test division by zero error
     const script = `
@@ -109,7 +113,7 @@ describe('REQUIRE ADDRESS Target Libraries', () => {
   
   test('should handle unknown ADDRESS target methods', async () => {
     // Load calculator service
-    await interpreter.run(parse('REQUIRE "./tests/test-libs/calculator-service.js"'));
+    await interpreter.run(parse('REQUIRE "./test-libs/calculator-service.js"'));
     
     // Try to call non-existent method
     const script = `
@@ -124,7 +128,7 @@ describe('REQUIRE ADDRESS Target Libraries', () => {
   
   test('should get service status from ADDRESS target', async () => {
     // Load calculator service
-    await interpreter.run(parse('REQUIRE "./tests/test-libs/calculator-service.js"'));
+    await interpreter.run(parse('REQUIRE "./test-libs/calculator-service.js"'));
     
     // Get service status
     const script = `
@@ -170,7 +174,7 @@ describe('REQUIRE ADDRESS Target Libraries', () => {
   
   test('should switch between ADDRESS targets and fallback RPC', async () => {
     // Load calculator service
-    await interpreter.run(parse('REQUIRE "./tests/test-libs/calculator-service.js"'));
+    await interpreter.run(parse('REQUIRE "./test-libs/calculator-service.js"'));
     
     // Mock Address Sender for non-registered targets
     const mockAddressSender = {

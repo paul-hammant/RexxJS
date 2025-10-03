@@ -84,5 +84,11 @@ module.exports = {
     }
   },
   target: 'web',
-  plugins: [new RexxMetaPlugin()]
+  plugins: [
+    new RexxMetaPlugin(),
+    new (require('webpack')).BannerPlugin({
+      banner: '/*!\n * @rexxjs-meta=PYODIDE_ADDRESS_META\n */',
+      raw: true
+    })
+  ]
 };

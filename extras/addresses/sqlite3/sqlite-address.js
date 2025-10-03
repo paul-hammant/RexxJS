@@ -51,15 +51,20 @@ function interpolateVariables(str, variablePool) {
 
 // SQLite ADDRESS metadata function
 function SQLITE_ADDRESS_META() {
-  // Check sqlite3 availability without throwing during registration
+  // Check Node.js environment - fail fast if wrong environment
+  if (typeof process === 'undefined' || !process.versions || !process.versions.node) {
+    throw new Error('SQLite ADDRESS library requires Node.js environment (not available in browser/web)');
+  }
+
+  // Check sqlite3 module availability
   let sqlite3Available = false;
   try {
     require('sqlite3');
     sqlite3Available = true;
   } catch (e) {
-    // Will be available as metadata for error handling
+    // Module not installed - will be checked later if handler is actually used
   }
-  
+
   return {
     canonical: "org.rexxjs/sqlite3-address",
     type: 'address-handler',

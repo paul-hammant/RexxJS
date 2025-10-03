@@ -15,7 +15,11 @@ describe('Discworld Science Library Tests', () => {
   
   beforeEach(() => {
     interpreter = new Interpreter(null);
-    
+
+    // Set script path for relative path resolution in inline scripts
+    // Simulates running from tests/discworld-science.spec.js
+    interpreter.scriptPath = __filename;
+
     // Clear any previously loaded functions
     if (global.DISCWORLD_SCIENCE_MAIN) delete global.DISCWORLD_SCIENCE_MAIN;
     if (global.L_SPACE_DISTANCE) delete global.L_SPACE_DISTANCE;
@@ -26,7 +30,7 @@ describe('Discworld Science Library Tests', () => {
 
   test('should load contrived Discworld science functions and perform calculations', async () => {
     const script = `
-      REQUIRE "./tests/test-libs/discworld-science.js"
+      REQUIRE "./test-libs/discworld-science.js"
       
       -- Test L-Space library navigation
       LET distance = L_SPACE_DISTANCE library1="Unseen University" library2="British Museum" librarian_mood="ook"
@@ -97,7 +101,7 @@ describe('Discworld Science Library Tests', () => {
 
   test('should handle Discworld library detection function', async () => {
     const script = `
-      REQUIRE "./tests/test-libs/discworld-science.js"
+      REQUIRE "./test-libs/discworld-science.js"
       
       -- Test detection function by calling with no parameters
       LET library_info = DISCWORLD_SCIENCE_MAIN
@@ -122,7 +126,7 @@ describe('Discworld Science Library Tests', () => {
 
   test('should preserve clean namespace while maintaining compatibility', async () => {
     const script = `
-      REQUIRE "./tests/test-libs/discworld-science.js"
+      REQUIRE "./test-libs/discworld-science.js"
     `;
     
     const commands = parse(script);
@@ -158,7 +162,7 @@ describe('Discworld Science Library Tests', () => {
 
   test('should handle error conditions in Discworld functions', async () => {
     const script = `
-      REQUIRE "./tests/test-libs/discworld-science.js"
+      REQUIRE "./test-libs/discworld-science.js"
       
       -- This should fail because both libraries are required
       LET bad_distance = L_SPACE_DISTANCE library1="Only One Library"
@@ -172,7 +176,7 @@ describe('Discworld Science Library Tests', () => {
 
   test('should demonstrate the absurdity works in practice', async () => {
     const script = `
-      REQUIRE "./tests/test-libs/discworld-science.js"
+      REQUIRE "./test-libs/discworld-science.js"
       
       -- Calculate if a rubber duck will spontaneously appear during high magic
       LET high_magic_components = JSON_PARSE text='["dragon scale", "phoenix feather", "concentrated narrative", 99]'

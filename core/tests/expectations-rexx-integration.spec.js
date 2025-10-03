@@ -177,7 +177,7 @@ describe('RexxJS Expectations Integration Tests', () => {
     // Create a test script that demonstrates both patterns working
     const fs = require('fs');
     const testScript = `#!/usr/bin/env node
-REQUIRE "./src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 SAY "Testing both ADDRESS EXPECTATIONS patterns..."
 

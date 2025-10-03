@@ -1,8 +1,8 @@
-/**
+/*!
  * Terry Pratchett's Discworld Science Library
  * Functions for advanced thaumic calculations and narrative imperative analysis
- * Primary detection function: DISCWORLD_SCIENCE_MAIN
- * 
+ * @rexxjs-meta=DISCWORLD_SCIENCE_MAIN
+ *
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */

@@ -64,5 +64,11 @@ module.exports = {
     }
   },
   target: 'web',
-  plugins: [new RexxMetaPlugin()]
+  plugins: [
+    new RexxMetaPlugin(),
+    new (require('webpack')).BannerPlugin({
+      banner: '/*!\n * @rexxjs-meta=R_SET_FUNCTIONS_META\n */',
+      raw: true
+    })
+  ]
 };

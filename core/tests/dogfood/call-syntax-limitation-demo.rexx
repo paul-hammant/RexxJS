@@ -6,7 +6,7 @@
 /* @test-tags call-syntax, limitations, educational, dogfood */
 /* @description CALL Syntax Limitations Demonstration - Built-in Functions vs Subroutines */
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Limitations Demonstration Starting..."

@@ -28,10 +28,18 @@
 
 const fs = require('fs');
 const path = require('path');
-const { executeScript } = require('./executor');
-const { ADDRESS_EXPECTATIONS_HANDLER } = require('./expectations-address.js');
 
-const { NodeOutputHandler } = require('./output/node-output-handler.js');
+// Deterministic path resolution based on execution mode
+// - nodejs: relative paths from current file location
+// - pkg: absolute paths from cli.js location in snapshot
+const isPkg = typeof process.pkg !== 'undefined';
+const requirePath = isPkg
+  ? (mod) => path.join(__dirname, 'src', mod)
+  : (mod) => './' + mod;
+
+const { executeScript } = require(requirePath('executor'));
+const { ADDRESS_EXPECTATIONS_HANDLER } = require(requirePath('expectations-address.js'));
+const { NodeOutputHandler } = require(requirePath('output/node-output-handler.js'));
 
 // Address sender for CLI execution
 class CLIAddressSender {
@@ -63,7 +71,7 @@ class CLIAddressSender {
     if (address === 'default') {
       return { status: 'ignored', result: 'Default ADDRESS call ignored' };
     }
-    
+
     // First-class handlers enabled for CLI mode
     const upper = String(address || '').toUpperCase();
     if (upper === 'SSH' && this.ADDRESS_SSH_HANDLER) {
@@ -88,7 +96,15 @@ class CLIAddressSender {
 
 async function main() {
   const args = process.argv.slice(2);
-  
+  const isTestRunner = process.env.REXXJS_TEST_RUNNER === 'true';
+
+  // Delegate immediately to test runner if in test mode
+  if (isTestRunner) {
+    const { main: runTests } = require(requirePath('test-runner-cli.js'));
+    return runTests();
+  }
+
+  // Regular script mode continues below
   if (args.length === 0) {
     console.error('Usage: node cli.js <script.rexx> [options]');
     console.error('');
@@ -101,7 +117,7 @@ async function main() {
     console.error('  node cli.js my-script.rexx --verbose');
     process.exit(1);
   }
-  
+
   if (args.includes('--help') || args.includes('-h')) {
     console.log('RexxJS REXX Script Runner - Node.js CLI');
     console.log('');
@@ -119,9 +135,11 @@ async function main() {
     console.log('  node cli.js my-script.rexx --verbose');
     return;
   }
-  
-  const scriptPath = args[0];
+
+  const scriptPath = path.resolve(args[0]);
   const verbose = args.includes('--verbose') || args.includes('-v');
+
+  // Regular script execution mode
   // Collect KEY=VALUE pairs after the script path for interpolation context
   const cliVars = new Map();
   for (let i = 1; i < args.length; i++) {
@@ -134,19 +152,19 @@ async function main() {
       cliVars.set(key, value);
     }
   }
-  
+
   if (!fs.existsSync(scriptPath)) {
     console.error(`Error: Script file not found: ${scriptPath}`);
     process.exit(1);
   }
-  
+
   try {
     if (verbose) {
       console.log(`Reading REXX script: ${scriptPath}`);
     }
-    
+
     const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-    
+
     if (verbose) {
       console.log('Script content:');
       console.log('----------------------------------------');
@@ -155,12 +173,12 @@ async function main() {
       console.log('Executing...');
       console.log('');
     }
-    
+
     const outputHandler = new NodeOutputHandler();
     const addressSender = new CLIAddressSender(outputHandler);
     // Attach variables for ADDRESS handlers to interpolate {KEY}
     addressSender.variables = cliVars;
-    
+
     // Positional args for PARSE ARG: everything after script path that is not KEY=VALUE
     const positional = [];
     for (let i = 1; i < args.length; i++) {
@@ -170,14 +188,14 @@ async function main() {
       positional.push(a);
     }
 
-    const interpreter = await executeScript(scriptContent, addressSender, positional);
-    
+    const interpreter = await executeScript(scriptContent, addressSender, positional, scriptPath);
+
     if (verbose) {
       console.log('');
       console.log('Execution completed successfully!');
       console.log('Final variables:', interpreter.variables);
     }
-    
+
   } catch (error) {
     console.error('Error executing script:', error.message);
     if (verbose) {

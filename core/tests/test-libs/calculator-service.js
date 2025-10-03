@@ -1,6 +1,7 @@
-/**
+/*!
  * Mock calculator service for testing ADDRESS functionality
- * 
+ * @rexxjs-meta=CALCULATOR_SERVICE_MAIN
+ *
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */

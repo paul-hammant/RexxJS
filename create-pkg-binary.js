@@ -11,7 +11,6 @@ const { execSync } = require('child_process');
 
 const CORE_DIR = path.join(__dirname, 'core');
 const BUILD_DIR = path.join(__dirname, 'pkg-build');
-const SYSTEM_ADDRESS = path.join(__dirname, 'extras/addresses/system/system-address.js');
 
 console.log('📦 Creating RexxJS Standalone Binary using PKG...\n');
 
@@ -34,7 +33,9 @@ try {
 // Step 2: Clean and create build directory
 console.log('2️⃣ Setting up build directory...');
 if (fs.existsSync(BUILD_DIR)) {
+    console.log('   🗑️  Removing stale build directory...');
     fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+    console.log('   ✅ Cleaned');
 }
 fs.mkdirSync(BUILD_DIR, { recursive: true });
 
@@ -52,7 +53,8 @@ const packageJson = {
         targets: ["node18-linux-x64"],
         assets: [
             "src/**/*",
-            "system-address.js"
+            "../../dist/addresses/*.bundle.js",
+            "../extras/addresses/provisioning-and-orchestration/shared-utils.js"
         ],
         scripts: "src/**/*.js"
     }
@@ -66,15 +68,24 @@ const srcDir = path.join(CORE_DIR, 'src');
 const buildSrcDir = path.join(BUILD_DIR, 'src');
 fs.mkdirSync(buildSrcDir, { recursive: true });
 
-const sourceFiles = fs.readdirSync(srcDir).filter(file => file.endsWith('.js'));
-console.log(`   📁 Copying ${sourceFiles.length} source files...`);
-
-for (const file of sourceFiles) {
-    fs.copyFileSync(path.join(srcDir, file), path.join(buildSrcDir, file));
+// Recursively copy all files and directories
+function copyRecursive(src, dest) {
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            fs.mkdirSync(destPath, { recursive: true });
+            copyRecursive(srcPath, destPath);
+        } else if (entry.isFile()) {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
 }
 
-// Copy system address handler
-fs.copyFileSync(SYSTEM_ADDRESS, path.join(BUILD_DIR, 'system-address.js'));
+copyRecursive(srcDir, buildSrcDir);
+const sourceFiles = fs.readdirSync(srcDir).filter(file => file.endsWith('.js'));
+console.log(`   📁 Copied source files recursively...`);
 
 // Create PKG-compatible versions of all files with relative requires
 console.log('   📦 Creating PKG-compatible source files...');
@@ -85,13 +96,8 @@ function fixRelativeRequires(content) {
     });
 }
 
-// Fix CLI - it runs from the root and needs to find files in src/
-const originalCliContent = fs.readFileSync(path.join(srcDir, 'cli.js'), 'utf8');
-const pkgCompatibleCli = originalCliContent
-    .replace(/require\(['"`]\.\/([^'"`]+)['"`]\)/g, (match, modulePath) => {
-        return `require(__dirname + '/src/${modulePath}')`;
-    });
-fs.writeFileSync(path.join(BUILD_DIR, 'cli.js'), pkgCompatibleCli);
+// Copy CLI without modification - it's now mode-aware and handles pkg vs nodejs deterministically
+fs.copyFileSync(path.join(srcDir, 'cli.js'), path.join(BUILD_DIR, 'cli.js'));
 
 // Fix all source files with relative requires - they run from src/ so they need to find other files in same dir
 const filesToFix = ['executor.js', 'parser.js', 'interpreter.js'];
@@ -173,8 +179,10 @@ try {
 
 // Cleanup
 console.log('8️⃣ Cleaning up...');
-// Keep build directory for debugging
-console.log('   ✅ Build directory preserved for debugging');
+console.log('   🗑️  Removing build directory...');
+fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+console.log('   ✅ Build artifacts cleaned');
+console.log('   💡 To debug: comment out the cleanup step in create-pkg-binary.js');
 
 console.log('\n🎉 PKG Binary Creation Complete!\n');
 console.log('📁 Binary location:', finalBinary);

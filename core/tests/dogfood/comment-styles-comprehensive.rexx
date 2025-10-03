@@ -6,7 +6,7 @@
 /* @test-tags comments, syntax, comprehensive, dogfood */
 /* @description Comprehensive Comment Styles Test - All comment types */
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Comment Styles Test Suite Starting..."

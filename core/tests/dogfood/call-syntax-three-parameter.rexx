@@ -6,7 +6,7 @@
 /* @test-tags call-syntax, three-parameter, functions, dogfood */
 /* @description CALL FUNCTION_NAME Syntax Tests - Three Parameter Functions */
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Test Suite Starting (Three Parameters)..."

@@ -16,6 +16,9 @@ describe('HEREDOC JSON Processing', () => {
       send: async () => ({ success: true })
     };
     interpreter = new Interpreter(mockAddressSender);
+
+    // Set script path for relative path resolution in inline scripts
+    interpreter.scriptPath = __filename;
   });
 
   test('should auto-parse HEREDOC content with JSON delimiter', async () => {
@@ -105,7 +108,7 @@ JSON
 
   test('should support auto-parsed HEREDOC JSON in ADDRESS assertion contexts', async () => {
     const script = `
-      REQUIRE "./src/expectations-address.js"
+      REQUIRE "../src/expectations-address.js"
       
       LET user_profile = <<JSON
 {

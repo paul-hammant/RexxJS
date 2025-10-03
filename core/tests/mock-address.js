@@ -1,6 +1,7 @@
 /*!
  * mock-address v1.0.0 | (c) 2025 Paul Hammant | MIT License
- * @rexxjs-meta {"dependencies":{},"type":"address-target","provides":{"addressTarget":"mock"}}
+ * @rexxjs-meta=MOCK_ADDRESS_MAIN
+ * @rexxjs-meta {"dependencies":{},"type":"address-target","provides":{"addressTarget":"mock"},"interpreterHandlesInterpolation":true}
  */
 /**
  * Mock ADDRESS handler for testing

@@ -7,12 +7,44 @@
 
 /**
  * Orchestrates dependency-aware loading via the existing interpreter-library-management utilities
- * @param {string} libraryName - Name of the library to require
+ * @param {string} libraryName - Name of the library to require (can be comma-separated list with first preference, second preference, etc.)
  * @param {string|null} asClause - Optional AS clause for naming
  * @param {Object} ctx - Context object containing interpreter methods and state
  * @returns {Promise<boolean>} True if library loaded successfully
  */
 async function requireWithDependencies(libraryName, asClause, ctx) {
+  // Check if libraryName contains comma-separated preference list
+  if (libraryName.includes(',')) {
+    const paths = libraryName.split(',').map(p => p.trim()).filter(p => p.length > 0);
+    let lastError = null;
+
+    for (const path of paths) {
+      try {
+        const libraryManagementUtils = ctx.libraryManagementUtils;
+        const result = await libraryManagementUtils.requireWithDependencies(
+          path,
+          ctx.loadingQueue,
+          ctx.checkLibraryPermissions,
+          ctx.isLibraryLoaded,
+          (libName) => ctx.detectAndRegisterAddressTargets(libName, asClause),
+          (libName) => loadSingleLibrary(libName, ctx),
+          ctx.extractDependencies,
+          ctx.dependencyGraph,
+          (libName) => ctx.registerLibraryFunctions(libName, asClause)
+        );
+        // If successful, return immediately
+        return result;
+      } catch (error) {
+        lastError = error;
+        // Continue to next preference
+      }
+    }
+
+    // All preferences failed, throw the last error
+    throw lastError || new Error(`Failed to load any of: ${libraryName}`);
+  }
+
+  // Single path - original behavior
   const libraryManagementUtils = ctx.libraryManagementUtils;
   return await libraryManagementUtils.requireWithDependencies(
     libraryName,
@@ -145,7 +177,12 @@ async function requireRegistryStyleLibrary(libraryName, ctx) {
       return await ctx.loadLibraryFromUrl(moduleUrl, libraryName);
     } else {
       // Use Node.js loading for Node.js environment
-      return await requireRemoteLibrary(moduleUrl, ctx);
+      // Use ctx.requireRemoteLibrary if available (for testability), otherwise use module function
+      if (typeof ctx.requireRemoteLibrary === 'function') {
+        return await ctx.requireRemoteLibrary(moduleUrl);
+      } else {
+        return await requireRemoteLibrary(moduleUrl, ctx);
+      }
     }
     
   } catch (error) {
@@ -186,13 +223,36 @@ async function requireNodeJSModule(libraryName, ctx) {
     // First try Node.js native require() for proper modules
     try {
       const nodeModule = require(libraryName);
-      
+
+      // Extract detection function from library code if it's a file path
+      let detectionFunction = null;
+      if (libraryName.startsWith('./') || libraryName.startsWith('../') || libraryName.startsWith('/') || /^[A-Za-z]:[\\/]/.test(libraryName)) {
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.resolve(libraryName);
+        if (fs.existsSync(filePath)) {
+          const libraryCode = fs.readFileSync(filePath, 'utf8');
+          detectionFunction = extractMetadataFunctionName(libraryCode);
+        }
+      }
+
+      // Fall back to registry lookup
+      if (!detectionFunction) {
+        detectionFunction = getLibraryDetectionFunction(libraryName);
+      }
+
       // Check if it's already a RexxJS-compatible library
       const libNamespace = ctx.getLibraryNamespace(libraryName);
-      const detectionFunction = getLibraryDetectionFunction(libraryName);
-      
-      if (nodeModule[detectionFunction]) {
-        // It's already a RexxJS library, register it normally
+
+      if (detectionFunction && nodeModule[detectionFunction]) {
+        // It's already a RexxJS library
+        // Assign all exported functions to global (even if module was cached)
+        // This handles cases where tests or other code may have deleted global functions
+        for (const [key, value] of Object.entries(nodeModule)) {
+          if (typeof value === 'function') {
+            global[key] = value;
+          }
+        }
         global[libNamespace] = nodeModule;
         ctx.registerLibraryFunctions(libraryName);
         return true;
@@ -223,53 +283,52 @@ async function requireNodeJSModule(libraryName, ctx) {
         
         // Create a mock module context for execution
         const mockModule = { exports: {} };
-        const originalModule = global.module;
-        const originalExports = global.exports;
-        
-        try {
-          // Set up module context
-          global.module = mockModule;
-          global.exports = mockModule.exports;
 
+        try {
           // Create a scoped require function that resolves relative to the loaded file
           const Module = require('module');
           const scopedRequire = Module.createRequire(filePath);
 
-          // Execute the code with module support - pass scoped require, module, exports
+          // Execute the code with module support - pass scoped require, module, exports as function params
+          // Don't pollute global.module/global.exports - just pass them as parameters
           const func = new Function('require', 'module', 'exports', '__filename', '__dirname', libraryCode);
           func(scopedRequire, mockModule, mockModule.exports, filePath, path.dirname(filePath));
           
           // If the library exported functions via module.exports, make them globally available
+          // Filter out undefined keys to avoid "Cannot assign to read only property 'undefined'" error
           if (mockModule.exports && typeof mockModule.exports === 'object') {
-            Object.assign(global, mockModule.exports);
+            for (const [key, value] of Object.entries(mockModule.exports)) {
+              if (key && key !== 'undefined' && value !== undefined) {
+                global[key] = value;
+              }
+            }
           }
           
           // Verify loading succeeded - use new @rexxjs-meta pattern
           const extractedFunctionName = extractMetadataFunctionName(libraryCode);
           const detectionFunction = extractedFunctionName || getLibraryDetectionFunction(libraryName);
-          
+
+          if (!detectionFunction) {
+            throw new Error(
+              `Library ${libraryName} does not declare a detection function.\n` +
+              `Libraries must include @rexxjs-meta=FUNCTION_NAME in a preserved comment (/*! ... */).\n` +
+              `Example: /*! @rexxjs-meta=MY_LIBRARY_META */`
+            );
+          }
+
           const globalScope = typeof window !== 'undefined' ? window : global;
-          
+
           if (!globalScope[detectionFunction] || typeof globalScope[detectionFunction] !== 'function') {
             console.log(`Looking for detection function: ${detectionFunction}`);
             console.log(`Available global functions:`, Object.keys(globalScope).filter(k => k.includes('META') || k.includes('MAIN')));
             throw new Error(`Library executed but detection function not found: ${detectionFunction}`);
           }
-          
+
+
           // Register the library functions
           ctx.registerLibraryFunctions(libraryName);
-        } finally {
-          // Restore original module context
-          if (originalModule !== undefined) {
-            global.module = originalModule;
-          } else {
-            delete global.module;
-          }
-          if (originalExports !== undefined) {
-            global.exports = originalExports;
-          } else {
-            delete global.exports;
-          }
+        } catch (execError) {
+          throw execError;
         }
         
         console.log(`✓ ${libraryName} loaded as plain JavaScript file`);
@@ -281,7 +340,10 @@ async function requireNodeJSModule(libraryName, ctx) {
     }
     
   } catch (error) {
-    throw new Error(`Failed to load Node.js module ${libraryName}: ${error.message}`);
+    // Include the full error stack for debugging
+    const detailedError = new Error(`Failed to load Node.js module ${libraryName}: ${error.message}`);
+    detailedError.stack = `${detailedError.message}\n${error.stack}`;
+    throw detailedError;
   }
 }
 
@@ -459,18 +521,27 @@ function getLibraryDetectionFunction(libraryName) {
   if (typeof global !== 'undefined' && global.LIBRARY_DETECTION_REGISTRY && global.LIBRARY_DETECTION_REGISTRY.has(libraryName)) {
     return global.LIBRARY_DETECTION_REGISTRY.get(libraryName);
   }
-  
-  // For local files (./path/to/file.js), extract just the base filename
-  if (libraryName.startsWith('./') || libraryName.startsWith('../')) {
-    const basename = libraryName.split('/').pop().replace(/\.(js|rexx)$/, '');
-    return `${basename.toUpperCase().replace(/[\/\-\.]/g, '_')}_MAIN`;
+
+  // For local file paths, extract directly from the file
+  if (typeof require !== 'undefined') {
+    if (libraryName.startsWith('./') || libraryName.startsWith('../') || libraryName.startsWith('/') || /^[A-Za-z]:[\\/]/.test(libraryName)) {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.resolve(libraryName);
+        if (fs.existsSync(filePath)) {
+          const libraryCode = fs.readFileSync(filePath, 'utf8');
+          return extractMetadataFunctionName(libraryCode);
+        }
+      } catch (error) {
+        // Silently continue if file reading fails
+      }
+    }
   }
-  
-  // Auto-generate detection function name from fully qualified library name
-  // "github.com/username/my-rexx-lib" -> "GITHUB_COM_USERNAME_MY_REXX_LIB_MAIN"
-  // "gitlab.com/username/my-rexx-lib" -> "GITLAB_COM_USERNAME_MY_REXX_LIB_MAIN"
-  // "scipy-interpolation" -> "SCIPY_INTERPOLATION_MAIN"
-  return `${libraryName.toUpperCase().replace(/[\/\-\.]/g, '_')}_MAIN`;
+
+  // No auto-generation - libraries must explicitly declare their detection function
+  // via @rexxjs-meta=FUNCTION_NAME or by registering in LIBRARY_DETECTION_REGISTRY
+  return null;
 }
 
 /**

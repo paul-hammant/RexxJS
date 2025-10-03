@@ -3,7 +3,7 @@
 -- Copyright (c) 2025 Paul Hammant
 -- Licensed under the MIT License
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 SAY "Testing failing expectation..."
 

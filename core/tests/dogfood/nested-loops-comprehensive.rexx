@@ -6,7 +6,7 @@
 /* @test-tags nested-loops, control-flow, comprehensive, dogfood */
 /* @description Comprehensive Nested Loops Test - Multiple Loop Patterns */
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Comprehensive Nested Loops Test Suite Starting..."

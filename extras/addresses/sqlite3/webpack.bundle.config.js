@@ -64,5 +64,11 @@ module.exports = {
     extensions: ['.js']
   },
   target: 'web',
-  plugins: [new RexxMetaPlugin()]
+  plugins: [
+    new RexxMetaPlugin(),
+    new (require('webpack')).BannerPlugin({
+      banner: '/*!\n * @rexxjs-meta=SQLITE_ADDRESS_META\n */',
+      raw: true
+    })
+  ]
 };

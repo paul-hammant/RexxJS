@@ -21,16 +21,11 @@
 
 // System ADDRESS metadata function
 function SYSTEM_ADDRESS_META() {
-  // Check Node.js availability without throwing during registration
-  let nodejsAvailable = false;
-  try {
-    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-      nodejsAvailable = true;
-    }
-  } catch (e) {
-    // Will be available as metadata for error handling
+  // Check Node.js availability - fail fast if wrong environment
+  if (typeof process === 'undefined' || !process.versions || !process.versions.node) {
+    throw new Error('System ADDRESS library requires Node.js environment (not available in browser/web)');
   }
-  
+
   return {
     canonical: "org.rexxjs/system-address",
     type: 'address-handler',
@@ -50,8 +45,7 @@ function SYSTEM_ADDRESS_META() {
     requirements: {
       environment: 'nodejs',
       modules: ['child_process']
-    },
-    nodejsAvailable: nodejsAvailable
+    }
   };
 }
 

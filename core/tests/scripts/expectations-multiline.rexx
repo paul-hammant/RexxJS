@@ -17,7 +17,7 @@
  * Licensed under the MIT License
  */
 
-REQUIRE "./src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 SAY "=== RexxJS Multi-line Expectations Demo ==="
 SAY ""

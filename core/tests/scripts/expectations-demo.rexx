@@ -17,7 +17,7 @@
  */
 
 // Load the expectations ADDRESS library
-REQUIRE "./src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 SAY "=== RexxJS Expectations Demo ==="
 SAY ""

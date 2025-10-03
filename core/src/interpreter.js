@@ -24,6 +24,7 @@ let utils;
 let security;
 let securityUtils;
 let stringUtils;
+let pathResolver;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -54,6 +55,7 @@ if (typeof require !== 'undefined') {
   security = require('./security.js');
   securityUtils = require('./interpreter-security.js');
   stringUtils = require('./string-processing.js');
+  pathResolver = require('./path-resolver.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -501,7 +503,11 @@ class RexxInterpreter {
     this.address = 'default';  // Default namespace
     this.variables = new Map();
     this.builtInFunctions = this.initializeBuiltInFunctions();
-    
+
+    // Initialize scriptPath for path resolution
+    // Will be set to actual script path when run() is called with a sourceFilename
+    this.scriptPath = pathResolver ? pathResolver.NO_SCRIPT_PATH : '<inline>';
+
     // Detect and expose execution environment globally
     this.detectAndExposeEnvironment();
     
@@ -731,6 +737,7 @@ class RexxInterpreter {
     let importedRegexFunctions = {};
     let importedValidationFunctions = {};
     let importedFileFunctions = {};
+    let importedPathFunctions = {};
     let importedHttpFunctions = {};
     let importedStatisticsFunctions = {};
     let importedLogicFunctions = {};
@@ -754,6 +761,7 @@ class RexxInterpreter {
         const { regexFunctions } = require('./regex-functions');
         const { validationFunctions } = require('./validation-functions');
         const { fileFunctions } = require('./file-functions');
+        const { pathFunctions } = require('./path-functions');
         const { httpFunctions } = require('./http-functions');
         // Excel functions are loaded via REQUIRE statement in REXX scripts
         // e.g., REQUIRE "../extras/functions/excel/excel-functions"
@@ -775,6 +783,7 @@ class RexxInterpreter {
         importedRegexFunctions = regexFunctions;
         importedValidationFunctions = validationFunctions;
         importedFileFunctions = fileFunctions;
+        importedPathFunctions = pathFunctions;
         importedHttpFunctions = httpFunctions;
         importedStatisticsFunctions = statisticsFunctions;
         importedLogicFunctions = logicFunctions;
@@ -795,6 +804,7 @@ class RexxInterpreter {
         importedRegexFunctions = window.regexFunctions || {};
         importedValidationFunctions = window.validationFunctions || {};
         importedFileFunctions = window.fileFunctions || {};
+        importedPathFunctions = window.pathFunctions || {};
         importedHttpFunctions = window.httpFunctions || {};
         importedStatisticsFunctions = window.statisticsFunctions || {};
         importedLogicFunctions = window.logicFunctions || {};
@@ -811,6 +821,63 @@ class RexxInterpreter {
     // Create interpreter-aware array functions for pure-REXX callback support
     const interpreterAwareArrayFunctions = this.createInterpreterAwareArrayFunctions(importedArrayFunctions);
 
+    // Create interpreter-aware PATH_RESOLVE that uses the current script path
+    const interpreterAwarePathFunctions = {
+      'PATH_RESOLVE': (pathStr, contextScriptPath) => {
+        // Use provided context path, or fall back to interpreter's script path
+        const scriptPath = contextScriptPath || this.scriptPath || null;
+        return importedPathFunctions['PATH_RESOLVE'](pathStr, scriptPath);
+      }
+    };
+
+    // Create interpreter-aware FILE functions that automatically resolve paths
+    const interpreterAwareFileFunctions = {};
+    const fileFunctionsToWrap = [
+      'FILE_READ', 'FILE_WRITE', 'FILE_APPEND', 'FILE_COPY', 'FILE_MOVE',
+      'FILE_DELETE', 'FILE_EXISTS', 'FILE_SIZE', 'FILE_LIST', 'FILE_BACKUP'
+    ];
+
+    for (const funcName of fileFunctionsToWrap) {
+      if (importedFileFunctions[funcName]) {
+        const originalFunc = importedFileFunctions[funcName];
+
+        interpreterAwareFileFunctions[funcName] = async (...args) => {
+          // Resolve path arguments (first argument is always a path, some functions have 2 paths)
+          const resolvedArgs = [...args];
+
+          // Helper to check if a path needs resolution
+          // Only resolve root: and cwd: prefixes for FILE_* functions
+          // Let ./  and ../ be handled by file-functions.js as before
+          const needsResolution = (path) => {
+            if (typeof path !== 'string') return false;
+            return path.startsWith('root:') || path.startsWith('cwd:');
+          };
+
+          // Resolve first path argument
+          if (args.length > 0 && needsResolution(args[0])) {
+            try {
+              const { resolvePath } = require('./path-resolver');
+              resolvedArgs[0] = resolvePath(args[0], this.scriptPath);
+            } catch (error) {
+              throw new Error(`${funcName} path resolution failed: ${error.message}`);
+            }
+          }
+
+          // For FILE_COPY and FILE_MOVE, also resolve second path (destination)
+          if ((funcName === 'FILE_COPY' || funcName === 'FILE_MOVE') && args.length > 1 && needsResolution(args[1])) {
+            try {
+              const { resolvePath } = require('./path-resolver');
+              resolvedArgs[1] = resolvePath(args[1], this.scriptPath);
+            } catch (error) {
+              throw new Error(`${funcName} destination path resolution failed: ${error.message}`);
+            }
+          }
+
+          return await originalFunc(...resolvedArgs);
+        };
+      }
+    }
+
     return {
       // Import external functions
       ...importedStringFunctions,
@@ -822,7 +889,8 @@ class RexxInterpreter {
       ...importedRandomFunctions,
       ...importedRegexFunctions,
       ...importedValidationFunctions,
-      ...importedFileFunctions,
+      ...interpreterAwareFileFunctions,
+      ...interpreterAwarePathFunctions,
       ...importedHttpFunctions,
       ...importedStatisticsFunctions,
       ...importedLogicFunctions,
@@ -1290,18 +1358,35 @@ class RexxInterpreter {
         if (typeof libraryName !== 'string') {
           throw new Error('REQUIRE requires a string library name');
         }
-        
+
         // Strip surrounding quotes if present (handles both single and double quotes)
-        const cleanLibraryName = libraryName.replace(/^['"]|['"]$/g, '');
+        let cleanLibraryName = libraryName.replace(/^['"]|['"]$/g, '');
         let cleanAsClause = null;
-        
+
         if (asClause !== null) {
           if (typeof asClause !== 'string') {
             throw new Error('AS clause must be a string');
           }
           cleanAsClause = asClause.replace(/^['"]|['"]$/g, '');
         }
-        
+
+        // Resolve path using path-resolver for local file paths
+        // Only resolve if it looks like a file path (not a registry/npm module name)
+        if (cleanLibraryName.startsWith('./') ||
+            cleanLibraryName.startsWith('../') ||
+            cleanLibraryName.startsWith('root:') ||
+            cleanLibraryName.startsWith('cwd:') ||
+            cleanLibraryName.startsWith('/') ||
+            /^[A-Za-z]:[\\/]/.test(cleanLibraryName)) {
+          // Use PATH_RESOLVE to get absolute path
+          try {
+            const { resolvePath } = require('./path-resolver');
+            cleanLibraryName = resolvePath(cleanLibraryName, this.scriptPath);
+          } catch (error) {
+            throw new Error(`REQUIRE path resolution failed: ${error.message}`);
+          }
+        }
+
         return await this.requireWithDependencies(cleanLibraryName, cleanAsClause);
       },
 
@@ -1389,7 +1474,7 @@ class RexxInterpreter {
     this.currentCommands = commands;
     errorHandlingUtils.discoverLabels(commands, this.labels);
     parseSubroutineUtils.discoverSubroutines(commands, this.subroutines);
-    
+
     // Store source lines and filename for error reporting
     if (sourceText) {
       this.sourceLines = sourceText.replace(/\r\n/g, '\n').split('\n');
@@ -1397,6 +1482,12 @@ class RexxInterpreter {
     // Only set sourceFilename if it's provided and we don't already have one
     if (sourceFilename && !this.sourceFilename) {
       this.sourceFilename = sourceFilename;
+    }
+
+    // Set scriptPath for path resolution in PATH_RESOLVE and FILE_* functions
+    // Override NO_SCRIPT_PATH default if actual source file is provided
+    if (sourceFilename) {
+      this.scriptPath = sourceFilename;
     }
     
     try {
@@ -3102,7 +3193,8 @@ class RexxInterpreter {
       lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
       loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this),
       detectEnvironment: this.detectEnvironment.bind(this),
-      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this)
+      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
+      requireRemoteLibrary: this.requireRemoteLibrary.bind(this)
     };
     return await requireSystem.requireRegistryStyleLibrary(libraryName, ctx);
   }
@@ -3330,12 +3422,12 @@ class RexxInterpreter {
   }
 
   getLibraryNamespace(libraryName) {
-    // Map library names to their actual namespace names
-    const namespaceMap = {
-      // R function mappings removed - they now use proper exports from extras
-    };
-    
-    return namespaceMap[libraryName];
+    // Generate namespace from library name
+    // Extract base name: "./tests/mock-address.js" -> "mock-address"
+    const basename = libraryName.split('/').pop().replace(/\.(js|rexx)$/, '');
+    // Convert to valid identifier: "mock-address" -> "mock_address"
+    const namespace = basename.replace(/[^a-zA-Z0-9_]/g, '_');
+    return namespace;
   }
 
   getLibraryDetectionFunction(libraryName) {
@@ -4213,23 +4305,30 @@ class RexxInterpreter {
     if (namespaceFunctions.length > 0) {
       return namespaceFunctions;
     }
-    
+
+    // Try the computed namespace (e.g., "./tests/test-libs/discworld-science.js" -> "discworld_science")
+    const libNamespace = this.getLibraryNamespace(libraryName);
+    const libNamespaceFunctions = this.extractFunctionsFromNamespace(libNamespace);
+    if (libNamespaceFunctions.length > 0) {
+      return libNamespaceFunctions;
+    }
+
     // For module-style libraries, check the extracted lib name namespace
     const libraryType = this.getLibraryType(libraryName);
     if (libraryType === 'module') {
       const libName = libraryName.split('/').pop();
-      const libNamespaceFunctions = this.extractFunctionsFromNamespace(libName);
-      if (libNamespaceFunctions.length > 0) {
-        return libNamespaceFunctions;
+      const moduleNamespaceFunctions = this.extractFunctionsFromNamespace(libName);
+      if (moduleNamespaceFunctions.length > 0) {
+        return moduleNamespaceFunctions;
       }
     }
-    
+
     // Try global scope extraction (fallback for older libraries)
     const globalFunctions = this.extractGlobalFunctions(libraryName);
     if (globalFunctions.length > 0) {
       return globalFunctions;
     }
-    
+
     // Final fallback: just the detection function
     const detectionFunction = this.getLibraryDetectionFunction(libraryName);
     return [detectionFunction];

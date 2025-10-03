@@ -3,7 +3,7 @@
 // Copyright (c) 2025 Paul Hammant
 // Licensed under the MIT License
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* @test-tags license, file-operations, validation, dogfood */
 /* @description MIT License File Validation Test */

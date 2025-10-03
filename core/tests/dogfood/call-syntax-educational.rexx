@@ -6,7 +6,7 @@
 /* @test-tags call-syntax, educational, wrapper-subroutines, dogfood */
 /* @description Educational CALL Syntax Demonstration - Wrapper Subroutines for Built-in Functions */
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Educational CALL Syntax Demonstration Starting..."

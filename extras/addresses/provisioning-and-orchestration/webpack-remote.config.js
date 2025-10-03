@@ -14,18 +14,18 @@ function getGitRoot() {
 
 module.exports = {
   mode: 'production',
-  entry: path.resolve(__dirname, 'bundle-entry.js'),
+  entry: path.resolve(__dirname, 'bundle-entry-remote.js'),
   output: {
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    filename: 'bundled-container-handlers.bundle.js',
-    library: 'RexxJSContainerHandlers',
+    filename: 'bundled-remote-handlers.bundle.js',
+    library: 'RexxJSRemoteHandlers',
     libraryTarget: 'umd',
     umdNamedDefine: true,
     globalObject: 'typeof self !== "undefined" ? self : this'
   },
   externals: {
     'child_process': 'child_process',
-    'fs': 'fs', 
+    'fs': 'fs',
     'path': 'path'
   },
   target: 'node',
@@ -39,7 +39,7 @@ module.exports = {
         terserOptions: {
           keep_fnames: /.*_META$/,
           mangle: {
-            reserved: ['BUNDLED_CONTAINER_HANDLERS_META', 'PODMAN_ADDRESS_META', 'DOCKER_ADDRESS_META']
+            reserved: ['BUNDLED_REMOTE_HANDLERS_META', 'SSH_ADDRESS_META']
           }
         }
       })
@@ -47,7 +47,7 @@ module.exports = {
   },
   plugins: [
     new (require('webpack')).BannerPlugin({
-      banner: '/*!\n * @rexxjs-meta=BUNDLED_CONTAINER_HANDLERS_META\n */',
+      banner: '/*!\n * @rexxjs-meta=BUNDLED_REMOTE_HANDLERS_META\n */',
       raw: true
     })
   ]

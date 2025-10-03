@@ -66,6 +66,7 @@ async function getPyodide() {
 
 // Pyodide ADDRESS metadata function
 function PYODIDE_ADDRESS_META() {
+  // Pyodide works in both Node.js and browser environments
   return {
     canonical: "org.rexxjs/pyodide-address",
     type: 'address-handler',
@@ -84,11 +85,11 @@ function PYODIDE_ADDRESS_META() {
     envVars: [],
     loaded: true,
     requirements: {
-      environment: 'browser',
+      environment: 'both',  // Works in both Node.js and browser
       modules: ['pyodide']
     },
-    pyodideAvailable: !!pyodide,
-    pyodideVersion: pyodideVersion
+    pyodideAvailable: typeof pyodide !== 'undefined',
+    pyodideVersion: typeof pyodideVersion !== 'undefined' ? pyodideVersion : null
   };
 }
 

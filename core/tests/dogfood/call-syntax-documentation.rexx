@@ -6,7 +6,7 @@
 /* @test-tags call-syntax, documentation, educational, dogfood */
 /* @description CALL Syntax Documentation - Implementation Differences */
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 CALL Syntax Documentation Starting..."

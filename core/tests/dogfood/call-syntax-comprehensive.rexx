@@ -6,7 +6,7 @@
 /* @test-tags call-syntax, comprehensive, functions, dogfood */
 /* @description Comprehensive CALL FUNCTION_NAME Syntax Tests - All Parameter Counts */
 
-REQUIRE "./core/src/expectations-address.js"
+REQUIRE "../../src/expectations-address.js"
 
 /* ============= SETUP SECTION ============= */
 SAY "🧪 Comprehensive CALL Syntax Test Suite Starting..."
