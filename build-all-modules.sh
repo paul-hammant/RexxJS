@@ -33,16 +33,16 @@ print_info "Building address handlers..."
 cd extras/addresses/sqlite3 && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
 print_success "Built sqlite3-address"
 
-cd extras/addresses/jq/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+cd extras/addresses/jq && npx webpack --config src/webpack.bundle.config.js && cd ../../..
 print_success "Built jq-address"
 
 cd extras/addresses/anthropic-ai/claude && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
 print_success "Built claude-address"
 
-cd extras/addresses/pyodide/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+cd extras/addresses/pyodide && npx webpack --config src/webpack.bundle.config.js && cd ../../..
 print_success "Built pyodide-address"
 
-cd extras/addresses/duckdb-wasm/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+cd extras/addresses/duckdb-wasm && npx webpack --config src/webpack.bundle.config.js && cd ../../..
 print_success "Built duckdb-wasm-address"
 
 cd extras/addresses/system && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
@@ -60,7 +60,7 @@ print_success "Built provisioning remote-handlers bundle"
 # Function libraries
 print_info "Building function libraries..."
 
-cd extras/functions/graphviz/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+cd extras/functions/graphviz && npx webpack --config src/webpack.bundle.config.js && cd ../../..
 print_success "Built graphviz-functions"
 
 cd extras/functions/excel && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
@@ -87,10 +87,10 @@ print_success "Built r-timeseries-functions"
 cd extras/functions/scipy-inspired/interpolation && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
 print_success "Built sp-interpolation-functions"
 
-cd extras/functions/scipy-inspired/stats/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../../..
+cd extras/functions/scipy-inspired/stats && npx webpack --config src/webpack.bundle.config.js && cd ../../../..
 print_success "Built sp-stats-functions"
 
-cd extras/functions/sympy-inspired/src && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+cd extras/functions/sympy-inspired && npx webpack --config src/webpack.bundle.config.js && cd ../../..
 print_success "Built sympy-functions"
 
 # Show results
