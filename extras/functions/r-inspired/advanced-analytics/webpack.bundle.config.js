@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'r-regression-functions.js'),
+  entry: path.resolve(__dirname, 'src/r-regression-functions.js'),
   output: {
     filename: 'r-regression-functions.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/functions'),

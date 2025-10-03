@@ -22,7 +22,7 @@
 // Try to import RexxJS interpolation config for variable interpolation
 let interpolationConfig = null;
 try {
-  interpolationConfig = require('../../../core/src/interpolation-config.js');
+  interpolationConfig = require('../../../../core/src/interpolation-config.js');
 } catch (e) {
   // Not available - will work without interpolation
 }

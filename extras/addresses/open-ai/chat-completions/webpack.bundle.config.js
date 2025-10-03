@@ -20,13 +20,13 @@ class RexxMetaPlugin {
         if (filename.endsWith('.bundle.js')) {
           const asset = compilation.assets[filename];
           let source = asset.source();
-          
-          // Replace @rexxjs-meta dependencies with empty object for bundled version
+
+          // Replace only the dependencies field in @rexxjs-meta, preserving other fields
           source = source.replace(
-            /@rexxjs-meta {"dependencies":{"[^"]+":"[^"]+"}}/g,
-            '@rexxjs-meta {"dependencies":{}}'
+            /"dependencies":\s*\{[^}]*\}/g,
+            '"dependencies":{}'
           );
-          
+
           // Update the asset
           compilation.assets[filename] = {
             source: () => source,
@@ -40,11 +40,11 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'src/sp-interpolation-functions.js'),
+  entry: path.resolve(__dirname, 'src/chat-completions.js'),
   output: {
-    filename: 'sp-interpolation-functions.bundle.js',
-    path: path.resolve(getGitRoot(), '../dist/functions'),
-    library: 'sp-interpolation-functions',
+    filename: 'openai-address.bundle.js',
+    path: path.resolve(getGitRoot(), '../dist/addresses'),
+    library: 'openai-address',
     libraryTarget: 'umd',
     globalObject: 'this'
   },
@@ -64,11 +64,5 @@ module.exports = {
     }
   },
   target: 'web',
-  plugins: [
-    new RexxMetaPlugin(),
-    new (require('webpack')).BannerPlugin({
-      banner: '/*!\n * @rexxjs-meta=SP_INTERPOLATION_FUNCTIONS_META\n */',
-      raw: true
-    })
-  ]
+  plugins: [new RexxMetaPlugin()]
 };

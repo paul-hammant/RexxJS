@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'claude-address.js'),
+  entry: path.resolve(__dirname, 'src/claude-address.js'),
   output: {
     filename: 'claude-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),

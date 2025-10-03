@@ -17,8 +17,8 @@ module.exports = {
   entry: path.resolve(__dirname, 'bundle-entry.js'),
   output: {
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    filename: 'bundled-container-handlers.bundle.js',
-    library: 'RexxJSContainerHandlers',
+    filename: 'provisioning-address.bundle.js',
+    library: 'provisioning-address',
     libraryTarget: 'umd',
     umdNamedDefine: true,
     globalObject: 'typeof self !== "undefined" ? self : this'

@@ -17,8 +17,8 @@ module.exports = {
   entry: path.resolve(__dirname, 'bundle-entry-remote.js'),
   output: {
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    filename: 'bundled-remote-handlers.bundle.js',
-    library: 'RexxJSRemoteHandlers',
+    filename: 'ssh-address.bundle.js',
+    library: 'ssh-address',
     libraryTarget: 'umd',
     umdNamedDefine: true,
     globalObject: 'typeof self !== "undefined" ? self : this'

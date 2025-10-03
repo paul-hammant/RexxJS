@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'excel-functions.js'),
+  entry: path.resolve(__dirname, 'src/excel-functions.js'),
   output: {
     filename: 'excel-functions.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/functions'),

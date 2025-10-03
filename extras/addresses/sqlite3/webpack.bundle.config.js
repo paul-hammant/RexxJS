@@ -47,7 +47,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: './sqlite-address.js',
+  entry: './src/sqlite-address.js',
   output: {
     filename: 'sqlite-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),

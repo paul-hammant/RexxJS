@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'r-factor-functions.js'),
+  entry: path.resolve(__dirname, 'src/r-factor-functions.js'),
   output: {
     filename: 'r-factor-functions.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/functions'),

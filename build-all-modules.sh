@@ -48,6 +48,12 @@ print_success "Built duckdb-wasm-address"
 cd extras/addresses/system && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
 print_success "Built system-address"
 
+cd extras/addresses/gemini-ai && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
+print_success "Built gemini-address"
+
+cd extras/addresses/open-ai/chat-completions && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
+print_success "Built openai-address"
+
 # Provisioning and orchestration bundles
 print_info "Building provisioning-and-orchestration bundles..."
 
@@ -96,11 +102,11 @@ print_success "Built sympy-functions"
 # Show results
 print_info "Build Summary:"
 echo ""
-echo "ADDRESS handlers (8):"
+echo "ADDRESS handlers (10):"
 ls -lh ../dist/addresses/ 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
 echo ""
 echo "Function libraries (10):"
 ls -lh ../dist/functions/ 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
 echo ""
 
-print_success "Build complete! All 18 modules built successfully."
+print_success "Build complete! All 20 modules built successfully."

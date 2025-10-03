@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'system-address.js'),
+  entry: path.resolve(__dirname, 'src/system-address.js'),
   output: {
     filename: 'system-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),

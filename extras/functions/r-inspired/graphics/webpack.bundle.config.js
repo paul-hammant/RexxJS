@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'graphics-functions.js'),
+  entry: path.resolve(__dirname, 'src/graphics-functions.js'),
   output: {
     filename: 'graphics-functions.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/functions'),

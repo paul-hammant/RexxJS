@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'r-timeseries-functions.js'),
+  entry: path.resolve(__dirname, 'src/r-timeseries-functions.js'),
   output: {
     filename: 'r-timeseries-functions.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/functions'),

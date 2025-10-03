@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'r-summary-functions.js'),
+  entry: path.resolve(__dirname, 'src/r-summary-functions.js'),
   output: {
     filename: 'r-summary-functions.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/functions'),
