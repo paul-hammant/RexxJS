@@ -562,103 +562,118 @@ function extractMetadataFunctionName(libraryCode) {
  * @returns {Promise<boolean>} True if library loaded successfully
  */
 async function requireRegistryLibrary(namespacedLibrary, ctx) {
-  // Parse namespace/library format: "rexxjs/system-address" or "com.google--ai/gemini-pro-address"
+  // Parse namespace/library format: "org.rexxjs/jq-address"
   const parts = namespacedLibrary.split('/');
   if (parts.length !== 2) {
     throw new Error(`Invalid registry library format: ${namespacedLibrary}. Expected: namespace/library-name`);
   }
-  
+
   const [namespace, libraryName] = parts;
-  
-  // Split namespace on -- to get domain and subdomain
-  const [domain, subdomain] = namespace.split('--');
-  
-  // Load the publisher registry
-  const registryUrl = 'https://raw.githubusercontent.com/RexxJS/RexxJS/refs/heads/main/.list-of-public-lib-publishers.csv';
-  const publisherInfo = await lookupPublisher(domain, registryUrl);
-  
-  if (!publisherInfo) {
-    throw new Error(`Unknown namespace '${domain}' not found in registry. Publishers must be registered in .list-of-public-lib-publishers.csv`);
+
+  // Step 1: Fetch publisher registry to get the module registry URL
+  const publisherRegistryUrl = 'https://rexxjs.org/.list-of-public-lib-publishers.txt';
+  const moduleRegistryUrl = await lookupPublisher(namespace, publisherRegistryUrl);
+
+  if (!moduleRegistryUrl) {
+    throw new Error(`Unknown namespace '${namespace}' not found in registry at ${publisherRegistryUrl}`);
   }
-  
-  // Construct the library URL based on the publisher info
-  const libraryUrl = constructRegistryLibraryUrl(publisherInfo, libraryName, subdomain);
-  
+
+  // Step 2: Fetch the module registry to get the library URL
+  const libraryUrl = await lookupModuleInRegistry(libraryName, moduleRegistryUrl);
+
+  if (!libraryUrl) {
+    throw new Error(`Module '${libraryName}' not found in registry for namespace '${namespace}'`);
+  }
+
   // Load the library using existing GitHub-style loading
   console.log(`📦 Loading registry library: ${namespacedLibrary} from ${libraryUrl}`);
   return await ctx.loadLibraryFromUrl(libraryUrl, namespacedLibrary);
 }
 
 /**
- * Looks up publisher information from registry
- * @param {string} domain - Publisher domain
+ * Looks up publisher's module registry URL
+ * @param {string} namespace - Publisher namespace (e.g., "org.rexxjs")
  * @param {string} registryUrl - URL of the publisher registry
- * @returns {Promise<Object|null>} Publisher info or null if not found
+ * @returns {Promise<string|null>} Module registry URL or null if not found
  */
-async function lookupPublisher(domain, registryUrl) {
+async function lookupPublisher(namespace, registryUrl) {
   try {
     const response = await fetch(registryUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch registry: ${response.status}`);
     }
-    
-    const csvText = await response.text();
-    const lines = csvText.trim().split('\n');
-    const headers = lines[0].split(',');
-    
-    // Find the organization column
-    const orgIndex = headers.findIndex(h => h.toLowerCase().includes('organization'));
-    if (orgIndex === -1) {
-      throw new Error('Registry CSV missing organization column');
+
+    const text = await response.text();
+    const lines = text.trim().split('\n');
+
+    // Parse header
+    const headers = lines[0].split(',').map(h => h.trim());
+    const namespaceIndex = headers.findIndex(h => h.toLowerCase() === 'namespace');
+    const registryUrlIndex = headers.findIndex(h => h.toLowerCase() === 'registry_url');
+
+    if (namespaceIndex === -1 || registryUrlIndex === -1) {
+      throw new Error('Registry missing required columns: namespace, registry_url');
     }
-    
-    // Look for matching domain
+
+    // Look for matching namespace
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',');
-      if (values[orgIndex] === domain) {
-        // Return publisher info object
-        const publisherInfo = {};
-        headers.forEach((header, index) => {
-          publisherInfo[header.toLowerCase().trim()] = values[index]?.trim() || '';
-        });
-        return publisherInfo;
+      const values = lines[i].split(',').map(v => v.trim());
+      if (values[namespaceIndex] === namespace) {
+        return values[registryUrlIndex];
       }
     }
-    
-    return null; // Domain not found
+
+    return null; // Namespace not found
   } catch (error) {
     throw new Error(`Failed to lookup publisher registry: ${error.message}`);
   }
 }
 
 /**
- * Constructs library URL from publisher info
- * @param {Object} publisherInfo - Publisher information
- * @param {string} libraryName - Name of the library
- * @param {string} subdomain - Optional subdomain
- * @returns {string} Constructed library URL
+ * Looks up module URL in the module registry
+ * @param {string} moduleName - Name of the module (e.g., "jq-address")
+ * @param {string} registryUrl - URL of the module registry
+ * @returns {Promise<string|null>} Module URL or null if not found
  */
-function constructRegistryLibraryUrl(publisherInfo, libraryName, subdomain) {
-  // For now, assume libraries are in RexxJS repo under extras/
-  // Later this could be enhanced to support external repos
-  const baseUrl = 'https://raw.githubusercontent.com/RexxJS/RexxJS/refs/heads/main/extras';
-  
-  // Determine library type and path
-  let libraryPath;
-  if (libraryName.includes('-address')) {
-    // ADDRESS library
-    const addressName = libraryName.replace('-address', '');
-    libraryPath = `addresses/${addressName}/${addressName}-address.js`;
-  } else if (libraryName.includes('-functions')) {
-    // Functions library  
-    const functionType = libraryName.replace('-functions', '');
-    libraryPath = `functions/${functionType}/${functionType}-functions.js`;
-  } else {
-    // Generic library path
-    libraryPath = `libraries/${libraryName}/${libraryName}.js`;
+async function lookupModuleInRegistry(moduleName, registryUrl) {
+  try {
+    const response = await fetch(registryUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch module registry: ${response.status}`);
+    }
+
+    const text = await response.text();
+    const lines = text.trim().split('\n');
+
+    // Find the template line
+    let urlTemplate = null;
+    for (const line of lines) {
+      if (line.startsWith('# URL template:')) {
+        // Extract template info for reference
+        continue;
+      }
+      if (line.startsWith('#') || line.trim() === '') {
+        continue;
+      }
+
+      // Parse module entries: module_name,type,url_template
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length >= 3 && parts[0] === moduleName) {
+        urlTemplate = parts[2];
+        // Replace template variables with defaults
+        // {tag} -> latest, {type} -> addresses or functions based on name, {name} -> module name
+        const type = moduleName.includes('-address') ? 'addresses' : 'functions';
+        return urlTemplate
+          .replace('{tag}', 'latest')
+          .replace('{type}', type)
+          .replace('{name}', moduleName);
+      }
+    }
+
+    return null; // Module not found
+  } catch (error) {
+    throw new Error(`Failed to lookup module in registry: ${error.message}`);
   }
-  
-  return `${baseUrl}/${libraryPath}`;
 }
 
 module.exports = {
@@ -676,5 +691,5 @@ module.exports = {
   extractMetadataFunctionName,
   requireRegistryLibrary,
   lookupPublisher,
-  constructRegistryLibraryUrl
+  lookupModuleInRegistry
 };

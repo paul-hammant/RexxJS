@@ -84,10 +84,15 @@ function getBlockedRepositories() {
 async function validateGitHubLibrary(libraryName, getBlockedRepositoriesFn = getBlockedRepositories) {
   // Basic validation for GitHub libraries
   const githubPattern = /^github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+(@[a-zA-Z0-9._-]+)?$/;
-  
-  // Extract the actual library path (remove central: prefix if present)
-  const actualLibraryName = libraryName.replace(/^central:/, '');
-  
+
+  // Extract the actual library path (remove central: or registry: prefix if present)
+  const actualLibraryName = libraryName.replace(/^(central:|registry:)/, '');
+
+  // Skip validation for registry: prefixed libraries - they go through registry resolution
+  if (libraryName.startsWith('registry:')) {
+    return true;
+  }
+
   if (!githubPattern.test(actualLibraryName)) {
     throw new Error(`Invalid GitHub library format: ${libraryName}`);
   }

@@ -99,6 +99,14 @@ print_success "Built sp-stats-functions"
 cd extras/functions/sympy-inspired && npx webpack --config src/webpack.bundle.config.js && cd ../../..
 print_success "Built sympy-functions"
 
+# Strip dependencies from all bundles
+print_info "Stripping dependencies from bundles..."
+find ../dist/addresses/ ../dist/functions/ -name "*.bundle.js" -type f | while read bundle; do
+    sed -i 's/"dependencies":\s*{\\n\s*\\"[^"]*\\":\s*\\"[^"]*\\"\\n\s*}/"dependencies":{}/' "$bundle"
+    sed -i 's/dependencies:\s*{\\n\s*\\"[^"]*\\":\s*\\"[^"]*\\"\\n\s*}/dependencies:{}/' "$bundle"
+done
+print_success "Dependencies stripped from all bundles"
+
 # Show results
 print_info "Build Summary:"
 echo ""
