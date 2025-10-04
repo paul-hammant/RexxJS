@@ -19,36 +19,7 @@
  *   CHECKPOINT OPERATION="CHAT_MESSAGE" PARAMS=[sessionId: chat_id, message: "Hello!"]
  *   -- response is in checkpointResult.response
  */
-
-// Try to import RexxJS interpolation config for variable interpolation
-let interpolationConfig = null;
-try {
-  interpolationConfig = require('../../../core/src/interpolation-config.js');
-} catch (e) {
-  // Not available - will work without interpolation
-}
-
-/**
- * Interpolate variables using RexxJS global interpolation pattern
- */
-function interpolateVariables(str, variablePool) {
-  if (!interpolationConfig || !variablePool) {
-    return str;
-  }
-
-  const pattern = interpolationConfig.getCurrentPattern();
-  if (!pattern.hasDelims(str)) {
-    return str;
-  }
-
-  return str.replace(pattern.regex, (match) => {
-    const varName = pattern.extractVar(match);
-    if (varName in variablePool) {
-      return variablePool[varName];
-    }
-    return match; // Variable not found - leave as-is
-  });
-}
+// Interpolation is provided via sourceContext.interpolation parameter
 
 // Gemini Pro ADDRESS metadata function
 function GEMINI_PRO_ADDRESS_META() {
@@ -75,7 +46,7 @@ function GEMINI_PRO_ADDRESS_META() {
 
 // ADDRESS target handler function
 // This function is now synchronous. It just fires off the checkpoint request.
-function ADDRESS_GEMINI_PRO_HANDLER(method, params) {
+function ADDRESS_GEMINI_PRO_HANDLER(method, params, sourceContext) {
   // The CHECKPOINT command in the interpreter will handle the async waiting.
   // This handler's job is just to format the request correctly.
   // The 'CHECKPOINT' keyword must be the first argument to the interpreter's
@@ -85,10 +56,11 @@ function ADDRESS_GEMINI_PRO_HANDLER(method, params) {
 
   // Apply RexxJS variable interpolation to params
   const variablePool = params || {};
+  const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
   const interpolatedParams = {};
   for (const [key, value] of Object.entries(params || {})) {
     if (typeof value === 'string') {
-      interpolatedParams[key] = interpolateVariables(value, variablePool);
+      interpolatedParams[key] = interpolate(value, variablePool);
     } else {
       interpolatedParams[key] = value;
     }

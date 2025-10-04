@@ -52,7 +52,7 @@ module.exports = {
     'fs': 'fs',
     'path': 'path',
     'crypto': 'crypto',
-    'child_process': 'child_process'
+    'child_process': 'child_process',
   },
   resolve: {
     extensions: ['.js'],

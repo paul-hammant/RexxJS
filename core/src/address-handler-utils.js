@@ -30,7 +30,7 @@ async function interpolateMessage(template, context, options = {}) {
   try {
     // Try to load interpolation config (Node.js or browser)
     if (typeof require !== 'undefined') {
-      pattern = require('./interpolation-config').getCurrentPattern();
+      pattern = require('./interpolation').getCurrentPattern();
     } else if (typeof window !== 'undefined' && window.InterpolationConfig) {
       pattern = window.InterpolationConfig.getCurrentPattern();
     } else {
@@ -106,7 +106,7 @@ function extractVariables(template) {
   try {
     // Try to load interpolation config (Node.js or browser)
     if (typeof require !== 'undefined') {
-      pattern = require('./interpolation-config').getCurrentPattern();
+      pattern = require('./interpolation').getCurrentPattern();
     } else if (typeof window !== 'undefined' && window.InterpolationConfig) {
       pattern = window.InterpolationConfig.getCurrentPattern();
     } else {

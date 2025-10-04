@@ -6,7 +6,7 @@
 /* @test-tags published-modules, sqlite-address, registry, integration */
 /* @description Test loading sqlite-address from published registry */
 
-REQUIRE "../../src/expectations-address.js"
+REQUIRE "../core/src/expectations-address.js"
 
 SAY "🧪 Testing Published Module: org.rexxjs/sqlite-address"
 SAY "Loading module from registry..."

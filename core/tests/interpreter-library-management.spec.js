@@ -205,7 +205,7 @@ describe('Interpreter Library Management', () => {
       );
 
       expect(checkLibraryPermissionsFn).toHaveBeenCalledWith('libA');
-      expect(loadSingleLibraryFn).toHaveBeenCalledWith('libA');
+      expect(loadSingleLibraryFn).toHaveBeenCalledWith('libA', null);
       expect(extractDependenciesFn).toHaveBeenCalledWith('libA');
       expect(detectAndRegisterAddressTargetsFn).toHaveBeenCalledWith('libA');
       expect(registerLibraryFunctionsFn).toHaveBeenCalledWith('libA');

@@ -19,35 +19,7 @@
  * Licensed under the MIT License
  */
 
-// Try to import RexxJS interpolation config for variable interpolation
-let interpolationConfig = null;
-try {
-  interpolationConfig = require('../../../../core/src/interpolation-config.js');
-} catch (e) {
-  // Not available - will work without interpolation
-}
-
-/**
- * Interpolate variables using RexxJS global interpolation pattern
- */
-function interpolateVariables(str, variablePool) {
-  if (!interpolationConfig || !variablePool) {
-    return str;
-  }
-
-  const pattern = interpolationConfig.getCurrentPattern();
-  if (!pattern.hasDelims(str)) {
-    return str;
-  }
-
-  return str.replace(pattern.regex, (match) => {
-    const varName = pattern.extractVar(match);
-    if (varName in variablePool) {
-      return variablePool[varName];
-    }
-    return match; // Variable not found - leave as-is
-  });
-}
+// Interpolation is provided via sourceContext.interpolation parameter
 
 // SQLite ADDRESS metadata function
 function SQLITE_ADDRESS_META() {
@@ -92,7 +64,7 @@ function SQLITE_ADDRESS_META() {
 }
 
 // ADDRESS target handler function with REXX variable management
-function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
+function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params, sourceContext) {
   // Check if we're in Node.js environment
   if (typeof process === 'undefined' || !process.versions || !process.versions.node) {
     throw new Error('SQLite ADDRESS library only available in Node.js environment');
@@ -100,19 +72,20 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
 
   try {
     const sqlite3 = require('sqlite3');
-    
+
     // Initialize database connection if not exists
     if (!global._sqliteConnection) {
       // Use in-memory database for testing, could be configurable
       global._sqliteConnection = new sqlite3.Database(':memory:');
     }
-    
+
     const db = global._sqliteConnection;
 
     // Apply RexxJS variable interpolation if command is a string
     const variablePool = params || {};
+    const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
     const interpolatedCommand = typeof commandOrMethod === 'string'
-      ? interpolateVariables(commandOrMethod, variablePool)
+      ? interpolate(commandOrMethod, variablePool)
       : commandOrMethod;
 
     // Handle ADDRESS MATCHING pattern with multi-line input
@@ -168,12 +141,12 @@ function ADDRESS_SQLITE3_HANDLER(commandOrMethod, params) {
     switch (interpolatedCommand.toLowerCase()) {
       case 'execute':
       case 'run':
-        const sql = interpolateVariables(params.sql || params.command || '', variablePool);
+        const sql = interpolate(params.sql || params.command || '', variablePool);
         resultPromise = handleSQLCommand(db, sql);
         break;
 
       case 'query':
-        const querySql = interpolateVariables(params.sql || '', variablePool);
+        const querySql = interpolate(params.sql || '', variablePool);
         resultPromise = handleSQLQuery(db, querySql, params.params);
         break;
         

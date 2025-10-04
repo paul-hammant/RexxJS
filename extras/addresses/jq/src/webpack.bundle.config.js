@@ -51,7 +51,8 @@ module.exports = {
   externals: {
     'fs': 'fs',
     'path': 'path',
-    'crypto': 'crypto'
+    'crypto': 'crypto',
+    'jq-wasm': 'jq-wasm'
   },
   resolve: {
     extensions: ['.js'],

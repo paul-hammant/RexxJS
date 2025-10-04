@@ -58,7 +58,7 @@ module.exports = {
   externals: {
     'fs': 'fs',
     'path': 'path',
-    'sqlite3': 'sqlite3'
+    'sqlite3': 'sqlite3',
   },
   resolve: {
     extensions: ['.js']

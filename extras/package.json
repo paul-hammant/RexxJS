@@ -10,7 +10,7 @@
     "install:math-stats": "cd functions/r-inspired/math-stats && npm install",
     "install:data-manipulation": "cd functions/r-inspired/data-manipulation && npm install",
     "install:advanced-analytics": "cd functions/r-inspired/advanced-analytics && npm install",
-    "install:data-types": "cd functions/r-inspired/data-types && npm install", 
+    "install:data-types": "cd functions/r-inspired/data-types && npm install",
     "install:graphics": "cd functions/r-inspired/graphics && npm install",
     "install:signal-processing": "cd functions/r-inspired/signal-processing && npm install",
     "install:scipy-interpolation": "cd functions/scipy-inspired/interpolation && npm install",
@@ -50,7 +50,7 @@
     "addresses/gemini-ai",
     "addresses/open-ai/chat-completions",
     "functions/r-inspired/math-stats",
-    "functions/r-inspired/data-manipulation", 
+    "functions/r-inspired/data-manipulation",
     "functions/r-inspired/advanced-analytics",
     "functions/r-inspired/data-types",
     "functions/r-inspired/graphics",
@@ -65,5 +65,8 @@
     "extras"
   ],
   "author": "RexxJS Project",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "jq-wasm": "^1.1.0-jq-1.8.1"
+  }
 }

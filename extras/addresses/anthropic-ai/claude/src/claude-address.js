@@ -20,36 +20,7 @@
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */
-
-// Try to import RexxJS interpolation config for variable interpolation
-let interpolationConfig = null;
-try {
-  interpolationConfig = require('../../../../../core/src/interpolation-config.js');
-} catch (e) {
-  // Not available - will work without interpolation
-}
-
-/**
- * Interpolate variables using RexxJS global interpolation pattern
- */
-function interpolateVariables(str, variablePool) {
-  if (!interpolationConfig || !variablePool) {
-    return str;
-  }
-
-  const pattern = interpolationConfig.getCurrentPattern();
-  if (!pattern.hasDelims(str)) {
-    return str;
-  }
-
-  return str.replace(pattern.regex, (match) => {
-    const varName = pattern.extractVar(match);
-    if (varName in variablePool) {
-      return variablePool[varName];
-    }
-    return match; // Variable not found - leave as-is
-  });
-}
+// Interpolation is provided via sourceContext.interpolation parameter
 
 // Session storage for multi-turn conversations
 const chatSessions = new Map();
@@ -90,7 +61,7 @@ function CLAUDE_ADDRESS_MAIN() {
 }
 
 // ADDRESS target handler function with REXX variable management
-async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params) {
+async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params, sourceContext) {
   try {
     // Check API key availability
     const apiKey = getApiKey();
@@ -100,8 +71,9 @@ async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params) {
 
     // Apply RexxJS variable interpolation
     const variablePool = params || {};
+    const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
     const interpolatedCommand = typeof commandOrMethod === 'string'
-      ? interpolateVariables(commandOrMethod, variablePool)
+      ? interpolate(commandOrMethod, variablePool)
       : commandOrMethod;
 
     // Handle command-string style (traditional Rexx ADDRESS)
@@ -115,14 +87,14 @@ async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params) {
     switch (interpolatedCommand.toLowerCase()) {
       case 'chat':
       case 'message':
-        const message = interpolateVariables(params.message || params.text || '', variablePool);
-        const system = params.system ? interpolateVariables(params.system, variablePool) : params.system;
+        const message = interpolate(params.message || params.text || '', variablePool);
+        const system = params.system ? interpolate(params.system, variablePool) : params.system;
         resultPromise = handleChatMessage(message, params.chat_id, apiKey, system);
         break;
 
       case 'start':
       case 'session':
-        const systemRole = interpolateVariables(params.system || params.role || '', variablePool);
+        const systemRole = interpolate(params.system || params.role || '', variablePool);
         resultPromise = handleStartSession(systemRole, apiKey);
         break;
         

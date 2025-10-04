@@ -13,46 +13,18 @@
  * Due to sandbox limitations, the OpenAI API documentation could not be accessed.
  * The following is a template for how the implementation might look.
  */
-
-// Try to import RexxJS interpolation config for variable interpolation
-let interpolationConfig = null;
-try {
-  interpolationConfig = require('../../../../core/src/interpolation-config.js');
-} catch (e) {
-  // Not available - will work without interpolation
-}
-
-/**
- * Interpolate variables using RexxJS global interpolation pattern
- */
-function interpolateVariables(str, variablePool) {
-  if (!interpolationConfig || !variablePool) {
-    return str;
-  }
-
-  const pattern = interpolationConfig.getCurrentPattern();
-  if (!pattern.hasDelims(str)) {
-    return str;
-  }
-
-  return str.replace(pattern.regex, (match) => {
-    const varName = pattern.extractVar(match);
-    if (varName in variablePool) {
-      return variablePool[varName];
-    }
-    return match; // Variable not found - leave as-is
-  });
-}
+// Interpolation is provided via sourceContext.interpolation parameter
 
 // This function would be responsible for dispatching checkpoint requests.
 // It would be called by the REXX interpreter when `ADDRESS "openai-chat"` is used.
-async function ADDRESS_OPENAI_CHAT_HANDLER(commandOrMethod, params) {
+async function ADDRESS_OPENAI_CHAT_HANDLER(commandOrMethod, params, sourceContext) {
     // Apply RexxJS variable interpolation to params
     const variablePool = params || {};
+    const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
     const interpolatedParams = {};
     for (const [key, value] of Object.entries(params || {})) {
         if (typeof value === 'string') {
-            interpolatedParams[key] = interpolateVariables(value, variablePool);
+            interpolatedParams[key] = interpolate(value, variablePool);
         } else {
             interpolatedParams[key] = value;
         }

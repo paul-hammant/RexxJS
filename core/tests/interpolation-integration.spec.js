@@ -17,7 +17,7 @@ const {
   setInterpolationPattern,
   resetToDefault,
   createCustomPattern
-} = require('../src/interpolation-config');
+} = require('../src/interpolation');
 
 describe('Interpolation Pattern Integration Tests', () => {
   let interpreter;

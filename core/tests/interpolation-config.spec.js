@@ -13,7 +13,7 @@ const {
   getAvailablePatterns,
   createCustomPattern,
   parsePatternExample
-} = require('../src/interpolation-config');
+} = require('../src/interpolation');
 
 describe('Interpolation Configuration', () => {
   beforeEach(() => {

@@ -6,7 +6,7 @@
 /* @test-tags published-modules, excel-functions, registry, integration */
 /* @description Test loading excel-functions from published registry */
 
-REQUIRE "../../src/expectations-address.js"
+REQUIRE "../core/src/expectations-address.js"
 
 SAY "🧪 Testing Published Module: org.rexxjs/excel-functions"
 SAY "Loading module from registry..."

@@ -188,6 +188,25 @@ The codebase follows a modular design:
 - **ADDRESS Targets**: Plugin architecture for external system integration
 - **Web Framework**: Browser-specific enhancements and RPC capabilities
 
+### Module Loading Support Matrix
+
+RexxJS supports 6 different module loading combinations across 3 execution environments and 2 bundle modes:
+
+| Environment | Bundled Modules (.bundle.js) | Unbundled Modules (.js) |
+|-------------|------------------------------|-------------------------|
+| **Node.js** | ✅ All dependencies included via webpack<br>Loaded from registry or local | ✅ Dependencies resolved from unpkg.com<br>Cached to `.rexxjs-modules/`<br>Uses Node.js scoped `require()` |
+| **pkg executable** | ✅ system-address.bundle.js embedded<br>Other bundles from registry | ✅ Dependencies resolved from unpkg.com<br>Cached to `.rexxjs-modules/`<br>Works without node_modules |
+| **Browser/DOM** | ✅ All dependencies included via webpack<br>Loaded from registry | ✅ Dependencies resolved from unpkg.com<br>Runtime resolution only (no FS cache) |
+
+**Key Design Principles:**
+- **No fallbacks**: Users explicitly choose bundled vs unbundled via REQUIRE statement
+  - `REQUIRE "registry:org.rexxjs/jq-address.bundle"` - bundled version
+  - `REQUIRE "registry:org.rexxjs/jq-address"` - unbundled version
+- **Universal dependency source**: All npm dependencies fetched from unpkg.com
+- **Separate distributions**:
+  - Bundled modules published to GitHub Pages registry (../dist/ repo)
+  - Unbundled modules available locally (dist/) or from registry
+
 ## Use Cases
 
 1. **Scientific Computing**: R/SciPy-compatible functions for data analysis

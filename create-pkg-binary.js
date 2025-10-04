@@ -53,8 +53,7 @@ const packageJson = {
         targets: ["node18-linux-x64"],
         assets: [
             "src/**/*",
-            "../../dist/addresses/*.bundle.js",
-            "../extras/addresses/provisioning-and-orchestration/shared-utils.js"
+            "../../dist/addresses/system-address.bundle.js"
         ],
         scripts: "src/**/*.js"
     }

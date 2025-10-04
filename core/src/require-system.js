@@ -27,7 +27,7 @@ async function requireWithDependencies(libraryName, asClause, ctx) {
           ctx.checkLibraryPermissions,
           ctx.isLibraryLoaded,
           (libName) => ctx.detectAndRegisterAddressTargets(libName, asClause),
-          (libName) => loadSingleLibrary(libName, ctx),
+          (libName, parentLibName) => loadSingleLibrary(libName, ctx, parentLibName),
           ctx.extractDependencies,
           ctx.dependencyGraph,
           (libName) => ctx.registerLibraryFunctions(libName, asClause)
@@ -52,7 +52,7 @@ async function requireWithDependencies(libraryName, asClause, ctx) {
     ctx.checkLibraryPermissions,
     ctx.isLibraryLoaded,
     (libName) => ctx.detectAndRegisterAddressTargets(libName, asClause),
-    (libName) => loadSingleLibrary(libName, ctx),
+    (libName, parentLibName) => loadSingleLibrary(libName, ctx, parentLibName),
     ctx.extractDependencies,
     ctx.dependencyGraph,
     (libName) => ctx.registerLibraryFunctions(libName, asClause)
@@ -63,14 +63,15 @@ async function requireWithDependencies(libraryName, asClause, ctx) {
  * Chooses environment-specific require path based on ctx.detectEnvironment()
  * @param {string} libraryName - Name of the library to load
  * @param {Object} ctx - Context object containing interpreter methods and state
+ * @param {string} parentLibraryName - Optional parent library name for dependency resolution
  * @returns {Promise<boolean>} True if library loaded successfully
  */
-async function loadSingleLibrary(libraryName, ctx) {
+async function loadSingleLibrary(libraryName, ctx, parentLibraryName = null) {
   // Check if it's a registry: prefixed library
   if (libraryName.startsWith('registry:')) {
     return await ctx.requireRegistryLibrary(libraryName.substring(9)); // Remove 'registry:' prefix
   }
-  
+
   // SCRO: Check if we're in remote orchestrated context and should request via CHECKPOINT
   if (ctx.isRemoteOrchestrated() && !ctx.isBuiltinLibrary(libraryName)) {
     return await ctx.requireViaCheckpoint(libraryName);
@@ -79,13 +80,13 @@ async function loadSingleLibrary(libraryName, ctx) {
   // Original single library loading logic
   const env = ctx.detectEnvironment();
   switch (env) {
-    case 'nodejs': 
-      return await ctx.requireNodeJS(libraryName);
-    case 'web-standalone': 
+    case 'nodejs':
+      return await ctx.requireNodeJS(libraryName, parentLibraryName);
+    case 'web-standalone':
       return await ctx.requireWebStandalone(libraryName);
-    case 'web-controlbus': 
+    case 'web-controlbus':
       return await ctx.requireControlBus(libraryName);
-    default: 
+    default:
       throw new Error(`REQUIRE not supported in environment: ${env}`);
   }
 }
@@ -213,16 +214,140 @@ function parseRegistryLibraryName(libraryName) {
 }
 
 /**
+ * Try to load a module from unpkg based on parent's dependencies
+ * @param {string} moduleName - Name of the module to load
+ * @param {string} parentLibraryName - Parent library name
+ * @param {Object} ctx - Context object
+ * @returns {Promise<boolean>} True if loaded successfully
+ */
+async function tryLoadFromUnpkg(moduleName, parentLibraryName, ctx) {
+  try {
+    // Get parent's metadata to find the version
+    const parentDetectionFunction = getLibraryDetectionFunction(parentLibraryName);
+    const parentMeta = ctx.getGlobalFunction(parentDetectionFunction, parentLibraryName);
+
+    if (!parentMeta) {
+      return false;
+    }
+
+    const parentInfo = parentMeta();
+    const dependencies = parentInfo.dependencies || {};
+
+    // Check if this dependency is declared
+    if (!dependencies[moduleName]) {
+      return false;
+    }
+
+    const version = dependencies[moduleName];
+
+    console.log(`📦 Resolving ${moduleName}@${version} from unpkg for ${parentLibraryName}...`);
+
+    // Use unpkg resolver to fetch and cache
+    const unpkgResolver = require('./unpkg-resolver');
+    const loadedModule = await unpkgResolver.resolveModule(moduleName, version);
+
+    // Register globally so dependency system knows it's satisfied
+    const globalScope = typeof window !== 'undefined' ? window : global;
+    if (!globalScope.__rexxjs_loaded_modules) {
+      globalScope.__rexxjs_loaded_modules = new Map();
+    }
+    globalScope.__rexxjs_loaded_modules.set(moduleName, loadedModule);
+
+    // Wrap and register as RexxJS library
+    const detectionFunction = getLibraryDetectionFunction(moduleName);
+    const libNamespace = ctx.getLibraryNamespace(moduleName);
+
+    if (detectionFunction && loadedModule[detectionFunction]) {
+      // Already a RexxJS library
+      for (const [key, value] of Object.entries(loadedModule)) {
+        if (typeof value === 'function') {
+          global[key] = value;
+        }
+      }
+      global[libNamespace] = loadedModule;
+    } else {
+      // Wrap as RexxJS library
+      const rexxjsWrapper = wrapNodeJSModule(loadedModule, moduleName);
+      global[libNamespace] = rexxjsWrapper;
+    }
+
+    ctx.registerLibraryFunctions(moduleName);
+
+    console.log(`✓ ${moduleName}@${version} loaded from unpkg`);
+    return true;
+
+  } catch (error) {
+    console.log(`⚠️  Failed to load ${moduleName} from unpkg: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Loads Node.js modules with RexxJS compatibility handling
  * @param {string} libraryName - Name of the library to require
  * @param {Object} ctx - Context object containing interpreter methods and state
+ * @param {string} parentLibraryName - Optional parent library for scoped require
  * @returns {Promise<boolean>} True if module loaded successfully
  */
-async function requireNodeJSModule(libraryName, ctx) {
+async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
   try {
-    // First try Node.js native require() for proper modules
-    try {
-      const nodeModule = require(libraryName);
+    // For local file paths, skip native require() and use scoped require execution
+    const isLocalFile = libraryName.startsWith('./') || libraryName.startsWith('../') || libraryName.startsWith('/') || /^[A-Za-z]:[\\/]/.test(libraryName);
+
+    if (!isLocalFile) {
+      // Check if this module was already loaded via scoped require
+      const globalScope = typeof window !== 'undefined' ? window : global;
+      if (globalScope.__rexxjs_loaded_modules && globalScope.__rexxjs_loaded_modules.has(libraryName)) {
+        const nodeModule = globalScope.__rexxjs_loaded_modules.get(libraryName);
+
+        // Wrap it as a RexxJS library if needed
+        const detectionFunction = getLibraryDetectionFunction(libraryName);
+        const libNamespace = ctx.getLibraryNamespace(libraryName);
+
+        if (detectionFunction && nodeModule[detectionFunction]) {
+          // Already a RexxJS library
+          for (const [key, value] of Object.entries(nodeModule)) {
+            if (typeof value === 'function') {
+              global[key] = value;
+            }
+          }
+          global[libNamespace] = nodeModule;
+        } else {
+          // Wrap as RexxJS library
+          const rexxjsWrapper = wrapNodeJSModule(nodeModule, libraryName);
+          global[libNamespace] = rexxjsWrapper;
+        }
+
+        ctx.registerLibraryFunctions(libraryName);
+        return true;
+      }
+
+      // Check if this looks like an npm package dependency (no path separators)
+      // and we have a parent with dependencies metadata
+      const isNpmPackage = !libraryName.includes('/') && !libraryName.includes('\\');
+      if (isNpmPackage && parentLibraryName) {
+        // Try to load from unpkg based on parent's dependency declaration
+        const loadedFromUnpkg = await tryLoadFromUnpkg(libraryName, parentLibraryName, ctx);
+        if (loadedFromUnpkg) {
+          return true;
+        }
+      }
+
+      // Try Node.js native require() for npm modules
+      try {
+      // If we have a parent library with a scoped require, use it for dependencies
+      let nodeModule;
+      if (parentLibraryName && ctx.libraryRequireContexts && ctx.libraryRequireContexts.has(parentLibraryName)) {
+        const scopedRequire = ctx.libraryRequireContexts.get(parentLibraryName);
+        try {
+          nodeModule = scopedRequire(libraryName);
+        } catch (scopedError) {
+          // Fall back to global require if scoped require fails
+          nodeModule = require(libraryName);
+        }
+      } else {
+        nodeModule = require(libraryName);
+      }
 
       // Extract detection function from library code if it's a file path
       let detectionFunction = null;
@@ -265,22 +390,53 @@ async function requireNodeJSModule(libraryName, ctx) {
       
       console.log(`✓ ${libraryName} loaded and wrapped from Node.js module`);
       return true;
-      
-    } catch (requireError) {
-      // If require() fails, try to load as a plain JavaScript file
-      console.log(`Standard require() failed for ${libraryName}, trying as plain JS file...`);
-      
-      // For local files, try reading and executing as script
-      if (libraryName.startsWith('./') || libraryName.startsWith('../')) {
+
+      } catch (requireError) {
+        // npm module require() failed
+        throw new Error(`Failed to load Node.js module ${libraryName}: ${requireError.message}`);
+      }
+    } else {
+      // For local files, always use scoped require execution to ensure proper dependency resolution
+      // This ensures that when the file does require('dependency'), it resolves from the file's location
+      if (true) {  // Always true for local files
         const path = require('path');
         const fs = require('fs');
-        
+
         // Resolve the file path
         const filePath = path.resolve(libraryName);
-        
-        // Read the file content
+
+        // Read the file content first to check for dependencies
         const libraryCode = fs.readFileSync(filePath, 'utf8');
-        
+
+        // Extract metadata to check for dependencies
+        const metadataFunctionName = extractMetadataFunctionName(libraryCode);
+        if (metadataFunctionName) {
+          try {
+            // Execute the META function to get dependencies
+            const metaFunc = new Function(libraryCode + `\nreturn ${metadataFunctionName};`)();
+            const metadata = metaFunc();
+            const dependencies = metadata.dependencies || {};
+
+            // Pre-fetch any npm dependencies from unpkg
+            if (Object.keys(dependencies).length > 0) {
+              console.log(`📦 Pre-fetching ${Object.keys(dependencies).length} dependencies for ${libraryName}...`);
+
+              const unpkgResolver = require('./unpkg-resolver');
+              for (const [depName, depVersion] of Object.entries(dependencies)) {
+                // Check if already cached
+                const cachedPath = unpkgResolver.getCachedModulePath(depName, depVersion);
+                if (!cachedPath) {
+                  console.log(`📥 Downloading ${depName}@${depVersion} from unpkg...`);
+                  await unpkgResolver.resolveModule(depName, depVersion);
+                }
+              }
+            }
+          } catch (metaErr) {
+            // If we can't extract metadata, continue anyway
+            console.log(`⚠️  Could not pre-fetch dependencies: ${metaErr.message}`);
+          }
+        }
+
         // Create a mock module context for execution
         const mockModule = { exports: {} };
 
@@ -289,11 +445,94 @@ async function requireNodeJSModule(libraryName, ctx) {
           const Module = require('module');
           const scopedRequire = Module.createRequire(filePath);
 
+          // Wrap the scoped require to auto-register dependencies globally and use unpkg as fallback
+          const wrappedScopedRequire = (moduleName) => {
+            try {
+              const result = scopedRequire(moduleName);
+
+              // Make the loaded module available globally so dependency system knows it's satisfied
+              // This allows dependencies loaded by the parent module to be available to the require system
+              if (result && typeof result === 'object') {
+                const globalScope = typeof window !== 'undefined' ? window : global;
+                const moduleSafeName = moduleName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
+
+                // Store the module in a way the require system can find it
+                if (!globalScope.__rexxjs_loaded_modules) {
+                  globalScope.__rexxjs_loaded_modules = new Map();
+                }
+                globalScope.__rexxjs_loaded_modules.set(moduleName, result);
+
+                // Also make it available as a global variable
+                if (!globalScope[moduleSafeName]) {
+                  globalScope[moduleSafeName] = result;
+                }
+              }
+
+              return result;
+            } catch (err) {
+              // If scoped require fails and this looks like an npm package, try unpkg
+              const isNpmPackage = !moduleName.includes('/') && !moduleName.includes('\\') && !moduleName.startsWith('.');
+              if (isNpmPackage) {
+                console.log(`⚠️  Scoped require failed for ${moduleName}, trying unpkg...`);
+
+                // Try to load from unpkg synchronously (we need to block here)
+                const unpkgResolver = require('./unpkg-resolver');
+
+                // Get parent's metadata to find the version
+                const parentDetectionFunction = extractMetadataFunctionName(libraryCode);
+                if (parentDetectionFunction) {
+                  try {
+                    // Execute the META function to get dependencies
+                    const metaFunc = new Function(libraryCode + `\nreturn ${parentDetectionFunction};`)();
+                    const parentInfo = metaFunc();
+                    const dependencies = parentInfo.dependencies || {};
+
+                    if (dependencies[moduleName]) {
+                      const version = dependencies[moduleName];
+                      console.log(`📦 Loading ${moduleName}@${version} from unpkg...`);
+
+                      // Synchronous unpkg resolution (we'll need to make this work)
+                      const Module = require('module');
+                      const cachedPath = unpkgResolver.getCachedModulePath(moduleName, version);
+
+                      if (cachedPath) {
+                        console.log(`✓ Using cached ${moduleName}@${version}`);
+                        const result = require(cachedPath);
+
+                        // Register globally
+                        const globalScope = typeof window !== 'undefined' ? window : global;
+                        if (!globalScope.__rexxjs_loaded_modules) {
+                          globalScope.__rexxjs_loaded_modules = new Map();
+                        }
+                        globalScope.__rexxjs_loaded_modules.set(moduleName, result);
+
+                        return result;
+                      } else {
+                        console.log(`❌ ${moduleName}@${version} not in cache, cannot load synchronously during module execution`);
+                        console.log(`   Module will need to be pre-cached or installed in node_modules`);
+                      }
+                    }
+                  } catch (metaErr) {
+                    console.log(`⚠️  Could not extract metadata: ${metaErr.message}`);
+                  }
+                }
+              }
+
+              throw err;
+            }
+          };
+
+          // Store the scoped require for this library so dependencies can use it
+          if (!ctx.libraryRequireContexts) {
+            ctx.libraryRequireContexts = new Map();
+          }
+          ctx.libraryRequireContexts.set(libraryName, scopedRequire);
+
           // Execute the code with module support - pass scoped require, module, exports as function params
           // Don't pollute global.module/global.exports - just pass them as parameters
           const func = new Function('require', 'module', 'exports', '__filename', '__dirname', libraryCode);
-          func(scopedRequire, mockModule, mockModule.exports, filePath, path.dirname(filePath));
-          
+          func(wrappedScopedRequire, mockModule, mockModule.exports, filePath, path.dirname(filePath));
+
           // If the library exported functions via module.exports, make them globally available
           // Filter out undefined keys to avoid "Cannot assign to read only property 'undefined'" error
           if (mockModule.exports && typeof mockModule.exports === 'object') {
@@ -331,14 +570,11 @@ async function requireNodeJSModule(libraryName, ctx) {
           throw execError;
         }
         
-        console.log(`✓ ${libraryName} loaded as plain JavaScript file`);
+        console.log(`✓ ${libraryName} loaded with scoped require`);
         return true;
-      } else {
-        // For non-local modules, re-throw the original error
-        throw requireError;
       }
     }
-    
+
   } catch (error) {
     // Include the full error stack for debugging
     const detailedError = new Error(`Failed to load Node.js module ${libraryName}: ${error.message}`);
@@ -405,7 +641,14 @@ async function extractDependencies(libraryName, ctx) {
     try {
       const info = func();
       if (info && info.dependencies) {
-        return Array.isArray(info.dependencies) ? info.dependencies : [];
+        // Handle both array format and object format (package.json style)
+        if (Array.isArray(info.dependencies)) {
+          return info.dependencies;
+        } else if (typeof info.dependencies === 'object' && info.dependencies !== null) {
+          // Extract keys from object format: { "jq-wasm": "1.1.0" } -> ["jq-wasm"]
+          return Object.keys(info.dependencies);
+        }
+        return [];
       }
     } catch (error) {
       console.warn(`Failed to get runtime dependencies for ${libraryName}: ${error.message}`);

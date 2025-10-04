@@ -41,7 +41,7 @@
  * @param {Function} registerLibraryFunctionsFn - Function to register library functions
  * @returns {Promise<boolean>} True if library loaded successfully
  */
-async function requireWithDependencies(libraryName, loadingQueue, checkLibraryPermissionsFn, isLibraryLoadedFn, detectAndRegisterAddressTargetsFn, loadSingleLibraryFn, extractDependenciesFn, dependencyGraph, registerLibraryFunctionsFn) {
+async function requireWithDependencies(libraryName, loadingQueue, checkLibraryPermissionsFn, isLibraryLoadedFn, detectAndRegisterAddressTargetsFn, loadSingleLibraryFn, extractDependenciesFn, dependencyGraph, registerLibraryFunctionsFn, parentLibraryName = null) {
   // Prevent circular dependencies
   if (loadingQueue.has(libraryName)) {
     throw new Error(`Circular dependency detected: ${libraryName} is already loading`);
@@ -61,9 +61,9 @@ async function requireWithDependencies(libraryName, loadingQueue, checkLibraryPe
   loadingQueue.add(libraryName);
   
   try {
-    // Load the library first
-    await loadSingleLibraryFn(libraryName);
-    
+    // Load the library first, passing parent context if it's a dependency
+    await loadSingleLibraryFn(libraryName, parentLibraryName);
+
     // Parse dependencies from the loaded library
     const dependencies = await extractDependenciesFn(libraryName);
     
@@ -79,8 +79,9 @@ async function requireWithDependencies(libraryName, loadingQueue, checkLibraryPe
     
     // Load all dependencies recursively
     for (const depName of dependencies) {
-      await requireWithDependencies(depName, loadingQueue, checkLibraryPermissionsFn, isLibraryLoadedFn, detectAndRegisterAddressTargetsFn, loadSingleLibraryFn, extractDependenciesFn, dependencyGraph, registerLibraryFunctionsFn);
-      
+      // Pass the parent library name as context for dependency resolution
+      await requireWithDependencies(depName, loadingQueue, checkLibraryPermissionsFn, isLibraryLoadedFn, detectAndRegisterAddressTargetsFn, loadSingleLibraryFn, extractDependenciesFn, dependencyGraph, registerLibraryFunctionsFn, libraryName);
+
       // Add reverse dependency tracking
       const depNode = dependencyGraph.get(depName) || { dependencies: [], dependents: [], loading: false };
       if (!depNode.dependents.includes(libraryName)) {

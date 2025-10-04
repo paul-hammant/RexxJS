@@ -153,6 +153,31 @@ function getAvailablePatterns() {
 }
 
 /**
+ * Interpolate variables in a string using the current pattern
+ * @param {string} str - String to interpolate
+ * @param {Object} variablePool - Object with variable name/value pairs
+ * @returns {string} String with variables replaced
+ */
+function interpolate(str, variablePool) {
+  if (!variablePool || typeof str !== 'string') {
+    return str;
+  }
+
+  const pattern = getCurrentPattern();
+  if (!pattern.hasDelims(str)) {
+    return str;
+  }
+
+  return str.replace(pattern.regex, (match) => {
+    const varName = pattern.extractVar(match);
+    if (varName in variablePool) {
+      return variablePool[varName];
+    }
+    return match; // Variable not found - leave as-is
+  });
+}
+
+/**
  * Create a custom interpolation pattern
  * @param {string} name - Pattern name
  * @param {string} startDelim - Start delimiter (e.g., '{{')
@@ -164,7 +189,7 @@ function createCustomPattern(name, startDelim, endDelim) {
   const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const escapedStart = escapeRegex(startDelim);
   const escapedEnd = escapeRegex(endDelim);
-  
+
   // For better matching, we'll use a more specific approach
   // If the end delimiter is a single character, use character class exclusion
   // Otherwise, use a more complex pattern that matches until the full end delimiter
@@ -175,7 +200,7 @@ function createCustomPattern(name, startDelim, endDelim) {
     // For multi-character delimiters, use a non-greedy approach
     regexPattern = `${escapedStart}(.*?)${escapedEnd}`;
   }
-  
+
   return {
     name,
     regex: new RegExp(regexPattern, 'g'),
@@ -196,7 +221,8 @@ if (typeof module !== 'undefined' && module.exports) {
     resetToDefault,
     getAvailablePatterns,
     createCustomPattern,
-    parsePatternExample
+    parsePatternExample,
+    interpolate
   };
 } else if (typeof window !== 'undefined') {
   // Browser environment
@@ -207,8 +233,9 @@ if (typeof module !== 'undefined' && module.exports) {
     resetToDefault,
     getAvailablePatterns,
     createCustomPattern,
-    parsePatternExample
+    parsePatternExample,
+    interpolate
   };
-  
+
   window.InterpolationConfig = InterpolationConfig;
 }

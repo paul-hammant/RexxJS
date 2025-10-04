@@ -25,6 +25,7 @@ let security;
 let securityUtils;
 let stringUtils;
 let pathResolver;
+let interpolation;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -56,6 +57,7 @@ if (typeof require !== 'undefined') {
   securityUtils = require('./interpreter-security.js');
   stringUtils = require('./string-processing.js');
   pathResolver = require('./path-resolver.js');
+  interpolation = require('./interpolation.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -303,7 +305,7 @@ if (typeof require !== 'undefined') {
   if (registry.has('stringProcessingUtils')) {
     const stringProcessingUtils = registry.get('stringProcessingUtils');
     stringUtils = stringProcessingUtils;
-    
+
     // Set up window globals for backward compatibility
     Object.assign(window, stringProcessingUtils);
   } else {
@@ -312,6 +314,9 @@ if (typeof require !== 'undefined') {
       executeBrowserStringFunction: window.executeBrowserStringFunction
     };
   }
+
+  // Interpolation utilities
+  interpolation = window.InterpolationConfig;
 }
 
 /**
@@ -1815,7 +1820,8 @@ class RexxInterpreter {
                     lineNumber: this.currentLineNumber,
                     sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
                     sourceFilename: this.sourceFilename || '',
-                    interpreter: this
+                    interpreter: this,
+                    interpolation: interpolation
                   } : null;
                   
                   // Call the ADDRESS handler directly
@@ -1867,7 +1873,8 @@ class RexxInterpreter {
                       lineNumber: this.currentLineNumber,
                       sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
                       sourceFilename: this.sourceFilename || '',
-                      interpreter: this
+                      interpreter: this,
+                    interpolation: interpolation
                     } : null;
                     
                     // Call the ADDRESS handler directly
@@ -1936,7 +1943,8 @@ class RexxInterpreter {
             currentLineNumber: this.currentLineNumber,
             sourceLines: this.sourceLines,
             sourceFilename: this.sourceFilename,
-            interpreter: this
+            interpreter: this,
+                    interpolation: interpolation
           });
           if (doResult && doResult.terminated) {
             if (doResult.type === 'RETURN') {
@@ -2118,7 +2126,8 @@ class RexxInterpreter {
         lineNumber: this.currentLineNumber,
         sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
         sourceFilename: this.sourceFilename || '',
-        interpreter: this
+        interpreter: this,
+                    interpolation: interpolation
       } : null;
       
       // Enhanced error message with categorization and documentation links
@@ -2149,7 +2158,8 @@ class RexxInterpreter {
       currentLineNumber: this.currentLineNumber,
       sourceLines: this.sourceLines,
       sourceFilename: this.sourceFilename,
-      interpreter: this
+      interpreter: this,
+                    interpolation: interpolation
     });
   }
 
@@ -2398,7 +2408,8 @@ class RexxInterpreter {
             lineNumber: this.currentLineNumber,
             sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
             sourceFilename: this.sourceFilename || '',
-            interpreter: this
+            interpreter: this,
+                    interpolation: interpolation
           } : null;
           const result = await addressTarget.handler(finalCommandString, context, sourceContext);
           
@@ -2481,7 +2492,8 @@ class RexxInterpreter {
             lineNumber: this.currentLineNumber,
             sourceLine: this.sourceLines[this.currentLineNumber - 1] || '',
             sourceFilename: this.sourceFilename || '',
-            interpreter: this
+            interpreter: this,
+                    interpolation: interpolation
           } : null;
           const result = await addressTarget.handler(finalCommandString, context, sourceContext);
           
@@ -2686,7 +2698,8 @@ class RexxInterpreter {
         lineNumber: interpretCtx.lineNumber,
         sourceLine: interpretCtx.sourceLine,
         sourceFilename: interpretCtx.sourceFilename,
-        interpreter: this
+        interpreter: this,
+                    interpolation: interpolation
       } : null;
       
       // Pop the INTERPRET context on error
