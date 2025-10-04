@@ -85,18 +85,18 @@ function JQ_WASM_FUNCTIONS_META() {
  * @param {string} query - jq query expression
  * @returns {any} Query result
  */
-function jqQuery(data, query) {
+async function jqQuery(data, query) {
   if (!jq || typeof jq.json !== 'function') {
     throw new Error('jq-wasm not available. Please install jq-wasm: npm install jq-wasm');
   }
 
   try {
-    // Parse JSON if string
-    const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
+    // jq-wasm accepts objects, arrays, or JSON strings
+    // Don't parse primitives - they need to stay as strings for jq-wasm
     const queryStr = String(query);
 
-    // Execute jq query using jq-wasm
-    const result = jq.json(jsonData, queryStr);
+    // Execute jq query using jq-wasm (async)
+    const result = await jq.json(data, queryStr);
 
     return result;
   } catch (error) {
@@ -110,30 +110,22 @@ function jqQuery(data, query) {
  * @param {string} query - jq query expression
  * @returns {string} Raw string result
  */
-function jqRaw(data, query) {
-  if (!jq || typeof jq.json !== 'function') {
+async function jqRaw(data, query) {
+  if (!jq || typeof jq.raw !== 'function') {
     throw new Error('jq-wasm not available. Please install jq-wasm: npm install jq-wasm');
   }
 
   try {
-    // Parse JSON if string
-    const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
     const queryStr = String(query);
 
-    // Execute jq query - jq-wasm doesn't have a -r flag equivalent
-    // We need to execute the query and stringify the result
-    const result = jq.json(jsonData, queryStr);
+    // Execute jq query with raw output using jq-wasm
+    const result = await jq.raw(data, queryStr, ['-r']);
 
-    // Convert result to string (raw output)
-    if (typeof result === 'string') {
-      return result;
-    } else if (result === null) {
-      return 'null';
-    } else if (typeof result === 'object') {
-      return JSON.stringify(result);
-    } else {
-      return String(result);
+    if (result.stderr) {
+      throw new Error(result.stderr);
     }
+
+    return result.stdout.trim();
   } catch (error) {
     throw new Error(`jq query failed: ${error.message}`);
   }
@@ -144,8 +136,8 @@ function jqRaw(data, query) {
  * @param {string|object} data - JSON data (string or object)
  * @returns {string[]} Array of keys
  */
-function jqKeys(data) {
-  return jqQuery(data, 'keys');
+async function jqKeys(data) {
+  return await jqQuery(data, 'keys');
 }
 
 /**
@@ -153,8 +145,8 @@ function jqKeys(data) {
  * @param {string|object} data - JSON data (string or object)
  * @returns {any[]} Array of values
  */
-function jqValues(data) {
-  return jqQuery(data, 'values');
+async function jqValues(data) {
+  return await jqQuery(data, '[.[]]');
 }
 
 /**
@@ -162,8 +154,8 @@ function jqValues(data) {
  * @param {string|object} data - JSON data (string or object)
  * @returns {number} Length
  */
-function jqLength(data) {
-  return jqQuery(data, 'length');
+async function jqLength(data) {
+  return await jqQuery(data, 'length');
 }
 
 /**
@@ -171,8 +163,8 @@ function jqLength(data) {
  * @param {string|object} data - JSON data (string or object)
  * @returns {string} Type (object, array, string, number, boolean, null)
  */
-function jqType(data) {
-  return jqQuery(data, 'type');
+async function jqType(data) {
+  return await jqQuery(data, 'type');
 }
 
 // Export functions to global scope

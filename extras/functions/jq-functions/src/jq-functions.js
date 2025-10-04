@@ -26,18 +26,16 @@
  * Licensed under the MIT License
  */
 
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
+const { execSync } = require('child_process');
 
 // Check if jq binary is available
 let jqAvailable = null;
 
-async function checkJqAvailable() {
+function checkJqAvailable() {
   if (jqAvailable !== null) return jqAvailable;
 
   try {
-    await execAsync('which jq');
+    execSync('which jq', { stdio: 'ignore' });
     jqAvailable = true;
   } catch (e) {
     jqAvailable = false;
@@ -70,10 +68,10 @@ function JQ_FUNCTIONS_META() {
  * Execute jq query and return the result
  * @param {string|object} data - JSON data (string or object)
  * @param {string} query - jq query expression
- * @returns {Promise<any>} Query result
+ * @returns {any} Query result
  */
-async function jqQuery(data, query) {
-  const available = await checkJqAvailable();
+function jqQuery(data, query) {
+  const available = checkJqAvailable();
   if (!available) {
     throw new Error('jq binary not found. Please install jq (e.g., apt install jq, brew install jq)');
   }
@@ -88,19 +86,31 @@ async function jqQuery(data, query) {
     const escapedQuery = queryStr.replace(/'/g, "'\\''");
     const cmd = `echo '${jsonInput.replace(/'/g, "'\\''")}' | jq '${escapedQuery}'`;
 
-    // Execute jq
-    const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024 });
+    // Execute jq synchronously
+    const stdout = execSync(cmd, { maxBuffer: 10 * 1024 * 1024, encoding: 'utf8' });
 
-    if (stderr && stderr.trim()) {
-      throw new Error(stderr.trim());
+    // Parse result - handle multi-line JSON output
+    const resultText = stdout.trim();
+    if (!resultText) {
+      return null;
     }
 
-    // Parse result
-    const resultText = stdout.trim();
+    // Try to parse as single JSON value first
     try {
       return JSON.parse(resultText);
     } catch (e) {
-      // If it's not valid JSON, return as string
+      // If that fails, check if it's multiple JSON values (one per line)
+      const lines = resultText.split('\n').filter(line => line.trim());
+      if (lines.length > 1) {
+        try {
+          const results = lines.map(line => JSON.parse(line.trim()));
+          return results;
+        } catch (parseError) {
+          // If that also fails, return raw text
+          return resultText;
+        }
+      }
+      // Single line that's not JSON - return as string
       return resultText;
     }
   } catch (error) {
@@ -112,10 +122,10 @@ async function jqQuery(data, query) {
  * Execute jq query with raw output (-r flag)
  * @param {string|object} data - JSON data (string or object)
  * @param {string} query - jq query expression
- * @returns {Promise<string>} Raw string result
+ * @returns {string} Raw string result
  */
-async function jqRaw(data, query) {
-  const available = await checkJqAvailable();
+function jqRaw(data, query) {
+  const available = checkJqAvailable();
   if (!available) {
     throw new Error('jq binary not found. Please install jq (e.g., apt install jq, brew install jq)');
   }
@@ -130,12 +140,8 @@ async function jqRaw(data, query) {
     const escapedQuery = queryStr.replace(/'/g, "'\\''");
     const cmd = `echo '${jsonInput.replace(/'/g, "'\\''")}' | jq -r '${escapedQuery}'`;
 
-    // Execute jq
-    const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024 });
-
-    if (stderr && stderr.trim()) {
-      throw new Error(stderr.trim());
-    }
+    // Execute jq synchronously
+    const stdout = execSync(cmd, { maxBuffer: 10 * 1024 * 1024, encoding: 'utf8' });
 
     return stdout.trim();
   } catch (error) {
@@ -146,37 +152,37 @@ async function jqRaw(data, query) {
 /**
  * Get object keys
  * @param {string|object} data - JSON data (string or object)
- * @returns {Promise<string[]>} Array of keys
+ * @returns {string[]} Array of keys
  */
-async function jqKeys(data) {
-  return await jqQuery(data, 'keys');
+function jqKeys(data) {
+  return jqQuery(data, 'keys');
 }
 
 /**
  * Get object values
  * @param {string|object} data - JSON data (string or object)
- * @returns {Promise<any[]>} Array of values
+ * @returns {any[]} Array of values
  */
-async function jqValues(data) {
-  return await jqQuery(data, 'values');
+function jqValues(data) {
+  return jqQuery(data, '[.[]]');
 }
 
 /**
  * Get array/object length
  * @param {string|object} data - JSON data (string or object)
- * @returns {Promise<number>} Length
+ * @returns {number} Length
  */
-async function jqLength(data) {
-  return await jqQuery(data, 'length');
+function jqLength(data) {
+  return jqQuery(data, 'length');
 }
 
 /**
  * Get JSON type
  * @param {string|object} data - JSON data (string or object)
- * @returns {Promise<string>} Type (object, array, string, number, boolean, null)
+ * @returns {string} Type (object, array, string, number, boolean, null)
  */
-async function jqType(data) {
-  return await jqQuery(data, 'type');
+function jqType(data) {
+  return jqQuery(data, 'type');
 }
 
 // Export functions to global scope
