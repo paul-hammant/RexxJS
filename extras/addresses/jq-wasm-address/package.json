@@ -1,7 +1,7 @@
 {
-  "name": "rexxjs-jq-address",
+  "name": "rexxjs-jq-wasm-address",
   "version": "1.0.0",
-  "description": "jq ADDRESS library for RexxJS using jq-wasm",
+  "description": "jq ADDRESS library for RexxJS using jq-wasm (portable, pure-JS)",
   "main": "src/jq-address.js",
   "scripts": {
     "build": "webpack --mode=production",

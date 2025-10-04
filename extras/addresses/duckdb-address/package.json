@@ -1,0 +1,34 @@
+{
+  "name": "rexxjs-duckdb-address",
+  "version": "1.0.0",
+  "description": "DuckDB ADDRESS library for RexxJS using native duckdb binary (fast, requires system duckdb)",
+  "main": "src/duckdb-address.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "install:core": "cd ../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "rexxjs",
+    "duckdb",
+    "database",
+    "sql",
+    "native"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/*.test.js",
+      "**/*.spec.js"
+    ]
+  },
+  "type": "commonjs"
+}

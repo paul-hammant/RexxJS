@@ -335,19 +335,18 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
 
       // Try Node.js native require() for npm modules
       try {
-      // If we have a parent library with a scoped require, use it for dependencies
-      let nodeModule;
-      if (parentLibraryName && ctx.libraryRequireContexts && ctx.libraryRequireContexts.has(parentLibraryName)) {
-        const scopedRequire = ctx.libraryRequireContexts.get(parentLibraryName);
-        try {
-          nodeModule = scopedRequire(libraryName);
-        } catch (scopedError) {
-          // Fall back to global require if scoped require fails
-          nodeModule = require(libraryName);
-        }
-      } else {
-        nodeModule = require(libraryName);
+      // Determine which require to use: scoped, global, or local
+      let requireFn = require; // default to local require
+      const globalScope = typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : {});
+      if (globalScope.require) {
+        // Prefer global.require (real filesystem) if available
+        requireFn = globalScope.require;
+      } else if (parentLibraryName && ctx.libraryRequireContexts && ctx.libraryRequireContexts.has(parentLibraryName)) {
+        // Fall back to parent's scoped require
+        requireFn = ctx.libraryRequireContexts.get(parentLibraryName);
       }
+
+      let nodeModule = requireFn(libraryName);
 
       // Extract detection function from library code if it's a file path
       let detectionFunction = null;
@@ -443,7 +442,31 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
         try {
           // Create a scoped require function that resolves relative to the loaded file
           const Module = require('module');
-          const scopedRequire = Module.createRequire(filePath);
+          const path = require('path');
+          const fs = require('fs');
+
+          // Find a path with node_modules for creating the scoped require
+          let requireBasePath = path.dirname(filePath);
+          // Check if node_modules exists in parent directories
+          while (requireBasePath && requireBasePath !== '/' && !fs.existsSync(path.join(requireBasePath, 'node_modules'))) {
+            requireBasePath = path.dirname(requireBasePath);
+          }
+          // If we didn't find node_modules up the tree, try cwd (where the script is running from)
+          if (!fs.existsSync(path.join(requireBasePath, 'node_modules')) && fs.existsSync(path.join(process.cwd(), 'node_modules'))) {
+            requireBasePath = process.cwd();
+          }
+          // If we found one, use package.json from there; otherwise use the file path
+          const requirePath = fs.existsSync(path.join(requireBasePath, 'package.json'))
+            ? path.join(requireBasePath, 'package.json')
+            : filePath;
+
+          const scopedRequire = Module.createRequire(requirePath);
+
+          // Make scoped require globally available so libraries can access npm modules
+          const globalScope = typeof window !== 'undefined' ? window : global;
+          if (!globalScope.require) {
+            globalScope.require = scopedRequire;
+          }
 
           // Wrap the scoped require to auto-register dependencies globally and use unpkg as fallback
           const wrappedScopedRequire = (moduleName) => {
@@ -453,7 +476,6 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
               // Make the loaded module available globally so dependency system knows it's satisfied
               // This allows dependencies loaded by the parent module to be available to the require system
               if (result && typeof result === 'object') {
-                const globalScope = typeof window !== 'undefined' ? window : global;
                 const moduleSafeName = moduleName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
 
                 // Store the module in a way the require system can find it
@@ -500,7 +522,6 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
                         const result = require(cachedPath);
 
                         // Register globally
-                        const globalScope = typeof window !== 'undefined' ? window : global;
                         if (!globalScope.__rexxjs_loaded_modules) {
                           globalScope.__rexxjs_loaded_modules = new Map();
                         }
@@ -554,8 +575,6 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
               `Example: /*! @rexxjs-meta=MY_LIBRARY_META */`
             );
           }
-
-          const globalScope = typeof window !== 'undefined' ? window : global;
 
           if (!globalScope[detectionFunction] || typeof globalScope[detectionFunction] !== 'function') {
             console.log(`Looking for detection function: ${detectionFunction}`);
@@ -633,20 +652,31 @@ function wrapNodeJSModule(nodeModule, libraryName) {
 async function extractDependencies(libraryName, ctx) {
   // Extract dependencies from loaded library code
   const dependencies = [];
-  
+
+  // Strip registry: prefix if present (it was already removed during loading)
+  const actualLibraryName = libraryName.startsWith('registry:')
+    ? libraryName.substring(9) // Remove 'registry:' prefix
+    : libraryName;
+
   // PRIORITY 1: Runtime metadata (works with minified code)
-  const detectionFunction = getLibraryDetectionFunction(libraryName);
-  const func = ctx.getGlobalFunction(detectionFunction, libraryName);
+  const detectionFunction = getLibraryDetectionFunction(actualLibraryName);
+  console.log(`🔍 Extracting dependencies for ${libraryName} (actual: ${actualLibraryName}), detection function: ${detectionFunction}`);
+  const func = ctx.getGlobalFunction(detectionFunction, actualLibraryName);
+  console.log(`🔍 Got function: ${typeof func}`);
   if (func) {
     try {
       const info = func();
+      console.log(`🔍 Metadata:`, info);
       if (info && info.dependencies) {
+        console.log(`🔍 Dependencies found:`, info.dependencies);
         // Handle both array format and object format (package.json style)
         if (Array.isArray(info.dependencies)) {
           return info.dependencies;
         } else if (typeof info.dependencies === 'object' && info.dependencies !== null) {
           // Extract keys from object format: { "jq-wasm": "1.1.0" } -> ["jq-wasm"]
-          return Object.keys(info.dependencies);
+          const deps = Object.keys(info.dependencies);
+          console.log(`🔍 Extracted dependency keys:`, deps);
+          return deps;
         }
         return [];
       }
@@ -828,9 +858,16 @@ async function requireRegistryLibrary(namespacedLibrary, ctx) {
     throw new Error(`Module '${libraryName}' not found in registry for namespace '${namespace}'`);
   }
 
+  // In Node.js/pkg environments, prefer unbundled version for better native module support
+  // Replace .bundle.js with .js if we're in Node.js
+  const isNodeEnv = typeof process !== 'undefined' && process.versions && process.versions.node;
+  const finalUrl = isNodeEnv && libraryUrl.endsWith('.bundle.js')
+    ? libraryUrl.replace('.bundle.js', '.js')
+    : libraryUrl;
+
   // Load the library using existing GitHub-style loading
-  console.log(`📦 Loading registry library: ${namespacedLibrary} from ${libraryUrl}`);
-  return await ctx.loadLibraryFromUrl(libraryUrl, namespacedLibrary);
+  console.log(`📦 Loading registry library: ${namespacedLibrary} from ${finalUrl}`);
+  return await ctx.loadLibraryFromUrl(finalUrl, namespacedLibrary);
 }
 
 /**

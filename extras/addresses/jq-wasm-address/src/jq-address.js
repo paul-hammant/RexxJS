@@ -1,20 +1,22 @@
 /*!
- * rexxjs/jq-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
- * @rexxjs-meta=JQ_ADDRESS_META
+ * rexxjs/jq-wasm-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
+ * @rexxjs-meta=JQ_WASM_ADDRESS_META
  */
 /**
- * jq ADDRESS Library - Provides JSON query execution via ADDRESS interface
+ * jq WASM ADDRESS Library - Provides JSON query execution via ADDRESS interface
  * This is an ADDRESS target library, not a functions library
- * 
+ * Uses jq-wasm for portable, pure-JavaScript implementation
+ *
  * Usage:
- *   REQUIRE "jq-address" 
+ *   REQUIRE "jq-wasm-address"
  *   ADDRESS JQ
  *   ".items[0]"                    // Query current JSON data
  *   LET result = query data=json_data query=".name"
  *   LET keys = keys data=json_data
  *
  * Note: Works in both Node.js and browser environments with jq-wasm
- * 
+ * For better performance with system jq binary, use jq-address (native) instead
+ *
  * Copyright (c) 2025 RexxJS Project
  * Licensed under the MIT License
  */
@@ -53,8 +55,8 @@ let jqContextMethods = {
   }
 };
 
-// jq ADDRESS metadata function
-function JQ_ADDRESS_META() {
+// jq WASM ADDRESS metadata function
+function JQ_WASM_ADDRESS_META() {
   // Check jq-wasm availability without throwing during registration
   let jqAvailable = false;
   try {
@@ -64,13 +66,13 @@ function JQ_ADDRESS_META() {
   } catch (e) {
     // Will be available as metadata for error handling
   }
-  
+
   return {
-    canonical: "org.rexxjs/jq-address",
+    canonical: "org.rexxjs/jq-wasm-address",
     type: 'address-handler',
-    name: 'jq JSON Query Service',
+    name: 'jq JSON Query Service (WASM)',
     version: '1.0.0',
-    description: 'JSON query execution via ADDRESS interface (requires jq-wasm dependency)',
+    description: 'JSON query execution via ADDRESS interface using jq-wasm (portable, pure-JS)',
     provides: {
       addressTarget: 'jq',
       handlerFunction: 'ADDRESS_JQ_HANDLER',
@@ -93,30 +95,59 @@ function JQ_ADDRESS_META() {
 
 // ADDRESS target handler function with REXX variable management
 function ADDRESS_JQ_HANDLER(commandOrMethod, params) {
-  // Check if we have jq-wasm available
+  // Check if we have jq-wasm available, try to load if not already loaded
   if (!jq || typeof jq.json !== 'function') {
-    throw new Error('jq ADDRESS library requires jq-wasm dependency to be loaded');
+    // Try to load jq-wasm if not already available
+    try {
+      const globalScope = typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : {});
+
+      // First, try to require jq-wasm directly using global.require (real filesystem)
+      if (globalScope.require) {
+        jq = globalScope.require('jq-wasm');
+      } else if (globalScope.jq_wasm) {
+        // Fall back to wrapped version available globally
+        // The wrapped version has uppercase method names - create adapter
+        if (globalScope.jq_wasm.JSON) {
+          jq = {
+            json: globalScope.jq_wasm.JSON,
+            raw: globalScope.jq_wasm.RAW,
+            version: globalScope.jq_wasm.VERSION
+          };
+        } else {
+          jq = globalScope.jq_wasm;
+        }
+      } else if (typeof require !== 'undefined') {
+        jq = require('jq-wasm');
+      } else if (globalScope.jq) {
+        jq = globalScope.jq;
+      }
+    } catch (e) {
+      // Continue to final check
+    }
+
+    // Final check
+    if (!jq || typeof jq.json !== 'function') {
+      throw new Error('jq ADDRESS library requires jq-wasm dependency to be loaded');
+    }
   }
 
   try {
-    // Handle command-string style (traditional REXX ADDRESS)
-    if (typeof commandOrMethod === 'string' && !params) {
-      return handleJqCommand(commandOrMethod)
-        .then(result => formatJqResultForREXX(result))
-        .catch(error => {
-          const formattedError = formatJqErrorForREXX(error);
-          throw new Error(error.message); // Preserve original error throwing behavior
-        });
-    }
-    
-    // Handle method-call style (modern convenience)
+    // Determine if this is a method call with parameters or a command string
+    const method = commandOrMethod.toLowerCase();
     let resultPromise;
-    switch (commandOrMethod.toLowerCase()) {
+
+    switch (method) {
       case 'query':
       case 'run':
-        resultPromise = handleJqQuery(params.data || params.json, params.query || params.q, params.flags);
+        // If params has data and query, this is a method call with parameters
+        if (params && (params.data || params.json) && (params.query || params.q)) {
+          resultPromise = handleJqQuery(params.data || params.json, params.query || params.q, params.flags);
+        } else {
+          // Otherwise it's a command-string query
+          resultPromise = handleJqCommand(commandOrMethod);
+        }
         break;
-        
+
       case 'raw':
         resultPromise = handleJqRaw(params.data || params.json, params.query || params.q, params.flags);
         break;
@@ -503,12 +534,12 @@ function formatJqErrorForREXX(error) {
 // Export to global scope (required for REQUIRE system detection)
 if (typeof window !== 'undefined') {
   // Browser environment
-  window.JQ_ADDRESS_META = JQ_ADDRESS_META;
+  window.JQ_WASM_ADDRESS_META = JQ_WASM_ADDRESS_META;
   window.ADDRESS_JQ_HANDLER = ADDRESS_JQ_HANDLER;
   window.ADDRESS_JQ_METHODS = ADDRESS_JQ_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
-  global.JQ_ADDRESS_META = JQ_ADDRESS_META;
+  global.JQ_WASM_ADDRESS_META = JQ_WASM_ADDRESS_META;
   global.ADDRESS_JQ_HANDLER = ADDRESS_JQ_HANDLER;
   global.ADDRESS_JQ_METHODS = ADDRESS_JQ_METHODS;
 }

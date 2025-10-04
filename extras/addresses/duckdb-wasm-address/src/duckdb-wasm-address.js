@@ -73,11 +73,11 @@ async function getConnection() {
 function DUCKDB_WASM_ADDRESS_META() {
     // DuckDB-WASM works in both Node.js and browser environments
     return {
-        canonical: "org.rexxjs/duckdb-address",
+        canonical: "org.rexxjs/duckdb-wasm-address",
         type: 'address-handler',
-        name: 'DuckDB-WASM Service',
+        name: 'DuckDB Service (WASM)',
         version: '1.0.0',
-        description: 'In-process analytical database via DuckDB-WASM',
+        description: 'In-process analytical database via DuckDB-WASM (portable, pure-JS)',
         provides: {
             addressTarget: 'duckdb',
             handlerFunction: 'ADDRESS_DUCKDB_WASM_HANDLER',

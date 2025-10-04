@@ -3,16 +3,16 @@
 // Copyright (c) 2025 Paul Hammant
 // Licensed under the MIT License
 
-/* @test-tags published-modules, jq-address, registry, integration, native */
-/* @description Test loading jq-address (native) from published registry */
+/* @test-tags published-modules, jq-wasm-address, registry, integration */
+/* @description Test loading jq-wasm-address from published registry */
 
 REQUIRE "../core/src/expectations-address.js"
 
-SAY "🧪 Testing Published Module: org.rexxjs/jq-address (Native)"
+SAY "🧪 Testing Published Module: org.rexxjs/jq-wasm-address"
 SAY "Loading module from registry..."
 
-// Load jq-address from the published registry
-REQUIRE "registry:org.rexxjs/jq-address"
+// Load jq-wasm-address from the published registry
+REQUIRE "registry:org.rexxjs/jq-wasm-address"
 
 SAY "✓ Module loaded successfully"
 
@@ -48,6 +48,6 @@ ADDRESS EXPECTATIONS "EXPECT" result3 "2"
 SAY "✓ Test 3 passed: Array length = " || result3
 
 SAY ""
-SAY "🎉 All tests passed for org.rexxjs/jq-address (Native)!"
+SAY "🎉 All tests passed for org.rexxjs/jq-wasm-address!"
 
 EXIT 0

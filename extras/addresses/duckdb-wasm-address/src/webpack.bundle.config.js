@@ -52,7 +52,8 @@ module.exports = {
     'fs': 'fs',
     'path': 'path',
     'crypto': 'crypto',
-    'child_process': 'child_process'
+    'child_process': 'child_process',
+    '@duckdb/duckdb-wasm': '@duckdb/duckdb-wasm'
   },
   resolve: {
     extensions: ['.js'],

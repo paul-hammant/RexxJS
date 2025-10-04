@@ -42,9 +42,9 @@ module.exports = {
   mode: 'development', // No minification
   entry: path.resolve(__dirname, 'jq-address.js'),
   output: {
-    filename: 'jq-address.bundle.js',
+    filename: 'jq-wasm-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    library: 'jq-address',
+    library: 'jq-wasm-address',
     libraryTarget: 'umd',
     globalObject: 'this'
   },

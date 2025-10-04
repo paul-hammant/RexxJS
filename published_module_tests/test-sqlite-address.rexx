@@ -19,7 +19,7 @@ SAY "✓ Module loaded successfully"
 // Test: Create in-memory database and query it
 SAY "Test 1: Create and query in-memory SQLite database"
 
-ADDRESS SQLITE <<-SQL
+ADDRESS SQLITE3 <<-SQL
   CREATE TABLE test_users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER);
   INSERT INTO test_users (name, age) VALUES ('Alice', 30);
   INSERT INTO test_users (name, age) VALUES ('Bob', 25);

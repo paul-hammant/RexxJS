@@ -1,7 +1,7 @@
 {
   "name": "rexxjs-duckdb-wasm-address",
   "version": "1.0.0",
-  "description": "A DuckDB-WASM ADDRESS library for RexxJS",
+  "description": "DuckDB-WASM ADDRESS library for RexxJS (portable, pure-JS)",
   "main": "src/duckdb-wasm-address.js",
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",

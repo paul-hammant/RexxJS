@@ -352,10 +352,12 @@ function registerLibraryDetectionFunction(libraryName, detectionFunctionName) {
   LIBRARY_DETECTION_REGISTRY.set(libraryName, detectionFunctionName);
 }
 
-// Make registration function globally available
+// Make registration function and registry globally available
 if (typeof window !== 'undefined') {
+  window.LIBRARY_DETECTION_REGISTRY = LIBRARY_DETECTION_REGISTRY;
   window.registerLibraryDetectionFunction = registerLibraryDetectionFunction;
 } else if (typeof global !== 'undefined') {
+  global.LIBRARY_DETECTION_REGISTRY = LIBRARY_DETECTION_REGISTRY;
   global.registerLibraryDetectionFunction = registerLibraryDetectionFunction;
 }
 
@@ -3850,18 +3852,80 @@ class RexxInterpreter {
       if (!response.ok) {
         throw new Error(`Failed to fetch library: ${response.status} ${response.statusText}`);
       }
-      
+
       const libraryCode = await response.text();
-      
+
       // Execute the library code in global scope
-      eval(libraryCode);
-      
+      if (url.endsWith('.bundle.js')) {
+        // Webpack bundle - use Function constructor
+        const globalScope = typeof global !== 'undefined' ? global : window;
+        const executeInGlobalScope = new Function('global', 'window', libraryCode);
+        executeInGlobalScope(globalScope, globalScope);
+      } else {
+        // Unbundled module - temporarily make require global, then eval
+        const globalScope = typeof global !== 'undefined' ? global : window;
+
+        // Create a require that can load from real filesystem (outside pkg snapshot)
+        // Set it globally and keep it - don't restore it
+        if (typeof require !== 'undefined' && !globalScope.require) {
+          // Use Module.createRequire with a path that can find node_modules
+          // Try parent directory first, then cwd
+          const Module = require('module');
+          const path = require('path');
+          const fs = require('fs');
+
+          let requirePath = process.cwd();
+          // Check if node_modules exists in parent directory
+          const parentNodeModules = path.join(requirePath, '..', 'node_modules');
+          if (fs.existsSync(parentNodeModules)) {
+            requirePath = path.join(requirePath, '..');
+          }
+
+          const realFsRequire = Module.createRequire(path.join(requirePath, 'package.json'));
+
+          // Set global.require so functions can access it
+          globalScope.require = realFsRequire;
+
+          // Use Function constructor with require parameter to give eval'd code access
+          const func = new Function('require', 'module', 'exports', `
+            ${libraryCode}
+          `);
+
+          // Call with our real filesystem require
+          const mockModule = { exports: {} };
+          func(realFsRequire, mockModule, mockModule.exports);
+
+          // Make exports globally available
+          if (mockModule.exports && typeof mockModule.exports === 'object') {
+            for (const [key, value] of Object.entries(mockModule.exports)) {
+              if (key && key !== 'undefined' && value !== undefined) {
+                globalScope[key] = value;
+              }
+            }
+          }
+        } else {
+          // If already set or no require available, just eval
+          eval(libraryCode);
+        }
+      }
+
+      // Detect and register ADDRESS handlers
+      this.detectAndRegisterAddressTargets(libraryName);
+
       // Register the library functions
       this.registerLibraryFunctions(libraryName);
-      
+
+      // Register the detection function for dependency extraction
+      // Extract metadata function name from the loaded code
+      const metadataFunctionName = this.extractMetadataFunctionName(libraryCode);
+      if (metadataFunctionName) {
+        registerLibraryDetectionFunction(libraryName, metadataFunctionName);
+        console.log(`✓ Registered detection function ${metadataFunctionName} for ${libraryName}`);
+      }
+
       console.log(`✓ Loaded registry library: ${libraryName}`);
       return true;
-      
+
     } catch (error) {
       throw new Error(`Failed to load registry library ${libraryName}: ${error.message}`);
     }
@@ -4161,11 +4225,6 @@ class RexxInterpreter {
     } catch (error) {
       throw new Error(`Failed to execute library code: ${error.message}`);
     }
-  }
-
-  async loadLibraryFromUrl(url, libraryName) {
-    const libraryCode = await this.fetchFromUrl(url);
-    await this.executeLibraryCode(libraryCode, libraryName);
   }
 
   generateRequestId() {
