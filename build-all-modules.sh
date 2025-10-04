@@ -30,74 +30,135 @@ print_info "Building RexxJS modules..."
 # Address handlers
 print_info "Building address handlers..."
 
+# sqlite3-address
 cd extras/addresses/sqlite3 && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
-print_success "Built sqlite3-address"
+print_success "Built sqlite3-address.bundle.js"
+cp extras/addresses/sqlite3/src/sqlite3-address.js ../dist/addresses/sqlite3-address.js
+print_success "Copied sqlite3-address.js (unbundled)"
 
+# jq-address
 cd extras/addresses/jq && npx webpack --config src/webpack.bundle.config.js && cd ../../..
-print_success "Built jq-address"
+print_success "Built jq-address.bundle.js"
+cp extras/addresses/jq/src/jq-address.js ../dist/addresses/jq-address.js
+print_success "Copied jq-address.js (unbundled)"
 
+# claude-address
 cd extras/addresses/anthropic-ai/claude && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built claude-address"
+print_success "Built claude-address.bundle.js"
+cp extras/addresses/anthropic-ai/claude/src/claude-address.js ../dist/addresses/claude-address.js
+print_success "Copied claude-address.js (unbundled)"
 
+# pyodide-address
 cd extras/addresses/pyodide && npx webpack --config src/webpack.bundle.config.js && cd ../../..
-print_success "Built pyodide-address"
+print_success "Built pyodide-address.bundle.js"
+cp extras/addresses/pyodide/src/pyodide-address.js ../dist/addresses/pyodide-address.js
+print_success "Copied pyodide-address.js (unbundled)"
 
+# duckdb-wasm-address
 cd extras/addresses/duckdb-wasm && npx webpack --config src/webpack.bundle.config.js && cd ../../..
-print_success "Built duckdb-wasm-address"
+print_success "Built duckdb-wasm-address.bundle.js"
+cp extras/addresses/duckdb-wasm/src/duckdb-wasm-address.js ../dist/addresses/duckdb-wasm-address.js
+print_success "Copied duckdb-wasm-address.js (unbundled)"
 
+# system-address
 cd extras/addresses/system && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
-print_success "Built system-address"
+print_success "Built system-address.bundle.js"
+cp extras/addresses/system/src/system-address.js ../dist/addresses/system-address.js
+print_success "Copied system-address.js (unbundled)"
 
+# gemini-address
 cd extras/addresses/gemini-ai && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
-print_success "Built gemini-address"
+print_success "Built gemini-address.bundle.js"
+cp extras/addresses/gemini-ai/src/gemini-address.js ../dist/addresses/gemini-address.js
+print_success "Copied gemini-address.js (unbundled)"
 
+# openai-address
 cd extras/addresses/open-ai/chat-completions && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built openai-address"
+print_success "Built openai-address.bundle.js"
+cp extras/addresses/open-ai/chat-completions/src/openai-address.js ../dist/addresses/openai-address.js
+print_success "Copied openai-address.js (unbundled)"
 
 # Provisioning and orchestration bundles
 print_info "Building provisioning-and-orchestration bundles..."
 
 cd extras/addresses/provisioning-and-orchestration && npx webpack --config webpack.config.js && cd ../../..
-print_success "Built provisioning container-handlers bundle"
+print_success "Built provisioning container-handlers.bundle.js"
+cp extras/addresses/provisioning-and-orchestration/src/provisioning-container-handlers.js ../dist/addresses/provisioning-container-handlers.js
+print_success "Copied provisioning-container-handlers.js (unbundled)"
 
 cd extras/addresses/provisioning-and-orchestration && npx webpack --config webpack-remote.config.js && cd ../../..
-print_success "Built provisioning remote-handlers bundle"
+print_success "Built provisioning-remote-handlers.bundle.js"
+cp extras/addresses/provisioning-and-orchestration/src/provisioning-remote-handlers.js ../dist/addresses/provisioning-remote-handlers.js
+print_success "Copied provisioning-remote-handlers.js (unbundled)"
 
 # Function libraries
 print_info "Building function libraries..."
 
+# graphviz-functions
 cd extras/functions/graphviz && npx webpack --config src/webpack.bundle.config.js && cd ../../..
-print_success "Built graphviz-functions"
+print_success "Built graphviz-functions.bundle.js"
+cp extras/functions/graphviz/src/graphviz-functions.js ../dist/functions/graphviz-functions.js
+print_success "Copied graphviz-functions.js (unbundled)"
 
+# excel-functions
 cd extras/functions/excel && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
-print_success "Built excel-functions"
+print_success "Built excel-functions.bundle.js"
+cp extras/functions/excel/src/excel-functions.js ../dist/functions/excel-functions.js
+print_success "Copied excel-functions.js (unbundled)"
 
+# r-regression-functions
 cd extras/functions/r-inspired/advanced-analytics && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built r-regression-functions"
+print_success "Built r-regression-functions.bundle.js"
+cp extras/functions/r-inspired/advanced-analytics/src/r-regression-functions.js ../dist/functions/r-regression-functions.js
+print_success "Copied r-regression-functions.js (unbundled)"
 
+# r-set-functions
 cd extras/functions/r-inspired/data-manipulation && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built r-set-functions"
+print_success "Built r-set-functions.bundle.js"
+cp extras/functions/r-inspired/data-manipulation/src/r-set-functions.js ../dist/functions/r-set-functions.js
+print_success "Copied r-set-functions.js (unbundled)"
 
+# r-factor-functions
 cd extras/functions/r-inspired/data-types && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built r-factor-functions"
+print_success "Built r-factor-functions.bundle.js"
+cp extras/functions/r-inspired/data-types/src/r-factor-functions.js ../dist/functions/r-factor-functions.js
+print_success "Copied r-factor-functions.js (unbundled)"
 
+# graphics-functions
 cd extras/functions/r-inspired/graphics && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built graphics-functions"
+print_success "Built graphics-functions.bundle.js"
+cp extras/functions/r-inspired/graphics/src/graphics-functions.js ../dist/functions/graphics-functions.js
+print_success "Copied graphics-functions.js (unbundled)"
 
+# r-summary-functions
 cd extras/functions/r-inspired/math-stats && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built r-summary-functions"
+print_success "Built r-summary-functions.bundle.js"
+cp extras/functions/r-inspired/math-stats/src/r-summary-functions.js ../dist/functions/r-summary-functions.js
+print_success "Copied r-summary-functions.js (unbundled)"
 
+# r-timeseries-functions
 cd extras/functions/r-inspired/signal-processing && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built r-timeseries-functions"
+print_success "Built r-timeseries-functions.bundle.js"
+cp extras/functions/r-inspired/signal-processing/src/r-timeseries-functions.js ../dist/functions/r-timeseries-functions.js
+print_success "Copied r-timeseries-functions.js (unbundled)"
 
+# sp-interpolation-functions
 cd extras/functions/scipy-inspired/interpolation && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built sp-interpolation-functions"
+print_success "Built sp-interpolation-functions.bundle.js"
+cp extras/functions/scipy-inspired/interpolation/src/sp-interpolation-functions.js ../dist/functions/sp-interpolation-functions.js
+print_success "Copied sp-interpolation-functions.js (unbundled)"
 
+# sp-stats-functions
 cd extras/functions/scipy-inspired/stats && npx webpack --config src/webpack.bundle.config.js && cd ../../../..
-print_success "Built sp-stats-functions"
+print_success "Built sp-stats-functions.bundle.js"
+cp extras/functions/scipy-inspired/stats/src/sp-stats-functions.js ../dist/functions/sp-stats-functions.js
+print_success "Copied sp-stats-functions.js (unbundled)"
 
+# sympy-functions
 cd extras/functions/sympy-inspired && npx webpack --config src/webpack.bundle.config.js && cd ../../..
-print_success "Built sympy-functions"
+print_success "Built sympy-functions.bundle.js"
+cp extras/functions/sympy-inspired/src/sympy-functions.js ../dist/functions/sympy-functions.js
+print_success "Copied sympy-functions.js (unbundled)"
 
 # Strip dependencies from all bundles
 print_info "Stripping dependencies from bundles..."
@@ -110,11 +171,11 @@ print_success "Dependencies stripped from all bundles"
 # Show results
 print_info "Build Summary:"
 echo ""
-echo "ADDRESS handlers (10):"
+echo "ADDRESS handlers (10 bundled + 10 unbundled = 20 files):"
 ls -lh ../dist/addresses/ 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
 echo ""
-echo "Function libraries (10):"
+echo "Function libraries (10 bundled + 10 unbundled = 20 files):"
 ls -lh ../dist/functions/ 2>/dev/null | grep -v "^total" | awk '{print "  " $5 " " $9}' || echo "  (none)"
 echo ""
 
-print_success "Build complete! All 20 modules built successfully."
+print_success "Build complete! All 40 files built successfully (20 bundled + 20 unbundled)."
