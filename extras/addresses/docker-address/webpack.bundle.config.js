@@ -21,13 +21,17 @@ class RexxMetaPlugin {
           const asset = compilation.assets[filename];
           let source = asset.source();
 
-          // Replace only the dependencies field in @rexxjs-meta, preserving other fields
+          // Handle both regular JSON and escaped JSON (in eval strings)
+          source = source.replace(
+            /\\?"dependencies\\?":\s*\\?\{[^}]*\\?\}/g,
+            '\\"dependencies\\":{}'
+          );
+
           source = source.replace(
             /"dependencies":\s*\{[^}]*\}/g,
             '"dependencies":{}'
           );
 
-          // Update the asset
           compilation.assets[filename] = {
             source: () => source,
             size: () => source.length
@@ -39,31 +43,29 @@ class RexxMetaPlugin {
 }
 
 module.exports = {
-  mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'src/gemini-address.js'),
+  mode: 'development',
+  entry: './docker-address.js',
   output: {
-    filename: 'gemini-address.bundle.js',
+    filename: 'docker-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    library: 'gemini-address',
+    library: 'docker-address',
     libraryTarget: 'umd',
     globalObject: 'this'
   },
   externals: {
     'fs': 'fs',
     'path': 'path',
-    'crypto': 'crypto',
-    'child_process': 'child_process',
-    '@google/genai': '@google/genai',
+    'child_process': 'child_process'
   },
   resolve: {
-    extensions: ['.js'],
-    fallback: {
-      "fs": false,
-      "path": false,
-      "crypto": false,
-      "child_process": false
-    }
+    extensions: ['.js']
   },
-  target: 'web',
-  plugins: [new RexxMetaPlugin()]
+  target: 'node',
+  plugins: [
+    new RexxMetaPlugin(),
+    new (require('webpack')).BannerPlugin({
+      banner: '/*!\n * @rexxjs-meta=DOCKER_ADDRESS_META\n */',
+      raw: true
+    })
+  ]
 };

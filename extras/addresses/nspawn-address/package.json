@@ -1,0 +1,10 @@
+{
+  "name": "@rexxjs/nspawn-address",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RexxJS systemd-nspawn ADDRESS handler for OS containers",
+  "main": "nspawn-address.js",
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  }
+}

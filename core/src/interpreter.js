@@ -3864,7 +3864,7 @@ class RexxInterpreter {
     try {
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Failed to fetch library: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch library from ${url}: ${response.status} ${response.statusText}`);
       }
 
       const libraryCode = await response.text();

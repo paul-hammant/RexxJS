@@ -1,0 +1,10 @@
+{
+  "name": "@rexxjs/virtualbox-address",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RexxJS VirtualBox ADDRESS handler for virtual machines",
+  "main": "virtualbox-address.js",
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  }
+}

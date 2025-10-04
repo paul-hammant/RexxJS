@@ -40,7 +40,7 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'src/chat-completions.js'),
+  entry: path.resolve(__dirname, 'src/openai-address.js'),
   output: {
     filename: 'openai-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),

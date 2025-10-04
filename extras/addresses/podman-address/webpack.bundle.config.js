@@ -12,7 +12,6 @@ function getGitRoot() {
     }
 }
 
-// Plugin to transform @rexxjs-meta dependencies in bundled output
 class RexxMetaPlugin {
   apply(compiler) {
     compiler.hooks.emit.tap('RexxMetaPlugin', (compilation) => {
@@ -20,14 +19,8 @@ class RexxMetaPlugin {
         if (filename.endsWith('.bundle.js')) {
           const asset = compilation.assets[filename];
           let source = asset.source();
-
-          // Replace only the dependencies field in @rexxjs-meta, preserving other fields
-          source = source.replace(
-            /"dependencies":\s*\{[^}]*\}/g,
-            '"dependencies":{}'
-          );
-
-          // Update the asset
+          source = source.replace(/\\?"dependencies\\?":\s*\\?\{[^}]*\\?\}/g, '\\"dependencies\\":{');
+          source = source.replace(/"dependencies":\s*\{[^}]*\}/g, '"dependencies":{}');
           compilation.assets[filename] = {
             source: () => source,
             size: () => source.length
@@ -39,31 +32,29 @@ class RexxMetaPlugin {
 }
 
 module.exports = {
-  mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'src/gemini-address.js'),
+  mode: 'development',
+  entry: './podman-address.js',
   output: {
-    filename: 'gemini-address.bundle.js',
+    filename: 'podman-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    library: 'gemini-address',
+    library: 'podman-address',
     libraryTarget: 'umd',
     globalObject: 'this'
   },
   externals: {
     'fs': 'fs',
     'path': 'path',
-    'crypto': 'crypto',
-    'child_process': 'child_process',
-    '@google/genai': '@google/genai',
+    'child_process': 'child_process'
   },
   resolve: {
-    extensions: ['.js'],
-    fallback: {
-      "fs": false,
-      "path": false,
-      "crypto": false,
-      "child_process": false
-    }
+    extensions: ['.js']
   },
-  target: 'web',
-  plugins: [new RexxMetaPlugin()]
+  target: 'node',
+  plugins: [
+    new RexxMetaPlugin(),
+    new (require('webpack')).BannerPlugin({
+      banner: '/*!\n * @rexxjs-meta=PODMAN_ADDRESS_META\n */',
+      raw: true
+    })
+  ]
 };

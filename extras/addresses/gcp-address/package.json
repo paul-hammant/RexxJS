@@ -1,0 +1,10 @@
+{
+  "name": "@rexxjs/gcp-address",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RexxJS GCP ADDRESS handler for Google Cloud Platform operations",
+  "main": "gcp-address.js",
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  }
+}

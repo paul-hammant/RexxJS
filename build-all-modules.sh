@@ -70,28 +70,44 @@ print_success "Copied system-address.js (unbundled)"
 
 # gemini-address
 cd extras/addresses/gemini-ai && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
-print_success "Built gemini-pro.bundle.js"
-cp extras/addresses/gemini-ai/src/gemini-pro.js ../dist/addresses/gemini-pro.js
-print_success "Copied gemini-pro.js (unbundled)"
+print_success "Built gemini-address.bundle.js"
+cp extras/addresses/gemini-ai/src/gemini-address.js ../dist/addresses/gemini-address.js
+print_success "Copied gemini-address.js (unbundled)"
 
 # openai-address
 cd extras/addresses/open-ai/chat-completions && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
-print_success "Built chat-completions.bundle.js"
-cp extras/addresses/open-ai/chat-completions/src/chat-completions.js ../dist/addresses/chat-completions.js
-print_success "Copied chat-completions.js (unbundled)"
+print_success "Built openai-address.bundle.js"
+cp extras/addresses/open-ai/chat-completions/src/openai-address.js ../dist/addresses/openai-address.js
+print_success "Copied openai-address.js (unbundled)"
 
-# Provisioning and orchestration bundles
-print_info "Building provisioning-and-orchestration bundles..."
+# Individual container/VM address handlers (webpack bundled with shared-utils)
+print_info "Building individual container/VM address handlers..."
 
-cd extras/addresses/provisioning-and-orchestration && npx webpack --config webpack.config.js && cd ../../..
-print_success "Built provisioning container-handlers.bundle.js"
-cp extras/addresses/provisioning-and-orchestration/bundle-entry.js ../dist/addresses/bundle-entry.js
-print_success "Copied bundle-entry.js (unbundled)"
+# docker-address
+cd extras/addresses/docker-address && npx webpack --config webpack.bundle.config.js && cd ../../..
+print_success "Built docker-address.bundle.js"
 
-cd extras/addresses/provisioning-and-orchestration && npx webpack --config webpack-remote.config.js && cd ../../..
-print_success "Built provisioning-remote-handlers.bundle.js"
-cp extras/addresses/provisioning-and-orchestration/bundle-entry-remote.js ../dist/addresses/bundle-entry-remote.js
-print_success "Copied bundle-entry-remote.js (unbundled)"
+# podman-address
+cd extras/addresses/podman-address && npx webpack --config webpack.bundle.config.js && cd ../../..
+print_success "Built podman-address.bundle.js"
+
+# nspawn-address
+cd extras/addresses/nspawn-address && npx webpack --config webpack.bundle.config.js && cd ../../..
+print_success "Built nspawn-address.bundle.js"
+
+# qemu-address
+cd extras/addresses/qemu-address && npx webpack --config webpack.bundle.config.js && cd ../../..
+print_success "Built qemu-address.bundle.js"
+
+# virtualbox-address
+cd extras/addresses/virtualbox-address && npx webpack --config webpack.bundle.config.js && cd ../../..
+print_success "Built virtualbox-address.bundle.js"
+
+# gcp-address
+cd extras/addresses/gcp-address && npx webpack --config webpack.bundle.config.js && cd ../../..
+# Remove webpack chunk files with weird names
+rm -f ../dist/addresses/node_modules_*.gcp-address.bundle.js
+print_success "Built gcp-address.bundle.js"
 
 # Function libraries
 print_info "Building function libraries..."
