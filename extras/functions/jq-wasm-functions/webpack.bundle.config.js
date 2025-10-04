@@ -40,11 +40,11 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'jq-address.js'),
+  entry: path.resolve(__dirname, 'src/jq-wasm-functions.js'),
   output: {
-    filename: 'jq-wasm-address.bundle.js',
-    path: path.resolve(getGitRoot(), '../dist/addresses'),
-    library: 'jq-wasm-address',
+    filename: 'jq-wasm-functions.bundle.js',
+    path: path.resolve(getGitRoot(), '../dist/functions'),
+    library: 'jq-wasm-functions',
     libraryTarget: 'umd',
     globalObject: 'this'
   },
@@ -66,7 +66,7 @@ module.exports = {
   plugins: [
     new RexxMetaPlugin(),
     new (require('webpack')).BannerPlugin({
-      banner: '/*!\n * @rexxjs-meta=JQ_ADDRESS_META\n */',
+      banner: '/*!\n * @rexxjs-meta=JQ_WASM_FUNCTIONS_META\n */',
       raw: true
     })
   ]

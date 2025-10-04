@@ -37,15 +37,8 @@ print_success "Built sqlite-address.bundle.js"
 cp extras/addresses/sqlite3/src/sqlite-address.js ../dist/addresses/sqlite-address.js
 print_success "Copied sqlite-address.js (unbundled)"
 
-# jq-wasm-address
-cd extras/addresses/jq-wasm-address && npx webpack --config src/webpack.bundle.config.js && cd ../../..
-print_success "Built jq-wasm-address.bundle.js"
-cp extras/addresses/jq-wasm-address/src/jq-address.js ../dist/addresses/jq-wasm-address.js
-print_success "Copied jq-wasm-address.js (unbundled)"
-
-# jq-address (native - no build needed, just copy)
-cp extras/addresses/jq-address/src/jq-address.js ../dist/addresses/jq-address.js
-print_success "Copied jq-address.js (native, unbundled)"
+# jq-wasm-functions moved to functions section below
+# jq-functions moved to functions section below
 
 # claude-address
 cd extras/addresses/anthropic-ai/claude && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../../..
@@ -102,6 +95,16 @@ print_success "Copied bundle-entry-remote.js (unbundled)"
 
 # Function libraries
 print_info "Building function libraries..."
+
+# jq-wasm-functions
+cd extras/functions/jq-wasm-functions && npx webpack --config webpack.bundle.config.js && cd ../../..
+print_success "Built jq-wasm-functions.bundle.js"
+cp extras/functions/jq-wasm-functions/src/jq-wasm-functions.js ../dist/functions/jq-wasm-functions.js
+print_success "Copied jq-wasm-functions.js (unbundled)"
+
+# jq-functions (native - no build needed, just copy)
+cp extras/functions/jq-functions/src/jq-functions.js ../dist/functions/jq-functions.js
+print_success "Copied jq-functions.js (native, unbundled)"
 
 # graphviz-functions
 cd extras/functions/graphviz && npx webpack --config src/webpack.bundle.config.js && cd ../../..

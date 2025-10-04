@@ -1,8 +1,8 @@
 {
-  "name": "rexxjs-jq-address",
+  "name": "rexxjs-jq-functions",
   "version": "1.0.0",
-  "description": "jq ADDRESS library for RexxJS using native jq binary (fast, requires system jq)",
-  "main": "src/jq-address.js",
+  "description": "jq functions library for RexxJS using native jq binary (fast, requires system jq)",
+  "main": "src/jq-functions.js",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
