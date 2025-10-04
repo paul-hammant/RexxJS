@@ -510,6 +510,7 @@ class RexxInterpreter {
     this.address = 'default';  // Default namespace
     this.variables = new Map();
     this.builtInFunctions = this.initializeBuiltInFunctions();
+    this.externalFunctions = {}; // Functions from REQUIRE'd libraries
 
     // Initialize scriptPath for path resolution
     // Will be set to actual script path when run() is called with a sourceFilename
@@ -2083,12 +2084,12 @@ class RexxInterpreter {
     if (this.builtInFunctions[method]) {
       // Built-in functions can have both positional and named parameters
       const resolvedParams = {};
-      
+
       // Debug logging for DOM functions
       if (method.startsWith('DOM_')) {
         console.log(`Executing ${method} with params:`, funcCall.params);
       }
-      
+
       for (const [key, value] of Object.entries(funcCall.params || {})) {
         const resolved = await this.resolveValue(value);
         resolvedParams[key] = resolved;
@@ -2096,20 +2097,33 @@ class RexxInterpreter {
           console.log(`  Resolved ${key}: ${value} -> ${resolved}`);
         }
       }
-      
+
       // For built-in functions, we need to handle parameter conversion
       const builtInFunc = this.builtInFunctions[method];
-      
+
       // Convert named parameters to positional arguments based on function
       const args = callConvertParamsToArgs(method, resolvedParams);
-      
+
       if (method.startsWith('DOM_')) {
         console.log(`${method} converted args:`, args);
       }
-      
+
       return await builtInFunc(...args);
     }
-    
+
+    // Check if this is an external function from REQUIRE'd library (case-sensitive check first, then uppercase)
+    if (this.externalFunctions[funcCall.command] || this.externalFunctions[method]) {
+      const resolvedParams = {};
+      for (const [key, value] of Object.entries(funcCall.params || {})) {
+        resolvedParams[key] = await this.resolveValue(value);
+      }
+
+      const externalFunc = this.externalFunctions[funcCall.command] || this.externalFunctions[method];
+      const args = callConvertParamsToArgs(funcCall.command, resolvedParams);
+
+      return await externalFunc(...args);
+    }
+
     // Try browser-compatible string functions before missing function check
     const resolvedParams = {};
     for (const [key, value] of Object.entries(funcCall.params || {})) {
@@ -4234,16 +4248,16 @@ class RexxInterpreter {
   registerLibraryFunctions(libraryName, asClause = null) {
     // Get list of functions that should be registered for this library
     const libraryFunctions = this.getLibraryFunctionList(libraryName);
-    
+
     for (const functionName of libraryFunctions) {
       // Get the function from global scope (with library context)
       const func = this.getGlobalFunction(functionName, libraryName);
       if (func) {
         // Apply AS clause transformation if provided
         const registeredName = this.applyAsClauseToFunction(functionName, asClause);
-        
-        // Register as built-in function with potentially modified name
-        this.builtInFunctions[registeredName] = (...args) => {
+
+        // Register as external function (from REQUIRE'd library) with potentially modified name
+        this.externalFunctions[registeredName] = (...args) => {
           return func(...args);
         };
       }

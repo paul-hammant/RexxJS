@@ -787,13 +787,17 @@ async function extractDependencies(libraryName, ctx) {
  * @returns {string} Detection function name
  */
 function getLibraryDetectionFunction(libraryName) {
+  // Strip registry: prefix if present for lookup
+  const lookupName = libraryName.startsWith('registry:') ? libraryName.substring(9) : libraryName;
+
   // Check the global registry first (for self-registered libraries)
-  if (typeof window !== 'undefined' && window.LIBRARY_DETECTION_REGISTRY && window.LIBRARY_DETECTION_REGISTRY.has(libraryName)) {
-    return window.LIBRARY_DETECTION_REGISTRY.get(libraryName);
+  if (typeof window !== 'undefined' && window.LIBRARY_DETECTION_REGISTRY && window.LIBRARY_DETECTION_REGISTRY.has(lookupName)) {
+    return window.LIBRARY_DETECTION_REGISTRY.get(lookupName);
   }
-  if (typeof global !== 'undefined' && global.LIBRARY_DETECTION_REGISTRY && global.LIBRARY_DETECTION_REGISTRY.has(libraryName)) {
-    return global.LIBRARY_DETECTION_REGISTRY.get(libraryName);
+  if (typeof global !== 'undefined' && global.LIBRARY_DETECTION_REGISTRY && global.LIBRARY_DETECTION_REGISTRY.has(lookupName)) {
+    return global.LIBRARY_DETECTION_REGISTRY.get(lookupName);
   }
+
 
   // For local file paths, extract directly from the file
   if (typeof require !== 'undefined') {
