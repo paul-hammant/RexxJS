@@ -18,6 +18,13 @@ function stripDependencies(filePath) {
     modified = true;
   }
 
+  // Pattern 1b: dependencies: { \"package\": \"version\" } -> dependencies: {} (escaped quotes in eval)
+  const pattern1b = /dependencies:\s*\{\s*\\"[^\\"]+\\"\s*:\s*\\"[^\\"]+\\"\s*\}/g;
+  if (pattern1b.test(content)) {
+    content = content.replace(pattern1b, 'dependencies: {}');
+    modified = true;
+  }
+
   // Pattern 2: dependencies: { 'package': 'version' } -> dependencies: {}
   const pattern2 = /dependencies:\s*\{\s*'[^']+'\s*:\s*'[^']+'\s*\}/g;
   if (pattern2.test(content)) {
@@ -46,8 +53,8 @@ function stripDependencies(filePath) {
   return false;
 }
 
-// Process all .bundle.js files in dist
-const distDirs = ['../dist/addresses', '../dist/functions'];
+// Process all .bundle.js files in dist (one level up from RexxJS)
+const distDirs = ['../../dist/addresses', '../../dist/functions'];
 
 let totalProcessed = 0;
 let totalModified = 0;
