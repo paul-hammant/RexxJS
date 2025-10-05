@@ -36,11 +36,35 @@ class TestOutputHandler {
   output(text) {
     // Capture for test assertions
     this.outputs.push(text);
-    
+
     // Also log to console if debug mode is enabled (for test debugging)
     if (this.debugMode) {
       console.log(`[TEST OUTPUT] ${text}`);
     }
+  }
+
+  /**
+   * Write text without newline (alias for output)
+   * @param {string} text - The text to write
+   */
+  write(text) {
+    this.output(text);
+  }
+
+  /**
+   * Write text with newline (alias for output)
+   * @param {string} text - The text to write
+   */
+  writeLine(text) {
+    this.output(text);
+  }
+
+  /**
+   * Write error text
+   * @param {string} text - The error text to write
+   */
+  writeError(text) {
+    this.output(text); // Capture errors same as regular output for testing
   }
 
   /**

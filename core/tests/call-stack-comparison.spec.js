@@ -1,6 +1,6 @@
 /**
  * Call Stack Comparison Test
- * Compares call stacks between ADDRESS MATCHING and direct ADDRESS calls
+ * Compares call stacks between ADDRESS heredoc and direct ADDRESS calls
  */
 
 const { TestRexxInterpreter } = require('../src/test-interpreter');
@@ -44,14 +44,15 @@ describe('Call Stack Comparison', () => {
     return await interpreter.run(commands, rexxCode);
   };
 
-  test('should capture call stack for ADDRESS MATCHING', async () => {
+  test('should capture call stack for ADDRESS heredoc', async () => {
     await executeRexxCode(`
-      ADDRESS testdb MATCHING("  (.*)")
-      
-        SELECT * FROM test
+      ADDRESS testdb
+      <<SQL
+SELECT * FROM test
+SQL
     `);
-    
-    console.log('=== ADDRESS MATCHING CALL STACK ===');
+
+    console.log('=== ADDRESS HEREDOC CALL STACK ===');
     console.log(callStacks[0].stack);
   });
 

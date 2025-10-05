@@ -11,13 +11,17 @@ class NodeOutputHandler {
   write(content) {
     process.stdout.write(content);
   }
-  
+
   writeLine(content) {
     console.log(content);
   }
-  
+
   writeError(content) {
     console.error(content);
+  }
+
+  output(content) {
+    console.log(content);
   }
 }
 

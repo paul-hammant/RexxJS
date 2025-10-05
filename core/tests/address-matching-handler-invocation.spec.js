@@ -67,15 +67,20 @@ describe('ADDRESS MATCHING handler invocation verification', () => {
     return await interpreter.run(commands, rexxCode);
   };
 
-  describe('Handler invocation with ADDRESS MATCHING', () => {
-    test('should verify handler is called with ADDRESS MATCHING pattern', async () => {
+  describe('Handler invocation with ADDRESS heredoc', () => {
+    test('should verify handler is called with ADDRESS heredoc pattern', async () => {
       const rexxCode = `
-        ADDRESS testdb MATCHING("  (.*)")
-        
-          SELECT * FROM users
-          SELECT * FROM products
+        ADDRESS testdb
+        <<SQL
+SELECT * FROM users
+SQL
+
+        ADDRESS testdb
+        <<SQL
+SELECT * FROM products
+SQL
       `;
-      
+
       await executeRexxCode(rexxCode);
       
       console.log('=== POST-EXECUTION ANALYSIS ===');
@@ -84,7 +89,8 @@ describe('ADDRESS MATCHING handler invocation verification', () => {
       
       // CRITICAL TEST: Was the handler actually called?
       expect(mockHandler).toHaveBeenCalled();
-      
+      expect(mockHandler).toHaveBeenCalledTimes(2); // Two heredoc calls
+
       if (handlerCalls.length > 0) {
         console.log('Handler calls details:');
         handlerCalls.forEach((call, index) => {
@@ -93,13 +99,13 @@ describe('ADDRESS MATCHING handler invocation verification', () => {
       } else {
         console.log('❌ NO HANDLER CALLS RECORDED');
       }
-      
-      // Check what RESULT contains after ADDRESS MATCHING
+
+      // Check what RESULT contains after the last ADDRESS call
       const variables = interpreter.variables;
       const result = variables.get('RESULT');
       console.log('RESULT variable type:', typeof result);
       console.log('RESULT variable content:', JSON.stringify(result, null, 2));
-      
+
       if (result) {
         console.log('RESULT.rows type:', typeof result.rows);
         console.log('RESULT.rows content:', JSON.stringify(result.rows, null, 2));

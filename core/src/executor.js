@@ -35,11 +35,14 @@ const { RexxInterpreter } = require('./interpreter');
  * @param {Object} rpcClient - The Address Sender to use for command execution
  * @param {Array<string>} args - Optional command line arguments for PARSE ARG
  * @param {string} scriptPath - Optional path to the script file (for path resolution)
+ * @param {Object} outputHandler - Optional output handler for SAY statements
  * @returns {Promise<Interpreter>} The interpreter instance after execution
  */
-async function executeScript(scriptContent, rpcClient, args = [], scriptPath = null) {
+async function executeScript(scriptContent, rpcClient, args = [], scriptPath = null, outputHandler = null) {
   const commands = parse(scriptContent);
-  const interpreter = new RexxInterpreter(rpcClient);
+  const interpreter = outputHandler
+    ? new RexxInterpreter(rpcClient, {}, outputHandler)
+    : new RexxInterpreter(rpcClient);
 
   // Set up command line arguments for PARSE ARG
   interpreter.variables.set('ARG.0', args.length.toString());

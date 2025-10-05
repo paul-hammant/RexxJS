@@ -188,7 +188,7 @@ async function main() {
       positional.push(a);
     }
 
-    const interpreter = await executeScript(scriptContent, addressSender, positional, scriptPath);
+    const interpreter = await executeScript(scriptContent, addressSender, positional, scriptPath, outputHandler);
 
     if (verbose) {
       console.log('');

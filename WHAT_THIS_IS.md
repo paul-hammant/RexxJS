@@ -30,9 +30,19 @@ accessing the file system in Node.js or manipulating the DOM in a browser.
 - **Core functions**: String processing, JSON/Web, security, validation (in `src/`)
 - **HTTP functions**: RESTful API integration with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` returning structured `{status, body, headers, ok}` objects (in `src/`)
 - **R-style functions**: Statistical computing (data frames, factors, mathematical operations) - relocated to `extras/functions/r-inspired/`
-- **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`  
+- **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`
 - **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
 - **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements
+
+### Function Execution Priority
+When a function is called, the interpreter resolves it in this order:
+1. **Built-in REXX functions** (LENGTH, SUBSTR, POS, etc.) - Always available regardless of ADDRESS context
+2. **External functions** from REQUIRE'd libraries
+3. **ADDRESS handler custom methods** - Only checked if not a built-in function
+4. **Browser functions** (executeBrowserStringFunction)
+5. **RPC/fallback** handler
+
+This ensures standard REXX functions always work, while allowing ADDRESS handlers to define custom methods that don't conflict with built-ins. DOM functions use `DOM_` prefix (`DOM_QUERY`, `DOM_CLICK`, etc.) to avoid naming conflicts.
 
 ### ADDRESS mechanism
 - **Cross-Application Communication** is one way of looking at it

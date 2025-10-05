@@ -117,11 +117,11 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
   if (typeof value === 'string' && value.includes('.')) {
     const parts = value.split('.');
     const varName = parts[0];
-    
+
     // Check if this is a variable reference
     if (variableHasFn(varName)) {
       let result = variableGetFn(varName);
-      
+
       // Navigate through the property path
       for (let i = 1; i < parts.length; i++) {
         if (result && typeof result === 'object' && parts[i] in result) {
@@ -131,6 +131,7 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
           return value;
         }
       }
+
       return result;
     }
   }
@@ -152,9 +153,10 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
         // Browser environment
         parseFunctionCall = window.parseFunctionCall;
       }
-      
+
       if (parseFunctionCall) {
         const funcCall = parseFunctionCall(value);
+
         if (funcCall) {
           // Execute the function call
           return await executeFunctionCallFn(funcCall);
@@ -164,7 +166,7 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
       // If function call parsing/execution fails, continue to return as literal
     }
   }
-  
+
   // Return value as-is if not a variable reference or function call
   return value;
 }

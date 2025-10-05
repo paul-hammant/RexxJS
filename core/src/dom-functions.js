@@ -24,7 +24,7 @@
  */
 
 const domFunctions = {
-  'QUERY': (params) => {
+  'DOM_QUERY': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -113,7 +113,7 @@ const domFunctions = {
     }
   },
 
-  'CLICK': (params) => {
+  'DOM_CLICK': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -136,7 +136,7 @@ const domFunctions = {
     }
   },
 
-  'TYPE': (params) => {
+  'DOM_TYPE': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -165,7 +165,7 @@ const domFunctions = {
     }
   },
 
-  'SET': (params) => {
+  'DOM_SET': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -188,7 +188,7 @@ const domFunctions = {
     }
   },
 
-  'ADD_CLASS': (params) => {
+  'DOM_ADD_CLASS': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -211,7 +211,7 @@ const domFunctions = {
     }
   },
 
-  'REMOVE_CLASS': (params) => {
+  'DOM_REMOVE_CLASS': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -234,7 +234,7 @@ const domFunctions = {
     }
   },
 
-  'SET_STYLE': (params) => {
+  'DOM_SET_STYLE': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -257,7 +257,7 @@ const domFunctions = {
     }
   },
 
-  'WAIT_FOR': (params) => {
+  'DOM_WAIT_FOR': (params) => {
     if (typeof document === 'undefined') {
       throw new Error('DOM functions only available in browser environment');
     }
@@ -289,14 +289,14 @@ const domFunctions = {
     });
   },
 
-  'WAIT': (params) => {
+  'DOM_WAIT': (params) => {
     const { milliseconds = 1000 } = params;
     return new Promise(resolve => {
       setTimeout(() => resolve(true), Math.max(0, parseInt(milliseconds)));
     });
   },
 
-  'SELECT_OPTION': (params) => {
+  'DOM_SELECT_OPTION': (params) => {
     try {
       if (typeof document === 'undefined') {
         throw new Error('DOM functions only available in browser environment');
@@ -325,7 +325,7 @@ const domFunctions = {
     }
   },
 
-  'SLEEP': async (milliseconds) => {
+  'DOM_SLEEP': async (milliseconds) => {
     const ms = parseInt(milliseconds) || 1000;
     await new Promise(resolve => setTimeout(resolve, ms));
     return true;

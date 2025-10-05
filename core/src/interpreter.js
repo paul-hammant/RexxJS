@@ -501,9 +501,12 @@ class RexxInterpreter {
     if (outputHandler) {
       this.outputHandler = outputHandler;
     } else {
-      // Default inline output handler - just console.log
+      // Default inline output handler with standard interface
       this.outputHandler = {
-        output: (text) => console.log(text)
+        write: (text) => process.stdout ? process.stdout.write(text) : console.log(text),
+        writeLine: (text) => console.log(text),
+        writeError: (text) => console.error(text),
+        output: (text) => console.log(text) // Legacy compatibility
       };
     }
     
@@ -2059,28 +2062,16 @@ class RexxInterpreter {
 
   async executeFunctionCall(funcCall) {
     const method = funcCall.command.toUpperCase();
-    
-    
+
+
     // Special handling for REXX built-in variables that might be parsed as function calls
     const rexxSpecialVars = ['RC', 'ERRORTEXT', 'SIGL'];
     if (rexxSpecialVars.includes(method)) {
       return this.variables.get(method) || method; // Return variable value or variable name if not set
     }
-    
-    // Check if current ADDRESS target is registered via REQUIRE (takes precedence over built-ins)
-    if (this.address !== 'default') {
-      const addressTarget = this.addressTargets.get(this.address);
-      if (addressTarget && addressTarget.handler) {
-        const resolvedParams = {};
-        for (const [key, value] of Object.entries(funcCall.params || {})) {
-          resolvedParams[key] = await this.resolveValue(value);
-        }
-        const result = await addressTarget.handler(funcCall.command, resolvedParams);
-        return result;
-      }
-    }
-    
-    // Check if this is a built-in function
+
+    // Check if this is a built-in REXX function FIRST
+    // Built-in functions like LENGTH, SUBSTR, POS should ALWAYS work regardless of ADDRESS context
     if (this.builtInFunctions[method]) {
       // Built-in functions can have both positional and named parameters
       const resolvedParams = {};
@@ -2124,13 +2115,27 @@ class RexxInterpreter {
       return await externalFunc(...args);
     }
 
+    // Check if current ADDRESS target has a handler for custom methods
+    // This allows ADDRESS targets to define their own methods while still preserving built-in functions
+    if (this.address !== 'default') {
+      const addressTarget = this.addressTargets.get(this.address);
+      if (addressTarget && addressTarget.handler) {
+        const resolvedParams = {};
+        for (const [key, value] of Object.entries(funcCall.params || {})) {
+          resolvedParams[key] = await this.resolveValue(value);
+        }
+        const result = await addressTarget.handler(funcCall.command, resolvedParams);
+        return result;
+      }
+    }
+
     // Try browser-compatible string functions before missing function check
     const resolvedParams = {};
     for (const [key, value] of Object.entries(funcCall.params || {})) {
       resolvedParams[key] = await this.resolveValue(value);
     }
     const args = Object.values(resolvedParams);
-    
+
     const browserResult = this.executeBrowserStringFunction(method, args);
     if (browserResult !== null) {
       return browserResult;
