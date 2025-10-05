@@ -22,9 +22,8 @@
  */
 // Interpolation is provided via sourceContext.interpolation parameter
 
-// Session storage for multi-turn conversations
-const chatSessions = new Map();
-let sessionCounter = 0;
+// Active conversation state (single conversation at a time)
+let activeConversation = null;  // { messages: [], system: string }
 
 // CHECKPOINT storage for structured collaboration
 const activeCheckpoints = new Map();
@@ -37,6 +36,9 @@ function CLAUDE_ADDRESS_META() {
     type: "address-handler",
     dependencies: {},
     envVars: ["ANTHROPIC_API_KEY"],
+    libraryMetadata: {
+      interpreterHandlesInterpolation: true
+    },
     name: 'Claude AI Chat Service',
     version: '1.0.0',
     description: 'Anthropic Claude API integration via ADDRESS interface',
@@ -76,72 +78,126 @@ async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params, sourceContext) {
       ? interpolate(commandOrMethod, variablePool)
       : commandOrMethod;
 
-    // Handle command-string style (traditional Rexx ADDRESS)
-    if (typeof interpolatedCommand === 'string' && !params) {
-      const result = await handleClaudeCommand(interpolatedCommand, apiKey);
+    // Handle heredoc/multi-line key=value format (ADDRESS CLAUDE <<LABEL)
+    // Detect heredoc by checking for key=value pattern (single or multi-line)
+    if (typeof interpolatedCommand === 'string' &&
+        /^\s*\w+=/.test(interpolatedCommand)) {
+      const parsedParams = parseKeyValueHeredoc(interpolatedCommand);
+      const result = await handleClaudeHeredoc(parsedParams, apiKey);
       return formatClaudeResultForREXX(result);
     }
-    
-    // Handle method-call style (modern convenience)
-    let resultPromise;
-    switch (interpolatedCommand.toLowerCase()) {
-      case 'chat':
-      case 'message':
-        const message = interpolate(params.message || params.text || '', variablePool);
-        const system = params.system ? interpolate(params.system, variablePool) : params.system;
-        resultPromise = handleChatMessage(message, params.chat_id, apiKey, system);
-        break;
 
-      case 'start':
-      case 'session':
-        const systemRole = interpolate(params.system || params.role || '', variablePool);
-        resultPromise = handleStartSession(systemRole, apiKey);
-        break;
-        
-      case 'end':
-      case 'close':
-        resultPromise = handleEndSession(params.chat_id || params.session_id);
-        break;
-        
-      case 'checkpoint':
-        resultPromise = handleCheckpoint(params, apiKey);
-        break;
-        
-      case 'wait_for_checkpoint':
-      case 'poll_checkpoint':
-        resultPromise = handleCheckpointPoll(params.checkpoint_id || params.requestId);
-        break;
-        
-      case 'complete_checkpoint':
-        resultPromise = handleCheckpointComplete(params.checkpoint_id || params.requestId, params.result);
-        break;
-        
-      case 'status':
-        resultPromise = Promise.resolve({
-          operation: 'STATUS',
-          service: 'claude',
-          version: 'sonnet-3.5',
-          provider: 'Anthropic',
-          activeSessions: chatSessions.size,
-          activeCheckpoints: activeCheckpoints.size,
-          methods: ['chat', 'message', 'start', 'session', 'end', 'close', 'checkpoint', 'wait_for_checkpoint', 'complete_checkpoint', 'status'],
-          timestamp: new Date().toISOString(),
-          success: true
-        });
-        break;
-        
-      default:
-        // Try to interpret as a direct command
-        resultPromise = handleClaudeCommand(commandOrMethod, apiKey);
-        break;
+    // Handle CLOSE_CHAT command
+    if (typeof interpolatedCommand === 'string' &&
+        interpolatedCommand.trim().toUpperCase() === 'CLOSE_CHAT') {
+      const messageCount = activeConversation ? activeConversation.messages.length : 0;
+      activeConversation = null;
+      return formatClaudeResultForREXX({
+        operation: 'CLOSE_CHAT',
+        success: true,
+        messageCount: messageCount,
+        message: `Conversation closed (${messageCount} messages)`
+      });
     }
-    
-    const result = await resultPromise;
-    return formatClaudeResultForREXX(result);
-    
+
+    // Only heredoc format is supported
+    throw new Error('Claude ADDRESS only supports heredoc format (<<LABEL...LABEL) or CLOSE_CHAT command');
+
   } catch (error) {
     const formattedError = formatClaudeErrorForREXX(error);
     throw new Error(error.message);
+  }
+}
+
+// Parse heredoc key=value format
+function parseKeyValueHeredoc(multilineText) {
+  const params = {};
+  const lines = multilineText.split('\n');
+  let currentKey = null;
+  let currentValue = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Check if this is a key=value line
+    const kvMatch = trimmed.match(/^(\w+)=(.*)$/);
+    if (kvMatch) {
+      // Save previous key/value if exists
+      if (currentKey) {
+        params[currentKey] = currentValue.join('\n').trim();
+      }
+      // Start new key/value
+      currentKey = kvMatch[1];
+      currentValue = [kvMatch[2]];
+    } else if (currentKey) {
+      // Continuation of previous value
+      currentValue.push(trimmed);
+    }
+  }
+
+  // Save last key/value
+  if (currentKey) {
+    params[currentKey] = currentValue.join('\n').trim();
+  }
+
+  return params;
+}
+
+// Handle heredoc-style Claude request
+async function handleClaudeHeredoc(params, apiKey) {
+  const model = params.model || 'claude-3-5-sonnet-20241022';
+  const prompt = params.prompt || params.message || '';
+  const system = params.system || 'You are Claude, a helpful AI assistant.';
+  const temperature = params.temperature ? parseFloat(params.temperature) : undefined;
+  const maxTokens = params.max_tokens ? parseInt(params.max_tokens) : 1024;
+
+  if (!prompt) {
+    throw new Error('Heredoc format requires "prompt=" parameter');
+  }
+
+  // If no active conversation, start one with the system prompt
+  if (!activeConversation) {
+    activeConversation = {
+      messages: [],
+      system: system
+    };
+  }
+
+  // Add user message to conversation
+  activeConversation.messages.push({
+    role: 'user',
+    content: prompt
+  });
+
+  try {
+    // Make API call with full conversation history
+    const response = await callClaudeAPI({
+      model: model,
+      messages: activeConversation.messages,
+      system: activeConversation.system,
+      max_tokens: maxTokens,
+      temperature: temperature
+    }, apiKey);
+
+    // Add assistant response to conversation
+    activeConversation.messages.push({
+      role: 'assistant',
+      content: response.content
+    });
+
+    return {
+      success: true,
+      response: response.content,
+      model: response.model,
+      tokensUsed: {
+        input: response.usage.input_tokens,
+        output: response.usage.output_tokens,
+        total: response.usage.input_tokens + response.usage.output_tokens
+      }
+    };
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -151,215 +207,18 @@ function getApiKey() {
   if (typeof process !== 'undefined' && process.env && process.env.ANTHROPIC_API_KEY) {
     return process.env.ANTHROPIC_API_KEY;
   }
-  
+
   // Try global configuration
   if (typeof global !== 'undefined' && global.ANTHROPIC_API_KEY) {
     return global.ANTHROPIC_API_KEY;
   }
-  
+
   // Try window configuration (browser)
   if (typeof window !== 'undefined' && window.ANTHROPIC_API_KEY) {
     return window.ANTHROPIC_API_KEY;
   }
   
   return null;
-}
-
-// Parse command strings and route to appropriate handlers
-async function handleClaudeCommand(command, apiKey) {
-  const cmd = command.trim().toUpperCase();
-  
-  // Handle empty commands
-  if (!cmd) {
-    return {
-      operation: 'NOOP',
-      success: true,
-      message: 'Empty command - no operation performed',
-      timestamp: new Date().toISOString()
-    };
-  }
-  
-  // Parse SYSTEM ROLE command
-  if (cmd.startsWith('SYSTEM ROLE ')) {
-    const systemPrompt = command.substring(12).trim(); // Remove "SYSTEM ROLE "
-    return handleStartSession(systemPrompt, apiKey);
-  }
-  
-  // Parse EDIT PARAGRAPH commands
-  const editMatch = cmd.match(/^EDIT PARAGRAPH (\d+) CHAT (\d+) TEXT ['"](.+)['"]$/);
-  if (editMatch) {
-    const [, paragraphNum, chatId, text] = editMatch;
-    const message = `Edit paragraph ${paragraphNum}: ${text}`;
-    return handleChatMessage(message, parseInt(chatId), apiKey);
-  }
-  
-  // Parse END SESSION command
-  const endMatch = cmd.match(/^END SESSION (\d+)$/);
-  if (endMatch) {
-    const [, chatId] = endMatch;
-    return handleEndSession(parseInt(chatId));
-  }
-  
-  // Parse general chat message with session
-  const chatMatch = cmd.match(/^CHAT (\d+) ['"](.+)['"]$/);
-  if (chatMatch) {
-    const [, chatId, message] = chatMatch;
-    return handleChatMessage(message, parseInt(chatId), apiKey);
-  }
-  
-  // Parse CHECKPOINT command
-  if (cmd.startsWith('CHECKPOINT ')) {
-    const checkpointParams = parseCheckpointCommand(command);
-    return handleCheckpoint(checkpointParams, apiKey);
-  }
-  
-  // Parse WAIT FOR CHECKPOINT command
-  const waitMatch = cmd.match(/^WAIT FOR CHECKPOINT ([\w_]+)$/);
-  if (waitMatch) {
-    const [, checkpointId] = waitMatch;
-    return handleCheckpointPoll(checkpointId);
-  }
-  
-  // Check if it's a status command
-  if (cmd === 'STATUS') {
-    return {
-      operation: 'STATUS',
-      service: 'claude',
-      version: 'sonnet-3.5',
-      provider: 'Anthropic',
-      activeSessions: chatSessions.size,
-      activeCheckpoints: activeCheckpoints.size,
-      methods: ['chat', 'message', 'start', 'session', 'end', 'close', 'checkpoint', 'wait_for_checkpoint', 'complete_checkpoint', 'status'],
-      timestamp: new Date().toISOString(),
-      success: true
-    };
-  }
-  
-  // Default: treat as a simple message (start new session)
-  return handleChatMessage(command, null, apiKey);
-}
-
-// Start a new chat session with optional system prompt
-async function handleStartSession(systemPrompt, apiKey) {
-  sessionCounter++;
-  const sessionId = sessionCounter;
-  
-  const session = {
-    id: sessionId,
-    messages: [],
-    created: new Date().toISOString(),
-    system: systemPrompt || "You are Claude, a helpful AI assistant."
-  };
-  
-  if (systemPrompt) {
-    session.messages.push({
-      role: 'user',
-      content: 'System setup completed.'
-    });
-  }
-  
-  chatSessions.set(sessionId, session);
-  
-  return {
-    operation: 'START_SESSION',
-    success: true,
-    sessionId: sessionId,
-    system: session.system,
-    message: `Started chat session ${sessionId}`,
-    timestamp: new Date().toISOString()
-  };
-}
-
-// Send message to Claude API
-async function handleChatMessage(message, sessionId, apiKey, systemPrompt = null) {
-  let session;
-  
-  if (sessionId && chatSessions.has(sessionId)) {
-    session = chatSessions.get(sessionId);
-  } else {
-    // Create new session if none specified
-    const newSession = await handleStartSession(systemPrompt, apiKey);
-    session = chatSessions.get(newSession.sessionId);
-    sessionId = newSession.sessionId;
-  }
-  
-  // Add user message to session
-  session.messages.push({
-    role: 'user',
-    content: message
-  });
-  
-  try {
-    // Make API call to Claude
-    const response = await callClaudeAPI(session, apiKey);
-    
-    // Add Claude's response to session
-    session.messages.push({
-      role: 'assistant',  
-      content: response.content
-    });
-    
-    return {
-      operation: 'CHAT_MESSAGE',
-      success: true,
-      sessionId: sessionId,
-      userMessage: message,
-      response: response.content,
-      tokensUsed: response.usage || {},
-      messageCount: session.messages.length,
-      timestamp: new Date().toISOString()
-    };
-    
-  } catch (error) {
-    throw new Error(`Claude API call failed: ${error.message}`);
-  }
-}
-
-// End a chat session
-async function handleEndSession(sessionId) {
-  if (!sessionId || !chatSessions.has(sessionId)) {
-    throw new Error(`Session ${sessionId} not found`);
-  }
-  
-  const session = chatSessions.get(sessionId);
-  const messageCount = session.messages.length;
-  
-  chatSessions.delete(sessionId);
-  
-  return {
-    operation: 'END_SESSION',
-    success: true,
-    sessionId: sessionId,
-    messageCount: messageCount,
-    duration: new Date().toISOString(),
-    message: `Chat session ${sessionId} closed`,
-    timestamp: new Date().toISOString()
-  };
-}
-
-// Parse CHECKPOINT command parameters
-function parseCheckpointCommand(command) {
-  const params = {};
-  const parts = command.split(' ');
-  
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[i];
-    if (part.includes('=')) {
-      const [key, ...valueParts] = part.split('=');
-      let value = valueParts.join('=');
-      
-      // Remove quotes if present
-      if (value.startsWith('"') && value.endsWith('"')) {
-        value = value.slice(1, -1);
-      } else if (value.startsWith("'") && value.endsWith("'")) {
-        value = value.slice(1, -1);
-      }
-      
-      params[key.toLowerCase()] = value;
-    }
-  }
-  
-  return params;
 }
 
 // Handle CHECKPOINT creation with structured outputs
@@ -816,34 +675,32 @@ const ADDRESS_CLAUDE_METHODS = {
 function formatClaudeResultForREXX(result) {
   const rexxResult = {
     ...result, // Preserve original result structure
-    errorCode: 0
+    errorCode: 0  // Always 0 - REXX will check result.rc or result.success instead
   };
-  
+
+  // For heredoc prompts (success case)
+  if (result.success && result.response) {
+    rexxResult.output = result.response;
+    rexxResult.message = result.response;
+  }
   // For session start, return session ID as RESULT
-  if (result.operation === 'START_SESSION') {
+  else if (result.operation === 'START_SESSION') {
     rexxResult.output = result.sessionId.toString();
   }
-  // For chat messages, return Claude's response as RESULT and queue detailed response
+  // For chat messages, return Claude's response as RESULT
   else if (result.operation === 'CHAT_MESSAGE') {
     rexxResult.output = result.response;
-    // Queue additional details for REXX to pull
-    if (typeof queueLine === 'function') {
-      queueLine(`[Chat ${result.sessionId}] User: ${result.userMessage}`);
-      queueLine(`[Chat ${result.sessionId}] Claude: ${result.response}`);
-      if (result.tokensUsed && result.tokensUsed.total) {
-        queueLine(`[Chat ${result.sessionId}] Tokens: ${result.tokensUsed.total}`);
-      }
-    }
+    rexxResult.message = result.response;
   }
-  // For session end, return confirmation message
-  else if (result.operation === 'END_SESSION') {
-    rexxResult.output = `Session ${result.sessionId} closed (${result.messageCount} messages)`;
+  // For session end or close chat, return confirmation message
+  else if (result.operation === 'END_SESSION' || result.operation === 'CLOSE_CHAT') {
+    rexxResult.output = result.message || `Conversation closed (${result.messageCount} messages)`;
   }
   // Default: return success message
   else {
     rexxResult.output = result.message || 'Operation completed';
   }
-  
+
   return rexxResult;
 }
 
