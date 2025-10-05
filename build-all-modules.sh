@@ -68,10 +68,10 @@ print_success "Built system-address.bundle.js"
 cp extras/addresses/system/src/system-address.js ../dist/addresses/system-address.js
 print_success "Copied system-address.js (unbundled)"
 
-# gemini-address
-cd extras/addresses/gemini-ai && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
+# gemini-address (HTTP-based)
+cd extras/addresses/gemini-address && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
 print_success "Built gemini-address.bundle.js"
-cp extras/addresses/gemini-ai/src/gemini-address.js ../dist/addresses/gemini-address.js
+cp extras/addresses/gemini-address/src/gemini-address.js ../dist/addresses/gemini-address.js
 print_success "Copied gemini-address.js (unbundled)"
 
 # openai-address

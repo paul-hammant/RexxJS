@@ -53,7 +53,7 @@ module.exports = {
     'path': 'path',
     'crypto': 'crypto',
     'child_process': 'child_process',
-    '@google/genai': '@google/genai',
+    'node-fetch': 'node-fetch'
   },
   resolve: {
     extensions: ['.js'],

@@ -72,7 +72,7 @@ function OPENAI_CHAT_ADDRESS_META() {
         version: '1.0.0',
         description: 'OpenAI Chat Completions API integration via ADDRESS CHECKPOINT interface.',
         provides: {
-            addressTarget: 'openai-chat',
+            addressTarget: 'openai',
             handlerFunction: 'ADDRESS_OPENAI_CHAT_HANDLER',
             commandSupport: true,
             methodSupport: true
