@@ -38,12 +38,10 @@ ELSE DO
   SAY "❌ Gemini request failed (RC=" || RC || ")"
   IF RESULT.error THEN DO
     SAY "HTTP status: " || RESULT.rc
-    SAY "Error type: " || RESULT.error.error.type
-    SAY "Error message: " || RESULT.error.error.message
+    SAY "Error: " || RESULT.error.error.type || " - " || RESULT.error.error.message
   END
-  ELSE DO
+  ELSE
     SAY "Error: " || RESULT
-  END
   SAY ""
   SAY "To fix: export GEMINI_API_KEY=your-key-here"
   EXIT 1
@@ -65,12 +63,10 @@ ELSE DO
   SAY "❌ Follow-up question failed (RC=" || RC || ")"
   IF RESULT.error THEN DO
     SAY "HTTP status: " || RESULT.rc
-    SAY "Error type: " || RESULT.error.error.type
-    SAY "Error message: " || RESULT.error.error.message
+    SAY "Error: " || RESULT.error.error.type || " - " || RESULT.error.error.message
   END
-  ELSE DO
+  ELSE
     SAY "Error: " || RESULT
-  END
   EXIT 1
 END
 
@@ -106,12 +102,10 @@ ELSE DO
   SAY "❌ New conversation failed (RC=" || RC || ")"
   IF RESULT.error THEN DO
     SAY "HTTP status: " || RESULT.rc
-    SAY "Error type: " || RESULT.error.error.type
-    SAY "Error message: " || RESULT.error.error.message
+    SAY "Error: " || RESULT.error.error.type || " - " || RESULT.error.error.message
   END
-  ELSE DO
+  ELSE
     SAY "Error: " || RESULT
-  END
   EXIT 1
 END
 
@@ -123,19 +117,17 @@ SAY ""
 prompt=What book was that in?
 VERIFY
 
-IF RC = 0 THEN DO
-  IF POS("HITCHHIKER", UPPER(RESULT.message)) > 0 || POS("DOUGLAS ADAMS", UPPER(RESULT.message)) > 0 || POS("42", RESULT.message) > 0 THEN DO
-    SAY "❌ Context was NOT reset - Gemini still remembers Douglas Adams context!"
-    SAY "Response: " || RESULT.message
-    EXIT 1
-  END
-  ELSE DO
-    SAY "✓ Context was properly reset - Gemini doesn't remember the Douglas Adams conversation"
-    SAY ""
-    SAY "🎉 All tests passed for org.rexxjs/gemini-address!"
-  END
-END
-ELSE DO
+IF RC <> 0 THEN DO
   SAY "❌ Verification failed (RC=" || RC || ")"
   EXIT 1
+END
+ELSE IF POS("HITCHHIKER", UPPER(RESULT.message)) > 0 || POS("DOUGLAS ADAMS", UPPER(RESULT.message)) > 0 || POS("42", RESULT.message) > 0 THEN DO
+  SAY "❌ Context was NOT reset - Gemini still remembers Douglas Adams context!"
+  SAY "Response: " || RESULT.message
+  EXIT 1
+END
+ELSE DO
+  SAY "✓ Context was properly reset - Gemini doesn't remember the Douglas Adams conversation"
+  SAY ""
+  SAY "🎉 All tests passed for org.rexxjs/gemini-address!"
 END
