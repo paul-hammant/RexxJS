@@ -62,6 +62,12 @@ print_success "Copied duckdb-wasm-address.js (unbundled)"
 cp extras/addresses/duckdb-address/src/duckdb-address.js ../dist/addresses/duckdb-address.js
 print_success "Copied duckdb-address.js (native, unbundled)"
 
+# echo-address
+cd extras/addresses/echo && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
+print_success "Built echo-address.bundle.js"
+cp extras/addresses/echo/src/echo-address.js ../dist/addresses/echo-address.js
+print_success "Copied echo-address.js (unbundled)"
+
 # system-address
 cd extras/addresses/system && npx webpack --config $(pwd)/webpack.bundle.config.js && cd ../../..
 print_success "Built system-address.bundle.js"

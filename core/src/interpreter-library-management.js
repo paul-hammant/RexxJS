@@ -92,8 +92,7 @@ async function requireWithDependencies(libraryName, loadingQueue, checkLibraryPe
     
     // Register library functions after all dependencies are loaded
     registerLibraryFunctionsFn(libraryName);
-    
-    console.log(`✓ ${libraryName} loaded with ${dependencies.length} dependencies`);
+
     return true;
     
   } finally {
