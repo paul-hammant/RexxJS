@@ -3,8 +3,8 @@
 --
 -- Copyright (c) 2025 RexxJS Project | MIT License
 
-SAY '[docker-install] Starting Docker installation on' ENV.HOSTNAME
-SAY '[docker-install] User:' ENV.USER
+SAY '[docker-install] Starting Docker installation on' GETENV('HOSTNAME')
+SAY '[docker-install] User:' GETENV('USER')
 
 -- Check if Docker is already installed
 ADDRESS system
@@ -46,7 +46,7 @@ ELSE DO
   -- Add user to docker group
   SAY '[docker-install] Adding user to docker group...'
   ADDRESS system
-  'sudo usermod -aG docker' ENV.USER
+  'sudo usermod -aG docker' GETENV('USER')
   -- Ignore RC for usermod (may already be in group)
   
   SAY '[docker-install] Docker installation completed'

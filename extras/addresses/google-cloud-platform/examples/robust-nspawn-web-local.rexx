@@ -19,7 +19,7 @@ SAY '[robust-nspawn] Starting nspawn operations'
 SAY '[robust-nspawn] Container:' CONTAINER_NAME
 SAY '[robust-nspawn] Port:' PORT  
 SAY '[robust-nspawn] Action:' ACTION
-SAY '[robust-nspawn] Host:' ENV.HOSTNAME
+SAY '[robust-nspawn] Host:' GETENV('HOSTNAME')
 SAY ''
 
 container_path = '/var/lib/machines/' || CONTAINER_NAME

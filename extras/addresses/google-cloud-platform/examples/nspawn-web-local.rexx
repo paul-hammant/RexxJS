@@ -19,7 +19,7 @@ SAY '[nspawn-local] Starting nspawn operations'
 SAY '[nspawn-local] Container:' CONTAINER_NAME
 SAY '[nspawn-local] Port:' PORT  
 SAY '[nspawn-local] Action:' ACTION
-SAY '[nspawn-local] Host:' ENV.HOSTNAME
+SAY '[nspawn-local] Host:' GETENV('HOSTNAME')
 
 container_path = '/var/lib/machines/' || CONTAINER_NAME
 

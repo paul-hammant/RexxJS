@@ -1000,7 +1000,18 @@ class RexxInterpreter {
       'TYPEOF': (value) => {
         return typeof value;
       },
-      
+
+      // Environment variable access
+      'GETENV': (varName) => {
+        // Access OS environment variables from process.env
+        // Returns empty string if not found (REXX convention)
+        if (typeof process !== 'undefined' && process.env) {
+          return process.env[varName] || '';
+        }
+        // In browser environment, no process.env access
+        return '';
+      },
+
       // String functions
       
       // Math functions
@@ -4761,12 +4772,12 @@ class RexxInterpreter {
     globalScope.REXX_ENVIRONMENT = env;
     
     // Also set as interpreter variable for REXX scripts
-    this.variables.set('ENV.TYPE', env.type);
-    this.variables.set('ENV.NODE_VERSION', env.nodeVersion || '');
-    this.variables.set('ENV.IS_PKG', env.isPkg ? '1' : '0');
-    this.variables.set('ENV.HAS_NODEJS_REQUIRE', env.hasNodeJsRequire ? '1' : '0');
-    this.variables.set('ENV.HAS_WINDOW', env.hasWindow ? '1' : '0');
-    this.variables.set('ENV.HAS_DOM', env.hasDOM ? '1' : '0');
+    this.variables.set('RUNTIME.TYPE', env.type);
+    this.variables.set('RUNTIME.NODE_VERSION', env.nodeVersion || '');
+    this.variables.set('RUNTIME.IS_PKG', env.isPkg ? '1' : '0');
+    this.variables.set('RUNTIME.HAS_NODEJS_REQUIRE', env.hasNodeJsRequire ? '1' : '0');
+    this.variables.set('RUNTIME.HAS_WINDOW', env.hasWindow ? '1' : '0');
+    this.variables.set('RUNTIME.HAS_DOM', env.hasDOM ? '1' : '0');
   }
 
 }

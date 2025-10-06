@@ -1,7 +1,7 @@
 -- Simple test script for remote RexxJS execution
 SAY 'RexxJS remote execution test'
-SAY 'Host:' ENV.HOSTNAME 
-SAY 'User:' ENV.USER
+SAY 'Host:' GETENV('HOSTNAME')
+SAY 'User:' GETENV('USER')
 SAY 'Current directory:' 
 
 ADDRESS system
