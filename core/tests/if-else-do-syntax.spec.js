@@ -703,4 +703,71 @@ describe('IF ELSE DO Syntax Parsing', () => {
     expect(interpreter.getVariable('test_count')).toBe(0); // Correctly 0 matches for "sss"
     expect(interpreter.getVariable('last_called')).toBeUndefined(); // No subroutines called
   });
+
+  it('should handle comments between END and ELSE IF without routing to ADDRESS handler', async () => {
+    // Regression test for bug where comments between END and ELSE IF
+    // caused the ELSE IF to be treated as a command sent to the active ADDRESS handler
+    // instead of being recognized as part of the control flow structure
+
+    // Set up a mock ADDRESS handler that will fail if called incorrectly
+    let addressHandlerCalled = false;
+    const mockHandler = async (command) => {
+      addressHandlerCalled = true;
+      throw new Error('ADDRESS handler should not be called for ELSE IF control flow');
+    };
+
+    interpreter.addressHandlers = new Map();
+    interpreter.addressHandlers.set('TESTADDRESS', { handler: mockHandler });
+    interpreter.currentAddressTarget = 'TESTADDRESS';
+
+    const script = `
+      LET testValue = 5
+
+      IF testValue > 10 THEN DO
+        LET result = "high"
+      END
+      // This comment should not break the ELSE IF parsing
+      ELSE IF testValue > 0 THEN DO
+        LET result = "positive"
+      END
+      ELSE DO
+        LET result = "zero_or_negative"
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('result')).toBe('positive');
+    expect(addressHandlerCalled).toBe(false); // ADDRESS handler should never be invoked
+  });
+
+  it('should handle nested IF ELSE with comments between control flow keywords', async () => {
+    const script = `
+      LET x = 5
+
+      IF x > 10 THEN DO
+        LET result = "high"
+      END
+      // Comment between END and ELSE IF
+      ELSE IF x > 0 THEN DO
+        IF x < 3 THEN DO
+          LET result = "low_positive"
+        END
+        // Another comment between nested END and ELSE
+        ELSE DO
+          LET result = "medium_positive"
+        END
+      END
+      // Final comment before ELSE
+      ELSE DO
+        LET result = "zero_or_negative"
+      END
+    `;
+
+    const commands = parse(script);
+    await interpreter.run(commands);
+
+    expect(interpreter.getVariable('result')).toBe('medium_positive');
+  });
 });

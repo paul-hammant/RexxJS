@@ -1155,24 +1155,42 @@ function parseIfStatement(tokens, startIndex) {
       throw new Error(`Missing END for IF THEN DO statement at line ${tokens[startIndex].lineNumber}`);
     }
     
-    // Check for ELSE DO after the END
+    // Check for ELSE IF or ELSE DO after the END
     let elseCommands = [];
     let nextIndex = currentIndex + 1;  // Skip past END
-    
-    if (nextIndex < tokens.length && tokens[nextIndex].content.match(/^ELSE\s+DO\s*$/i)) {
+
+    // Check for ELSE IF first (must come before ELSE DO check)
+    if (nextIndex < tokens.length && tokens[nextIndex].content.match(/^ELSE\s+IF\s+/i)) {
+      // Found ELSE IF, parse it as a nested IF statement in the else branch
+      // Create a modified token that starts with IF instead of ELSE IF
+      const elseIfLine = tokens[nextIndex].content.replace(/^ELSE\s+IF\s+/i, 'IF ');
+      const modifiedTokens = [
+        {
+          ...tokens[nextIndex],
+          content: elseIfLine
+        },
+        ...tokens.slice(nextIndex + 1)
+      ];
+      const nestedIfResult = parseIfStatement(modifiedTokens, 0);
+      elseCommands.push(nestedIfResult.command);
+      // Adjust nextIndex based on how many tokens the nested IF consumed
+      nextIndex = nextIndex + nestedIfResult.nextIndex;
+    }
+    // Check for ELSE DO
+    else if (nextIndex < tokens.length && tokens[nextIndex].content.match(/^ELSE\s+DO\s*$/i)) {
       // Found ELSE DO, parse the else block
       nextIndex++; // Skip past ELSE DO
       let nestedDoCount = 0;
-      
+
       while (nextIndex < tokens.length) {
         const line = tokens[nextIndex].content;
-        
+
         if (line.match(/^END\s*$/i)) {
           // Found the matching END for ELSE DO
           nextIndex++; // Skip past END
           break;
         }
-        
+
         // Parse nested statement (parseStatement will handle DO/END pairs internally)
         const result = parseStatement(tokens, nextIndex);
         if (result.command) {
