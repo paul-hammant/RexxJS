@@ -93,9 +93,53 @@ function callIsFunctionCallExpression(expression) {
 }
 
 function parse(scriptText) {
-  const lines = scriptText.replace(/\r\n/g, '\n').split('\n');
+  let lines = scriptText.replace(/\r\n/g, '\n').split('\n');
+
+  // Handle line continuation for pipe operator
+  // Merge lines when next line starts with |>
+  lines = mergePipeContinuationLines(lines);
+
   const tokens = tokenize(lines);
   return parseTokens(tokens);
+}
+
+function mergePipeContinuationLines(lines) {
+  const merged = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    let currentLine = lines[i];
+
+    // Look ahead for continuation lines starting with |>
+    // Skip empty lines when looking for continuation
+    let j = i + 1;
+    while (j < lines.length) {
+      const nextLine = lines[j].trim();
+
+      // If next line starts with |>, merge it with current line
+      if (nextLine.startsWith('|>')) {
+        currentLine = currentLine + ' ' + nextLine;
+        // Mark intervening empty lines as consumed
+        for (let k = i + 1; k <= j; k++) {
+          if (k === j) {
+            lines[k] = ''; // Mark as consumed
+          }
+        }
+        j++; // Move to next line after |>
+      } else if (nextLine === '') {
+        // Empty line, keep looking
+        j++;
+      } else {
+        // Non-empty, non-pipe line - stop merging
+        break;
+      }
+    }
+
+    merged.push(currentLine);
+    i++;
+  }
+
+  return merged;
 }
 
 function tokenize(lines) {
