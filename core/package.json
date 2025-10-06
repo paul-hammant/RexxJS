@@ -12,9 +12,7 @@
     "test:web": "PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/web --project=chromium",
     "build": "webpack",
     "build:dev": "webpack --mode=development",
-    "build:watch": "webpack --watch",
-    "bundle": "node src/create-bundle.js",
-    "prepare": "npm run bundle"
+    "build:watch": "webpack --watch"
   },
   "license": "MIT",
   "devDependencies": {
