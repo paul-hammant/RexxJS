@@ -5,32 +5,32 @@ describe('Excel Functions', () => {
 
   describe('VLOOKUP', () => {
     test('should find the value in the table (exact match)', () => {
-      expect(excelFunctions.VLOOKUP('Jane', table, 2, true)).toBe(25);
-      expect(excelFunctions.VLOOKUP('Bob', table, 3, true)).toBe('Paris');
+      expect(excelFunctions.VLOOKUP(table, 'Jane', 2, true)).toBe(25);
+      expect(excelFunctions.VLOOKUP(table, 'Bob', 3, true)).toBe('Paris');
     });
 
     test('should find the value in the table (approximate match)', () => {
-      expect(excelFunctions.VLOOKUP('J', table, 2, false)).toBe(30);
+      expect(excelFunctions.VLOOKUP(table, 'J', 2, false)).toBe(30);
     });
 
     test('should return null if the value is not found', () => {
-      expect(excelFunctions.VLOOKUP('Mike', table, 2, true)).toBeNull();
+      expect(excelFunctions.VLOOKUP(table, 'Mike', 2, true)).toBeNull();
     });
   });
 
   describe('HLOOKUP', () => {
     const hTable = [['Name', 'John', 'Jane', 'Bob'], ['Age', 30, 25, 40], ['City', 'New York', 'London', 'Paris']];
     test('should find the value in the table (exact match)', () => {
-      expect(excelFunctions.HLOOKUP('Jane', hTable, 2, true)).toBe(25);
-      expect(excelFunctions.HLOOKUP('Bob', hTable, 3, true)).toBe('Paris');
+      expect(excelFunctions.HLOOKUP(hTable, 'Jane', 2, true)).toBe(25);
+      expect(excelFunctions.HLOOKUP(hTable, 'Bob', 3, true)).toBe('Paris');
     });
 
     test('should find the value in the table (approximate match)', () => {
-      expect(excelFunctions.HLOOKUP('J', hTable, 2, false)).toBe(30);
+      expect(excelFunctions.HLOOKUP(hTable, 'J', 2, false)).toBe(30);
     });
 
     test('should return null if the value is not found', () => {
-      expect(excelFunctions.HLOOKUP('Mike', hTable, 2, true)).toBeNull();
+      expect(excelFunctions.HLOOKUP(hTable, 'Mike', 2, true)).toBeNull();
     });
   });
 
@@ -42,7 +42,7 @@ describe('Excel Functions', () => {
 
   describe('MATCH', () => {
     test('should return the position of the matched value', () => {
-      expect(excelFunctions.MATCH('Jane', ['John', 'Jane', 'Bob'], 0)).toBe(2);
+      expect(excelFunctions.MATCH(['John', 'Jane', 'Bob'], 'Jane', 0)).toBe(2);
     });
   });
 

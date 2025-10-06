@@ -150,7 +150,7 @@ SubstrWrapper:
 
 PosWrapper:
   PARSE ARG needle, haystack, start
-  RETURN POS(needle, haystack, start)
+  RETURN POS(haystack, needle, start)
 
 MathClampWrapper:
   PARSE ARG value, min_val, max_val

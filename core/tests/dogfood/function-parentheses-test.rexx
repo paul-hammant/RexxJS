@@ -137,8 +137,8 @@ ThreeParameterTest:
   LET result1 = SUBSTR(text1, 1, 5)
   ADDRESS EXPECTATIONS "{result1} should equal 'hello'"
   
-  LET result2 = POS("world", "hello world", 1)
-  ADDRESS EXPECTATIONS "{result2} should equal 6"
+  LET result2 = POS("hello world", "world", 1)
+  ADDRESS EXPECTATIONS "{result2} should equal 7"
   
   /* Math functions */
   LET result3 = MATH_CLAMP(5, 1, 10)

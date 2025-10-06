@@ -31,7 +31,7 @@ describe('POS() function with string concatenation', () => {
     const script = `
       LET RESULT.message = "Shiver me timbers, matey! Ye've got me confused - I wasn't referrin' to any particular book, I was just answerin' yer question about me favorite color like any self-respectin' salt would! I was speakin' from me own sea-weathered perspective, as any sailor worth their salt would do. Though if ye're lookin' for a good nautical tale, I'd recommend ye start with \\"Treasure Island\\" by Robert Louis Stevenson - now there's a proper piece of seafarin' literature for ye!"
 
-      LET pos_result = POS("42", RESULT.message)
+      LET pos_result = POS(RESULT.message, "42")
       SAY "POS result: " || pos_result
 
       IF pos_result > 0 THEN DO
@@ -55,7 +55,7 @@ describe('POS() function with string concatenation', () => {
       LET RESULT.message = "Shiver me timbers, matey! Ye've got me confused - I wasn't referrin' to any particular book, I was just answerin' yer question about me favorite color like any self-respectin' salt would! I was speakin' from me own sea-weathered perspective, as any sailor worth their salt would do. Though if ye're lookin' for a good nautical tale, I'd recommend ye start with \\"Treasure Island\\" by Robert Louis Stevenson - now there's a proper piece of seafarin' literature for ye!"
 
       LET upper_message = UPPER(RESULT.message)
-      LET pos_result = POS("HITCHHIKER", upper_message)
+      LET pos_result = POS(upper_message, "HITCHHIKER")
       SAY "POS HITCHHIKER result: " || pos_result
 
       IF pos_result > 0 THEN DO
@@ -77,9 +77,9 @@ describe('POS() function with string concatenation', () => {
     const script = `
       LET RESULT.message = "Shiver me timbers, matey! Ye've got me confused - I wasn't referrin' to any particular book, I was just answerin' yer question about me favorite color like any self-respectin' salt would! I was speakin' from me own sea-weathered perspective, as any sailor worth their salt would do. Though if ye're lookin' for a good nautical tale, I'd recommend ye start with \\"Treasure Island\\" by Robert Louis Stevenson - now there's a proper piece of seafarin' literature for ye!"
 
-      LET pos_hitchhiker = POS("HITCHHIKER", UPPER(RESULT.message))
-      LET pos_adams = POS("DOUGLAS ADAMS", UPPER(RESULT.message))
-      LET pos_42 = POS("42", RESULT.message)
+      LET pos_hitchhiker = POS(UPPER(RESULT.message), "HITCHHIKER")
+      LET pos_adams = POS(UPPER(RESULT.message), "DOUGLAS ADAMS")
+      LET pos_42 = POS(RESULT.message, "42")
 
       SAY "POS HITCHHIKER: " || pos_hitchhiker
       SAY "POS DOUGLAS ADAMS: " || pos_adams
@@ -109,7 +109,7 @@ describe('POS() function with string concatenation', () => {
 
       SAY "Testing inline POS with OR conditions..."
 
-      IF POS("HITCHHIKER", UPPER(RESULT.message)) > 0 || POS("DOUGLAS ADAMS", UPPER(RESULT.message)) > 0 || POS("42", RESULT.message) > 0 THEN DO
+      IF POS(UPPER(RESULT.message), "HITCHHIKER") > 0 || POS(UPPER(RESULT.message), "DOUGLAS ADAMS") > 0 || POS(RESULT.message, "42") > 0 THEN DO
         SAY "❌ Context was NOT reset - Claude still remembers Douglas Adams context!"
       END
       ELSE DO
@@ -137,7 +137,7 @@ describe('POS() function with string concatenation', () => {
       IF RC = 0 THEN DO
         SAY "✓ Claude responded: " || RESULT.message
         SAY ""
-        IF POS("HITCHHIKER", UPPER(RESULT.message)) > 0 || POS("DOUGLAS ADAMS", UPPER(RESULT.message)) > 0 || POS("42", RESULT.message) > 0 THEN DO
+        IF POS(UPPER(RESULT.message), "HITCHHIKER") > 0 || POS(UPPER(RESULT.message), "DOUGLAS ADAMS") > 0 || POS(RESULT.message, "42") > 0 THEN DO
           SAY "❌ Context was NOT reset - Claude still remembers Douglas Adams context!"
         END
         ELSE DO
@@ -169,7 +169,7 @@ describe('POS() function with string concatenation', () => {
 
       SAY "✓ Claude responded: " || RESULT.message
 
-      IF POS("HITCHHIKER", UPPER(RESULT.message)) > 0 || POS("DOUGLAS ADAMS", UPPER(RESULT.message)) > 0 || POS("42", RESULT.message) > 0 THEN DO
+      IF POS(UPPER(RESULT.message), "HITCHHIKER") > 0 || POS(UPPER(RESULT.message), "DOUGLAS ADAMS") > 0 || POS(RESULT.message, "42") > 0 THEN DO
         SAY "❌ Context was NOT reset - Claude still remembers Douglas Adams context!"
       END
       ELSE DO
@@ -199,7 +199,7 @@ describe('POS() function with string concatenation', () => {
       SAY ""
 
       SAY "Test 3: POS in concatenation"
-      SAY "Position of 'World': " || POS("World", text)
+      SAY "Position of 'World': " || POS(text, "World")
       SAY "Expected: Position of 'World': 7"
       SAY ""
 
@@ -277,7 +277,7 @@ describe('POS() function with string concatenation', () => {
       SAY ""
 
       SAY "Test 3: Pre-evaluate POS into variable"
-      LET pos_world = POS("World", text)
+      LET pos_world = POS(text, "World")
       SAY "Position of 'World': " || pos_world
       SAY ""
 

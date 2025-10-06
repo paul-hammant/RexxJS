@@ -155,7 +155,7 @@ DataValidationTest:
   ADDRESS EXPECTATIONS "{email_length} should equal 16"
   
   /* Step 2: Check for @ symbol (simulate contains check) */
-  LET at_position = POS("@", email_candidate)
+  LET at_position = POS(email_candidate, "@")
   ADDRESS EXPECTATIONS "{at_position} should equal 5"
   
   /* Step 3: Extract domain part */

@@ -41,11 +41,19 @@ function convertParamsToArgs(functionName, params) {
             ];
 
         case 'POS':
-            // String position function - needle, haystack, start
+            // String position function - string, needle, start (data-first for pipe compatibility)
             return [
-                params.needle || params.substring || params.search || Object.values(params)[0] || '',
-                params.haystack || params.string || params.str || params.text || Object.values(params)[1] || '',
+                params.string || params.str || params.text || params.haystack || Object.values(params)[0] || '',
+                params.needle || params.substring || params.search || Object.values(params)[1] || '',
                 params.start || params.position || Object.values(params)[2] || 1
+            ];
+
+        case 'WORDPOS':
+            // Word position function - string, phrase, start (data-first for pipe compatibility)
+            return [
+                params.string ?? params.str ?? params.text ?? Object.values(params)[0] ?? '',
+                params.phrase ?? params.word ?? params.search ?? Object.values(params)[1] ?? '',
+                params.start ?? params.position ?? Object.values(params)[2] ?? 1
             ];
 
         case 'MAX':
@@ -928,19 +936,19 @@ function convertParamsToArgs(functionName, params) {
             ];
 
         case 'VLOOKUP':
-            // lookupValue, tableArray, colIndex, exactMatch
+            // tableArray, lookupValue, colIndex, exactMatch (data-first for pipe compatibility)
             return [
-                params.lookupValue || params.lookup || params.value || Object.values(params)[0] || '',
-                params.tableArray || params.table || params.array || Object.values(params)[1] || '[]',
+                params.tableArray || params.table || params.array || Object.values(params)[0] || '[]',
+                params.lookupValue || params.lookup || params.value || Object.values(params)[1] || '',
                 params.colIndex || params.col || params.column || Object.values(params)[2] || '1',
                 params.exactMatch || params.exact || Object.values(params)[3] || 'false'
             ];
 
         case 'HLOOKUP':
-            // lookupValue, tableArray, rowIndex, exactMatch
+            // tableArray, lookupValue, rowIndex, exactMatch (data-first for pipe compatibility)
             return [
-                params.lookupValue || params.lookup || params.value || Object.values(params)[0] || '',
-                params.tableArray || params.table || params.array || Object.values(params)[1] || '[]',
+                params.tableArray || params.table || params.array || Object.values(params)[0] || '[]',
+                params.lookupValue || params.lookup || params.value || Object.values(params)[1] || '',
                 params.rowIndex || params.row || Object.values(params)[2] || '1',
                 params.exactMatch || params.exact || Object.values(params)[3] || 'false'
             ];
@@ -954,10 +962,10 @@ function convertParamsToArgs(functionName, params) {
             ];
 
         case 'MATCH':
-            // lookupValue, lookupArray, matchType
+            // lookupArray, lookupValue, matchType (data-first for pipe compatibility)
             return [
-                params.lookupValue || params.lookup || params.value || Object.values(params)[0] || '',
-                params.lookupArray || params.array || Object.values(params)[1] || '[]',
+                params.lookupArray || params.array || Object.values(params)[0] || '[]',
+                params.lookupValue || params.lookup || params.value || Object.values(params)[1] || '',
                 params.matchType || params.type || Object.values(params)[2] || '0'
             ];
 

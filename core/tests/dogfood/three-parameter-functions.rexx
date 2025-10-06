@@ -47,13 +47,13 @@ StringFunctionTest:
   ADDRESS EXPECTATIONS "{result2} should equal 'world'"
   
   /* POS function with parentheses */
-  LET result3 = POS("world", "hello world", 1)
-  ADDRESS EXPECTATIONS "{result3} should equal 6"
-  
-  LET result4 = POS("hello", "hello world", 1)
+  LET result3 = POS("hello world", "world", 1)
+  ADDRESS EXPECTATIONS "{result3} should equal 7"
+
+  LET result4 = POS("hello world", "hello", 1)
   ADDRESS EXPECTATIONS "{result4} should equal 1"
-  
-  LET result5 = POS("test", "hello world", 1)
+
+  LET result5 = POS("hello world", "test", 1)
   ADDRESS EXPECTATIONS "{result5} should equal 0"
   
 RETURN

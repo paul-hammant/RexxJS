@@ -24,7 +24,7 @@ describe('ARRAY_FILTER Pure-REXX Callbacks', () => {
     test('should handle REXX pos() function callbacks', async () => {
       const script = `
         LET words = ["test", "hello", "world", "javascript"]
-        checkString = 'pos("a", item) > 0'
+        checkString = 'pos(item, "a") > 0'
         LET result = ARRAY_FILTER array=words filterExpression=checkString
       `;
       
@@ -52,7 +52,7 @@ describe('ARRAY_FILTER Pure-REXX Callbacks', () => {
     test('should handle complex REXX expressions with logical operators', async () => {
       const script = `
         LET words = ["test", "hello", "world", "javascript"]
-        complexCheck = 'pos("a", item) > 0 & length(item) > 4'
+        complexCheck = 'pos(item, "a") > 0 & length(item) > 4'
         LET result = ARRAY_FILTER array=words filterExpression=complexCheck
       `;
       
@@ -98,7 +98,7 @@ describe('ARRAY_FILTER Pure-REXX Callbacks', () => {
         LET words = ["test", "hello", "world", "javascript"]
         
         -- Pure REXX callback
-        rexxCheck = 'pos("a", item) > 0'
+        rexxCheck = 'pos(item, "a") > 0'
         LET rexxResult = ARRAY_FILTER array=words filterExpression=rexxCheck
         
         -- JavaScript callback  
@@ -160,7 +160,7 @@ describe('ARRAY_FILTER Pure-REXX Callbacks', () => {
       const script = `
         LET item = "original"
         LET words = ["test", "hello"]
-        filter = 'pos("e", item) > 0'
+        filter = 'pos(item, "e") > 0'
         LET result = ARRAY_FILTER array=words filterExpression=filter
         LET afterItem = item
       `;

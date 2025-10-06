@@ -59,11 +59,11 @@ const stringFunctions = {
     }
   },
 
-  'POS': (needle, haystack, start = 1) => {
+  'POS': (string, needle, start = 1) => {
+    if (typeof string !== 'string') string = String(string);
     if (typeof needle !== 'string') needle = String(needle);
-    if (typeof haystack !== 'string') haystack = String(haystack);
     const startPos = Math.max(0, (parseInt(start) || 1) - 1); // Convert 1-based to 0-based
-    const pos = haystack.indexOf(needle, startPos);
+    const pos = string.indexOf(needle, startPos);
     return pos === -1 ? 0 : pos + 1; // Convert 0-based to 1-based, 0 means not found
   },
 
@@ -188,24 +188,24 @@ const stringFunctions = {
     }
   },
   
-  'WORDPOS': (phrase, string, start = 1) => {
+  'WORDPOS': (string, phrase, start = 1) => {
     try {
-      const phraseStr = String(phrase).trim();
       const str = String(string).trim();
+      const phraseStr = String(phrase).trim();
       const startPos = Math.max(1, parseInt(start) || 1);
-      
+
       if (phraseStr === '' || str === '') return 0;
-      
+
       // Split both phrase and string into words
       const phraseWords = phraseStr.split(/\s+/).filter(word => word.length > 0);
       const stringWords = str.split(/\s+/).filter(word => word.length > 0);
-      
+
       if (phraseWords.length === 0 || stringWords.length === 0) return 0;
-      
+
       // Search starting from the specified position (1-based)
       for (let i = startPos - 1; i <= stringWords.length - phraseWords.length; i++) {
         let match = true;
-        
+
         // Check if all words in phrase match at this position
         for (let j = 0; j < phraseWords.length; j++) {
           if (stringWords[i + j] !== phraseWords[j]) {
@@ -213,12 +213,12 @@ const stringFunctions = {
             break;
           }
         }
-        
+
         if (match) {
           return i + 1; // Convert back to 1-based index
         }
       }
-      
+
       return 0; // Not found
     } catch (e) {
       return 0;

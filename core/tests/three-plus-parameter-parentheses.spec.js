@@ -57,13 +57,13 @@ describe('Three Plus Parameter Functions - Parentheses Compatibility', () => {
     describe('POS function', () => {
       test('should work with parentheses', async () => {
         const script = `
-          LET x = POS("world", "hello world", 1)
-          LET y = POS("hello", "hello world", 1)
-          LET z = POS("test", "hello world", 1)
+          LET x = POS("hello world", "world", 1)
+          LET y = POS("hello world", "hello", 1)
+          LET z = POS("hello world", "test", 1)
         `;
-        
+
         await interpreter.run(parse(script));
-        expect(interpreter.getVariable('x')).toBe(7); // POS(needle, haystack, start) - "world" is at position 7 (1-based)
+        expect(interpreter.getVariable('x')).toBe(7); // POS(string, needle, start) - "world" is at position 7 (1-based)
         expect(interpreter.getVariable('y')).toBe(1); // "hello" is at position 1
         expect(interpreter.getVariable('z')).toBe(0); // "test" not found
       });

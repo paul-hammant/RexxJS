@@ -56,17 +56,17 @@ const excelFunctions = {
   'EXCEL_FUNCTIONS_MAIN': () => EXCEL_FUNCTIONS_META(),
   
   // Lookup Functions
-  'VLOOKUP': (lookupValue, tableArray, colIndex, exactMatch = false) => {
+  'VLOOKUP': (tableArray, lookupValue, colIndex, exactMatch = false) => {
     try {
       const table = typeof tableArray === 'string' ? JSON.parse(tableArray) : tableArray;
       if (!Array.isArray(table) || table.length === 0) return null;
-      
+
       const colIdx = parseInt(colIndex) - 1;
       const exact = String(exactMatch).toLowerCase() === 'true';
-      
+
       for (const row of table) {
         if (!Array.isArray(row) || row.length <= colIdx) continue;
-        
+
         if (exact) {
           if (row[0] === lookupValue) return row[colIdx];
         } else {
@@ -75,23 +75,23 @@ const excelFunctions = {
           }
         }
       }
-      
+
       return null;
     } catch (e) {
       return null;
     }
   },
   
-  'HLOOKUP': (lookupValue, tableArray, rowIndex, exactMatch = false) => {
+  'HLOOKUP': (tableArray, lookupValue, rowIndex, exactMatch = false) => {
     try {
       const table = typeof tableArray === 'string' ? JSON.parse(tableArray) : tableArray;
       if (!Array.isArray(table) || table.length === 0) return null;
-      
+
       const rowIdx = parseInt(rowIndex) - 1;
       const exact = String(exactMatch).toLowerCase() === 'true';
-      
+
       if (!Array.isArray(table[0])) return null;
-      
+
       for (let col = 0; col < table[0].length; col++) {
         const value = table[0][col];
         if (exact) {
@@ -99,13 +99,13 @@ const excelFunctions = {
             return table[rowIdx][col];
           }
         } else {
-          if (String(value).toLowerCase().includes(String(lookupValue).toLowerCase()) && 
+          if (String(value).toLowerCase().includes(String(lookupValue).toLowerCase()) &&
               table[rowIdx] && table[rowIdx][col] !== undefined) {
             return table[rowIdx][col];
           }
         }
       }
-      
+
       return null;
     } catch (e) {
       return null;
@@ -132,13 +132,13 @@ const excelFunctions = {
     }
   },
   
-  'MATCH': (lookupValue, lookupArray, matchType = 0) => {
+  'MATCH': (lookupArray, lookupValue, matchType = 0) => {
     try {
       const arr = typeof lookupArray === 'string' ? JSON.parse(lookupArray) : lookupArray;
       if (!Array.isArray(arr)) return null;
-      
+
       const type = parseInt(matchType);
-      
+
       for (let i = 0; i < arr.length; i++) {
         switch (type) {
           case 0: // Exact match
@@ -154,7 +154,7 @@ const excelFunctions = {
             break;
         }
       }
-      
+
       return null;
     } catch (e) {
       return null;
