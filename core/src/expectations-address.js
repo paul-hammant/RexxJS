@@ -854,65 +854,6 @@ const ExpectationsEngine = {
     };
   },
 
-  // Execute expectations with MATCHING pattern for filtering lines
-  executeMatchingPatternExpectations(multiLineInput, matchingPattern, context = {}, sourceContext = null) {
-    const lines = multiLineInput.split('\n');
-    const results = [];
-    
-    // Create regex from the pattern
-    let regex;
-    try {
-      regex = new RegExp(matchingPattern);
-    } catch (error) {
-      throw new Error(`Invalid regex pattern "${matchingPattern}": ${error.message}`);
-    }
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      
-      // Skip empty lines and comments
-      if (!trimmedLine || trimmedLine.startsWith('/*') || trimmedLine.startsWith('//')) {
-        continue;
-      }
-      
-      // Apply the regex pattern to filter lines
-      if (regex.test(line)) {
-        // Extract expectation content (remove the matched prefix)
-        const match = regex.exec(line);
-        let expectationLine = line;
-        
-        // If the pattern has capture groups, use the first capture group as the expectation
-        if (match && match.length > 1) {
-          expectationLine = match[1];
-        } else {
-          // Otherwise, remove the matched portion and trim
-          expectationLine = line.replace(regex, '').trim();
-        }
-        
-        // Process the line if it contains "should" as a separate expectation
-        if (expectationLine.includes('should')) {
-          try {
-            // Note: executeExpectation already calls incrementExpectationCount
-            const result = this.executeExpectation(expectationLine, context, sourceContext);
-            results.push(result);
-          } catch (error) {
-            // Re-throw the first error to maintain failure semantics
-            throw error;
-          }
-        }
-      }
-    }
-    
-    // Return a summary result
-    return {
-      success: true,
-      message: `${results.length} expectations completed with pattern matching`,
-      results: results,
-      count: results.length,
-      pattern: matchingPattern
-    };
-  },
-
   // Increment expectation counter for rexxt test runner
   incrementExpectationCount() {
     if (typeof require !== 'undefined') {
@@ -1033,9 +974,6 @@ function ADDRESS_EXPECTATIONS_HANDLER(commandOrMethod, params = {}, sourceContex
             // Single-line expectation
             resultPromise = Promise.resolve(ExpectationsEngine.executeExpectation(commandOrMethod, params, sourceContext));
           }
-        } else if (typeof commandOrMethod === 'string' && params && params._addressMatchingPattern) {
-          // Handle MATCHING pattern for multi-line expectations
-          resultPromise = Promise.resolve(ExpectationsEngine.executeMatchingPatternExpectations(commandOrMethod, params._addressMatchingPattern, params, sourceContext));
         } else {
           throw new Error(`Unknown method or invalid expectation: "${commandOrMethod}"`);
         }

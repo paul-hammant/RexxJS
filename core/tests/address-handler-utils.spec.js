@@ -470,35 +470,6 @@ describe('Address Handler Utilities', () => {
         message: 'Email sent successfully'
       });
     });
-    
-    test('should demonstrate ADDRESS MATCHING integration', async () => {
-      // Simulate how this would work with ADDRESS MATCHING
-      const logHandler = wrapHandler('logger', async (message, context) => {
-        // message comes from ADDRESS MATCHING extraction
-        // context contains all REXX variables
-        const interpolated = await interpolateMessage(message, context);
-        return createResponse(true, { logged: interpolated }, 'Logged');
-      }, {
-        autoInterpolate: false // Handle interpolation manually
-      });
-      
-      // Simulate ADDRESS MATCHING call
-      // Original line: "LOG: User {{name}} performed {{action}}"
-      // Extracted by MATCHING("^LOG: (.*)$"): "User {{name}} performed {{action}}"
-      const extractedMessage = 'User {{name}} performed {{action}}';
-      const rexxContext = { 
-        name: 'Bob', 
-        action: 'login',
-        _addressMatchingPattern: '^LOG: (.*)$'
-      };
-      
-      const result = await logHandler(extractedMessage, rexxContext, {});
-      
-      expect(result).toMatchObject({
-        success: true,
-        result: { logged: 'User Bob performed login' }
-      });
-    });
   });
 
   describe('executeOnHosts (EFS2-inspired)', () => {
