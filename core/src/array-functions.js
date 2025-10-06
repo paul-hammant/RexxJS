@@ -449,12 +449,31 @@ const arrayFunctions = {
   'ARRAY_MAP': (array, mapExpression) => {
     try {
       let arr = Array.isArray(array) ? array : JSON.parse(String(array));
-      
+
       // Simple identity mapping if no mapExpression
       if (!mapExpression) {
         return [...arr];
       }
-      
+
+      // Check if mapExpression is a JavaScript-style callback (arrow function or function)
+      const expr = String(mapExpression).trim();
+      if (expr.includes('=>') || expr.startsWith('function')) {
+        try {
+          // Handle JavaScript-style callbacks like "x => x * 2" or "function(x) { return x * 2; }"
+          let callbackFn;
+          if (expr.includes('=>')) {
+            // Arrow function
+            callbackFn = Function(`return ${expr}`)();
+          } else {
+            // Regular function
+            callbackFn = Function(`return ${expr}`)();
+          }
+          return arr.map(callbackFn);
+        } catch (e) {
+          // If callback evaluation fails, fall through to other methods
+        }
+      }
+
       // Check if this is an object array (array of objects)
       const isObjectArray = arr.length > 0 && typeof arr[0] === 'object' && arr[0] !== null && !Array.isArray(arr[0]);
       
@@ -1513,6 +1532,15 @@ const arrayFunctions = {
     } catch (e) {
       return { error: e.message };
     }
+  },
+
+  // Aliases for pipe-friendly syntax
+  'MAP': function(...args) {
+    return arrayFunctions.ARRAY_MAP(...args);
+  },
+
+  'FILTER': function(...args) {
+    return arrayFunctions.ARRAY_FILTER(...args);
   }
 
 };

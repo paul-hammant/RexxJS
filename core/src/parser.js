@@ -570,8 +570,32 @@ function parseStatement(tokens, startIndex) {
     let returnValue = '';
     if (returnMatch[1]) {
       const expression = returnMatch[1].trim();
-      // Handle concatenation expressions specially
-      if (expression.includes('||')) {
+      // Handle concatenation expressions specially - but only if || is at top level (not in parens/quotes)
+      const hasTopLevelConcat = (() => {
+        let inQuotes = false;
+        let quoteChar = '';
+        let parenDepth = 0;
+        for (let i = 0; i < expression.length - 1; i++) {
+          const char = expression[i];
+          const nextChar = expression[i + 1];
+          if ((char === '"' || char === "'") && !inQuotes) {
+            inQuotes = true;
+            quoteChar = char;
+          } else if (char === quoteChar && inQuotes) {
+            inQuotes = false;
+            quoteChar = '';
+          } else if (!inQuotes && char === '(') {
+            parenDepth++;
+          } else if (!inQuotes && char === ')') {
+            parenDepth--;
+          } else if (!inQuotes && parenDepth === 0 && char === '|' && nextChar === '|') {
+            return true;
+          }
+        }
+        return false;
+      })();
+
+      if (hasTopLevelConcat) {
         returnValue = {
           type: 'CONCATENATION',
           value: expression
@@ -808,10 +832,11 @@ function parseStatement(tokens, startIndex) {
     }
 
     // Check if it's a concatenation expression with || FIRST
-    // But only if the || is not inside quoted strings
+    // But only if the || is not inside quoted strings or parentheses
     const hasUnquotedPipe = (() => {
       let inQuotes = false;
       let quoteChar = '';
+      let parenDepth = 0;
       for (let i = 0; i < expression.length - 1; i++) {
         const char = expression[i];
         const nextChar = expression[i + 1];
@@ -822,7 +847,11 @@ function parseStatement(tokens, startIndex) {
         } else if (char === quoteChar && inQuotes) {
           inQuotes = false;
           quoteChar = '';
-        } else if (!inQuotes && char === '|' && nextChar === '|') {
+        } else if (!inQuotes && char === '(') {
+          parenDepth++;
+        } else if (!inQuotes && char === ')') {
+          parenDepth--;
+        } else if (!inQuotes && parenDepth === 0 && char === '|' && nextChar === '|') {
           return true;
         }
       }
@@ -1506,8 +1535,8 @@ function parseFunctionCall(line) {
     const args = [];
     
     while (remaining.length > 0) {
-      // Match parameter name
-      const nameMatch = remaining.match(/^(\w+)=/);
+      // Match parameter name (but not arrow functions with =>)
+      const nameMatch = remaining.match(/^(\w+)=(?!>)/);
       if (!nameMatch) {
         // No named parameter found - parse comma-separated positional arguments
         while (remaining.length > 0) {
@@ -1516,13 +1545,20 @@ function parseFunctionCall(line) {
           let parenCount = 0;
           let inQuotes = false;
           let quoteChar = '';
-          
-          // Parse a single argument, handling quotes and parentheses
+          let inArrowFunction = false;
+
+          // Check if this looks like an arrow function (param => expr)
+          if (remaining.match(/^\w+\s*=>/)) {
+            inArrowFunction = true;
+          }
+
+          // Parse a single argument, handling quotes, parentheses, and arrow functions
           while (i < remaining.length) {
             const char = remaining[i];
-            
+            const nextChar = i + 1 < remaining.length ? remaining[i + 1] : '';
+
             // Debug logging removed
-            
+
             if (!inQuotes && (char === '"' || char === "'")) {
               inQuotes = true;
               quoteChar = char;
@@ -1540,13 +1576,13 @@ function parseFunctionCall(line) {
             } else if (!inQuotes && parenCount === 0 && char === ',') {
               // End of this argument
               break;
-            } else if (!inQuotes && parenCount === 0 && char === ' ') {
-              // End of this argument (space separator) - but only if not in quotes!
+            } else if (!inQuotes && parenCount === 0 && char === ' ' && !inArrowFunction) {
+              // End of this argument (space separator) - but only if not in quotes or arrow function!
               break;
             } else {
               argValue += char;
             }
-            
+
             i++;
           }
           
@@ -2018,6 +2054,49 @@ function parseFactor(expr) {
       };
     } else {
       throw new Error(`Unterminated string literal starting with ${quoteChar}`);
+    }
+  }
+
+  // Handle array literals [...]
+  if (expr[0] === '[') {
+    let bracketCount = 1;
+    let endIndex = 1;
+    let inQuotes = false;
+    let quoteChar = '';
+
+    while (endIndex < expr.length && bracketCount > 0) {
+      if (!inQuotes && (expr[endIndex] === '"' || expr[endIndex] === "'")) {
+        inQuotes = true;
+        quoteChar = expr[endIndex];
+      } else if (inQuotes && expr[endIndex] === quoteChar) {
+        inQuotes = false;
+        quoteChar = '';
+      } else if (!inQuotes && expr[endIndex] === '[') {
+        bracketCount++;
+      } else if (!inQuotes && expr[endIndex] === ']') {
+        bracketCount--;
+      }
+      endIndex++;
+    }
+
+    if (bracketCount !== 0) {
+      throw new Error('Mismatched brackets in array literal');
+    }
+
+    const arrayStr = expr.substring(0, endIndex);
+
+    // Try to parse as JSON array
+    try {
+      const arrayValue = JSON.parse(arrayStr);
+      return {
+        expr: {
+          type: 'LITERAL',
+          value: arrayValue
+        },
+        remaining: expr.substring(endIndex)
+      };
+    } catch (e) {
+      throw new Error(`Invalid array literal: ${arrayStr}`);
     }
   }
 
