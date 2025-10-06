@@ -31,14 +31,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: |
+          cd core
+          npm install
+      - name: Build bundled REPL
+        run: |
+          cd core/src/repl
+          npx webpack --config webpack.config.js
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Prepare site structure
         run: |
           # Create a temporary directory for the site
           mkdir -p _site
-          # Copy core/src contents (including redirect index.html, CNAME, .nojekyll) 
+          # Copy core/src contents (including redirect index.html, CNAME, .nojekyll)
           cp -r core/src/* _site/
+
+          # Create bundled version at /repl/ (overwrite with bundled)
+          cp -r core/src/repl/dist/* _site/repl/
+          # Create bundled index.html that uses the bundle
+          sed 's|<script src="../interpreter-web-loader.js"></script>|<script src="repl.bundle.js"></script>|' core/src/repl/index.html > _site/repl/index.html
+
+          # Copy unbundled version to /repl/unbundled/
+          mkdir -p _site/repl/unbundled
+          cp core/src/repl/index.html _site/repl/unbundled/
+          # Unbundled needs access to parent directory interpreter-web-loader.js
+          cp core/src/interpreter-web-loader.js _site/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
