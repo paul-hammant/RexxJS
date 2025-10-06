@@ -867,6 +867,17 @@ class RexxInterpreter {
     };
   }
   
+  wrapDomFunctions(domFunctions) {
+    const wrapped = {};
+    for (const [name, func] of Object.entries(domFunctions)) {
+      wrapped[name] = (...args) => {
+        // Call the DOM function with the interpreter as context
+        return func.call(this, ...args);
+      };
+    }
+    return wrapped;
+  }
+  
   initializeBuiltInFunctions() {
     // Import external function modules
     let importedStringFunctions = {};
@@ -1037,7 +1048,7 @@ class RexxInterpreter {
       ...importedStatisticsFunctions,
       ...importedLogicFunctions,
       ...importedCryptoFunctions,
-      ...importedDomFunctions,
+      ...this.wrapDomFunctions(importedDomFunctions),
       ...importedDataFunctions,
       ...importedProbabilityFunctions,
       // R functions removed - use REQUIRE statements to load them
