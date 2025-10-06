@@ -284,6 +284,30 @@ if (typeof require !== 'undefined') {
     validateGitHubLibrary: window.validateGitHubLibrary
   };
   
+  // Security utilities
+  if (registry.has('securityUtils')) {
+    securityUtils = registry.get('securityUtils');
+  } else {
+    // Browser environment fallback for security utils
+    securityUtils = {
+      initializeSecurityHandlers: function() { return undefined; },
+      checkLibraryPermissions: async function() { return true; },
+      checkNodeJSPermissions: async function() { return true; },
+      checkWebPermissions: async function() { return true; },
+      checkControlBusPermissions: async function() { return true; },
+      validateGitHubLibrary: async function() { return true; },
+      getBlockedRepositories: function() { return []; },
+      requestDirectorApproval: async function() { return true; },
+      handleLibraryPermissionResponse: function() { },
+      getLibraryMetadata: function() { return {}; },
+      assessRiskLevel: function() { return 'low'; },
+      setSecurityPolicy: function() { },
+      executeLibraryCodeSandboxed: function() { },
+      createSandbox: function() { return {}; },
+      validateSandboxIntegrity: function() { }
+    };
+  }
+  
   // Require system utilities
   if (registry.has('requireSystem')) {
     requireSystem = registry.get('requireSystem');

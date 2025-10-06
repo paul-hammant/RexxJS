@@ -38,6 +38,7 @@ test('CHECKPOINT function basic functionality', async ({ page }) => {
         <script src="http://localhost:8082/src/security.js"></script>
         <script src="http://localhost:8082/src/string-processing.js"></script>
         
+        <script src="http://localhost:8082/tests/web/security-utils-stub.js"></script>
         <script src="http://localhost:8082/src/interpreter.js"></script>
         
         <script>
@@ -130,6 +131,7 @@ test('CHECKPOINT function with parameters', async ({ page }) => {
         <script src="http://localhost:8082/src/security.js"></script>
         <script src="http://localhost:8082/src/string-processing.js"></script>
         
+        <script src="http://localhost:8082/tests/web/security-utils-stub.js"></script>
         <script src="http://localhost:8082/src/interpreter.js"></script>
         
         <script>
