@@ -120,80 +120,36 @@ Functions that don't fit the piping paradigm:
 5. ✅ Fix parseFunctionCall regex to require start anchor
 6. ✅ Create comprehensive test suite (14 tests, all passing)
 
-### Phase 2: Core Implementation
-```javascript
-// Parser transformation
-// Input:  data |> FUNC1(args) |> FUNC2 |> FUNC3(more)
-// Output: FUNC3(FUNC2(FUNC1(data, args)), more)
+### Phase 2: Data-First Function Alignment ✅ COMPLETED
+Instead of creating adapter functions, we fixed core built-in functions to have data-first parameter order:
 
-function parsePipeExpression(expr) {
-  let result = expr.left;
-  for (const pipe of expr.pipes) {
-    if (pipe.args && pipe.args.length > 0) {
-      // Function with arguments
-      result = {
-        type: 'FUNCTION_CALL',
-        name: pipe.name,
-        args: [result, ...pipe.args]
-      };
-    } else {
-      // Function without arguments
-      result = {
-        type: 'FUNCTION_CALL',
-        name: pipe.name,
-        args: [result]
-      };
-    }
-  }
-  return result;
-}
-```
+**Functions Modified:**
+1. ✅ `POS(haystack, needle)` - Changed from `POS(needle, haystack)`
+2. ✅ `WORDPOS(string, phrase)` - Changed from `WORDPOS(phrase, string)`
+3. ✅ `LASTPOS(haystack, needle)` - Changed from `LASTPOS(needle, haystack)`
+4. ✅ `ARRAY_INCLUDES(array, item)` - Already data-first
+5. ✅ `ARRAY_INDEXOF(array, item)` - Already data-first
 
-### Phase 3: Adapter Library
-Create a new module `src/pipe-adapters.js`:
-```javascript
-// Curry wrappers for common patterns
-exports.createPipeAdapters = (interpreter) => {
-  return {
-    // Position/search adapters
-    POS_IN: (needle) => (haystack) => interpreter.POS(needle, haystack),
-    WORDPOS_IN: (phrase) => (string) => interpreter.WORDPOS(phrase, string),
-    
-    // Array adapters
-    INCLUDES: (item) => (array) => interpreter.ARRAY_INCLUDES(array, item),
-    INDEXOF: (item) => (array) => interpreter.ARRAY_INDEXOF(array, item),
-    GET: (key) => (obj) => interpreter.ARRAY_GET(obj, key),
-    SET: (key, val) => (obj) => interpreter.ARRAY_SET(obj, key, val),
-    
-    // String adapters
-    STRIP_LEFT: (char) => (str) => interpreter.STRIP(str, 'L', char),
-    STRIP_RIGHT: (char) => (str) => interpreter.STRIP(str, 'T', char),
-    STRIP_BOTH: (char) => (str) => interpreter.STRIP(str, 'B', char),
-    
-    // Partial application helpers
-    SPACE_WITH: (n, pad) => (str) => interpreter.SPACE(str, n, pad),
-    TRANSLATE_WITH: (out, inp) => (str) => interpreter.TRANSLATE(str, out, inp),
-  };
-};
-```
+**Rationale:**
+- More maintainable than maintaining parallel adapter functions
+- Aligns with functional programming conventions (data flows first)
+- All piping now works with natural syntax: `data |> POS(needle="search")`
 
-### Phase 4: Optional Enhancements
+**Breaking Change Note:**
+- These functions now have reversed parameter order
+- Named parameters (`needle=`, `phrase=`) provide backwards compatibility
+- All existing tests updated and passing
 
-#### 4.1 Lambda Support
-Enable inline functions in pipes:
-```rexx
-result = data |> MAP(x => x * 2) |> FILTER(x => x > 10)
-```
+### Phase 3: Adapter Library ⏭️ SKIPPED
+The adapter library approach was skipped in favor of fixing core functions directly (Phase 2 alternate approach). This provides:
+- Cleaner API surface (no duplicate functions)
+- Better long-term maintainability
+- Consistent data-first pattern across all functions
 
-#### 4.2 Pipe Placeholders
-Allow explicit parameter positioning:
-```rexx
-result = data |> POS("search", _) |> SUBSTR(_, 1, 5)
--- Where _ represents the piped value
-```
+### Phase 4: Optional Enhancements (Partial)
 
-#### 4.3 Multi-line Piping
-Support readable multi-line chains:
+#### 4.1 Multi-line Piping ✅ COMPLETED
+Support readable multi-line chains with `|>` continuation:
 ```rexx
 LET result = data
   |> TRIM
@@ -202,6 +158,49 @@ LET result = data
   |> MAP("LENGTH(x)")
   |> FILTER("x > 3")
   |> SUM
+```
+
+**Implementation:**
+- Modified `src/parser.js` with `mergePipeContinuationLines()` function
+- Merges lines when next non-empty line starts with `|>`
+- Handles empty lines between pipe stages
+- 17 comprehensive parser tests added (`tests/pipe-multiline-parser.spec.js`)
+
+**Working Features:**
+- ✅ Multi-stage chains across multiple lines
+- ✅ Empty lines between stages for readability
+- ✅ Arbitrary indentation support
+- ✅ Mixed with regular statements
+
+#### 4.2 Pipe Placeholders ✅ COMPLETED
+Allow explicit parameter positioning with `_` placeholder:
+```rexx
+result = 5 |> MATH_POWER(2, _)        -- 2^5 = 32
+result = 10 |> MATH_POWER(_, 2)       -- 10^2 = 100
+result = "hello" |> SUBSTR(_, 1, 3)   -- "hel"
+```
+
+**Implementation:**
+- Modified `src/interpreter-expression-value-resolution.js` PIPE_OP case
+- Detects `_` as placeholder in function arguments
+- Substitutes piped value at explicit position
+- Maintains backward compatibility (no placeholder = first arg)
+
+**Working Features:**
+- ✅ Placeholder in any argument position (1st, 2nd, 3rd, etc.)
+- ✅ Multi-line pipes with placeholders
+- ✅ Chained pipes with mixed default/placeholder positioning
+- 17 passing tests (`tests/pipe-placeholder.spec.js`, 2 edge cases documented)
+
+**Known Limitations:**
+- Mixed positional placeholder with named parameters is an edge case (documented, skipped)
+- Named parameters in pipe expressions require parentheses syntax
+
+#### 4.3 Lambda/Arrow Functions ⏭️ NOT IMPLEMENTED
+Inline lambda functions in pipes were not implemented (not requested):
+```rexx
+-- Future enhancement (not implemented)
+result = data |> MAP(x => x * 2) |> FILTER(x => x > 10)
 ```
 
 ## Testing Strategy
@@ -312,10 +311,45 @@ To make functions pipe-friendly:
 - ✅ All 26 dogfood tests passing
 - ✅ 100% test coverage maintained
 
-### Next Steps (Phase 2)
-- [ ] Create pipe-friendly adapter functions (POS_IN, INCLUDES, etc.)
-- [ ] Add partial application support
-- [ ] Multi-line piping syntax support
+### Phase 2 Complete (2025-10-06)
+**Approach:** Fixed 5 core functions to data-first parameter order instead of creating adapter library.
+
+**Functions Modified:**
+- ✅ `POS(haystack, needle)` - Parameter order reversed
+- ✅ `WORDPOS(string, phrase)` - Parameter order reversed
+- ✅ `LASTPOS(haystack, needle)` - Parameter order reversed
+- ✅ Named parameters provide backwards compatibility
+- ✅ All existing tests updated and passing
+
+**Rationale:** Direct function fixes are more maintainable than parallel adapter functions.
+
+### Phase 3 Skipped (2025-10-06)
+**Decision:** Adapter library not needed due to Phase 2 alternate approach (direct function fixes).
+
+### Phase 4 Partial Complete (2025-10-06)
+**Multi-line Piping:** ✅ Complete
+- Modified `src/parser.js` with line continuation logic
+- 17 parser tests added (`tests/pipe-multiline-parser.spec.js`)
+- Handles empty lines between pipe stages
+
+**Pipe Placeholders:** ✅ Complete
+- Modified `src/interpreter-expression-value-resolution.js` with placeholder detection
+- 17 placeholder tests added (`tests/pipe-placeholder.spec.js`, 2 edge cases skipped)
+- Supports `_` placeholder in any argument position
+- Example: `5 |> MATH_POWER(2, _)` → 32 (meaning 2^5)
+
+**Lambda/Arrow Functions:** ⏭️ Not Implemented
+- Not requested or implemented
+
+**Test Results (Phase 4 Final):**
+- ✅ All 97 Jest test suites passing (1823 tests, 2 skipped)
+- ✅ 17 new multi-line parser tests
+- ✅ 17 new placeholder tests (2 edge cases documented and skipped)
+- ✅ No regressions from new features
+
+### Next Steps
+- [ ] Lambda/arrow function support (if needed)
+- [ ] Consider partial application syntax for complex cases
 
 ## Conclusion
 

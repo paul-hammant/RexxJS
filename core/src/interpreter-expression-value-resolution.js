@@ -227,27 +227,68 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
     case 'PIPE_OP':
       // Pipe operator: left |> right
       // Evaluates left side and passes it as first argument to right side function
+      // Supports _ placeholder for explicit positioning
       const pipeValue = await evaluateExpression(expr.left, resolveValueFn, variableGetFn, variableHasFn, interpolateStringFn, evaluateConcatenationFn, executeFunctionCallFn, isLikelyFunctionNameFn, isBuiltinFunctionFn, getBuiltinFunctionFn, callConvertParamsToArgsFn, isNumericStringFn);
 
       // Right side should be a function call or function name
       if (expr.right.type === 'FUNCTION_CALL') {
-        // Right side is already a function call, prepend pipeValue to arguments
+        // Right side is already a function call
         const funcExpr = expr.right;
         const method = funcExpr.command.toUpperCase();
 
         if (isBuiltinFunctionFn(method)) {
           const resolvedParams = {};
+          let hasPlaceholder = false;
+
+          // Resolve parameters and check for placeholder
           for (const [key, value] of Object.entries(funcExpr.params)) {
-            resolvedParams[key] = await resolveValueFn(value);
+            // Check if value is a placeholder
+            if (typeof value === 'object' && value !== null && value.type === 'VARIABLE' && value.name === '_') {
+              resolvedParams[key] = pipeValue;
+              hasPlaceholder = true;
+            } else if (typeof value === 'string' && value === '_') {
+              resolvedParams[key] = pipeValue;
+              hasPlaceholder = true;
+            } else {
+              resolvedParams[key] = await resolveValueFn(value);
+            }
           }
+
           const builtInFunc = getBuiltinFunctionFn(method);
           const args = callConvertParamsToArgsFn(method, resolvedParams);
-          // Prepend piped value as first argument
-          return await builtInFunc(pipeValue, ...args);
+
+          if (hasPlaceholder) {
+            // Placeholder found, args already have piped value in the right position
+            return await builtInFunc(...args);
+          } else {
+            // No placeholder, prepend piped value as first argument (default behavior)
+            return await builtInFunc(pipeValue, ...args);
+          }
         } else {
-          // RPC function call - prepend piped value
-          const modifiedExpr = { ...funcExpr, params: { _0: pipeValue, ...funcExpr.params } };
-          return await executeFunctionCallFn(modifiedExpr);
+          // RPC function call - check for placeholder
+          let hasPlaceholder = false;
+          const modifiedParams = {};
+
+          for (const [key, value] of Object.entries(funcExpr.params)) {
+            if (typeof value === 'object' && value !== null && value.type === 'VARIABLE' && value.name === '_') {
+              modifiedParams[key] = pipeValue;
+              hasPlaceholder = true;
+            } else if (typeof value === 'string' && value === '_') {
+              modifiedParams[key] = pipeValue;
+              hasPlaceholder = true;
+            } else {
+              modifiedParams[key] = value;
+            }
+          }
+
+          if (hasPlaceholder) {
+            const modifiedExpr = { ...funcExpr, params: modifiedParams };
+            return await executeFunctionCallFn(modifiedExpr);
+          } else {
+            // No placeholder, prepend piped value
+            const modifiedExpr = { ...funcExpr, params: { _0: pipeValue, ...funcExpr.params } };
+            return await executeFunctionCallFn(modifiedExpr);
+          }
         }
       } else if (expr.right.type === 'VARIABLE') {
         // Right side is just a function name (no arguments)
