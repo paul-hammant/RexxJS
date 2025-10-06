@@ -273,7 +273,6 @@ async function tryLoadFromUnpkg(moduleName, parentLibraryName, ctx) {
 
     ctx.registerLibraryFunctions(moduleName);
 
-    console.log(`✓ ${moduleName}@${version} loaded from unpkg`);
     return true;
 
   } catch (error) {
@@ -386,8 +385,7 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
       const rexxjsWrapper = wrapNodeJSModule(nodeModule, libraryName);
       global[libNamespace] = rexxjsWrapper;
       ctx.registerLibraryFunctions(libraryName);
-      
-      console.log(`✓ ${libraryName} loaded and wrapped from Node.js module`);
+
       return true;
 
       } catch (requireError) {
@@ -518,7 +516,6 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
                       const cachedPath = unpkgResolver.getCachedModulePath(moduleName, version);
 
                       if (cachedPath) {
-                        console.log(`✓ Using cached ${moduleName}@${version}`);
                         const result = require(cachedPath);
 
                         // Register globally
@@ -588,8 +585,7 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
         } catch (execError) {
           throw execError;
         }
-        
-        console.log(`✓ ${libraryName} loaded with scoped require`);
+
         return true;
       }
     }
@@ -660,15 +656,11 @@ async function extractDependencies(libraryName, ctx) {
 
   // PRIORITY 1: Runtime metadata (works with minified code)
   const detectionFunction = getLibraryDetectionFunction(actualLibraryName);
-  console.log(`🔍 Extracting dependencies for ${libraryName} (actual: ${actualLibraryName}), detection function: ${detectionFunction}`);
   const func = ctx.getGlobalFunction(detectionFunction, actualLibraryName);
-  console.log(`🔍 Got function: ${typeof func}`);
   if (func) {
     try {
       const info = func();
-      console.log(`🔍 Metadata:`, info);
       if (info && info.dependencies) {
-        console.log(`🔍 Dependencies found:`, info.dependencies);
         // Handle both array format and object format (package.json style)
         if (Array.isArray(info.dependencies)) {
           return info.dependencies;
@@ -716,8 +708,6 @@ async function extractDependencies(libraryName, ctx) {
     
     if (metaFunctionMatch) {
       const functionName = metaFunctionMatch[1];
-      console.log(`✓ Found metadata function ${functionName} for ${libraryName}`);
-      
       // The function will be available after library execution, dependency extraction happens later
       // For now, mark it as having function-based metadata
       ctx.libraryMetadataProviders = ctx.libraryMetadataProviders || new Map();
@@ -735,7 +725,6 @@ async function extractDependencies(libraryName, ctx) {
       try {
         const depData = JSON.parse(preservedMatch[1]);
         if (depData.dependencies) {
-          console.log(`✓ Found preserved comment dependencies for ${libraryName}`);
           return Object.keys(depData.dependencies);
         }
       } catch (error) {
@@ -751,7 +740,6 @@ async function extractDependencies(libraryName, ctx) {
       try {
         const jsonStr = jsonMatch[1].replace(/\*\s*/g, '').trim();
         const depData = JSON.parse(jsonStr);
-        console.log(`✓ Found JSON dependencies for ${libraryName}`);
         return Object.keys(depData.dependencies || {});
       } catch (error) {
         console.warn(`Failed to parse JSON dependencies for ${libraryName}: ${error.message}`);
@@ -766,13 +754,11 @@ async function extractDependencies(libraryName, ctx) {
     let match;
     while ((match = depPattern.exec(libraryCode)) !== null) {
       const deps = match[1].split(/[\s,]+/).filter(dep => dep.trim());
-      console.log(`✓ Found legacy @dependencies for ${libraryName}: ${deps.join(', ')}`);
       return deps;
     }
-    
+
     while ((match = requirePattern.exec(libraryCode)) !== null) {
       const deps = match[1].split(/[\s,]+/).filter(dep => dep.trim());
-      console.log(`✓ Found legacy @require for ${libraryName}: ${deps.join(', ')}`);
       return deps;
     }
   }

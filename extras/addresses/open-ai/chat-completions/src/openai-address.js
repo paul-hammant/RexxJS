@@ -60,19 +60,42 @@ function OPENAI_ADDRESS_MAIN() {
 
 // ADDRESS target handler function with REXX variable management
 async function ADDRESS_OPENAI_HANDLER(commandOrMethod, params, sourceContext) {
+  // Apply RexxJS variable interpolation
+  const variablePool = params || {};
+  const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
+  const interpolatedCommand = typeof commandOrMethod === 'string'
+    ? interpolate(commandOrMethod, variablePool)
+    : commandOrMethod;
+
+  // Handle STATUS command (no API key required, never throws exceptions)
+  if (typeof interpolatedCommand === 'string' &&
+      interpolatedCommand.trim().toUpperCase() === 'STATUS') {
+    const apiKey = getApiKey();
+    const messageCount = activeConversation ? activeConversation.messages.length : 0;
+    let statusMessage;
+
+    if (apiKey) {
+      statusMessage = `OpenAI ADDRESS ready (${messageCount} messages in conversation)`;
+    } else {
+      statusMessage = `OpenAI ADDRESS ready (${messageCount} messages in conversation) - OPENAI_API_KEY not set`;
+    }
+
+    return formatOpenAIResultForREXX({
+      operation: 'STATUS',
+      success: true,
+      apiKeyConfigured: !!apiKey,
+      hasActiveConversation: !!activeConversation,
+      messageCount: messageCount,
+      message: statusMessage
+    });
+  }
+
   try {
-    // Check API key availability
+    // Check API key availability for operations that need it
     const apiKey = getApiKey();
     if (!apiKey) {
       throw new Error('OpenAI ADDRESS library requires OPENAI_API_KEY environment variable');
     }
-
-    // Apply RexxJS variable interpolation
-    const variablePool = params || {};
-    const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
-    const interpolatedCommand = typeof commandOrMethod === 'string'
-      ? interpolate(commandOrMethod, variablePool)
-      : commandOrMethod;
 
     // Handle heredoc/multi-line key=value format (ADDRESS OPENAI <<LABEL)
     // Detect heredoc by checking for key=value pattern (single or multi-line)
@@ -97,7 +120,7 @@ async function ADDRESS_OPENAI_HANDLER(commandOrMethod, params, sourceContext) {
     }
 
     // Only heredoc format is supported
-    throw new Error('OpenAI ADDRESS only supports heredoc format (<<LABEL...LABEL) or CLOSE_CHAT command');
+    throw new Error('OpenAI ADDRESS only supports heredoc format (<<LABEL...LABEL), CLOSE_CHAT, or STATUS command');
 
   } catch (error) {
     const formattedError = formatOpenAIErrorForREXX(error);

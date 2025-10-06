@@ -64,19 +64,43 @@ function CLAUDE_ADDRESS_MAIN() {
 
 // ADDRESS target handler function with REXX variable management
 async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params, sourceContext) {
+  // Apply RexxJS variable interpolation
+  const variablePool = params || {};
+  const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
+  const interpolatedCommand = typeof commandOrMethod === 'string'
+    ? interpolate(commandOrMethod, variablePool)
+    : commandOrMethod;
+
+  // Handle STATUS command (no API key required, never throws exceptions)
+  if (typeof interpolatedCommand === 'string' &&
+      interpolatedCommand.trim().toUpperCase() === 'STATUS') {
+    const apiKey = getApiKey();
+    const messageCount = activeConversation ? activeConversation.messages.length : 0;
+    let statusMessage;
+
+    if (apiKey) {
+      statusMessage = `Claude ADDRESS ready (${messageCount} messages in conversation)`;
+    } else {
+      statusMessage = `Claude ADDRESS ready (${messageCount} messages in conversation) - ANTHROPIC_API_KEY not set`;
+    }
+
+    return formatClaudeResultForREXX({
+      operation: 'STATUS',
+      success: true,
+      apiKeyConfigured: !!apiKey,
+      hasActiveConversation: !!activeConversation,
+      messageCount: messageCount,
+      message: statusMessage
+    });
+  }
+
   try {
-    // Check API key availability
+
+    // Check API key availability for operations that need it
     const apiKey = getApiKey();
     if (!apiKey) {
       throw new Error('Claude ADDRESS library requires ANTHROPIC_API_KEY environment variable');
     }
-
-    // Apply RexxJS variable interpolation
-    const variablePool = params || {};
-    const interpolate = sourceContext && sourceContext.interpolation ? sourceContext.interpolation.interpolate : (str => str);
-    const interpolatedCommand = typeof commandOrMethod === 'string'
-      ? interpolate(commandOrMethod, variablePool)
-      : commandOrMethod;
 
     // Handle heredoc/multi-line key=value format (ADDRESS CLAUDE <<LABEL)
     // Detect heredoc by checking for key=value pattern (single or multi-line)
@@ -101,7 +125,7 @@ async function ADDRESS_CLAUDE_HANDLER(commandOrMethod, params, sourceContext) {
     }
 
     // Only heredoc format is supported
-    throw new Error('Claude ADDRESS only supports heredoc format (<<LABEL...LABEL) or CLOSE_CHAT command');
+    throw new Error('Claude ADDRESS only supports heredoc format (<<LABEL...LABEL), CLOSE_CHAT, or STATUS command');
 
   } catch (error) {
     const formattedError = formatClaudeErrorForREXX(error);
