@@ -110,8 +110,8 @@ describe('Classic Language Features', () => {
         EXIT
 
         add:
-          LET a = ARG.1
-          LET b = ARG.2
+          LET a = ARG(1)
+          LET b = ARG(2)
           LET result = (a * 1) + (b * 1)
           PUSH result
           RETURN

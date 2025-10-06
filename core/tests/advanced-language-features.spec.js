@@ -139,7 +139,7 @@ describe('Advanced Language Features', () => {
         EXIT
 
         process_command:
-          LET cmd = ARG.1
+          LET cmd = ARG(1)
           IF cmd = "go north" THEN
             LET location = "north_room"
           ELSE

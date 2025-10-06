@@ -137,17 +137,19 @@ describe('CALL with arguments and ARG statement', () => {
           ARG first, second
           LET firstSet = first
           LET secondSet = second
+          LET third = ARG(3)
+          LET fourth = ARG(4)
         RETURN
-        
+
         CALL TwoVars "one", "two", "three", "four"
       `;
-      
+
       await interpreter.run(parse(script));
       expect(interpreter.getVariable('first')).toBe('one');
       expect(interpreter.getVariable('second')).toBe('two');
-      // Extra arguments should be ignored but accessible via ARG.3, ARG.4
-      expect(interpreter.getVariable('ARG.3')).toBe('three');
-      expect(interpreter.getVariable('ARG.4')).toBe('four');
+      // Extra arguments should be accessible via ARG(3), ARG(4)
+      expect(interpreter.getVariable('third')).toBe('three');
+      expect(interpreter.getVariable('fourth')).toBe('four');
     });
 
     test('should handle more ARG variables than arguments', async () => {

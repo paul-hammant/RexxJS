@@ -217,9 +217,9 @@ EXIT
 
 -- Subroutine definition
 my_subroutine:
-  LET param1 = ARG.1    -- First argument (1-based)
-  LET param2 = ARG.2    -- Second argument
-  LET count = ARG.0     -- Argument count
+  LET param1 = ARG(1)   -- First argument (1-based)
+  LET param2 = ARG(2)   -- Second argument
+  LET count = ARG()     -- Argument count (idiomatic REXX)
   -- subroutine code here
   RETURN result_value
 ```
@@ -236,7 +236,7 @@ initialize:
   RETURN
 
 process_data:
-  LET filename = ARG.1
+  LET filename = ARG(1)
   LET status = "processed"
   RETURN status
 
@@ -245,27 +245,27 @@ CALL main_task "data"
 EXIT
 
 main_task:
-  LET data = ARG.1
+  LET data = ARG(1)
   CALL validate_data data
   CALL transform_data data
   RETURN
 
 validate_data:
-  LET input = ARG.1
+  LET input = ARG(1)
   LET valid = "yes"
   RETURN
 
 transform_data:
-  LET input = ARG.1
+  LET input = ARG(1)
   LET transformed = "processed"
   RETURN
 ```
 
-**Argument Access:**
-- **ARG.0** - Number of arguments passed
-- **ARG.1** - First argument (1-based indexing)
-- **ARG.2** - Second argument
-- **ARG.n** - nth argument
+**Argument Access (Idiomatic REXX):**
+- **ARG()** - Number of arguments passed (classic REXX function)
+- **ARG(n)** - Get the nth argument (1-based indexing)
+- **ARG(n, 'E')** - Check if nth argument exists (returns 1 or 0)
+- **ARG(n, 'O')** - Check if nth argument was omitted (returns 1 or 0)
 
 #### TRACE Statement - Execution Debugging
 ```rexx

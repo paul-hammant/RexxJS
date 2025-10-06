@@ -26,8 +26,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
   describe('Basic PARSE ARG functionality', () => {
     it('should parse single argument', async () => {
       // Set up command line arguments
-      interpreter.variables.set('ARG.0', '1');
-      interpreter.variables.set('ARG.1', 'hello');
+      interpreter.argv = ['hello'];
 
       const script = `
         PARSE ARG first_arg
@@ -41,10 +40,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should parse multiple arguments', async () => {
-      interpreter.variables.set('ARG.0', '3');
-      interpreter.variables.set('ARG.1', 'arg1');
-      interpreter.variables.set('ARG.2', 'arg2');
-      interpreter.variables.set('ARG.3', 'arg3');
+      interpreter.argv = ['arg1', 'arg2', 'arg3'];
 
       const script = `
         PARSE ARG first second third
@@ -59,7 +55,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should handle empty arguments', async () => {
-      interpreter.variables.set('ARG.0', '0');
+      interpreter.argv = [];
 
       const script = `
         PARSE ARG arg1 arg2 arg3
@@ -74,9 +70,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should handle more variables than arguments', async () => {
-      interpreter.variables.set('ARG.0', '2');
-      interpreter.variables.set('ARG.1', 'first');
-      interpreter.variables.set('ARG.2', 'second');
+      interpreter.argv = ['first', 'second'];
 
       const script = `
         PARSE ARG a b c d e
@@ -93,12 +87,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should handle fewer variables than arguments', async () => {
-      interpreter.variables.set('ARG.0', '5');
-      interpreter.variables.set('ARG.1', 'arg1');
-      interpreter.variables.set('ARG.2', 'arg2');
-      interpreter.variables.set('ARG.3', 'arg3');
-      interpreter.variables.set('ARG.4', 'arg4');
-      interpreter.variables.set('ARG.5', 'arg5');
+      interpreter.argv = ['arg1', 'arg2', 'arg3', 'arg4', 'arg5'];
 
       const script = `
         PARSE ARG first second
@@ -114,11 +103,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
   describe('PARSE ARG with rest variable (dot notation)', () => {
     it('should capture remaining arguments with dot', async () => {
-      interpreter.variables.set('ARG.0', '4');
-      interpreter.variables.set('ARG.1', 'first');
-      interpreter.variables.set('ARG.2', 'second');
-      interpreter.variables.set('ARG.3', 'third');
-      interpreter.variables.set('ARG.4', 'fourth');
+      interpreter.argv = ['first', 'second', 'third', 'fourth'];
 
       const script = `
         PARSE ARG first_arg rest_args .
@@ -134,14 +119,12 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
   describe('PARSE ARG in subroutines', () => {
     it('should work correctly in CALL subroutines', async () => {
-      interpreter.variables.set('ARG.0', '2');
-      interpreter.variables.set('ARG.1', 'main_arg1');
-      interpreter.variables.set('ARG.2', 'main_arg2');
+      interpreter.argv = ['main_arg1', 'main_arg2'];
 
       const script = `
         PARSE ARG main_first main_second
         CALL TestSub "sub_arg1" "sub_arg2"
-        
+
         TestSub:
           PARSE ARG sub_first sub_second
           SAY "Sub args: " || sub_first || " " || sub_second
@@ -154,7 +137,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
       // Main args should be preserved
       expect(interpreter.getVariable('main_first')).toBe('main_arg1');
       expect(interpreter.getVariable('main_second')).toBe('main_arg2');
-      
+
       // Sub args should be set from CALL parameters
       expect(interpreter.getVariable('sub_first')).toBe('sub_arg1');
       expect(interpreter.getVariable('sub_second')).toBe('sub_arg2');
@@ -163,9 +146,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
   describe('PARSE ARG with special characters and spaces', () => {
     it('should handle arguments with spaces', async () => {
-      interpreter.variables.set('ARG.0', '2');
-      interpreter.variables.set('ARG.1', 'hello world');
-      interpreter.variables.set('ARG.2', 'test phrase');
+      interpreter.argv = ['hello world', 'test phrase'];
 
       const script = `
         PARSE ARG phrase1 phrase2
@@ -179,10 +160,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should handle arguments with special characters', async () => {
-      interpreter.variables.set('ARG.0', '3');
-      interpreter.variables.set('ARG.1', 'test@example.com');
-      interpreter.variables.set('ARG.2', '$100.50');
-      interpreter.variables.set('ARG.3', 'path/to/file');
+      interpreter.argv = ['test@example.com', '$100.50', 'path/to/file'];
 
       const script = `
         PARSE ARG email amount path
@@ -197,10 +175,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should handle empty string arguments', async () => {
-      interpreter.variables.set('ARG.0', '3');
-      interpreter.variables.set('ARG.1', '');
-      interpreter.variables.set('ARG.2', 'middle');
-      interpreter.variables.set('ARG.3', '');
+      interpreter.argv = ['', 'middle', ''];
 
       const script = `
         PARSE ARG empty1 middle empty2
@@ -217,11 +192,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
   describe('PARSE ARG with numeric arguments', () => {
     it('should handle numeric arguments as strings', async () => {
-      interpreter.variables.set('ARG.0', '4');
-      interpreter.variables.set('ARG.1', '42');
-      interpreter.variables.set('ARG.2', '3.14159');
-      interpreter.variables.set('ARG.3', '-10');
-      interpreter.variables.set('ARG.4', '0');
+      interpreter.argv = ['42', '3.14159', '-10', '0'];
 
       const script = `
         PARSE ARG int_arg float_arg neg_arg zero_arg
@@ -237,9 +208,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should allow numeric arguments to be used in arithmetic', async () => {
-      interpreter.variables.set('ARG.0', '2');
-      interpreter.variables.set('ARG.1', '10');
-      interpreter.variables.set('ARG.2', '5');
+      interpreter.argv = ['10', '5'];
 
       const script = `
         PARSE ARG num1 num2
@@ -257,12 +226,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
   describe('PARSE ARG edge cases', () => {
     it('should handle single character arguments', async () => {
-      interpreter.variables.set('ARG.0', '5');
-      interpreter.variables.set('ARG.1', 'a');
-      interpreter.variables.set('ARG.2', 'b');
-      interpreter.variables.set('ARG.3', 'c');
-      interpreter.variables.set('ARG.4', 'd');
-      interpreter.variables.set('ARG.5', 'e');
+      interpreter.argv = ['a', 'b', 'c', 'd', 'e'];
 
       const script = `
         PARSE ARG a b c d e
@@ -280,8 +244,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
     it('should handle very long arguments', async () => {
       const longArg = 'a'.repeat(1000);
-      interpreter.variables.set('ARG.0', '1');
-      interpreter.variables.set('ARG.1', longArg);
+      interpreter.argv = [longArg];
 
       const script = `
         PARSE ARG long_argument
@@ -295,10 +258,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should handle arguments with quotes', async () => {
-      interpreter.variables.set('ARG.0', '3');
-      interpreter.variables.set('ARG.1', '"quoted"');
-      interpreter.variables.set('ARG.2', "'single'");
-      interpreter.variables.set('ARG.3', 'mixed"quote\'test');
+      interpreter.argv = ['"quoted"', "'single'", 'mixed"quote\'test'];
 
       const script = `
         PARSE ARG double_quoted single_quoted mixed_quotes
@@ -315,8 +275,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
   describe('PARSE ARG with conditional logic', () => {
     it('should work in IF statements', async () => {
-      interpreter.variables.set('ARG.0', '1');
-      interpreter.variables.set('ARG.1', 'test');
+      interpreter.argv = ['test'];
 
       const script = `
         PARSE ARG mode
@@ -334,8 +293,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should work with LENGTH function', async () => {
-      interpreter.variables.set('ARG.0', '1');
-      interpreter.variables.set('ARG.1', 'hello');
+      interpreter.argv = ['hello'];
 
       const script = `
         PARSE ARG input
@@ -355,9 +313,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
 
   describe('PARSE ARG integration with string operations', () => {
     it('should work with string concatenation', async () => {
-      interpreter.variables.set('ARG.0', '2');
-      interpreter.variables.set('ARG.1', 'Hello');
-      interpreter.variables.set('ARG.2', 'World');
+      interpreter.argv = ['Hello', 'World'];
 
       const script = `
         PARSE ARG greeting target
@@ -371,8 +327,7 @@ describe('PARSE ARG Comprehensive Tests', () => {
     });
 
     it('should work with string functions', async () => {
-      interpreter.variables.set('ARG.0', '1');
-      interpreter.variables.set('ARG.1', 'hello world');
+      interpreter.argv = ['hello world'];
 
       const script = `
         PARSE ARG input

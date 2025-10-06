@@ -32,7 +32,7 @@ print_error() {
 # Function to show help
 show_help() {
     echo "RexxJS Script Runner"
-    echo "Usage: $0 <script.rexx> [options]"
+    echo "Usage: $0 <script.rexx> [options] [-- script-args...]"
     echo ""
     echo "This script runs REXX files locally using Node.js and the RexxJS interpreter."
     echo "External services (DOM, file system, RPC) are mocked for local execution."
@@ -41,11 +41,14 @@ show_help() {
     echo "  --help, -h        Show this help message"
     echo "  --verbose, -v     Show verbose output"
     echo "  --node-args ARGS  Pass additional arguments to Node.js"
+    echo "  --                Everything after -- is passed to the REXX script as ARG(1), ARG(2), etc."
     echo ""
     echo "Examples:"
     echo "  $0 tests/scripts/simple-command.rexx"
     echo "  $0 my-script.rexx --verbose"
     echo "  $0 script.rexx --node-args '--max-old-space-size=4096'"
+    echo "  $0 script.rexx -- arg1 arg2 arg3          # Pass arguments to script"
+    echo "  $0 script.rexx --verbose -- hello world   # Verbose mode + script args"
     echo ""
     echo "Available test scripts:"
     echo "  tests/scripts/simple-command.rexx      - Basic command execution"
@@ -74,6 +77,7 @@ fi
 SCRIPT_FILE=""
 NODE_ARGS=""
 CLI_ARGS=""
+SCRIPT_ARGS=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -88,6 +92,12 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             show_help
             exit 0
+            ;;
+        --)
+            # Everything after -- is passed to the script
+            shift
+            SCRIPT_ARGS="$@"
+            break
             ;;
         -*)
             print_error "Unknown option: $1"
@@ -162,7 +172,7 @@ echo ""
 
 # Execute the script
 if [ -n "$NODE_ARGS" ]; then
-    exec node $NODE_ARGS "$SCRIPT_DIR/src/cli.js" "$SCRIPT_FILE" $CLI_ARGS
+    exec node $NODE_ARGS "$SCRIPT_DIR/src/cli.js" "$SCRIPT_FILE" $CLI_ARGS $SCRIPT_ARGS
 else
-    exec node "$SCRIPT_DIR/src/cli.js" "$SCRIPT_FILE" $CLI_ARGS
+    exec node "$SCRIPT_DIR/src/cli.js" "$SCRIPT_FILE" $CLI_ARGS $SCRIPT_ARGS
 fi

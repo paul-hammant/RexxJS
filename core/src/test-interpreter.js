@@ -18,12 +18,9 @@ class TestRexxInterpreter extends RexxInterpreter {
     
     // Store test runner options
     this.testOptions = options;
-    
-    // Set up command line arguments for PARSE ARG
-    this.variables.set('ARG.0', commandLineArgs.length.toString());
-    for (let i = 0; i < commandLineArgs.length; i++) {
-      this.variables.set(`ARG.${i + 1}`, commandLineArgs[i]);
-    }
+
+    // Set up command line arguments - stored as array for ARG() and PARSE ARG
+    this.argv = commandLineArgs;
     
     // Test state tracking
     this.testResults = {

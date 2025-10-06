@@ -36,9 +36,10 @@
  * @param {Map} variables - Variables map
  * @param {Function} evaluateExpressionFn - Function to evaluate expressions
  * @param {Function} parseTemplateFn - Function to parse templates
+ * @param {Array} argv - Command line arguments array (for PARSE ARG)
  * @returns {void}
  */
-async function executeParse(command, variables, evaluateExpressionFn, parseTemplateFn) {
+async function executeParse(command, variables, evaluateExpressionFn, parseTemplateFn, argv = []) {
   const { source, input, template } = command;
   
   // Get the input string based on source type
@@ -56,17 +57,16 @@ async function executeParse(command, variables, evaluateExpressionFn, parseTempl
       }
       break;
     case 'ARG':
-      // ARG statement: parse arguments from ARG.1, ARG.2, etc.
+      // ARG statement: parse arguments from argv array
       // For ARG, bypass parseTemplate and assign directly to template variables
-      const argCount = variables.get('ARG.0') || 0;
-      
+
       // Parse template to get variable names (split by spaces or comma and trim)
       const varNames = template.split(/[,\s]+/).map(name => name.trim()).filter(name => name);
-      
-      // Assign each ARG.n to corresponding template variable
+
+      // Assign each argv[i] to corresponding template variable
       for (let i = 0; i < varNames.length; i++) {
         const varName = varNames[i];
-        const argValue = variables.get(`ARG.${i + 1}`) || '';
+        const argValue = argv[i] !== undefined ? argv[i] : '';
         variables.set(varName, argValue);
       }
       return; // Skip normal parseTemplate processing
@@ -237,9 +237,9 @@ function discoverSubroutines(commands, subroutines) {
  * @param {*} currentReturnValue - Current return value from interpreter
  * @returns {Object} Execution result with terminated flag and returnValue
  */
-async function executeCall(command, variables, subroutines, callStack, evaluateExpressionFn, 
+async function executeCall(command, variables, subroutines, callStack, evaluateExpressionFn,
                           pushExecutionContextFn, popExecutionContextFn, getCurrentExecutionContextFn,
-                          executeCommandsFn, isExternalScriptCallFn, executeExternalScriptFn, sourceFilename, currentReturnValue, builtInFunctions, callConvertParamsToArgsFn) {
+                          executeCommandsFn, isExternalScriptCallFn, executeExternalScriptFn, sourceFilename, currentReturnValue, builtInFunctions, callConvertParamsToArgsFn, argv) {
   const { subroutine, arguments: args, isVariableCall } = command;
   
   // Push subroutine call context onto execution stack immediately
@@ -327,10 +327,11 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
       throw new Error(`Subroutine '${actualSubroutineName}' not found`);
     }
     
-    // Set up arguments as ARG.1, ARG.2, etc. and individual variables
+    // Evaluate and populate argv array for subroutine
+    const evaluatedArgs = [];
     for (let i = 0; i < args.length; i++) {
       let argValue;
-    
+
     // Evaluate argument value
     if (typeof args[i] === 'string') {
       if ((args[i].startsWith('"') && args[i].endsWith('"')) ||
@@ -342,13 +343,15 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
     } else {
       argValue = evaluateExpressionFn(args[i]);
     }
-    
-    // Set ARG.n variables (1-based indexing) - preserve type
-    variables.set(`ARG.${i + 1}`, argValue);
+
+    evaluatedArgs.push(argValue);
   }
-  
-  // Set ARG.0 to argument count
-  variables.set('ARG.0', args.length);
+
+  // Update argv array for subroutine arguments
+  if (argv) {
+    argv.length = 0; // Clear existing array
+    argv.push(...evaluatedArgs); // Populate with new arguments
+  }
   
   // Push call context for tracking (variables are shared in REXX)
   callStack.push({

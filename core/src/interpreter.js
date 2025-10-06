@@ -512,6 +512,7 @@ class RexxInterpreter {
     
     this.address = 'default';  // Default namespace
     this.variables = new Map();
+    this.argv = []; // Command-line arguments as array (cleaner than ARG.1, ARG.2, etc.)
     this.builtInFunctions = this.initializeBuiltInFunctions();
     this.externalFunctions = {}; // Functions from REQUIRE'd libraries
 
@@ -1553,7 +1554,7 @@ class RexxInterpreter {
             .filter(name => {
               if (name.length === 0) return false;
               if (patternStr === null || patternStr === '') return true;
-              
+
               // Check if pattern contains regex metacharacters
               const regexChars = /[.*+?^${}()|[\]\\]/;
               if (regexChars.test(patternStr)) {
@@ -1572,7 +1573,53 @@ class RexxInterpreter {
             });
         return results;
       },
-      
+
+      // ARG function - Classic REXX argument access
+      // Usage:
+      //   ARG()     - returns the count of arguments
+      //   ARG(n)    - returns the nth argument (empty string if not found)
+      //   ARG(n, 'E') - returns 1 if nth argument exists, 0 otherwise
+      //   ARG(n, 'O') - returns 1 if nth argument was omitted, 0 otherwise
+      'ARG': (index = null, option = null) => {
+        // ARG() with no arguments returns argument count
+        if (index === null || index === undefined) {
+          return this.argv.length;
+        }
+
+        // Convert index to number (1-based indexing)
+        const n = typeof index === 'number' ? index : parseInt(String(index), 10);
+
+        if (isNaN(n) || n < 1) {
+          throw new Error(`ARG: Invalid argument index '${index}' (must be positive integer)`);
+        }
+
+        // Get the argument value from argv array (convert 1-based to 0-based)
+        const argValue = this.argv[n - 1];
+
+        // ARG(n) - return argument value (empty string if not found)
+        if (option === null || option === undefined) {
+          return argValue !== undefined ? argValue : '';
+        }
+
+        // ARG(n, option) - check existence or omission
+        const optionStr = String(option).trim().toUpperCase();
+
+        if (optionStr === 'E') {
+          // 'E' option: returns 1 if argument exists, 0 otherwise
+          return argValue !== undefined ? 1 : 0;
+        } else if (optionStr === 'O') {
+          // 'O' option: returns 1 if argument was omitted (exists but empty), 0 otherwise
+          // In REXX, an omitted argument is one that exists in position but has no value
+          // For now, we consider an argument omitted if it's an empty string
+          if (argValue === undefined) {
+            return 0; // Argument doesn't exist at all
+          }
+          return argValue === '' ? 1 : 0;
+        } else {
+          throw new Error(`ARG: Invalid option '${option}' (must be 'E' or 'O')`);
+        }
+      },
+
     };
   }
   
@@ -1818,7 +1865,7 @@ class RexxInterpreter {
           break;
           
         case 'PARSE':
-          await parseSubroutineUtils.executeParse(command, this.variables, this.evaluateExpression.bind(this), parseSubroutineUtils.parseTemplate);
+          await parseSubroutineUtils.executeParse(command, this.variables, this.evaluateExpression.bind(this), parseSubroutineUtils.parseTemplate, this.argv);
           break;
           
         case 'PUSH':
@@ -1836,10 +1883,10 @@ class RexxInterpreter {
         case 'CALL':
           this.addTraceOutput(`CALL ${command.subroutine} (${command.arguments.length} args)`, 'call');
           const callResult = await parseSubroutineUtils.executeCall(
-            command, 
-            this.variables, 
-            this.subroutines, 
-            this.callStack, 
+            command,
+            this.variables,
+            this.subroutines,
+            this.callStack,
             this.evaluateExpression.bind(this),
             this.pushExecutionContext.bind(this),
             this.popExecutionContext.bind(this),
@@ -1850,7 +1897,8 @@ class RexxInterpreter {
             this.sourceFilename,
             this.returnValue,
             this.builtInFunctions,
-            callConvertParamsToArgs
+            callConvertParamsToArgs,
+            this.argv  // Pass argv array reference for efficient argument storage
           );
           if (callResult && callResult.terminated) {
             return callResult;
@@ -1878,10 +1926,10 @@ class RexxInterpreter {
             if (command.command.type === 'CALL') {
               // Execute the CALL and get its return value
               const result = await parseSubroutineUtils.executeCall(
-                command.command, 
-                this.variables, 
-                this.subroutines, 
-                this.callStack, 
+                command.command,
+                this.variables,
+                this.subroutines,
+                this.callStack,
                 this.evaluateExpression.bind(this),
                 this.pushExecutionContext.bind(this),
                 this.popExecutionContext.bind(this),
@@ -1892,7 +1940,8 @@ class RexxInterpreter {
                 this.sourceFilename,
                 this.returnValue,
                 this.builtInFunctions,
-                callConvertParamsToArgs
+                callConvertParamsToArgs,
+                this.argv  // Pass argv array reference for efficient argument storage
               );
               const variableName = await this.interpolateString(command.variable);
               
@@ -4886,15 +4935,9 @@ class RexxInterpreter {
       externalInterpreter.traceEnabled = this.traceEnabled;
       externalInterpreter.variables.set('__PARENT_SCRIPT__', true);
 
-      // Pass arguments to the external script as ARG.1, ARG.2, etc.
+      // Pass arguments to the external script
       // Note: args are already evaluated by the caller (interpreter-parse-subroutine.js)
-      for (let i = 0; i < args.length; i++) {
-        // Arguments are already evaluated, just use them directly
-        externalInterpreter.variables.set(`ARG.${i + 1}`, args[i]);
-      }
-
-      // Set ARG.0 to argument count
-      externalInterpreter.variables.set('ARG.0', args.length);
+      externalInterpreter.argv = args;
 
       // Execute the external script
       const result = await externalInterpreter.run(commands);

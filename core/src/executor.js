@@ -44,11 +44,8 @@ async function executeScript(scriptContent, rpcClient, args = [], scriptPath = n
     ? new RexxInterpreter(rpcClient, {}, outputHandler)
     : new RexxInterpreter(rpcClient);
 
-  // Set up command line arguments for PARSE ARG
-  interpreter.variables.set('ARG.0', args.length.toString());
-  for (let i = 0; i < args.length; i++) {
-    interpreter.variables.set(`ARG.${i + 1}`, args[i]);
-  }
+  // Set up command line arguments - stored as array for ARG() and PARSE ARG
+  interpreter.argv = args;
 
   // Pass scriptPath to run() as sourceFilename for path resolution
   await interpreter.run(commands, null, scriptPath);
