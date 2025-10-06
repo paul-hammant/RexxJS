@@ -224,39 +224,117 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
       
       return await resolveValueFn(varName);
       
+    case 'PIPE_OP':
+      // Pipe operator: left |> right
+      // Evaluates left side and passes it as first argument to right side function
+      const pipeValue = await evaluateExpression(expr.left, resolveValueFn, variableGetFn, variableHasFn, interpolateStringFn, evaluateConcatenationFn, executeFunctionCallFn, isLikelyFunctionNameFn, isBuiltinFunctionFn, getBuiltinFunctionFn, callConvertParamsToArgsFn, isNumericStringFn);
+
+      // Right side should be a function call or function name
+      if (expr.right.type === 'FUNCTION_CALL') {
+        // Right side is already a function call, prepend pipeValue to arguments
+        const funcExpr = expr.right;
+        const method = funcExpr.command.toUpperCase();
+
+        if (isBuiltinFunctionFn(method)) {
+          const resolvedParams = {};
+          for (const [key, value] of Object.entries(funcExpr.params)) {
+            resolvedParams[key] = await resolveValueFn(value);
+          }
+          const builtInFunc = getBuiltinFunctionFn(method);
+          const args = callConvertParamsToArgsFn(method, resolvedParams);
+          // Prepend piped value as first argument
+          return await builtInFunc(pipeValue, ...args);
+        } else {
+          // RPC function call - prepend piped value
+          const modifiedExpr = { ...funcExpr, params: { _0: pipeValue, ...funcExpr.params } };
+          return await executeFunctionCallFn(modifiedExpr);
+        }
+      } else if (expr.right.type === 'VARIABLE') {
+        // Right side is just a function name (no arguments)
+        const funcName = expr.right.name.toUpperCase();
+
+        if (isBuiltinFunctionFn(funcName)) {
+          const builtInFunc = getBuiltinFunctionFn(funcName);
+          return await builtInFunc(pipeValue);
+        } else {
+          // RPC function call with just the piped value
+          const funcExpr = { type: 'FUNCTION_CALL', command: funcName, params: { _0: pipeValue } };
+          return await executeFunctionCallFn(funcExpr);
+        }
+      } else {
+        throw new Error(`Pipe operator |> expects a function on the right side, but got ${expr.right.type}`);
+      }
+
     case 'BINARY_OP':
       const leftValue = await evaluateExpression(expr.left, resolveValueFn, variableGetFn, variableHasFn, interpolateStringFn, evaluateConcatenationFn, executeFunctionCallFn, isLikelyFunctionNameFn, isBuiltinFunctionFn, getBuiltinFunctionFn, callConvertParamsToArgsFn, isNumericStringFn);
       const rightValue = await evaluateExpression(expr.right, resolveValueFn, variableGetFn, variableHasFn, interpolateStringFn, evaluateConcatenationFn, executeFunctionCallFn, isLikelyFunctionNameFn, isBuiltinFunctionFn, getBuiltinFunctionFn, callConvertParamsToArgsFn, isNumericStringFn);
       
       switch (expr.operator) {
         case '+':
-          // In REXX, + should perform numeric addition when both operands are numeric
-          // but fall back to JavaScript's default behavior for mixed types
-          if (isNumericStringFn(leftValue) && isNumericStringFn(rightValue)) {
-            const leftNum = typeof leftValue === 'number' ? leftValue : parseFloat(leftValue);
-            const rightNum = typeof rightValue === 'number' ? rightValue : parseFloat(rightValue);
-            return leftNum + rightNum;
-          } else {
-            // Let JavaScript handle string concatenation for non-numeric cases
-            return leftValue + rightValue;
+          // In REXX, + always performs numeric addition (with automatic coercion of numeric strings)
+          if (!isNumericStringFn(leftValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${leftValue}' is not a valid number`);
           }
+          if (!isNumericStringFn(rightValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${rightValue}' is not a valid number`);
+          }
+          const leftNum = typeof leftValue === 'number' ? leftValue : parseFloat(leftValue);
+          const rightNum = typeof rightValue === 'number' ? rightValue : parseFloat(rightValue);
+          return leftNum + rightNum;
         case '-':
-          return leftValue - rightValue;
+          if (!isNumericStringFn(leftValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${leftValue}' is not a valid number`);
+          }
+          if (!isNumericStringFn(rightValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${rightValue}' is not a valid number`);
+          }
+          return (typeof leftValue === 'number' ? leftValue : parseFloat(leftValue)) -
+                 (typeof rightValue === 'number' ? rightValue : parseFloat(rightValue));
         case '*':
-          return leftValue * rightValue;
+          if (!isNumericStringFn(leftValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${leftValue}' is not a valid number`);
+          }
+          if (!isNumericStringFn(rightValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${rightValue}' is not a valid number`);
+          }
+          return (typeof leftValue === 'number' ? leftValue : parseFloat(leftValue)) *
+                 (typeof rightValue === 'number' ? rightValue : parseFloat(rightValue));
         case '/':
-          if (rightValue === 0) {
+          if (!isNumericStringFn(leftValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${leftValue}' is not a valid number`);
+          }
+          if (!isNumericStringFn(rightValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${rightValue}' is not a valid number`);
+          }
+          const divisor = typeof rightValue === 'number' ? rightValue : parseFloat(rightValue);
+          if (divisor === 0) {
             throw new Error('Division by zero');
           }
-          return leftValue / rightValue;
+          return (typeof leftValue === 'number' ? leftValue : parseFloat(leftValue)) / divisor;
         case '//':
         case '%':
-          if (rightValue === 0) {
+          if (!isNumericStringFn(leftValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${leftValue}' is not a valid number`);
+          }
+          if (!isNumericStringFn(rightValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${rightValue}' is not a valid number`);
+          }
+          const modDivisor = typeof rightValue === 'number' ? rightValue : parseFloat(rightValue);
+          if (modDivisor === 0) {
             throw new Error('Division by zero in modulo operation');
           }
-          return leftValue % rightValue;
+          return (typeof leftValue === 'number' ? leftValue : parseFloat(leftValue)) % modDivisor;
         case '**':
-          return Math.pow(leftValue, rightValue);
+          if (!isNumericStringFn(leftValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${leftValue}' is not a valid number`);
+          }
+          if (!isNumericStringFn(rightValue)) {
+            throw new Error(`Non-numeric value in arithmetic: '${rightValue}' is not a valid number`);
+          }
+          return Math.pow(
+            typeof leftValue === 'number' ? leftValue : parseFloat(leftValue),
+            typeof rightValue === 'number' ? rightValue : parseFloat(rightValue)
+          );
         default:
           throw new Error(`Unknown operator: ${expr.operator}`);
       }

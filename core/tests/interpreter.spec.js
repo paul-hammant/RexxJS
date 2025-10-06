@@ -2676,10 +2676,10 @@ describe('Rexx-lite Interpreter', () => {
           LET username = "admin"
           LET password = "secret123"
           LET colon = ":"
-          LET credentials = username + colon + password
+          LET credentials = username || colon || password
           LET encoded = BASE64_ENCODE string=credentials
           LET prefix = "Basic "
-          LET authHeader = prefix + encoded
+          LET authHeader = prefix || encoded
           ADDRESS kitchen
           prepareDish name=authHeader servings=1
         `;
@@ -2702,7 +2702,7 @@ describe('Rexx-lite Interpreter', () => {
           LET encoded = URL_ENCODE string=searchTerm
           LET queryStart = "?q="
           LET queryEnd = "&limit=10"
-          LET fullUrl = baseUrl + queryStart + encoded + queryEnd
+          LET fullUrl = baseUrl || queryStart || encoded || queryEnd
           LET parsed = URL_PARSE url=fullUrl
           ADDRESS kitchen
           prepareDish name=parsed.search servings=1
@@ -2980,7 +2980,7 @@ describe('Rexx-lite Interpreter', () => {
           LET requestId = NANOID length=12
           LET timestamp = NOW
           LET logPrefix = "Session: "
-          LET logEntry = logPrefix + sessionId
+          LET logEntry = logPrefix || sessionId
           ADDRESS kitchen
           prepareDish name="Tracking" note=logEntry servings=1
         `;

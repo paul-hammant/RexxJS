@@ -26,17 +26,17 @@
  * SOFTWARE.
  */
 
-// Helper function to remove block comments while preserving strings
+// Helper function to remove comments while preserving strings
 function removeCommentsPreservingStrings(line) {
   let result = '';
   let inString = false;
   let stringChar = null;
   let i = 0;
-  
+
   while (i < line.length) {
     const char = line[i];
     const nextChar = line[i + 1];
-    
+
     // Check for string delimiters
     if (!inString && (char === '"' || char === "'")) {
       inString = true;
@@ -62,12 +62,18 @@ function removeCommentsPreservingStrings(line) {
         // Comment doesn't end on this line, remove rest of line
         break;
       }
+    } else if (!inString && char === '/' && nextChar === '/') {
+      // Found inline // comment - remove rest of line
+      break;
+    } else if (!inString && char === '-' && nextChar === '-') {
+      // Found inline -- comment - remove rest of line
+      break;
     } else {
       result += char;
     }
     i++;
   }
-  
+
   return result;
 }
 
@@ -94,17 +100,16 @@ function parse(scriptText) {
 
 function tokenize(lines) {
   const tokens = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim();
-    
+
     if (!line || line.startsWith('--') || line.startsWith('//')) {
       continue;
     }
-    
-    // Handle block comments /* ... */ (single line initially)
-    if (line.includes('/*')) {
-      // Remove /* ... */ comments from the line, but preserve content inside strings
+
+    // Remove all comments (/* */, //, --) while preserving content inside strings
+    if (line.includes('/*') || line.includes('//') || line.includes('--')) {
       line = removeCommentsPreservingStrings(line);
       // If line becomes empty after removing comments, skip it
       if (!line.trim()) {
@@ -112,7 +117,7 @@ function tokenize(lines) {
       }
       line = line.trim();
     }
-    
+
     // Skip lines that start with /* (standalone block comment lines)
     if (line.startsWith('/*')) {
       continue;
@@ -625,7 +630,7 @@ function parseStatement(tokens, startIndex) {
   if (letMatch) {
     const variableName = letMatch[1];
     const expression = letMatch[2];
-    
+
     // Check for LHS bracket syntax and reject it
     if (variableName.includes('[') && variableName.includes(']')) {
       const bracketMatch = variableName.match(/^([^[]+)\[([^\]]+)\]$/);
@@ -759,7 +764,28 @@ function parseStatement(tokens, startIndex) {
     }
 
     // Check if it's a concatenation expression with || FIRST
-    if (expression.includes('||')) {
+    // But only if the || is not inside quoted strings
+    const hasUnquotedPipe = (() => {
+      let inQuotes = false;
+      let quoteChar = '';
+      for (let i = 0; i < expression.length - 1; i++) {
+        const char = expression[i];
+        const nextChar = expression[i + 1];
+
+        if ((char === '"' || char === "'") && !inQuotes) {
+          inQuotes = true;
+          quoteChar = char;
+        } else if (char === quoteChar && inQuotes) {
+          inQuotes = false;
+          quoteChar = '';
+        } else if (!inQuotes && char === '|' && nextChar === '|') {
+          return true;
+        }
+      }
+      return false;
+    })();
+
+    if (hasUnquotedPipe) {
       return {
         command: addLineNumber({
           type: 'ASSIGNMENT',
@@ -825,9 +851,7 @@ function parseStatement(tokens, startIndex) {
     // Try parsing as mathematical expression FIRST (if it has operators, numbers, or variables)
     // This takes precedence over function calls to handle expressions like "LENGTH(x) + 3"
     const expr = parseExpression(expression);
-    
-    // Debug logging removed
-    
+
     if (expr !== null) {
       return {
         command: addLineNumber({
@@ -1414,10 +1438,8 @@ function parseFunctionCall(line) {
   if (line.match(/^[a-zA-Z_]\w*\.\w+$/)) {
     return null;
   }
-  
-  // Debug logging removed
-  
-  const parts = line.match(/([a-zA-Z_]\w*)\s*(.*)/);
+
+  const parts = line.match(/^([a-zA-Z_]\w*)\s*(.*)/);
   if (!parts) return null;
 
   const command = parts[1];
@@ -1705,9 +1727,8 @@ function parseExpression(exprStr) {
   }
 
   // First check if this looks like a mathematical expression (contains operators or parentheses)
-  if (expr.match(/[+\-*/%()]|\*\*|\|\|/)) {
-    // Parse as mathematical expression (which can contain function calls and concatenation)
-    // Debug logging removed
+  if (expr.match(/[+\-*/%()]|\*\*|\|\||\|>/)) {
+    // Parse as mathematical expression (which can contain function calls, concatenation, and piping)
     return parseArithmeticExpression(expr);
   }
   
@@ -1805,7 +1826,7 @@ function parseArithmeticExpression(expr) {
   try {
     // Remove spaces while preserving spaces inside quoted strings
     const cleanedExpr = removeSpacesExceptInQuotes(expr);
-    const result = parseAddition(cleanedExpr);
+    const result = parsePipe(cleanedExpr);
     
     if (result && result.remaining && result.remaining.length > 0) {
       // Unexpected remaining characters
@@ -1821,7 +1842,28 @@ function parseArithmeticExpression(expr) {
 }
 
 // Recursive descent parser for mathematical expressions
-// Handles operator precedence: () > * / > + -
+// Handles operator precedence: () > * / > + - > |>
+
+function parsePipe(expr) {
+  let result = parseAddition(expr);
+  let remaining = result.remaining;
+
+  while (remaining.length > 0 && remaining.substring(0, 2) === '|>') {
+    const rightResult = parseAddition(remaining.substring(2));
+
+    result = {
+      expr: {
+        type: 'PIPE_OP',
+        left: result.expr,
+        right: rightResult.expr
+      },
+      remaining: rightResult.remaining
+    };
+    remaining = rightResult.remaining;
+  }
+
+  return result;
+}
 
 function parseAddition(expr) {
   let result = parseMultiplication(expr);
@@ -1910,6 +1952,31 @@ function parseFactor(expr) {
     };
   }
   
+  // Handle quoted string literals
+  if (expr[0] === '"' || expr[0] === "'") {
+    const quoteChar = expr[0];
+    let endIndex = 1;
+
+    // Find the closing quote
+    while (endIndex < expr.length && expr[endIndex] !== quoteChar) {
+      endIndex++;
+    }
+
+    if (endIndex < expr.length && expr[endIndex] === quoteChar) {
+      // Found closing quote
+      const stringValue = expr.substring(1, endIndex);
+      return {
+        expr: {
+          type: 'LITERAL',
+          value: stringValue
+        },
+        remaining: expr.substring(endIndex + 1)
+      };
+    } else {
+      throw new Error(`Unterminated string literal starting with ${quoteChar}`);
+    }
+  }
+
   // Check if this might be a function call (identifier followed by parentheses)
   const funcMatch = expr.match(/^([A-Z_]\w*)\s*\(/i);
   if (funcMatch) {

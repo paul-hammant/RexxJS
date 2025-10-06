@@ -231,11 +231,11 @@ describe('INTERPRET Function', () => {
       // First INTERPRET
       const commands1 = parse('LET result1 = INTERPRET string="LET stage1 = first"');
       await interpreter.run(commands1);
-      
+
       // Second INTERPRET that uses result from first
-      const commands2 = parse('LET result2 = INTERPRET string="LET stage2 = stage1 + _second"');
+      const commands2 = parse('LET result2 = INTERPRET string="LET stage2 = stage1 || _second"');
       await interpreter.run(commands2);
-      
+
       expect(interpreter.variables.get('stage1')).toBe('first');
       expect(interpreter.variables.get('stage2')).toBe('first_second');
       expect(interpreter.variables.get('result1')).toBe(true);
