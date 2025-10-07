@@ -1543,20 +1543,218 @@ LET lowerControlLimit = target - (3 * tolerance / 2)
 SAY "  Control limits: [" lowerControlLimit ", " upperControlLimit "]"
 ```
 
-### Browser Automation
-```rexx
--- Calculator automation (conceptual)
-ADDRESS calculator
-clear
-press button=2
-press button="+"
-press button=3
-press button="="
-LET result = getDisplay
+### Browser Automation & DOM Functions
 
--- Dynamic result handling
-prepareDish name="Calculation result: {result}" servings=result
+RexxJS provides comprehensive DOM manipulation capabilities through two approaches: **selector-based** functions for simple operations and **element-based** functions for efficient repeated operations and complex DOM manipulation.
+
+#### Selector-Based DOM Functions (Simple Operations)
+
+For quick, one-time DOM operations, use selector-based functions:
+
+```rexx
+-- Query elements
+LET count = DOM_QUERY selector=".items" operation="count"
+LET text = DOM_QUERY selector="#title" operation="text"
+
+-- Interact with elements
+DOM_CLICK selector="button.submit"
+DOM_TYPE selector="input[name=email]" text="user@example.com"
+DOM_SET selector="#title" property="textContent" value="New Title"
+
+-- Style manipulation
+DOM_ADD_CLASS selector=".card" class="active"
+DOM_REMOVE_CLASS selector=".menu" class="hidden"
+DOM_SET_STYLE selector=".banner" property="backgroundColor" value="blue"
+
+-- Form operations
+DOM_SELECT_OPTION selector="select[name=country]" value="USA"
+
+-- Wait for elements
+DOM_WAIT_FOR selector=".loading" condition="hidden" timeout=5000
+DOM_WAIT milliseconds=1000  -- Simple delay
 ```
+
+#### Element-Based DOM Functions (Efficient Operations)
+
+For repeated operations or complex DOM manipulation, use element references to avoid repeated queries:
+
+**Getting Element References:**
+```rexx
+-- Get single element
+LET button = DOM_GET selector="button.submit"
+LET form = DOM_GET selector="form#login"
+
+-- Get multiple elements (returns array)
+LET inputs = DOM_GET_ALL selector="input"
+LET cards = DOM_GET_ALL selector=".card"
+```
+
+**Element Properties:**
+```rexx
+-- Basic properties
+LET text = DOM_ELEMENT_TEXT element=button
+LET tag = DOM_ELEMENT_TAG element=button          -- "BUTTON"
+LET id = DOM_ELEMENT_ID element=button            -- "submit-btn"
+LET classes = DOM_ELEMENT_CLASSES element=button  -- Array: ["submit", "primary"]
+LET classStr = DOM_ELEMENT_CLASS element=button   -- String: "submit primary"
+
+-- Attributes
+LET type = DOM_ELEMENT_GET_ATTR element=button name="type"
+
+-- Visibility and layout
+LET visible = DOM_ELEMENT_VISIBLE element=button
+LET bounds = DOM_ELEMENT_BOUNDS element=button  -- {x, y, width, height}
+```
+
+**Element Manipulation:**
+```rexx
+-- Click and style
+DOM_ELEMENT_CLICK element=button
+DOM_ELEMENT_SET_STYLE element=button property="color" value="red"
+DOM_ELEMENT_SET_ATTR element=button name="disabled" value="true"
+```
+
+**Element Navigation:**
+```rexx
+-- Navigate DOM tree
+LET parent = DOM_ELEMENT_PARENT element=button
+LET children = DOM_ELEMENT_CHILDREN element=form
+LET filteredChildren = DOM_ELEMENT_CHILDREN element=form selector="input"
+LET siblings = DOM_ELEMENT_SIBLINGS element=button
+LET next = DOM_ELEMENT_NEXT_SIBLING element=button
+LET prev = DOM_ELEMENT_PREV_SIBLING element=button
+
+-- Query within element
+LET nested = DOM_ELEMENT_QUERY element=form selector=".error-message"
+LET nestedAll = DOM_ELEMENT_QUERY_ALL element=form selector="input"
+```
+
+**Creating and Modifying DOM:**
+```rexx
+-- Create elements
+LET newDiv = DOM_CREATE_ELEMENT tag="div"
+LET newInput = DOM_CREATE_ELEMENT tag="input"
+LET textNode = DOM_CREATE_TEXT text="Hello World"
+
+-- Insert elements
+DOM_ELEMENT_APPEND parent=form child=newInput
+DOM_ELEMENT_PREPEND parent=form child=newDiv
+DOM_ELEMENT_INSERT_BEFORE reference=button new_element=newDiv
+DOM_ELEMENT_INSERT_AFTER reference=button new_element=newDiv
+
+-- Remove and clone
+DOM_ELEMENT_REMOVE element=button
+LET cloned = DOM_ELEMENT_CLONE element=button deep=true
+DOM_ELEMENT_REPLACE old_element=button new_element=newButton
+```
+
+**Event Handling:**
+```rexx
+-- Add event listeners
+DOM_ELEMENT_ON_CLICK element=button handler="handleClick"
+DOM_ELEMENT_ON_CHANGE element=input handler="handleChange"
+DOM_ELEMENT_ON_EVENT element=div event="mouseover" handler="handleHover"
+
+-- Remove event listeners
+DOM_ELEMENT_OFF_EVENT element=div event="mouseover" handler="handleHover"
+
+-- Trigger events
+DOM_ELEMENT_TRIGGER_EVENT element=button event="click"
+```
+
+#### Practical DOM Examples
+
+**Form Processing:**
+```rexx
+-- Process all form inputs efficiently
+LET form = DOM_GET selector="form.registration"
+LET inputs = DOM_ELEMENT_QUERY_ALL element=form selector="input, select, textarea"
+
+LET formData = '{}'
+DO i = 1 TO ARRAY_LENGTH(inputs)
+  LET input = inputs.i
+  LET name = DOM_ELEMENT_GET_ATTR element=input name="name"
+  LET value = DOM_ELEMENT_TEXT element=input
+  LET formData = JSON_SET object=formData key=name value=value
+END
+
+SAY "Form data: " || JSON_STRINGIFY(formData)
+```
+
+**Dynamic UI Building:**
+```rexx
+-- Build a list dynamically
+LET container = DOM_GET selector=".dynamic-content"
+
+DO i = 1 TO 10
+  LET item = DOM_CREATE_ELEMENT tag="div"
+
+  -- Set up the item
+  LET textNode = DOM_CREATE_TEXT text="Item " || i
+  DOM_ELEMENT_APPEND parent=item child=textNode
+  DOM_ELEMENT_SET_ATTR element=item name="data-index" value=i
+  DOM_ELEMENT_SET_STYLE element=item property="padding" value="10px"
+
+  -- Add to container
+  DOM_ELEMENT_APPEND parent=container child=item
+END
+```
+
+**Table Data Processing:**
+```rexx
+-- Process table rows efficiently
+LET table = DOM_GET selector="table.data"
+LET rows = DOM_ELEMENT_QUERY_ALL element=table selector="tbody tr"
+
+DO i = 1 TO ARRAY_LENGTH(rows)
+  LET row = rows.i
+  LET cells = DOM_ELEMENT_QUERY_ALL element=row selector="td"
+
+  LET name = DOM_ELEMENT_TEXT element=cells.1
+  LET status = DOM_ELEMENT_TEXT element=cells.3
+
+  -- Highlight inactive rows
+  IF status = "inactive" THEN
+    DOM_ELEMENT_SET_STYLE element=row property="backgroundColor" value="#ffcccc"
+  ENDIF
+
+  SAY "Processing: " || name || " - " || status
+END
+```
+
+**Form Validation:**
+```rexx
+-- Validate form inputs
+LET form = DOM_GET selector="form.contact"
+LET inputs = DOM_ELEMENT_QUERY_ALL element=form selector="input[required]"
+LET isValid = 1
+
+DO i = 1 TO ARRAY_LENGTH(inputs)
+  LET input = inputs.i
+  LET value = DOM_ELEMENT_TEXT element=input
+
+  IF value = "" THEN
+    DOM_ELEMENT_SET_STYLE element=input property="borderColor" value="red"
+    LET isValid = 0
+  ELSE
+    DOM_ELEMENT_SET_STYLE element=input property="borderColor" value="green"
+  ENDIF
+END
+
+LET submitBtn = DOM_ELEMENT_QUERY element=form selector="button[type=submit]"
+IF isValid THEN
+  DOM_ELEMENT_SET_ATTR element=submitBtn name="disabled" value=""
+ELSE
+  DOM_ELEMENT_SET_ATTR element=submitBtn name="disabled" value="true"
+ENDIF
+```
+
+**Key Benefits of Element-Based Functions:**
+- ✅ **Performance**: Query once, use many times
+- ✅ **Navigation**: Move through DOM tree relationships
+- ✅ **Complex Operations**: Build dynamic UIs programmatically
+- ✅ **Stale Detection**: Automatic handling of removed elements
+- ✅ **Memory Efficient**: Opaque references with automatic cleanup
 
 ## Security & Hashing Functions
 
