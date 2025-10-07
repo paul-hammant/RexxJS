@@ -194,6 +194,14 @@ print_success "Built sympy-functions.bundle.js"
 cp extras/functions/sympy-inspired/src/sympy-functions.js ../dist/functions/sympy-functions.js
 print_success "Copied sympy-functions.js (unbundled)"
 
+# diff-functions (native - no build needed, just copy)
+cp extras/functions/diff/src/diff-functions.js ../dist/functions/diff-functions.js
+print_success "Copied diff-functions.js (native, unbundled)"
+
+# sed-functions (native - no build needed, just copy)
+cp extras/functions/sed/src/sed-functions.js ../dist/functions/sed-functions.js
+print_success "Copied sed-functions.js (native, unbundled)"
+
 # Strip dependencies from all bundles
 print_info "Stripping dependencies from bundles..."
 node build-scripts/strip-bundle-dependencies.js

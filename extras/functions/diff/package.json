@@ -1,0 +1,36 @@
+{
+  "name": "rexxjs-diff-functions",
+  "version": "1.0.0",
+  "description": "Text diffing and patching functions for RexxJS (includes DIFF and PATCH)",
+  "main": "src/diff-functions.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "install:core": "cd ../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
+  "dependencies": {
+    "diff": "^8.0.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "rexxjs",
+    "diff",
+    "patch",
+    "text",
+    "comparison"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/*.test.js",
+      "**/*.spec.js"
+    ]
+  },
+  "type": "commonjs"
+}

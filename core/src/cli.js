@@ -45,15 +45,8 @@ const { NodeOutputHandler } = require(requirePath('output/node-output-handler.js
 class CLIAddressSender {
   constructor(outputHandler) {
     this.outputHandler = outputHandler;
-    // Register first-class ADDRESS handlers available in CLI mode
-    try {
-      const { ADDRESS_SSH_HANDLER } = require('../../extras/addresses/provisioning-and-orchestration/address-ssh');
-      this.ADDRESS_SSH_HANDLER = ADDRESS_SSH_HANDLER;
-    } catch {}
-    try {
-      const { ADDRESS_REMOTE_DOCKER_HANDLER } = require('../../extras/addresses/provisioning-and-orchestration/address-remote-docker');
-      this.ADDRESS_REMOTE_DOCKER_HANDLER = ADDRESS_REMOTE_DOCKER_HANDLER;
-    } catch {}
+    // ADDRESS handlers should be loaded via REQUIRE statements in user scripts
+    // e.g., REQUIRE "registry:org.rexxjs/ssh-address"
   }
   
   async send(address, command, params = {}) {
@@ -72,20 +65,11 @@ class CLIAddressSender {
       return { status: 'ignored', result: 'Default ADDRESS call ignored' };
     }
 
-    // First-class handlers enabled for CLI mode
-    const upper = String(address || '').toUpperCase();
-    if (upper === 'SSH' && this.ADDRESS_SSH_HANDLER) {
-      const vars = this.variables instanceof Map ? this.variables : new Map();
-      return this.ADDRESS_SSH_HANDLER(command, params, { variables: vars });
-    }
-    if (upper === 'REMOTE_DOCKER' && this.ADDRESS_REMOTE_DOCKER_HANDLER) {
-      // Inject SSH handler for proxy composition if available
-      global.ADDRESS_SSH_HANDLER_FOR_TEST = this.ADDRESS_SSH_HANDLER;
-      const vars = this.variables instanceof Map ? this.variables : new Map();
-      return this.ADDRESS_REMOTE_DOCKER_HANDLER(command, params, { variables: vars });
-    }
+    // ADDRESS handlers should be registered via REQUIRE statements in user scripts
+    // e.g., REQUIRE "registry:org.rexxjs/ssh-address"
+    // The interpreter's ADDRESS system will route to registered handlers
 
-    // In CLI mode, other missing ADDRESS handlers should be an error
+    // In CLI mode, missing ADDRESS handlers should be an error
     const error = new Error(`ADDRESS handler '${address}' not found. No external services available in CLI mode.`);
     error.address = address;
     error.command = command;

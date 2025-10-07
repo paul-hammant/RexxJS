@@ -905,7 +905,7 @@ class RexxInterpreter {
     let importedDataFunctions = {};
     let importedProbabilityFunctions = {};
     let importedShellFunctions = {};
-    // R functions removed - use REQUIRE statements to load them
+    // R functions, DIFF, SED, and other @extras functions - use REQUIRE statements to load them
     try {
       if (typeof require !== 'undefined') {
         // command line mode (NodeJs) is allowed to use require() but the two web modes are not.
@@ -932,7 +932,8 @@ class RexxInterpreter {
         const { dataFunctions } = require('./data-functions');
         const { probabilityFunctions } = require('./probability-functions');
         const shellFunctions = require('./shell-functions');
-        // R functions are now available via REQUIRE statements in user scripts
+
+        // R functions, DIFF, SED are now available via REQUIRE statements in user scripts
         // e.g., REQUIRE "r-inspired/math-stats" to load R math functions
         importedStringFunctions = stringFunctions;
         importedMathFunctions = mathFunctions;
@@ -1070,7 +1071,7 @@ class RexxInterpreter {
       ...importedDataFunctions,
       ...importedProbabilityFunctions,
       ...importedShellFunctions,  // Shell functions last, includes Node.js FILE_EXISTS override
-      // R functions removed - use REQUIRE statements to load them
+      // R functions, DIFF, SED - use REQUIRE statements to load them
 
       // Debug function for JavaScript introspection
       'JS_SHOW': (value) => {

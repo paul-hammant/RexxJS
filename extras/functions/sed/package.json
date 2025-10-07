@@ -1,0 +1,36 @@
+{
+  "name": "rexxjs-sed-functions",
+  "version": "1.0.0",
+  "description": "Stream editing functions for RexxJS using sed-lite",
+  "main": "src/sed-functions.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "install:core": "cd ../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
+  "dependencies": {
+    "sed-lite": "^1.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "rexxjs",
+    "sed",
+    "stream",
+    "editing",
+    "text"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/*.test.js",
+      "**/*.spec.js"
+    ]
+  },
+  "type": "commonjs"
+}

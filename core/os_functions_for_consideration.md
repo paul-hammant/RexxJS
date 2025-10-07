@@ -28,23 +28,23 @@ Legend:
 | mkdir | ✅ | Already done | ❌ | None | MKDIR - side effects |
 | mv | ✅ | Already done | ❌ | None | MV - side effects |
 | rm | ✅ | Already done | ❌ | None | RM - side effects |
-| rmdir | 🟢 | High | ❌ | None | fs.rmdirSync - side effects |
+| rmdir | ✅ | Already done | ❌ | None | RMDIR - remove directory |
 | stat | ✅ | Already done | 🟢 | None | STAT - returns metadata |
-| cmp | 🟢 | High | 🟢 | None | Compare two files, returns diff |
-| comm | 🟢 | High | 🟢 | None | Set operations on sorted files |
-| du | 🟢 | High | 🟢 | None | Disk usage - returns sizes |
+| cmp | ✅ | Already done | 🟢 | None | CMP - compare files byte-by-byte |
+| comm | ✅ | Already done | 🟢 | None | COMM - set operations on sorted lines |
+| du | ✅ | Already done | 🟢 | None | DU - disk usage calculator |
 | file | 🟡 | Medium | 🟢 | file-type | MIME type - returns string |
-| install | 🟢 | High | ❌ | None | Like cp but sets permissions |
-| link | 🟢 | High | ❌ | None | fs.linkSync - side effects |
-| ln | 🟢 | High | ❌ | None | fs.symlinkSync - side effects |
-| readlink | 🟢 | High | 🟢 | None | fs.readlinkSync - returns path |
+| install | ✅ | Already done | ❌ | None | INSTALL - copy and set permissions |
+| link | ✅ | Already done | ❌ | None | LINK - create hard link |
+| ln | ✅ | Already done | ❌ | None | LN - create symbolic/hard link |
+| readlink | ✅ | Already done | 🟢 | None | READLINK - read symlink target |
 | realpath | ✅ | Already done | 🟢 | None | PATH_RESOLVE |
-| touch | 🟢 | High | ❌ | None | fs.utimesSync - side effects |
-| truncate | 🟢 | High | ❌ | None | fs.truncateSync - side effects |
-| unlink | 🟢 | High | ❌ | None | fs.unlinkSync - side effects |
-| chgrp | 🟢 | High | ❌ | None | fs.chownSync - side effects |
-| chmod | 🟢 | High | ❌ | None | fs.chmodSync - side effects |
-| chown | 🟢 | High | ❌ | None | fs.chownSync - side effects |
+| touch | ✅ | Already done | ❌ | None | TOUCH - update timestamps |
+| truncate | ✅ | Already done | ❌ | None | TRUNCATE - truncate file to size |
+| unlink | ✅ | Already done | ❌ | None | UNLINK - remove file |
+| chgrp | ✅ | Already done | ❌ | None | CHGRP - change group |
+| chmod | ✅ | Already done | ❌ | None | CHMOD - change permissions |
+| chown | ✅ | Already done | ❌ | None | CHOWN - change owner |
 | mkfifo | 🔴 | Low | ❌ | None | Named pipes, niche use |
 | mknod | 🔴 | Low | ❌ | None | Device nodes, requires root |
 
@@ -53,61 +53,61 @@ Legend:
 | Command | Status | Suitability | Pipeline | Dependencies | Notes |
 |---------|--------|-------------|----------|--------------|-------|
 | grep | ✅ | Already done | 🟢 | None | GREP - returns matches |
-| cut | 🟢 | High | 🟢 | None | Column extraction - perfect for pipes |
-| paste | 🟢 | High | 🟢 | None | Merge lines - good for pipes |
-| head | 🟢 | High | 🟢 | None | First N lines - excellent for pipes |
-| tail | 🟢 | High | 🟢 | None | Last N lines - excellent for pipes |
-| wc | 🟢 | High | 🟢 | None | Word/line/char count |
-| sort | 🟢 | High | 🟢 | None | Sort lines - excellent for pipes |
-| uniq | 🟢 | High | 🟢 | None | Deduplicate - excellent for pipes |
+| cut | ✅ | Already done | 🟢 | None | CUT - column extraction |
+| paste | ✅ | Already done | 🟢 | None | PASTE - merge lines |
+| head | ✅ | Already done | 🟢 | None | HEAD - first N lines |
+| tail | ✅ | Already done | 🟢 | None | TAIL - last N lines |
+| wc | ✅ | Already done | 🟢 | None | WC - word/line/char count |
+| sort | ✅ | Already done | 🟢 | None | SORT - sort lines |
+| uniq | ✅ | Already done | 🟢 | None | UNIQ - deduplicate |
 | tr | ✅ | Already done | 🟢 | None | TRANSLATE - char replacement |
-| rev | 🟢 | High | 🟢 | None | Reverse lines - good for pipes |
-| tac | 🟢 | High | 🟢 | None | Reverse file order - good for pipes |
-| nl | 🟢 | High | 🟢 | None | Number lines - good for pipes |
-| fold | 🟢 | High | 🟢 | None | Wrap lines - good for pipes |
-| fmt | 🟢 | High | 🟢 | None | Format paragraphs - good for pipes |
-| expand | 🟢 | High | 🟢 | None | Tabs to spaces - good for pipes |
-| dos2unix | 🟢 | High | 🟢 | None | Line ending conversion |
-| unix2dos | 🟢 | High | 🟢 | None | Line ending conversion |
-| strings | 🟢 | High | 🟢 | None | Extract printable - good for pipes |
-| split | 🟢 | High | 🟡 | None | Split file - writes files |
-| tee | 🟢 | High | 🟢 | None | Duplicate output - classic pipe use |
-| sed | 🟡 | Medium | 🟢 | Pure JS impl | Stream editor - excellent for pipes |
+| rev | ✅ | Already done | 🟢 | None | REV - reverse each line |
+| tac | ✅ | Already done | 🟢 | None | TAC - reverse line order |
+| nl | ✅ | Already done | 🟢 | None | NL - number lines |
+| fold | ✅ | Already done | 🟢 | None | FOLD - wrap lines to width |
+| fmt | ✅ | Already done | 🟢 | None | FMT - format paragraphs |
+| expand | ✅ | Already done | 🟢 | None | EXPAND - tabs to spaces |
+| dos2unix | ✅ | Already done | 🟢 | None | DOS2UNIX - line ending conversion |
+| unix2dos | ✅ | Already done | 🟢 | None | UNIX2DOS - line ending conversion |
+| strings | ✅ | Already done | 🟢 | None | STRINGS - extract printable strings |
+| split | ✅ | Already done | 🟡 | None | FILESPLIT - split file into chunks |
+| tee | ✅ | Already done | 🟢 | None | TEE - duplicate output |
+| sed | ✅ | Already done | 🟢 | sed-lite (@extras) | SED - stream editor (s command) |
 | awk | 🔴 | Low | 🟢 | Complex | Full language, use JS instead |
-| diff | 🟡 | Medium | 🟢 | jsdiff | Text diffing - returns diff |
-| patch | 🟡 | Medium | 🟡 | diff library | Apply patches |
+| diff | ✅ | Already done | 🟢 | diff (@extras) | DIFF - text diffing, multiple formats |
+| patch | ✅ | Already done | 🟢 | diff (@extras/patch) | PATCH - apply unified diffs |
 
 ## Encoding & Hashing
 
 | Command | Status | Suitability | Pipeline | Dependencies | Notes |
 |---------|--------|-------------|----------|--------------|-------|
-| base32 | 🟢 | High | 🟢 | None | Encoding - good for pipes |
+| base32 | ✅ | Already done | 🟢 | None | BASE32 - encode/decode |
 | base64 | ✅ | Already done | 🟢 | None | BASE64_ENCODE/BASE64_DECODE |
-| uudecode | 🟢 | High | 🟢 | None | Decoding - good for pipes |
-| uuencode | 🟢 | High | 🟢 | None | Encoding - good for pipes |
+| uudecode | ✅ | Already done | 🟢 | None | UUDECODE - classic Unix decode |
+| uuencode | ✅ | Already done | 🟢 | None | UUENCODE - classic Unix encode |
 | md5sum | ✅ | Already done | 🟢 | None | HASH_MD5 - excellent for pipes |
 | sha1sum | ✅ | Already done | 🟢 | None | HASH_SHA1 - excellent for pipes |
-| sha224sum | 🟢 | High | 🟢 | None | crypto.createHash('sha224') |
+| sha224sum | 🔴 | Low | 🟢 | None | Niche, not in Web Crypto API |
 | sha256sum | ✅ | Already done | 🟢 | None | HASH_SHA256 - excellent for pipes |
-| sha384sum | 🟢 | High | 🟢 | None | crypto.createHash('sha384') |
-| sha512sum | 🟢 | High | 🟢 | None | crypto.createHash('sha512') |
-| cksum | 🟢 | High | 🟢 | None | CRC checksum - good for pipes |
-| crc32 | 🟢 | High | 🟢 | None | CRC32 - good for pipes |
-| sum | 🟢 | High | 🟢 | None | BSD/SysV checksums |
-| xxd | 🟢 | High | 🟢 | None | Hex dump - Buffer.toString('hex') |
-| hexdump | 🟢 | High | 🟢 | None | Hex dump - excellent for pipes |
-| od | 🟢 | High | 🟢 | None | Octal dump - good for pipes |
+| sha384sum | ✅ | Already done | 🟢 | None | HASH_SHA384 - excellent for pipes |
+| sha512sum | ✅ | Already done | 🟢 | None | HASH_SHA512 - excellent for pipes |
+| cksum | ✅ | Already done | 🟢 | None | CKSUM - POSIX CRC checksum |
+| crc32 | ✅ | Already done | 🟢 | None | CRC32 - standard CRC32 |
+| sum | ✅ | Already done | 🟢 | None | SUM_BSD - BSD/SysV checksums |
+| xxd | ✅ | Already done | 🟢 | None | XXD - hex dump with encode/decode |
+| hexdump | ✅ | Already done | 🟢 | None | HEXDUMP - formatted hex dump |
+| od | ✅ | Already done | 🟢 | None | OD - octal/hex/decimal/char dump |
 
 ## Compression & Archives
 
 | Command | Status | Suitability | Pipeline | Dependencies | Notes |
 |---------|--------|-------------|----------|--------------|-------|
-| gunzip | 🟡 | Medium | 🟢 | zlib (built-in) | zlib.gunzipSync - good for pipes |
-| gzip | 🟡 | Medium | 🟢 | zlib (built-in) | zlib.gzipSync - good for pipes |
+| gunzip | ✅ | Already done | 🟢 | zlib (built-in) | GUNZIP - decompress gzip data |
+| gzip | ✅ | Already done | 🟢 | zlib (built-in) | GZIP - compress data |
 | bunzip2 | 🟡 | Medium | 🟢 | seek-bzip | Bzip2 decompression |
 | bzcat | 🟡 | Medium | 🟢 | seek-bzip | Bzip2 cat |
 | xzcat | 🟡 | Medium | 🟢 | lzma-native | XZ decompression |
-| zcat | 🟡 | Medium | 🟢 | zlib (built-in) | Gzip cat - good for pipes |
+| zcat | ✅ | Already done | 🟢 | zlib (built-in) | ZCAT - decompress and output gzip |
 | tar | 🟡 | Medium | 🟡 | tar-stream | Tar archives - complex |
 | cpio | 🔴 | Low | 🟡 | No good library | Rare format |
 
@@ -116,19 +116,19 @@ Legend:
 | Command | Status | Suitability | Pipeline | Dependencies | Notes |
 |---------|--------|-------------|----------|--------------|-------|
 | pwd | ✅ | Already done | 🟢 | None | PATH_RESOLVE('.') |
-| uname | 🟢 | High | 🟢 | None | os.platform(), os.release() - returns info |
-| hostname | 🟢 | High | 🟢 | None | os.hostname() - returns string |
-| whoami | 🟢 | High | 🟢 | None | os.userInfo().username - returns string |
-| id | 🟢 | High | 🟢 | None | os.userInfo() - returns object |
-| groups | 🟢 | High | 🟢 | None | os.userInfo().groups - returns array |
-| logname | 🟢 | High | 🟢 | None | os.userInfo().username |
-| nproc | 🟢 | High | 🟢 | None | os.cpus().length - returns number |
-| arch | 🟢 | High | 🟢 | None | os.arch() - returns string |
-| env | 🟢 | High | 🟢 | None | process.env - returns object |
-| printenv | 🟢 | High | 🟢 | None | process.env - returns values |
-| getconf | 🟢 | High | 🟢 | None | Various configs - returns value |
-| uptime | 🟢 | High | 🟢 | None | os.uptime() - returns number |
-| dnsdomainname | 🟢 | High | 🟢 | None | os.hostname() parsing |
+| uname | ✅ | Already done | 🟢 | None | UNAME - os.platform(), os.release() |
+| hostname | ✅ | Already done | 🟢 | None | HOSTNAME - os.hostname() |
+| whoami | ✅ | Already done | 🟢 | None | WHOAMI - os.userInfo().username |
+| id | ✅ | Already done | 🟢 | None | USERINFO - os.userInfo() object |
+| groups | ✅ | Already done | 🟢 | None | GROUPS - user group memberships |
+| logname | ✅ | Already done | 🟢 | None | LOGNAME - login username |
+| nproc | ✅ | Already done | 🟢 | None | NPROC - os.cpus().length |
+| arch | ✅ | Already done | 🟢 | None | ARCH - os.arch() |
+| env | ✅ | Already done | 🟢 | None | ENV - process.env or specific var |
+| printenv | ✅ | Already done | 🟢 | None | ENV - process.env values |
+| getconf | ✅ | Already done | 🟢 | None | GETCONF - system config values |
+| uptime | ✅ | Already done | 🟢 | None | UPTIME - os.uptime() seconds |
+| dnsdomainname | ✅ | Already done | 🟢 | None | DNSDOMAINNAME - extract domain from hostname |
 | free | 🔴 | Low | 🟢 | None | Memory info - os.freemem() limited |
 | vmstat | 🔴 | Low | 🟢 | /proc parsing | Virtual memory stats |
 | w | 🔴 | Low | 🟢 | utmp parsing | Who is logged in |
@@ -138,7 +138,7 @@ Legend:
 
 | Command | Status | Suitability | Pipeline | Dependencies | Notes |
 |---------|--------|-------------|----------|--------------|-------|
-| kill | 🟢 | High | ❌ | None | process.kill - side effects |
+| kill | ✅ | Already done | ❌ | None | KILL - send signal to process |
 | killall | 🟡 | Medium | ❌ | None | Find + kill - side effects |
 | killall5 | 🔴 | Low | ❌ | System specific | Kill all processes |
 | pkill | 🟡 | Medium | ❌ | None | Kill by pattern - side effects |
@@ -149,10 +149,10 @@ Legend:
 | iotop | 🔴 | Low | ❌ | Kernel support | I/O monitoring |
 | pmap | 🔴 | Low | 🟢 | /proc parsing | Memory map - returns data |
 | pwdx | 🟡 | Medium | 🟢 | /proc parsing | Process cwd - returns path |
-| timeout | 🟢 | High | 🟡 | None | setTimeout + child_process |
+| timeout | ✅ | Already done | 🟡 | None | TIMEOUT - run with time limit |
 | time | ✅ | Already done | 🟢 | None | process.hrtime() - returns duration |
-| sleep | 🟢 | High | ❌ | None | setTimeout - delay only |
-| usleep | 🟢 | High | ❌ | None | setTimeout - delay only |
+| sleep | ✅ | Already done | ❌ | None | SLEEP - blocking delay (busy-wait) |
+| usleep | ✅ | Already done | ❌ | None | SLEEP - same as sleep |
 | nohup | 🟡 | Medium | ❌ | None | child_process detached |
 | nice | 🔴 | Low | ❌ | Not well supported | Process priority |
 | renice | 🔴 | Low | ❌ | Not well supported | Change priority |
@@ -165,25 +165,25 @@ Legend:
 
 | Command | Status | Suitability | Pipeline | Dependencies | Notes |
 |---------|--------|-------------|----------|--------------|-------|
-| echo | 🟢 | High | 🟢 | None | Return string - good for pipes |
-| yes | 🟢 | High | 🟢 | None | Infinite repeat - stream generator |
-| true | 🟢 | High | ❌ | None | Always return 0 |
-| false | 🟢 | High | ❌ | None | Always return 1 |
+| echo | 🔴 | Not suitable | 🟢 | None | Conflicts with ADDRESS environments |
+| yes | ✅ | Already done | 🟢 | None | YES - repeat text N times |
+| true | ✅ | Already done | ❌ | None | TRUE - returns true |
+| false | ✅ | Already done | ❌ | None | FALSE - returns false |
 | test | 🟢 | High | 🟡 | None | Conditional (already in REXX) |
-| seq | 🟢 | High | 🟢 | None | Generate sequence - excellent for pipes |
-| shuf | 🟢 | High | 🟢 | None | Shuffle lines - excellent for pipes |
-| factor | 🟢 | High | 🟢 | None | Prime factorization - good for pipes |
-| cal | 🟢 | High | 🟢 | None | Calendar - returns formatted text |
+| seq | ✅ | Already done | 🟢 | None | SEQ - generate sequences |
+| shuf | ✅ | Already done | 🟢 | None | SHUF - shuffle lines |
+| factor | ✅ | Already done | 🟢 | None | FACTOR - prime factorization |
+| cal | ✅ | Already done | 🟢 | None | CAL - calendar generator |
 | date | ✅ | Already done | 🟢 | None | DATE, TIME, NOW - returns values |
-| mcookie | 🟢 | High | 🟢 | None | crypto.randomBytes - returns string |
-| mktemp | 🟢 | High | 🟢 | None | os.tmpdir() - returns path |
-| mkpasswd | 🟢 | High | 🟢 | None | crypto hashing - returns hash |
+| mcookie | ✅ | Already done | 🟢 | None | MCOOKIE - random hex cookie |
+| mktemp | ✅ | Already done | 🟢 | None | MKTEMP - temp file path generator |
+| mkpasswd | ✅ | Already done | 🟢 | None | MKPASSWD - password hashing |
 | uuidgen | ✅ | Already done | 🟢 | None | UUID - returns string |
-| which | 🟢 | High | 🟢 | None | Search PATH - returns path |
-| getopt | 🟢 | High | 🟡 | None | Parse options - returns object |
-| xargs | 🟢 | High | 🟢 | None | Build commands - excellent for pipes |
+| which | ✅ | Already done | 🟢 | None | WHICH - search PATH for command |
+| getopt | ✅ | Already done | 🟡 | None | GETOPT - parse options, returns object |
+| xargs | ✅ | Already done | 🟢 | None | XARGS - build commands from input |
 | logger | 🟡 | Medium | ❌ | syslog | Send to syslog - side effects |
-| ascii | 🟢 | High | 🟢 | None | ASCII table - returns string |
+| ascii | ✅ | Already done | 🟢 | None | ASCII - ASCII table and char info |
 | count | ❌ | Unknown | ❌ | Unknown | Unclear what this does |
 | help | ❌ | Meta | ❌ | N/A | Help system |
 
@@ -196,12 +196,12 @@ Legend:
 | ftpget | 🟡 | Medium | 🟢 | ftp library | FTP download - returns data |
 | ftpput | 🟡 | Medium | ❌ | ftp library | FTP upload - side effects |
 | httpd | 🟡 | Medium | ❌ | http module | HTTP server - daemon |
-| host | 🟡 | Medium | 🟢 | dns module | DNS lookup - returns IPs |
+| host | ✅ | Already done | 🟢 | None (built-in) | HOST - DNS lookup, returns IPs |
 | ping | 🟡 | Medium | 🟢 | ping library | ICMP ping - returns stats |
 | ping6 | 🟡 | Medium | 🟢 | ping library | IPv6 ping |
 | traceroute | 🟡 | Medium | 🟢 | Complex | Route tracing - returns hops |
 | netstat | 🔴 | Low | 🟢 | /proc parsing | Network stats - returns data |
-| ifconfig | 🔴 | Low | 🟢 | os.networkInterfaces() | Network config - returns info |
+| ifconfig | ✅ | Already done | 🟢 | None (built-in) | IFCONFIG - network interfaces info |
 | sntp | 🟡 | Medium | 🟢 | ntp library | SNTP client - returns time |
 
 ## System/Hardware - Low Priority
@@ -223,7 +223,7 @@ Legend:
 | freeramdisk | ❌ | Not suitable | ❌ | Kernel specific | Free ramdisk |
 | fsfreeze | ❌ | Not suitable | ❌ | Requires root | Freeze filesystem |
 | fstype | 🔴 | Low | 🟢 | File inspection | Detect FS type |
-| fsync | 🟢 | High | ❌ | None | fs.fsyncSync - side effects |
+| fsync | ✅ | Already done | ❌ | None | FSYNC - flush file to disk |
 | gpio* | ❌ | Not suitable | ❌ | Hardware | GPIO operations |
 | halt | ❌ | Not suitable | ❌ | System control | Shutdown |
 | hwclock | ❌ | Not suitable | 🟢 | Hardware | Hardware clock |
@@ -262,9 +262,9 @@ Legend:
 | swapoff | ❌ | Not suitable | ❌ | Requires root | Disable swap |
 | swapon | ❌ | Not suitable | ❌ | Requires root | Enable swap |
 | switch_root | ❌ | Not suitable | ❌ | Requires root | Switch root |
-| sync | 🟢 | High | ❌ | None | execSync('sync') - side effects |
+| sync | ✅ | Already done | ❌ | None | SYNC - synchronize filesystems |
 | sysctl | ❌ | Not suitable | ❌ | Kernel params | Kernel settings |
-| tty | 🟢 | High | 🟢 | None | process.stdin.isTTY - returns bool |
+| tty | ✅ | Already done | 🟢 | None | TTY - check if running in terminal |
 | tunctl | ❌ | Not suitable | ❌ | Network tunnels | TUN/TAP control |
 | ulimit | 🔴 | Low | 🟢 | process.getrlimit | Resource limits - returns info |
 | umount | ❌ | Not suitable | ❌ | Requires root | Unmount |
@@ -295,18 +295,19 @@ Legend:
 ### **Implement First (High Value, Zero Deps, Pipeline-Friendly):**
 
 **Text Processing (🟢 Pipeline Perfect):**
-1. head, tail - First/last N lines
-2. wc - Word/line/char count
-3. cut - Column extraction
-4. paste - Merge lines
-5. sort - Sort lines
-6. uniq - Deduplicate
-7. nl - Number lines
-8. tac, rev - Reverse operations
-9. fold, fmt, expand - Text formatting
-10. dos2unix, unix2dos - Line endings
+1. ✅ head, tail - First/last N lines
+2. ✅ wc - Word/line/char count
+3. ✅ cut - Column extraction
+4. ✅ paste - Merge lines
+5. ✅ sort - Sort lines
+6. ✅ uniq - Deduplicate
+7. ✅ nl - Number lines
+8. ✅ tac, rev - Reverse operations
+9. ✅ fold, expand - Text wrapping and tab expansion
+10. ✅ dos2unix, unix2dos - Line endings
 11. strings - Extract printable strings
-12. tee - Duplicate output
+12. fmt - Format paragraphs
+13. ✅ tee - Duplicate output
 
 **Hashing (🟢 Pipeline Perfect):**
 1. sha224sum, sha384sum, sha512sum - Additional SHA variants
@@ -326,14 +327,14 @@ Legend:
 
 **Utilities (🟢 Pipeline Perfect):**
 1. echo - Output text
-2. seq - Generate sequences
-3. shuf - Shuffle lines
+2. ✅ seq - Generate sequences
+3. ✅ shuf - Shuffle lines
 4. factor - Prime factorization
 5. cal - Calendar
 6. which - Find in PATH
 7. mktemp - Temp files
 8. mcookie - Random hex
-9. xargs - Build commands
+9. ✅ xargs - Build commands
 
 **File Operations (Some 🟢 Pipeline):**
 1. readlink - Read symlink (🟢 pipeline)
@@ -359,15 +360,15 @@ Legend:
 
 ## Pipeline Champions (Top Priority)
 
-These are **excellent** for |> pipelines and should be implemented first:
+These are **excellent** for |> pipelines:
 
-1. **head, tail** - Essential for data sampling
-2. **sort, uniq** - Essential for data cleanup
-3. **cut, paste** - Essential for columnar data
-4. **wc** - Essential for counting
-5. **seq, shuf** - Essential for data generation
-6. **tee** - Essential for pipeline branching
-7. **xargs** - Essential for command building
+1. ✅ **head, tail** - Essential for data sampling
+2. ✅ **sort, uniq** - Essential for data cleanup
+3. ✅ **cut, paste** - Essential for columnar data
+4. ✅ **wc** - Essential for counting
+5. ✅ **seq, shuf** - Essential for data generation
+6. ✅ **tee** - Essential for pipeline branching
+7. ✅ **xargs** - Essential for command building
 8. **All hash functions** - Transform data to hashes
 9. **All encoding functions** - Transform data encodings
 

@@ -9,6 +9,79 @@ const { cryptoFunctions } = require('../src/cryptography-functions');
 
 describe('Cryptography Functions', () => {
 
+  describe('Hash Functions', () => {
+    const testString = 'Hello, World!';
+
+    describe('HASH_SHA256', () => {
+      test('should produce consistent SHA-256 hash', async () => {
+        const hash1 = await cryptoFunctions.HASH_SHA256(testString);
+        const hash2 = await cryptoFunctions.HASH_SHA256(testString);
+        expect(hash1).toBe(hash2);
+        expect(hash1.length).toBe(64); // SHA-256 produces 64 hex characters
+      });
+
+      test('should produce different hashes for different inputs', async () => {
+        const hash1 = await cryptoFunctions.HASH_SHA256('input1');
+        const hash2 = await cryptoFunctions.HASH_SHA256('input2');
+        expect(hash1).not.toBe(hash2);
+      });
+    });
+
+    describe('HASH_SHA1', () => {
+      test('should produce consistent SHA-1 hash', async () => {
+        const hash1 = await cryptoFunctions.HASH_SHA1(testString);
+        const hash2 = await cryptoFunctions.HASH_SHA1(testString);
+        expect(hash1).toBe(hash2);
+        expect(hash1.length).toBe(40); // SHA-1 produces 40 hex characters
+      });
+    });
+
+    describe('HASH_SHA384', () => {
+      test('should produce consistent SHA-384 hash', async () => {
+        const hash1 = await cryptoFunctions.HASH_SHA384(testString);
+        const hash2 = await cryptoFunctions.HASH_SHA384(testString);
+        expect(hash1).toBe(hash2);
+        expect(hash1.length).toBe(96); // SHA-384 produces 96 hex characters
+      });
+
+      test('should produce different hashes for different inputs', async () => {
+        const hash1 = await cryptoFunctions.HASH_SHA384('input1');
+        const hash2 = await cryptoFunctions.HASH_SHA384('input2');
+        expect(hash1).not.toBe(hash2);
+      });
+    });
+
+    describe('HASH_SHA512', () => {
+      test('should produce consistent SHA-512 hash', async () => {
+        const hash1 = await cryptoFunctions.HASH_SHA512(testString);
+        const hash2 = await cryptoFunctions.HASH_SHA512(testString);
+        expect(hash1).toBe(hash2);
+        expect(hash1.length).toBe(128); // SHA-512 produces 128 hex characters
+      });
+
+      test('should produce different hashes for different inputs', async () => {
+        const hash1 = await cryptoFunctions.HASH_SHA512('input1');
+        const hash2 = await cryptoFunctions.HASH_SHA512('input2');
+        expect(hash1).not.toBe(hash2);
+      });
+    });
+
+    describe('HASH_MD5', () => {
+      test('should produce consistent MD5 hash', () => {
+        const hash1 = cryptoFunctions.HASH_MD5(testString);
+        const hash2 = cryptoFunctions.HASH_MD5(testString);
+        expect(hash1).toBe(hash2);
+        expect(hash1.length).toBe(32); // MD5 produces 32 hex characters
+      });
+
+      test('should produce different hashes for different inputs', () => {
+        const hash1 = cryptoFunctions.HASH_MD5('input1');
+        const hash2 = cryptoFunctions.HASH_MD5('input2');
+        expect(hash1).not.toBe(hash2);
+      });
+    });
+  });
+
   describe('RANDOM_STRING', () => {
     test('should generate random string of specified length', () => {
       const result = cryptoFunctions.RANDOM_STRING(10);

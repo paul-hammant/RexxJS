@@ -87,7 +87,6 @@ function convertParamsToArgs(functionName, params) {
         case 'R_MEDIAN':
         case 'R_LENGTH':
         case 'LENGTH':
-        case 'SUM':
         case 'MIN':
         case 'MAX':
             // R functions expect arrays as first parameter
@@ -219,11 +218,42 @@ function convertParamsToArgs(functionName, params) {
             
         case 'SY_DIFF':
         case 'diff':
-        case 'DIFF':
-            // diff(expr, variable)
-            const diffExpr = params.expr || params.expression || Object.values(params)[0] || '';
-            const diffVar = params.variable || params.var || Object.values(params)[1] || 'x';
-            return [diffExpr, diffVar];
+        case 'DIFF': {
+            // Multiple DIFF functions - disambiguate by parameters
+            // 1. Text DIFF: params has text1/text2 (new)
+            // 2. Array DIFF: params has a/array (numpy-style)
+            // 3. Symbolic DIFF: params has expr/expression (symbolic math)
+
+            if (params.text1 !== undefined || params.text2 !== undefined || params.old !== undefined || params.new !== undefined) {
+                // Text diff: DIFF(text1, text2, options)
+                const text1 = params.text1 || params.old || params.original || params.a || Object.values(params)[0];
+                const text2 = params.text2 || params.new || params.modified || params.b || Object.values(params)[1];
+                let diffOptions = params.options || params.opts || {};
+
+                if (Object.keys(diffOptions).length === 0) {
+                    diffOptions = {
+                        format: params.format,
+                        context: params.context,
+                        filename1: params.filename1,
+                        filename2: params.filename2
+                    };
+                    Object.keys(diffOptions).forEach(key => diffOptions[key] === undefined && delete diffOptions[key]);
+                }
+
+                return [text1, text2, diffOptions];
+            } else if (params.a !== undefined || params.array !== undefined || params.data !== undefined) {
+                // Array diff: DIFF(array, n) - numpy-style differentiation
+                const diffArrayStr = params.a || params.array || params.data || Object.values(params)[0] || '[]';
+                const diffArray = typeof diffArrayStr === 'string' ? JSON.parse(diffArrayStr) : diffArrayStr;
+                const diffN = parseInt(params.n || params.order || Object.values(params)[1]) || 1;
+                return [diffArray, diffN];
+            } else {
+                // Symbolic diff: diff(expr, variable) - symbolic math
+                const diffExpr = params.expr || params.expression || Object.values(params)[0] || '';
+                const diffVar = params.variable || params.var || Object.values(params)[1] || 'x';
+                return [diffExpr, diffVar];
+            }
+        }
             
         case 'SY_NUM':
         case 'num':
@@ -1166,6 +1196,8 @@ function convertParamsToArgs(functionName, params) {
         // Cryptography functions
         case 'HASH_SHA256':
         case 'HASH_SHA1':
+        case 'HASH_SHA384':
+        case 'HASH_SHA512':
         case 'HASH_MD5':
         case 'BASE64_ENCODE':
         case 'BASE64_DECODE':
@@ -1283,11 +1315,9 @@ function convertParamsToArgs(functionName, params) {
             const roundDecimals = parseInt(params.decimals || params.digits || Object.values(params)[1]) || 0;
             return [roundX, roundDecimals];
             
-        case 'SUM':
-        case 'sum':
         case 'PROD':
         case 'prod':
-            // SUM/PROD(a, axis)
+            // PROD(a, axis)
             const sumArrayStr = params.a || params.array || params.data || Object.values(params)[0] || '[]';
             const sumArray = typeof sumArrayStr === 'string' ? JSON.parse(sumArrayStr) : sumArrayStr;
             const sumAxis = params.axis !== undefined ? parseInt(params.axis) : null;
@@ -1301,15 +1331,7 @@ function convertParamsToArgs(functionName, params) {
             const cumArrayStr = params.a || params.array || params.data || Object.values(params)[0] || '[]';
             const cumArray = typeof cumArrayStr === 'string' ? JSON.parse(cumArrayStr) : cumArrayStr;
             return [cumArray];
-            
-        case 'DIFF':
-        case 'diff':
-            // DIFF(a, n)
-            const diffArrayStr = params.a || params.array || params.data || Object.values(params)[0] || '[]';
-            const diffArray = typeof diffArrayStr === 'string' ? JSON.parse(diffArrayStr) : diffArrayStr;
-            const diffN = parseInt(params.n || params.order || Object.values(params)[1]) || 1;
-            return [diffArray, diffN];
-            
+
         case 'AVERAGE':
         case 'average':
             // AVERAGE(a, weights)
@@ -1784,6 +1806,577 @@ function convertParamsToArgs(functionName, params) {
                 params.command || params.cmd || Object.values(params)[1] || '',
                 params.maxArgs || params.n || params.max || null
             ];
+
+        case 'NL':
+            // NL(input, start, format)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.start || params.startNumber || params.n || 1,
+                params.format || params.fmt || "%6d  "
+            ];
+
+        case 'REV':
+            // REV(input)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || ''
+            ];
+
+        case 'TAC':
+            // TAC(input)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || ''
+            ];
+
+        case 'FOLD':
+            // FOLD(input, width)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.width || params.w || params.columns || 80
+            ];
+
+        case 'EXPAND':
+            // EXPAND(input, tabWidth)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.tabWidth ?? params.tabs ?? params.t ?? 8
+            ];
+
+        case 'DOS2UNIX':
+            // DOS2UNIX(input)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || ''
+            ];
+
+        case 'UNIX2DOS':
+            // UNIX2DOS(input)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || ''
+            ];
+
+        case 'FMT':
+            // FMT(input, width)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.width || params.w || params.cols || 75
+            ];
+
+        case 'STRINGS':
+            // STRINGS(input, minLength)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.minLength || params.min || params.n || 4
+            ];
+
+        case 'CMP':
+            // CMP(input1, input2)
+            return [
+                params.input1 || params.file1 || params.first || Object.values(params)[0] || '',
+                params.input2 || params.file2 || params.second || Object.values(params)[1] || ''
+            ];
+
+        case 'COMM':
+            // COMM(input1, input2, suppress)
+            return [
+                params.input1 || params.file1 || params.first || Object.values(params)[0] || '',
+                params.input2 || params.file2 || params.second || Object.values(params)[1] || '',
+                params.suppress || params.s || Object.values(params)[2] || 0
+            ];
+
+        case 'CRC32':
+        case 'CKSUM':
+            // CRC32(input) / CKSUM(input)
+            return [
+                params.input || params.data || params.text || params.file || Object.values(params)[0] || ''
+            ];
+
+        case 'SUM_BSD':
+            // SUM_BSD(input, algorithm)
+            return [
+                params.input || params.data || params.text || params.file || Object.values(params)[0] || '',
+                params.algorithm || params.algo || params.alg || params.type || 'bsd'
+            ];
+
+        case 'UUENCODE':
+            // UUENCODE(input, filename)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.filename || params.name || params.file || 'data.bin'
+            ];
+
+        case 'UUDECODE':
+            // UUDECODE(input)
+            return [
+                params.input || params.data || params.text || params.encoded || Object.values(params)[0] || ''
+            ];
+
+        case 'BASE32':
+            // BASE32(input, decode)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.decode || params.d || false
+            ];
+
+        case 'XXD':
+            // XXD(input, decode)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.decode || params.d || false
+            ];
+
+        case 'HEXDUMP':
+            // HEXDUMP(input, width)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.width || params.w || params.bytes || 16
+            ];
+
+        case 'OD':
+            // OD(input, format)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.format || params.f || params.type || 'octal'
+            ];
+
+        // System information functions
+        case 'UNAME':
+            return [
+                params.option || params.opt || params.o || Object.values(params)[0] || 'system'
+            ];
+
+        case 'HOSTNAME':
+        case 'WHOAMI':
+        case 'NPROC':
+        case 'ARCH':
+        case 'USERINFO':
+        case 'UPTIME':
+        case 'GROUPS':
+        case 'LOGNAME':
+        case 'DNSDOMAINNAME':
+        case 'TTY':
+            // No parameters needed
+            return [];
+
+        case 'GETCONF':
+            // GETCONF(name)
+            return [
+                params.name || params.config || params.var || Object.values(params)[0] || 'PAGE_SIZE'
+            ];
+
+        case 'ENV':
+            // ENV(name) - optional parameter
+            return [
+                params.name || params.var || params.variable || Object.values(params)[0]
+            ];
+
+        case 'FACTOR':
+            // FACTOR(n)
+            return [
+                params.n || params.num || params.number || Object.values(params)[0]
+            ];
+
+        case 'MCOOKIE':
+            // MCOOKIE(bytes) - optional bytes parameter
+            return [
+                params.bytes || params.size || params.length || Object.values(params)[0] || 16
+            ];
+
+        case 'MKTEMP':
+            // MKTEMP(template) - optional template parameter
+            return [
+                params.template || params.pattern || Object.values(params)[0] || 'tmp.XXXXXXXXXX'
+            ];
+
+        case 'ASCII':
+            // ASCII(char) - optional character parameter
+            return [
+                params.char || params.c || params.character || Object.values(params)[0]
+            ];
+
+        case 'YES':
+            // YES(text, count)
+            return [
+                params.text || params.str || params.string || Object.values(params)[0] || 'y',
+                params.count || params.n || params.times || Object.values(params)[1] || 100
+            ];
+
+        case 'TRUE':
+        case 'FALSE':
+            // No parameters needed
+            return [];
+
+        case 'CAL':
+            // CAL(month, year) - both optional
+            return [
+                params.month || params.m || Object.values(params)[0],
+                params.year || params.y || Object.values(params)[1]
+            ];
+
+        case 'WHICH':
+            // WHICH(command)
+            return [
+                params.command || params.cmd || params.name || Object.values(params)[0]
+            ];
+
+        case 'MKPASSWD':
+            // MKPASSWD(password, salt)
+            return [
+                params.password || params.pwd || params.pass || Object.values(params)[0],
+                params.salt || params.s || Object.values(params)[1] || '$6$'
+            ];
+
+        case 'GZIP':
+            // GZIP(input, encoding)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0],
+                params.encoding || params.enc || params.format || Object.values(params)[1] || 'buffer'
+            ];
+
+        case 'GUNZIP':
+            // GUNZIP(input, encoding)
+            return [
+                params.input || params.data || params.compressed || Object.values(params)[0],
+                params.encoding || params.enc || params.format || Object.values(params)[1] || 'utf8'
+            ];
+
+        case 'ZCAT':
+            // ZCAT(input)
+            return [
+                params.input || params.data || params.compressed || Object.values(params)[0]
+            ];
+
+        case 'READLINK':
+            // READLINK(linkPath)
+            return [
+                params.linkPath || params.link || params.path || Object.values(params)[0]
+            ];
+
+        case 'DU':
+            // DU(dirPath, detailed)
+            return [
+                params.dirPath || params.path || params.dir || Object.values(params)[0] || '.',
+                params.detailed || params.verbose || false
+            ];
+
+        case 'RMDIR':
+            // RMDIR(dirPath, recursive)
+            return [
+                params.dirPath || params.path || params.dir || Object.values(params)[0],
+                params.recursive || params.r || false
+            ];
+
+        case 'TOUCH':
+            // TOUCH(filePath, time)
+            return [
+                params.filePath || params.path || params.file || Object.values(params)[0],
+                params.time || params.timestamp || params.date || Object.values(params)[1] || null
+            ];
+
+        case 'CHMOD':
+            // CHMOD(filePath, mode)
+            return [
+                params.filePath || params.path || params.file || Object.values(params)[0],
+                params.mode || params.permissions || params.perms || Object.values(params)[1]
+            ];
+
+        case 'LINK':
+            // LINK(existingPath, newPath)
+            return [
+                params.existingPath || params.existing || params.source || params.src || Object.values(params)[0],
+                params.newPath || params.new || params.dest || params.dst || Object.values(params)[1]
+            ];
+
+        case 'UNLINK':
+            // UNLINK(filePath)
+            return [
+                params.filePath || params.path || params.file || Object.values(params)[0]
+            ];
+
+        case 'CHOWN':
+            // CHOWN(filePath, uid, gid)
+            return [
+                params.filePath || params.path || params.file || Object.values(params)[0],
+                params.uid || params.user || Object.values(params)[1],
+                params.gid || params.group || Object.values(params)[2] || null
+            ];
+
+        case 'TRUNCATE':
+            // TRUNCATE(filePath, size)
+            return [
+                params.filePath || params.path || params.file || Object.values(params)[0],
+                params.size || params.length || Object.values(params)[1] || 0
+            ];
+
+        case 'LN':
+            // LN(target, linkPath, symbolic)
+            return [
+                params.target || params.source || params.src || Object.values(params)[0],
+                params.linkPath || params.link || params.dest || params.dst || Object.values(params)[1],
+                params.symbolic || params.symlink || params.s || true
+            ];
+
+        case 'CHGRP':
+            // CHGRP(filePath, gid)
+            return [
+                params.filePath || params.path || params.file || Object.values(params)[0],
+                params.gid || params.group || Object.values(params)[1]
+            ];
+
+        case 'INSTALL':
+            // INSTALL(source, destination, mode)
+            return [
+                params.source || params.src || params.from || Object.values(params)[0],
+                params.destination || params.dest || params.dst || params.to || Object.values(params)[1],
+                params.mode || params.permissions || params.perms || Object.values(params)[2] || '755'
+            ];
+
+        case 'KILL':
+            // KILL(pid, signal)
+            return [
+                params.pid || params.process || params.id || Object.values(params)[0],
+                params.signal || params.sig || Object.values(params)[1] || 'SIGTERM'
+            ];
+
+        case 'GETPID':
+        case 'GETPPID':
+            // No parameters needed
+            return [];
+
+        case 'EXIT':
+            // EXIT(code)
+            return [
+                params.code || params.exitCode || params.status || Object.values(params)[0] || 0
+            ];
+
+        case 'SLEEP':
+            // SLEEP(ms)
+            return [
+                params.ms || params.milliseconds || params.duration || params.time || Object.values(params)[0] || 1000
+            ];
+
+        case 'GETENV':
+            // GETENV(name) - optional parameter
+            // If no parameters provided, return [null] to get all env vars
+            if (Object.keys(params).length === 0) {
+                return [null];
+            }
+            return [
+                params.name || params.var || params.variable || params.key || Object.values(params)[0]
+            ];
+
+        case 'SETENV':
+            // SETENV(name, value)
+            return [
+                params.name || params.var || params.variable || params.key || Object.values(params)[0],
+                params.value || params.val || Object.values(params)[1]
+            ];
+
+        case 'UNSETENV':
+            // UNSETENV(name)
+            return [
+                params.name || params.var || params.variable || params.key || Object.values(params)[0]
+            ];
+
+        case 'TIMEOUT':
+            // TIMEOUT(command, ms, options)
+            return [
+                params.command || params.cmd || Object.values(params)[0],
+                params.ms || params.milliseconds || params.timeout || params.time || Object.values(params)[1] || 10000,
+                params.options || params.opts || Object.values(params)[2] || {}
+            ];
+
+        case 'FSYNC':
+            // FSYNC(pathOrFd)
+            return [
+                params.path || params.file || params.fd || params.descriptor || Object.values(params)[0]
+            ];
+
+        case 'SYNC':
+            // SYNC() - no parameters
+            return [];
+
+        case 'GETOPT':
+            // GETOPT(args, optstring, longopts)
+            return [
+                params.args || params.arguments || params.argv || Object.values(params)[0] || [],
+                params.optstring || params.short || params.shortopts || Object.values(params)[1] || '',
+                params.longopts || params.long || params.longoptions || Object.values(params)[2] || []
+            ];
+
+        case 'HOST': {
+            // HOST(hostname, options)
+            const hostname = params.hostname || params.host || params.name || Object.values(params)[0];
+            let hostOptions = params.options || params.opts || {};
+
+            // If no options object, collect individual option params
+            if (Object.keys(hostOptions).length === 0) {
+                hostOptions = {
+                    detailed: params.detailed,
+                    family: params.family
+                };
+                // Remove undefined values
+                Object.keys(hostOptions).forEach(key => hostOptions[key] === undefined && delete hostOptions[key]);
+            }
+
+            return [hostname, hostOptions];
+        }
+
+        case 'IFCONFIG':
+            // IFCONFIG(interfaceName) - optional parameter
+            if (Object.keys(params).length === 0) {
+                return [null];
+            }
+            return [
+                params.interface || params.name || params.iface || Object.values(params)[0]
+            ];
+
+        case 'FILESPLIT': {
+            // FILESPLIT(input, options)
+            // If options is provided as an object, use it
+            // Otherwise, collect individual params into options object
+            const input = params.input || params.file || params.path || params.content || Object.values(params)[0];
+            let options = params.options || params.opts || {};
+
+            // If no options object, collect individual option params
+            if (Object.keys(options).length === 0) {
+                options = {
+                    lines: params.lines,
+                    bytes: params.bytes,
+                    prefix: params.prefix,
+                    suffix: params.suffix,
+                    numeric: params.numeric,
+                    additionalSuffix: params.additionalSuffix
+                };
+                // Remove undefined values
+                Object.keys(options).forEach(key => options[key] === undefined && delete options[key]);
+            }
+
+            return [input, options];
+        }
+
+        case 'DIFF_APPLY':
+            // DIFF_APPLY(text, patch)
+            return [
+                params.text || params.original || params.content || Object.values(params)[0],
+                params.patch || params.diff || Object.values(params)[1]
+            ];
+
+        case 'DIFF_PATCH': {
+            // DIFF_PATCH(text1, text2, options)
+            const text1 = params.text1 || params.old || params.original || params.a || Object.values(params)[0];
+            const text2 = params.text2 || params.new || params.modified || params.b || Object.values(params)[1];
+            let patchOptions = params.options || params.opts || {};
+
+            // If no options object, collect individual option params
+            if (Object.keys(patchOptions).length === 0) {
+                patchOptions = {
+                    filename1: params.filename1,
+                    filename2: params.filename2
+                };
+                // Remove undefined values
+                Object.keys(patchOptions).forEach(key => patchOptions[key] === undefined && delete patchOptions[key]);
+            }
+
+            return [text1, text2, patchOptions];
+        }
+
+        case 'SED': {
+            // SED(input, commands, options)
+            const input = params.input || params.text || params.content || params.data || Object.values(params)[0];
+            const commands = params.commands || params.command || params.cmd || params.script || Object.values(params)[1];
+            let sedOptions = params.options || params.opts || {};
+
+            // If no options object, collect individual option params
+            if (Object.keys(sedOptions).length === 0) {
+                sedOptions = {
+                    returnArray: params.returnArray || params.array
+                };
+                // Remove undefined values
+                Object.keys(sedOptions).forEach(key => sedOptions[key] === undefined && delete sedOptions[key]);
+            }
+
+            return [input, commands, sedOptions];
+        }
+
+        case 'SED_SUBSTITUTE': {
+            // SED_SUBSTITUTE(input, pattern, replacement, options)
+            const input = params.input || params.text || params.content || params.data || Object.values(params)[0];
+            const pattern = params.pattern || params.search || params.find || Object.values(params)[1];
+            const replacement = params.replacement || params.replace || params.repl || Object.values(params)[2];
+            let subOptions = params.options || params.opts || {};
+
+            // If no options object, collect individual option params
+            if (Object.keys(subOptions).length === 0) {
+                subOptions = {
+                    global: params.global || params.g,
+                    caseInsensitive: params.caseInsensitive || params.ignoreCase || params.i,
+                    delimiter: params.delimiter || params.delim,
+                    returnArray: params.returnArray || params.array
+                };
+                // Remove undefined values
+                Object.keys(subOptions).forEach(key => subOptions[key] === undefined && delete subOptions[key]);
+            }
+
+            return [input, pattern, replacement, subOptions];
+        }
+
+        case 'PATCH': {
+            // PATCH(text, patch, options)
+            const text = params.text || params.original || params.content || params.input || Object.values(params)[0];
+            const patch = params.patch || params.diff || params.patchText || Object.values(params)[1];
+            let patchOptions = params.options || params.opts || {};
+
+            // If no options object, collect individual option params
+            if (Object.keys(patchOptions).length === 0) {
+                patchOptions = {
+                    fuzz: params.fuzz,
+                    returnResult: params.returnResult || params.result,
+                    compareLine: params.compareLine
+                };
+                // Remove undefined values
+                Object.keys(patchOptions).forEach(key => patchOptions[key] === undefined && delete patchOptions[key]);
+            }
+
+            return [text, patch, patchOptions];
+        }
+
+        case 'PATCH_CHECK': {
+            // PATCH_CHECK(text, patch, options)
+            const text = params.text || params.original || params.content || params.input || Object.values(params)[0];
+            const patch = params.patch || params.diff || params.patchText || Object.values(params)[1];
+            let checkOptions = params.options || params.opts || {};
+
+            if (Object.keys(checkOptions).length === 0) {
+                checkOptions = {
+                    fuzz: params.fuzz,
+                    compareLine: params.compareLine
+                };
+                Object.keys(checkOptions).forEach(key => checkOptions[key] === undefined && delete checkOptions[key]);
+            }
+
+            return [text, patch, checkOptions];
+        }
+
+        case 'PATCH_APPLY_MULTIPLE': {
+            // PATCH_APPLY_MULTIPLE(text, patches, options)
+            const text = params.text || params.original || params.content || params.input || Object.values(params)[0];
+            const patches = params.patches || params.patchArray || params.diffs || Object.values(params)[1];
+            let multiOptions = params.options || params.opts || {};
+
+            if (Object.keys(multiOptions).length === 0) {
+                multiOptions = {
+                    stopOnError: params.stopOnError || params.stop,
+                    returnResults: params.returnResults || params.results,
+                    fuzz: params.fuzz
+                };
+                Object.keys(multiOptions).forEach(key => multiOptions[key] === undefined && delete multiOptions[key]);
+            }
+
+            return [text, patches, multiOptions];
+        }
+
+        case 'PATCH_CREATE_REVERSE':
+            // PATCH_CREATE_REVERSE(patch)
+            return [params.patch || params.diff || params.patchText || Object.values(params)[0]];
 
         default:
             // Default: return all parameter values as arguments
