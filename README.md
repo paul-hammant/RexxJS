@@ -1,6 +1,8 @@
 # RexxJS
 
-A lightweight, embeddable REXX interpreter for JavaScript environments, with comprehensive DOM support for web applications. While it runs excellently in Node.js, RexxJS particularly shines in browser environments where few scripting language options exist.
+A lightweight, embeddable REXX interpreter for JavaScript environments, that is reimagined for the web era with comprehensive DOM interop. While it runs excellently in Node.js, RexxJS particularly shines in browser environments where few scripting language options exist.
+
+RexxJS also extends REXX with features from the world of functional programming and data science. The latter through extra libraries that are inspired from R (the language) and Python modules.
 
 The aim is to implement as much of 1979's Rexx as possible, with the likely exception of PULL that'd seek user input - ordinarily that'd map to something coming from STDIN, but there's no such thing in the DOM.
 
