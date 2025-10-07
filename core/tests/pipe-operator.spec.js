@@ -204,4 +204,61 @@ describe('Pipe Operator (|>)', () => {
       expect(interpreter.getVariable('result')).toBe(8);
     });
   });
+
+  describe('Piping with named parameters', () => {
+    it('should pipe to function with named parameters', async () => {
+      const script = `
+        LET result = "hello world" |> SUBSTR(start=7, length=5)
+      `;
+
+      const commands = parse(script);
+      await interpreter.run(commands);
+
+      expect(interpreter.getVariable('result')).toBe('world');
+    });
+
+    it('should chain pipes with named parameters', async () => {
+      const script = `
+        LET result = "  hello  " |> STRIP() |> SUBSTR(start=2, length=3)
+      `;
+
+      const commands = parse(script);
+      await interpreter.run(commands);
+
+      expect(interpreter.getVariable('result')).toBe('ell');
+    });
+
+    it('should pipe to POS with named parameter', async () => {
+      const script = `
+        LET result = "hello world" |> POS(needle="world")
+      `;
+
+      const commands = parse(script);
+      await interpreter.run(commands);
+
+      expect(interpreter.getVariable('result')).toBe(7);
+    });
+
+    it('should pipe to WORDPOS with named parameter', async () => {
+      const script = `
+        LET result = "the quick brown fox" |> WORDPOS(phrase="brown fox")
+      `;
+
+      const commands = parse(script);
+      await interpreter.run(commands);
+
+      expect(interpreter.getVariable('result')).toBe(3);
+    });
+
+    it('should support mixed positional and named styles in chain', async () => {
+      const script = `
+        LET result = "HELLO WORLD" |> LOWER() |> SUBSTR(start=7, length=5)
+      `;
+
+      const commands = parse(script);
+      await interpreter.run(commands);
+
+      expect(interpreter.getVariable('result')).toBe('world');
+    });
+  });
 });

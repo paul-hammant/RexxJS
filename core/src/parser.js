@@ -1627,16 +1627,33 @@ function parseFunctionCall(line) {
         } else if (!inQuotes && char === ')') {
           parenCount--;
         } else if (!inQuotes && parenCount === 0 && char === ' ') {
-          // End of this parameter value
+          // End of this parameter value (space separator)
           break;
+        } else if (!inQuotes && parenCount === 0 && char === ',') {
+          // Check if comma is followed by a parameter name (name=)
+          // If so, it's a parameter separator. Otherwise, it's part of the value.
+          const afterComma = remaining.substring(i + 1).trim();
+          if (afterComma.match(/^(\w+)=(?!>)/)) {
+            // Comma followed by param name - it's a separator
+            break;
+          }
+          // Comma is part of the value - include it
+          value += char;
+          i++;
+          continue;
         }
-        
+
         value += char;
         i++;
       }
-      
+
       args.push({ name: paramName, value: value.trim() });
       remaining = remaining.substring(i).trim();
+
+      // Skip comma separator if present
+      if (remaining.startsWith(',')) {
+        remaining = remaining.substring(1).trim();
+      }
     }
     
     // Process each argument

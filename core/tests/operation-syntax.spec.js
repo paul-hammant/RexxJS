@@ -20,7 +20,7 @@ describe('Operation Syntax (No Parentheses)', () => {
 
     // Manually register bathhouse library
     Object.assign(interpreter.operations, bathhouseLib.operations);
-    Object.assign(interpreter.builtInFunctions, bathhouseLib.functions);
+    Object.assign(interpreter.externalFunctions, bathhouseLib.functions);
 
     // Reset bathhouse state
     bathhouseLib.resetBathhouse();
@@ -86,10 +86,8 @@ SAY "Capacity: " || capacity
       expect(output).toBe('Capacity: 50');
     });
 
-    test.skip('function with named parameters in expressions (not yet supported)', async () => {
-      // TODO: evaluateRexxExpressionPart doesn't support named params yet
-      // Works: IDENTIFY_SPIRIT description="muddy" (no parens, statement)
-      // Doesn't work: LET x = IDENTIFY_SPIRIT(description="muddy") (parens, expression)
+    test('function with named parameters in expressions', async () => {
+      // Now supported! External functions from REQUIRE'd libraries receive params objects
       const script = `
 LET spirit = IDENTIFY_SPIRIT(description="muddy")
 SAY "Identified: " || spirit
@@ -98,6 +96,18 @@ SAY "Identified: " || spirit
       await interpreter.run(parse(script));
       const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
       expect(output).toBe('Identified: river_spirit');
+    });
+
+    test('function with positional parameters in expressions', async () => {
+      // Positional parameters should also work (converted via parameter-converter)
+      const script = `
+LET spirit = IDENTIFY_SPIRIT("hungry")
+SAY "Identified: " || spirit
+      `;
+
+      await interpreter.run(parse(script));
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toBe('Identified: no_face');
     });
 
     test('function call in condition', async () => {
@@ -130,8 +140,8 @@ SAY "Soot sprite energy: " || energy
       expect(output).toBe('Soot sprite energy: 100');
     });
 
-    test.skip('function result used in operation (named params in expressions not yet supported)', async () => {
-      // TODO: Same issue - IDENTIFY_SPIRIT(description="hungry") in expression doesn't work yet
+    test('function result used in operation', async () => {
+      // Now supported! External functions from REQUIRE'd libraries receive params objects
       const script = `
 LET spirit_name = IDENTIFY_SPIRIT(description="hungry")
 SERVE_GUEST guest=spirit_name bath="luxury"

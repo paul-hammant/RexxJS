@@ -187,7 +187,7 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
  * @param {Function} isNumericStringFn - Function to check if string is numeric
  * @returns {Promise<*>} Evaluated expression result
  */
-async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableHasFn, interpolateStringFn, evaluateConcatenationFn, executeFunctionCallFn, isLikelyFunctionNameFn, isBuiltinFunctionFn, getBuiltinFunctionFn, callConvertParamsToArgsFn, isNumericStringFn) {
+async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableHasFn, interpolateStringFn, evaluateConcatenationFn, executeFunctionCallFn, isLikelyFunctionNameFn, isBuiltinFunctionFn, getBuiltinFunctionFn, callConvertParamsToArgsFn, isNumericStringFn, isOperationFn) {
   switch (expr.type) {
     case 'LITERAL':
       return expr.value;
@@ -255,14 +255,30 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
           }
 
           const builtInFunc = getBuiltinFunctionFn(method);
-          const args = callConvertParamsToArgsFn(method, resolvedParams);
 
           if (hasPlaceholder) {
             // Placeholder found, args already have piped value in the right position
+            const args = callConvertParamsToArgsFn(method, resolvedParams);
             return await builtInFunc(...args);
           } else {
             // No placeholder, prepend piped value as first argument (default behavior)
-            return await builtInFunc(pipeValue, ...args);
+            // Build params with piped value, shifting any existing positional args
+            const paramsWithPipedValue = { value: pipeValue };
+            for (const [key, val] of Object.entries(resolvedParams)) {
+              if (key === 'value') {
+                // Shift existing 'value' to 'arg2'
+                paramsWithPipedValue.arg2 = val;
+              } else if (key.match(/^arg(\d+)$/)) {
+                // Shift argN to arg(N+1)
+                const num = parseInt(RegExp.$1);
+                paramsWithPipedValue[`arg${num + 1}`] = val;
+              } else {
+                // Named parameter - keep as is
+                paramsWithPipedValue[key] = val;
+              }
+            }
+            const args = callConvertParamsToArgsFn(method, paramsWithPipedValue);
+            return await builtInFunc(...args);
           }
         } else {
           // RPC function call - check for placeholder
@@ -392,8 +408,16 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
           resolvedParams[key] = await resolveValueFn(value);
         }
         const builtInFunc = getBuiltinFunctionFn(method);
-        const args = callConvertParamsToArgsFn(method, resolvedParams);
-        return await builtInFunc(...args);
+
+        // Check if this is an operation (uses named params) or a function (uses positional args)
+        if (isOperationFn && isOperationFn(method)) {
+          // Operations receive the params object directly (named parameters)
+          return await builtInFunc(resolvedParams);
+        } else {
+          // Functions receive positional args converted from params
+          const args = callConvertParamsToArgsFn(method, resolvedParams);
+          return await builtInFunc(...args);
+        }
       } else {
         // Allow RPC function calls in expressions (like assignments)
         return await executeFunctionCallFn(expr);

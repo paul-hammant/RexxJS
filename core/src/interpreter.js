@@ -3084,7 +3084,8 @@ class RexxInterpreter {
       (method) => !!(this.builtInFunctions[method] || this.operations[method]),
       (method) => this.builtInFunctions[method] || this.operations[method],
       callConvertParamsToArgs,
-      isNumericString
+      isNumericString,
+      (method) => !!this.operations[method]  // isOperationFn - check if it's in operations registry
     );
   }
 

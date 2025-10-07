@@ -93,8 +93,7 @@ const bathhouseOperations = {
 
 // Functions (return values, query state)
 const bathhouseFunctions = {
-  'GUEST_STATUS': function(params) {
-    const { guest } = params;
+  'GUEST_STATUS': function(guest) {
     const guestData = bathhouse.guests.get(guest);
     if (!guestData) return 'not_found';
     return guestData.served ? 'satisfied' : 'waiting';
@@ -104,8 +103,7 @@ const bathhouseFunctions = {
     return bathhouse.tokens.length;
   },
 
-  'IDENTIFY_SPIRIT': function(params) {
-    const { description } = params;
+  'IDENTIFY_SPIRIT': function(description) {
     const spirits = {
       'muddy': 'river_spirit',
       'hungry': 'no_face',
@@ -119,8 +117,7 @@ const bathhouseFunctions = {
     return 50; // Max guests
   },
 
-  'CLEANLINESS_LEVEL': function(params) {
-    const { area = 'main_hall' } = params;
+  'CLEANLINESS_LEVEL': function(area = 'main_hall') {
     return bathhouse.cleanliness[area] || 0;
   },
 
