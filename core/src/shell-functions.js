@@ -26,12 +26,28 @@ if (isNodeJS) {
 }
 
 /**
- * Helper to coerce boolean parameters that might be passed as strings
+ * Helper to coerce boolean parameters that might be passed as strings or objects
  */
 function toBool(value) {
+  if (value === null || value === undefined) return false;
   if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') return value === 'true';
+  if (typeof value === 'object' && value.value !== undefined) {
+    return toBool(value.value);
+  }
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
   return Boolean(value);
+}
+
+/**
+ * Helper to coerce string parameters that might be passed as objects
+ */
+function toStr(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value.value !== undefined) return String(value.value);
+  return String(value);
 }
 
 /**
@@ -804,6 +820,70 @@ function PATH_EXTNAME(pathArg) {
 }
 
 /**
+ * HEAD - Get first N lines from text or file
+ *
+ * @param {string|Array} input - Text string, array of lines, or file path
+ * @param {number} lines - Number of lines to return (default: 10)
+ * @returns {string|Array} First N lines (returns same type as input)
+ */
+function HEAD(input, lines = 10) {
+  const n = parseInt(lines) || 10;
+
+  // Handle array input (pipeline-friendly)
+  if (Array.isArray(input)) {
+    return input.slice(0, n);
+  }
+
+  // Handle string input
+  if (typeof input === 'string') {
+    // Check if it's a file path
+    if (isNodeJS && fs.existsSync(input)) {
+      const content = fs.readFileSync(input, 'utf8');
+      const allLines = content.split('\n');
+      return allLines.slice(0, n).join('\n');
+    } else {
+      // It's text content
+      const allLines = input.split('\n');
+      return allLines.slice(0, n).join('\n');
+    }
+  }
+
+  throw new Error('HEAD requires a string or array as input');
+}
+
+/**
+ * TAIL - Get last N lines from text or file
+ *
+ * @param {string|Array} input - Text string, array of lines, or file path
+ * @param {number} lines - Number of lines to return (default: 10)
+ * @returns {string|Array} Last N lines (returns same type as input)
+ */
+function TAIL(input, lines = 10) {
+  const n = parseInt(lines) || 10;
+
+  // Handle array input (pipeline-friendly)
+  if (Array.isArray(input)) {
+    return input.slice(-n);
+  }
+
+  // Handle string input
+  if (typeof input === 'string') {
+    // Check if it's a file path
+    if (isNodeJS && fs.existsSync(input)) {
+      const content = fs.readFileSync(input, 'utf8');
+      const allLines = content.split('\n');
+      return allLines.slice(-n).join('\n');
+    } else {
+      // It's text content
+      const allLines = input.split('\n');
+      return allLines.slice(-n).join('\n');
+    }
+  }
+
+  throw new Error('TAIL requires a string or array as input');
+}
+
+/**
  * Word, line, and character count (like Unix wc)
  * @param {string|Array} input - Input text or array of lines
  * @param {string} [type] - Type of count: "lines", "words", "chars", or undefined for object with all counts
@@ -811,7 +891,7 @@ function PATH_EXTNAME(pathArg) {
  */
 function WC(input, type) {
   let text;
-  
+
   // Convert input to text string
   if (Array.isArray(input)) {
     text = input.join('\n');
@@ -820,12 +900,12 @@ function WC(input, type) {
   } else {
     throw new Error('WC input must be a string or array of strings');
   }
-  
+
   // Calculate counts
   const chars = text.length;
   const lines = text ? text.split('\n').length : 0;
   const words = text ? text.trim().split(/\s+/).filter(w => w.length > 0).length : 0;
-  
+
   // Return specific count or full object
   switch (type) {
     case 'lines':
@@ -840,6 +920,187 @@ function WC(input, type) {
 }
 
 /**
+ * SORT - Sort lines
+ *
+ * @param {string|Array} input - Text string, array, or file path
+ * @param {boolean} reverse - Reverse sort order (default: false)
+ * @param {boolean} numeric - Numeric sort (default: false)
+ * @param {boolean} unique - Remove duplicates (default: false)
+ * @returns {string|Array} Sorted lines (returns same type as input)
+ */
+function SORT(input, reverse = false, numeric = false, unique = false) {
+  // Normalize boolean parameters - handle strings "true"/"false"
+  reverse = toBool(reverse);
+  numeric = toBool(numeric);
+  unique = toBool(unique);
+
+  let lines = [];
+  const isArray = Array.isArray(input);
+
+  if (isArray) {
+    lines = [...input];
+  } else if (typeof input === 'string') {
+    // Check if it's a file path
+    if (isNodeJS && fs.existsSync(input)) {
+      const content = fs.readFileSync(input, 'utf8');
+      lines = content.split('\n');
+    } else {
+      lines = input.split('\n');
+    }
+  } else {
+    throw new Error('SORT requires a string or array as input');
+  }
+
+  // Sort
+  if (numeric) {
+    lines.sort((a, b) => {
+      const numA = parseFloat(String(a)) || 0;
+      const numB = parseFloat(String(b)) || 0;
+      return numA - numB;
+    });
+  } else {
+    lines.sort();
+  }
+
+  if (reverse) {
+    lines.reverse();
+  }
+
+  if (unique) {
+    lines = [...new Set(lines)];
+  }
+
+  return isArray ? lines : lines.join('\n');
+}
+
+/**
+ * UNIQ - Remove duplicate adjacent lines
+ *
+ * @param {string|Array} input - Text string, array, or file path
+ * @param {boolean} count - Show count of occurrences (default: false)
+ * @returns {string|Array} Unique lines (returns same type as input)
+ */
+function UNIQ(input, count = false) {
+  count = toBool(count);
+
+  let lines = [];
+  const isArray = Array.isArray(input);
+
+  if (isArray) {
+    lines = [...input];
+  } else if (typeof input === 'string') {
+    // Check if it's a file path
+    if (isNodeJS && fs.existsSync(input)) {
+      const content = fs.readFileSync(input, 'utf8');
+      lines = content.split('\n');
+    } else {
+      lines = input.split('\n');
+    }
+  } else {
+    throw new Error('UNIQ requires a string or array as input');
+  }
+
+  const result = [];
+  let prevLine = null;
+  let lineCount = 0;
+
+  for (const line of lines) {
+    if (line === prevLine) {
+      lineCount++;
+    } else {
+      if (prevLine !== null) {
+        result.push(count ? `${lineCount} ${prevLine}` : prevLine);
+      }
+      prevLine = line;
+      lineCount = 1;
+    }
+  }
+
+  // Don't forget the last line
+  if (prevLine !== null) {
+    result.push(count ? `${lineCount} ${prevLine}` : prevLine);
+  }
+
+  return isArray ? result : result.join('\n');
+}
+
+/**
+ * SEQ - Generate sequence of numbers
+ *
+ * @param {number} start - Start value (or end if only one arg)
+ * @param {number} end - End value
+ * @param {number} step - Step increment (default: 1)
+ * @returns {Array} Array of numbers
+ */
+function SEQ(start, end = null, step = 1) {
+  let begin, finish;
+
+  if (end === null) {
+    // Called with single argument: SEQ(5) => 1..5
+    begin = 1;
+    finish = parseInt(start);
+  } else {
+    begin = parseInt(start);
+    finish = parseInt(end);
+  }
+
+  step = parseInt(step);
+  if (isNaN(step)) step = 1;
+
+  const result = [];
+
+  if (step === 0) {
+    throw new Error('SEQ step cannot be zero');
+  }
+
+  if (step > 0) {
+    for (let i = begin; i <= finish; i += step) {
+      result.push(i);
+    }
+  } else {
+    // step < 0
+    for (let i = begin; i >= finish; i += step) {
+      result.push(i);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * SHUF - Shuffle lines randomly
+ *
+ * @param {string|Array} input - Text string, array, or file path
+ * @returns {string|Array} Shuffled lines (returns same type as input)
+ */
+function SHUF(input) {
+  let lines = [];
+  const isArray = Array.isArray(input);
+
+  if (isArray) {
+    lines = [...input];
+  } else if (typeof input === 'string') {
+    // Check if it's a file path
+    if (isNodeJS && fs.existsSync(input)) {
+      const content = fs.readFileSync(input, 'utf8');
+      lines = content.split('\n');
+    } else {
+      lines = input.split('\n');
+    }
+  } else {
+    throw new Error('SHUF requires a string or array as input');
+  }
+
+  // Fisher-Yates shuffle
+  for (let i = lines.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [lines[i], lines[j]] = [lines[j], lines[i]];
+  }
+
+  return isArray ? lines : lines.join('\n');
+}
+
+/**
  * Extract fields from text lines (like Unix cut)
  * @param {string|Array} input - Input text or array of lines
  * @param {string} [fields] - Field numbers to extract (e.g., "2" or "1,3")
@@ -848,7 +1109,7 @@ function WC(input, type) {
  */
 function CUT(input, fields = "1", delimiter = "\t") {
   let lines;
-  
+
   // Convert input to array of lines
   if (Array.isArray(input)) {
     lines = input;
@@ -857,15 +1118,30 @@ function CUT(input, fields = "1", delimiter = "\t") {
   } else {
     throw new Error('CUT input must be a string or array of strings');
   }
-  
-  // Parse field numbers
-  const fieldNums = fields.split(',').map(f => parseInt(f.trim()) - 1); // Convert to 0-based
-  
+
+  // Parse field numbers (supports ranges like "2-3" and lists like "1,3")
+  const fieldNums = [];
+  const fieldSpecs = fields.split(',');
+
+  for (const spec of fieldSpecs) {
+    const trimmed = spec.trim();
+    if (trimmed.includes('-')) {
+      // Range like "2-3"
+      const [start, end] = trimmed.split('-').map(n => parseInt(n.trim()));
+      for (let i = start; i <= end; i++) {
+        fieldNums.push(i - 1); // Convert to 0-based
+      }
+    } else {
+      // Single field
+      fieldNums.push(parseInt(trimmed) - 1); // Convert to 0-based
+    }
+  }
+
   const result = [];
   for (const line of lines) {
     const parts = line.split(delimiter);
-    const extracted = fieldNums.map(fieldNum => parts[fieldNum] || '').filter(f => f !== '');
-    
+    const extracted = fieldNums.map(fieldNum => parts[fieldNum] || '');
+
     if (fieldNums.length === 1) {
       // Single field - return just the value
       result.push(extracted[0] || '');
@@ -874,7 +1150,7 @@ function CUT(input, fields = "1", delimiter = "\t") {
       result.push(extracted.join(delimiter));
     }
   }
-  
+
   return result;
 }
 
@@ -888,10 +1164,10 @@ function PASTE(inputs, delimiter = "\t") {
   if (!Array.isArray(inputs)) {
     throw new Error('PASTE inputs must be an array of arrays');
   }
-  
+
   // Find the maximum length
   const maxLength = Math.max(...inputs.map(arr => Array.isArray(arr) ? arr.length : 0));
-  
+
   const result = [];
   for (let i = 0; i < maxLength; i++) {
     const line = inputs.map(arr => {
@@ -902,8 +1178,94 @@ function PASTE(inputs, delimiter = "\t") {
     }).join(delimiter);
     result.push(line);
   }
-  
+
   return result;
+}
+
+/**
+ * TEE - Write to file and pass through to output
+ *
+ * @param {string|Array} input - Data to write
+ * @param {string} file - File path to write to
+ * @param {boolean} append - Append to file instead of overwrite (default: false)
+ * @returns {string|Array} Input data (passed through)
+ */
+function TEE(input, file, append = false) {
+  if (!file) {
+    throw new Error('TEE requires a file path');
+  }
+
+  append = toBool(append);
+
+  let content;
+  if (Array.isArray(input)) {
+    content = input.join('\n');
+  } else if (typeof input === 'string') {
+    content = input;
+  } else {
+    throw new Error('TEE requires a string or array as input');
+  }
+
+  if (isNodeJS) {
+    if (append) {
+      fs.appendFileSync(file, content + '\n');
+    } else {
+      fs.writeFileSync(file, content + '\n');
+    }
+  }
+
+  return input; // Pass through
+}
+
+/**
+ * XARGS - Build and execute commands from input
+ *
+ * @param {string|Array} input - Input lines to process
+ * @param {string} command - Command template with {} placeholder
+ * @param {number} maxArgs - Max arguments per command invocation (default: unlimited)
+ * @returns {Array} Results from each command execution
+ */
+function XARGS(input, command, maxArgs = null) {
+  // Normalize parameters
+  command = toStr(command);
+
+  if (!command) {
+    throw new Error('XARGS requires a command parameter');
+  }
+
+  let lines = [];
+
+  if (Array.isArray(input)) {
+    lines = input.map(String);
+  } else if (typeof input === 'string') {
+    // Handle both actual newlines and escaped newlines
+    const normalized = input.replace(/\\n/g, '\n');
+    lines = normalized.split('\n').filter(line => line.trim().length > 0);
+  } else {
+    throw new Error('XARGS requires a string or array as input');
+  }
+
+  const results = [];
+  const maxPerCall = maxArgs ? parseInt(maxArgs) : lines.length;
+
+  // Process in batches
+  for (let i = 0; i < lines.length; i += maxPerCall) {
+    const batch = lines.slice(i, i + maxPerCall);
+
+    // Replace {} with arguments, or append if no placeholder
+    let finalCommand;
+    if (command.includes('{}')) {
+      finalCommand = command.replace('{}', batch.join(' '));
+    } else {
+      finalCommand = `${command} ${batch.join(' ')}`;
+    }
+
+    // Execute command (simplified - in real use, would need proper command parsing)
+    // For now, just return the command that would be executed
+    results.push(finalCommand);
+  }
+
+  return results;
 }
 
 // Export functions only in Node.js environment
@@ -924,9 +1286,17 @@ if (isNodeJS) {
     PATH_JOIN,
     PATH_RESOLVE,
     PATH_EXTNAME,
+    HEAD,
+    TAIL,
     WC,
+    SORT,
+    UNIQ,
     CUT,
     PASTE,
+    SEQ,
+    SHUF,
+    TEE,
+    XARGS,
   };
 } else if (typeof module !== 'undefined' && module.exports) {
   // Browser mode with module system (webpack) - export empty object

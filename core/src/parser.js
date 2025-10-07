@@ -1663,7 +1663,7 @@ function parseFunctionCall(line) {
       // Handle quoted strings
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
         const rawString = value.substring(1, value.length - 1);
-        
+
         // Check for interpolation markers {variableName}
         if (rawString.includes('{') && rawString.includes('}')) {
           value = {
@@ -1677,7 +1677,16 @@ function parseFunctionCall(line) {
             value: rawString
           };
         }
-      } 
+      }
+      // Handle array literals [...]
+      else if (value.startsWith('[') && value.endsWith(']')) {
+        // Try to parse as expression (handles arrays with variable references)
+        const parsed = parseExpression(value);
+        if (parsed !== null) {
+          // parseExpression might return the expression directly or wrapped in {expr, remaining}
+          value = parsed.expr || parsed;
+        }
+      }
       // Handle simple numeric values first
       else if (!isNaN(parseFloat(value)) && isFinite(value) && !value.includes('-') && !value.includes('+')) {
         value = parseFloat(value);
@@ -1820,7 +1829,7 @@ function parseExpression(exprStr) {
     throw new Error(`Array access syntax '${variableName}[${indexStr}]' is not supported in expressions. Use ARRAY_GET(${variableName}, ${indexStr}) for REXX 1-based indexing instead.`);
   }
 
-  // Handle array literals, e.g., ["apple", "banana", "cherry"] or [1, 2, 3]
+  // Handle array literals, e.g., ["apple", "banana", "cherry"] or [1, 2, 3] or [a, b]
   if (expr.startsWith('[') && expr.endsWith(']')) {
     try {
       // Try to parse as JSON array literal
@@ -1832,7 +1841,67 @@ function parseExpression(exprStr) {
         };
       }
     } catch (e) {
-      // If JSON parsing fails, fall through to other parsing
+      // JSON.parse failed - might be an array with variable references like [a, b]
+      const contents = expr.substring(1, expr.length - 1).trim();
+
+      if (!contents) {
+        // Empty array
+        return {
+          type: 'LITERAL',
+          value: []
+        };
+      }
+
+      // Split by commas (but not commas inside nested structures)
+      const elements = [];
+      let currentElement = '';
+      let nestedBrackets = 0;
+      let nestedParens = 0;
+      let inQuotes = false;
+      let quoteChar = '';
+
+      for (let i = 0; i < contents.length; i++) {
+        const char = contents[i];
+
+        if (!inQuotes && (char === '"' || char === "'")) {
+          inQuotes = true;
+          quoteChar = char;
+          currentElement += char;
+        } else if (inQuotes && char === quoteChar) {
+          inQuotes = false;
+          quoteChar = '';
+          currentElement += char;
+        } else if (!inQuotes && char === '[') {
+          nestedBrackets++;
+          currentElement += char;
+        } else if (!inQuotes && char === ']') {
+          nestedBrackets--;
+          currentElement += char;
+        } else if (!inQuotes && char === '(') {
+          nestedParens++;
+          currentElement += char;
+        } else if (!inQuotes && char === ')') {
+          nestedParens--;
+          currentElement += char;
+        } else if (!inQuotes && char === ',' && nestedBrackets === 0 && nestedParens === 0) {
+          // Found a top-level comma - end of element
+          elements.push(currentElement.trim());
+          currentElement = '';
+        } else {
+          currentElement += char;
+        }
+      }
+
+      // Don't forget the last element
+      if (currentElement.trim()) {
+        elements.push(currentElement.trim());
+      }
+
+      // Return ARRAY_LITERAL with elements to be evaluated
+      return {
+        type: 'ARRAY_LITERAL',
+        elements: elements
+      };
     }
   }
 
@@ -2126,7 +2195,74 @@ function parseFactor(expr) {
         remaining: expr.substring(endIndex)
       };
     } catch (e) {
-      throw new Error(`Invalid array literal: ${arrayStr}`);
+      // JSON.parse failed - might be an array with variable references like [a, b]
+      // Parse the contents as comma-separated variable references
+      const contents = arrayStr.substring(1, arrayStr.length - 1).trim();
+
+      if (!contents) {
+        // Empty array
+        return {
+          expr: {
+            type: 'LITERAL',
+            value: []
+          },
+          remaining: expr.substring(endIndex)
+        };
+      }
+
+      // Split by commas (but not commas inside nested structures)
+      const elements = [];
+      let currentElement = '';
+      let nestedBrackets = 0;
+      let nestedParens = 0;
+      let inQuotes = false;
+      let quoteChar = '';
+
+      for (let i = 0; i < contents.length; i++) {
+        const char = contents[i];
+
+        if (!inQuotes && (char === '"' || char === "'")) {
+          inQuotes = true;
+          quoteChar = char;
+          currentElement += char;
+        } else if (inQuotes && char === quoteChar) {
+          inQuotes = false;
+          quoteChar = '';
+          currentElement += char;
+        } else if (!inQuotes && char === '[') {
+          nestedBrackets++;
+          currentElement += char;
+        } else if (!inQuotes && char === ']') {
+          nestedBrackets--;
+          currentElement += char;
+        } else if (!inQuotes && char === '(') {
+          nestedParens++;
+          currentElement += char;
+        } else if (!inQuotes && char === ')') {
+          nestedParens--;
+          currentElement += char;
+        } else if (!inQuotes && char === ',' && nestedBrackets === 0 && nestedParens === 0) {
+          // Found a top-level comma - end of element
+          elements.push(currentElement.trim());
+          currentElement = '';
+        } else {
+          currentElement += char;
+        }
+      }
+
+      // Don't forget the last element
+      if (currentElement.trim()) {
+        elements.push(currentElement.trim());
+      }
+
+      // Each element is a variable reference or expression
+      return {
+        expr: {
+          type: 'ARRAY_LITERAL',
+          elements: elements
+        },
+        remaining: expr.substring(endIndex)
+      };
     }
   }
 

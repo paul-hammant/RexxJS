@@ -70,6 +70,10 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
       }
       return value.content;
     }
+    if (value.type === 'LITERAL') {
+      // Return literal value without variable resolution
+      return value.value;
+    }
     return await evaluateExpressionFn(value);
   }
   
@@ -191,10 +195,22 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
   switch (expr.type) {
     case 'LITERAL':
       return expr.value;
-      
+
     case 'ARRAY_LITERAL':
-      return expr.value;
-      
+      // Handle both old style (with value) and new style (with elements)
+      if (expr.value !== undefined) {
+        return expr.value;
+      } else if (expr.elements !== undefined) {
+        // New style: evaluate each element
+        const resolvedElements = [];
+        for (const element of expr.elements) {
+          resolvedElements.push(await resolveValueFn(element));
+        }
+        return resolvedElements;
+      } else {
+        return [];
+      }
+
     case 'VARIABLE':
       const varName = expr.name || expr.value;
       

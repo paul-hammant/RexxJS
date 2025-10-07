@@ -645,9 +645,9 @@ describe('Address Handler Utilities', () => {
       const resource = createResource('Machine', 'vm-001', { cpu: 2 });
       const originalVersion = resource.metadata.version;
       const originalTimestamp = resource.status.lastUpdated;
-      
+
       // Small delay to ensure timestamp changes
-      await new Promise(resolve => setTimeout(resolve, 1));
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const updatedResource = updateResourceStatus(resource, {
         state: 'running',

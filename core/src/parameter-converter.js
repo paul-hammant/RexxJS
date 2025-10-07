@@ -1701,6 +1701,90 @@ function convertParamsToArgs(functionName, params) {
                 params.path || params.file || params.filename || Object.values(params)[0] || ''
             ];
 
+        // Text Processing Functions
+        case 'HEAD':
+            // HEAD(input, lines)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.lines || params.n || params.count || 10
+            ];
+
+        case 'TAIL':
+            // TAIL(input, lines)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.lines || params.n || params.count || 10
+            ];
+
+        case 'WC':
+            // WC(input, type)
+            return [
+                params.input ?? params.data ?? params.text ?? Object.values(params)[0] ?? '',
+                params.type ?? null
+            ];
+
+        case 'SORT':
+            // SORT(input, reverse, numeric, unique)
+            return [
+                params.input ?? params.data ?? params.text ?? Object.values(params)[0] ?? '',
+                params.reverse ?? params.r ?? false,
+                params.numeric ?? params.n ?? false,
+                params.unique ?? params.u ?? false
+            ];
+
+        case 'UNIQ':
+            // UNIQ(input, count)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.count || params.c || false
+            ];
+
+        case 'CUT':
+            // CUT(input, fields, delimiter)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.fields || params.f || '',
+                params.delimiter || params.d || params.delim || '\t'
+            ];
+
+        case 'PASTE':
+            // PASTE(inputs, delimiter)
+            return [
+                params.inputs || params.files || params.data || Object.values(params)[0] || [],
+                params.delimiter || params.d || params.delim || '\t'
+            ];
+
+        case 'SEQ':
+            // SEQ(start, end, step)
+            const paramsArr = Object.values(params);
+            return [
+                params.start ?? paramsArr[0] ?? 1,
+                params.end ?? params.stop ?? paramsArr[1] ?? null,
+                params.step ?? paramsArr[2] ?? 1
+            ];
+
+        case 'SHUF':
+            // SHUF(input)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || ''
+            ];
+
+        case 'TEE':
+            // TEE(input, file, append)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.file || params.filename || params.path || Object.values(params)[1] || '',
+                params.append || params.a || false
+            ];
+
+        case 'XARGS':
+            // XARGS(input, command, maxArgs)
+            return [
+                params.input || params.data || params.text || Object.values(params)[0] || '',
+                params.command || params.cmd || Object.values(params)[1] || '',
+                params.maxArgs || params.n || params.max || null
+            ];
+
         default:
             // Default: return all parameter values as arguments
             return Object.values(params);

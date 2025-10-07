@@ -661,4 +661,515 @@ describe('Shell-Inspired Functions', () => {
       expect(result).toBeGreaterThan(0);
     });
   });
+
+  describe('Text Processing Functions', () => {
+    describe('HEAD', () => {
+      it('should return first 10 lines by default', async () => {
+        const script = `
+          LET lines = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+          LET result = HEAD(input=lines)
+          LET count = ARRAY_LENGTH(array=result)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('count')).toBe(10);
+      });
+
+      it('should return first N lines', async () => {
+        const script = `
+          LET lines = ["a", "b", "c", "d", "e"]
+          LET result = HEAD(input=lines, lines=3)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a', 'b', 'c']);
+      });
+
+      it('should handle empty input', async () => {
+        const script = `
+          LET result = HEAD(input=[], lines=5)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual([]);
+      });
+
+      it('should handle N larger than array length', async () => {
+        const script = `
+          LET lines = ["a", "b"]
+          LET result = HEAD(input=lines, lines=10)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a', 'b']);
+      });
+    });
+
+    describe('TAIL', () => {
+      it('should return last 10 lines by default', async () => {
+        const script = `
+          LET lines = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+          LET result = TAIL(input=lines)
+          LET count = ARRAY_LENGTH(array=result)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('count')).toBe(10);
+      });
+
+      it('should return last N lines', async () => {
+        const script = `
+          LET lines = ["a", "b", "c", "d", "e"]
+          LET result = TAIL(input=lines, lines=2)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['d', 'e']);
+      });
+
+      it('should work in pipeline', async () => {
+        const script = `
+          LET result = ["1", "2", "3", "4", "5"] |> TAIL(lines=3)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['3', '4', '5']);
+      });
+    });
+
+    describe('WC', () => {
+      it('should count lines in array', async () => {
+        const script = `
+          LET myLines = ["line1", "line2", "line3"]
+          LET result = WC(input=myLines, type="lines")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toBe(3);
+      });
+
+      it('should count words in array', async () => {
+        const script = `
+          LET lines = ["hello world", "foo bar baz"]
+          LET result = WC(input=lines, type="words")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toBe(5);
+      });
+
+      it('should count characters', async () => {
+        const script = `
+          LET lines = ["hello"]
+          LET result = WC(input=lines, type="chars")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toBe(5);
+      });
+
+      it('should return all counts for array', async () => {
+        const script = `
+          LET lines = ["hello world", "foo bar"]
+          LET result = WC(input=lines)
+        `;
+        await interpreter.run(parse(script));
+        const result = interpreter.getVariable('result');
+        expect(result.lines).toBe(2);
+        expect(result.words).toBe(4);
+        expect(result.chars).toBeGreaterThan(0);
+      });
+    });
+
+    describe('SORT', () => {
+      it('should sort lines alphabetically', async () => {
+        const script = `
+          LET lines = ["zebra", "apple", "banana"]
+          LET result = SORT(input=lines)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['apple', 'banana', 'zebra']);
+      });
+
+      it('should sort numerically', async () => {
+        const script = `
+          LET numbers = ["10", "2", "100", "1"]
+          LET result = SORT(input=numbers, numeric=true)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['1', '2', '10', '100']);
+      });
+
+      it('should sort in reverse order', async () => {
+        const script = `
+          LET lines = ["a", "b", "c"]
+          LET result = SORT(input=lines, reverse=true)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['c', 'b', 'a']);
+      });
+
+      it('should remove duplicates when unique=true', async () => {
+        const script = `
+          LET lines = ["b", "a", "b", "c", "a"]
+          LET result = SORT(input=lines, unique=true)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a', 'b', 'c']);
+      });
+
+      it('should work in pipeline', async () => {
+        const script = `
+          LET result = ["3", "1", "2"] |> SORT()
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['1', '2', '3']);
+      });
+    });
+
+    describe('UNIQ', () => {
+      it('should remove adjacent duplicates', async () => {
+        const script = `
+          LET lines = ["a", "a", "b", "b", "b", "c", "c", "a"]
+          LET result = UNIQ(input=lines)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a', 'b', 'c', 'a']);
+      });
+
+      it('should count occurrences when count=true', async () => {
+        const script = `
+          LET lines = ["a", "a", "a", "b", "b", "c"]
+          LET result = UNIQ(input=lines, count=true)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['3 a', '2 b', '1 c']);
+      });
+
+      it('should work after SORT in pipeline', async () => {
+        const script = `
+          LET result = ["b", "a", "b", "a", "c"]
+            |> SORT()
+            |> UNIQ()
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a', 'b', 'c']);
+      });
+
+      it('should handle empty array', async () => {
+        const script = `
+          LET result = UNIQ(input=[])
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual([]);
+      });
+    });
+
+    describe('SEQ', () => {
+      it('should generate sequence from 1 to N', async () => {
+        const script = `
+          LET result = SEQ(5)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual([1, 2, 3, 4, 5]);
+      });
+
+      it('should generate sequence from start to end', async () => {
+        const script = `
+          LET result = SEQ(3, 7)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual([3, 4, 5, 6, 7]);
+      });
+
+      it('should use step increment', async () => {
+        const script = `
+          LET result = SEQ(0, 10, 2)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual([0, 2, 4, 6, 8, 10]);
+      });
+
+      it('should handle negative step', async () => {
+        const script = `
+          LET result = SEQ(5, 1, -1)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual([5, 4, 3, 2, 1]);
+      });
+
+      it('should work in pipelines', async () => {
+        const script = `
+          LET result = SEQ(5) |> ARRAY_MAP(n => n * 2)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual([2, 4, 6, 8, 10]);
+      });
+
+      it('should throw on zero step', async () => {
+        const script = `
+          LET result = SEQ(1, 10, 0)
+        `;
+        await expect(interpreter.run(parse(script))).rejects.toThrow('step cannot be zero');
+      });
+    });
+
+    describe('SHUF', () => {
+      it('should shuffle array elements', async () => {
+        const script = `
+          LET input = ["a", "b", "c", "d", "e"]
+          LET result = SHUF(input=input)
+          LET length = ARRAY_LENGTH(array=result)
+        `;
+        await interpreter.run(parse(script));
+        const result = interpreter.getVariable('result');
+        const input = ['a', 'b', 'c', 'd', 'e'];
+
+        // Should have same length
+        expect(result.length).toBe(5);
+
+        // Should contain all same elements
+        expect(result.sort()).toEqual(input.sort());
+      });
+
+      it('should maintain array length', async () => {
+        const script = `
+          LET result = SHUF(input=["1", "2", "3"])
+          LET count = ARRAY_LENGTH(array=result)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('count')).toBe(3);
+      });
+
+      it('should handle single element', async () => {
+        const script = `
+          LET result = SHUF(input=["only"])
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['only']);
+      });
+    });
+
+    describe('CUT', () => {
+      it('should extract single field', async () => {
+        const script = `
+          LET lines = ["a	b	c", "1	2	3"]
+          LET result = CUT(input=lines, fields="2")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['b', '2']);
+      });
+
+      it('should extract multiple fields', async () => {
+        const script = `
+          LET lines = ["a	b	c", "1	2	3"]
+          LET result = CUT(input=lines, fields="1,3")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a\tc', '1\t3']);
+      });
+
+      it('should extract field range', async () => {
+        const script = `
+          LET lines = ["a	b	c	d"]
+          LET result = CUT(input=lines, fields="2-3")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['b\tc']);
+      });
+
+      it('should use custom delimiter', async () => {
+        const script = `
+          LET lines = ["a,b,c", "1,2,3"]
+          LET result = CUT(input=lines, fields="1,3", delimiter=",")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a,c', '1,3']);
+      });
+
+      it('should handle missing fields', async () => {
+        const script = `
+          LET lines = ["a	b"]
+          LET result = CUT(input=lines, fields="1,2,3,4")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a\tb\t\t']);
+      });
+
+      it('should work in pipeline', async () => {
+        const script = `
+          LET lines = ["a	b	c", "1	2	3"]
+          LET result = lines |> CUT(fields="2")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['b', '2']);
+      });
+    });
+
+    describe('PASTE', () => {
+      it('should merge two arrays line by line', async () => {
+        const script = `
+          LET a = ["a1", "a2"]
+          LET b = ["b1", "b2"]
+          LET result = PASTE(inputs=[a, b])
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a1\tb1', 'a2\tb2']);
+      });
+
+      it('should use custom delimiter', async () => {
+        const script = `
+          LET a = ["a1", "a2"]
+          LET b = ["b1", "b2"]
+          LET result = PASTE(inputs=[a, b], delimiter=",")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a1,b1', 'a2,b2']);
+      });
+
+      it('should handle arrays of different lengths', async () => {
+        const script = `
+          LET a = ["a1", "a2", "a3"]
+          LET b = ["b1"]
+          LET result = PASTE(inputs=[a, b])
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a1\tb1', 'a2\t', 'a3\t']);
+      });
+
+      it('should merge three arrays', async () => {
+        const script = `
+          LET result = PASTE(inputs=[["1"], ["2"], ["3"]])
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['1\t2\t3']);
+      });
+    });
+
+    describe('TEE', () => {
+      beforeEach(() => {
+        // Create a temp file for TEE tests
+        const teeFile = path.join(testDir, 'tee-output.txt');
+        if (fs.existsSync(teeFile)) {
+          fs.unlinkSync(teeFile);
+        }
+      });
+
+      it('should write to file and pass through data', async () => {
+        const teeFile = path.join(testDir, 'tee-output.txt');
+        const script = `
+          LET result = TEE(input="hello world", file="${teeFile}")
+        `;
+        await interpreter.run(parse(script));
+
+        const result = interpreter.getVariable('result');
+        expect(result).toBe('hello world');
+        expect(fs.existsSync(teeFile)).toBe(true);
+        expect(fs.readFileSync(teeFile, 'utf8')).toBe('hello world\n');
+      });
+
+      it('should append when append=true', async () => {
+        const teeFile = path.join(testDir, 'tee-append.txt');
+        fs.writeFileSync(teeFile, 'existing\n');
+
+        const script = `
+          LET result = TEE(input="new", file="${teeFile}", append=true)
+        `;
+        await interpreter.run(parse(script));
+
+        const content = fs.readFileSync(teeFile, 'utf8');
+        expect(content).toBe('existing\nnew\n');
+      });
+
+      it('should work in pipeline', async () => {
+        const teeFile = path.join(testDir, 'tee-pipe.txt');
+        const script = `
+          LET result = ["a", "b", "c"]
+            |> TEE(file="${teeFile}")
+            |> ARRAY_LENGTH()
+        `;
+        await interpreter.run(parse(script));
+
+        expect(interpreter.getVariable('result')).toBe(3);
+        expect(fs.existsSync(teeFile)).toBe(true);
+      });
+    });
+
+    describe('XARGS', () => {
+      it('should build command with arguments', async () => {
+        const script = `
+          LET files = ["file1.txt", "file2.txt"]
+          LET result = XARGS(input=files, command="rm")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['rm file1.txt file2.txt']);
+      });
+
+      it('should use placeholder syntax', async () => {
+        const script = `
+          LET files = ["file1.txt", "file2.txt"]
+          LET result = XARGS(input=files, command="echo {}")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['echo file1.txt file2.txt']);
+      });
+
+      it('should batch with maxArgs', async () => {
+        const script = `
+          LET files = ["a", "b", "c", "d"]
+          LET result = XARGS(input=files, command="cmd", maxArgs=2)
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['cmd a b', 'cmd c d']);
+      });
+
+      it('should handle string input', async () => {
+        const script = `
+          LET text = "file1\\nfile2\\nfile3"
+          LET result = XARGS(input=text, command="process {}")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['process file1 file2 file3']);
+      });
+    });
+
+    describe('Pipeline Integration', () => {
+      it('should chain multiple text processing functions', async () => {
+        const script = `
+          LET result = SEQ(10)
+            |> SHUF()
+            |> SORT(numeric=true)
+            |> HEAD(lines=5)
+        `;
+        await interpreter.run(parse(script));
+        const result = interpreter.getVariable('result');
+        expect(result).toEqual([1, 2, 3, 4, 5]);
+      });
+
+      it('should process text with SORT and UNIQ', async () => {
+        const script = `
+          LET lines = ["b", "a", "a", "c", "b", "a"]
+          LET result = lines
+            |> SORT()
+            |> UNIQ()
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toEqual(['a', 'b', 'c']);
+      });
+
+      it('should extract and count fields', async () => {
+        const script = `
+          LET data = ["a	1", "b	2", "c	3"]
+          LET result = data
+            |> CUT(fields="2")
+            |> WC(type="lines")
+        `;
+        await interpreter.run(parse(script));
+        expect(interpreter.getVariable('result')).toBe(3);
+      });
+
+      it('should generate, transform, and sample data', async () => {
+        const script = `
+          LET result = SEQ(1, 100, 10)
+            |> ARRAY_MAP(n => n * 2)
+            |> TAIL(lines=3)
+        `;
+        await interpreter.run(parse(script));
+        // SEQ(1, 100, 10) = [1, 11, 21, 31, 41, 51, 61, 71, 81, 91]
+        // * 2 = [2, 22, 42, 62, 82, 102, 122, 142, 162, 182]
+        // TAIL 3 = [142, 162, 182]
+        expect(interpreter.getVariable('result')).toEqual([142, 162, 182]);
+      });
+    });
+  });
 });
