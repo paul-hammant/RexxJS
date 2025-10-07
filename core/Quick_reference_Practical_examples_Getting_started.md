@@ -35,8 +35,24 @@ The reference documentation is organized into focused sections:
 - **Function Result Assignment**: `LET result = functionName param=value`
 - **Variable Substitution**: Automatic resolution in function parameters and expressions
 
-### Function Calls
-- **Basic Function Calls**: `functionName param1=value1 param2=value2`
+### Function Calls and Operations
+RexxJS distinguishes between **Operations** (imperative commands) and **Functions** (expressions):
+
+- **Operations** (without parentheses): `SERVE_GUEST guest="alice" bath="herbal"`
+  - Side-effect actions that modify state
+  - Called directly without parentheses
+  - Receive named parameters as object
+
+- **Functions** (with parentheses): `LET result = IDENTIFY_SPIRIT(description="muddy")`
+  - Pure/query operations that return values
+  - Always use parentheses (even if no parameters: `COUNT_TOKENS()`)
+  - Support both positional and named parameters
+  - Work in expressions, assignments, and pipe operators
+
+- **Named Parameters** (functions only): `SUBSTR(start=2, length=3)` or `SUBSTR("hello", 2, 3)`
+  - Both styles work interchangeably via parameter-converter
+  - Named params work in all contexts including pipe operator: `"hello" |> SUBSTR(start=2, length=3)`
+
 - **Application Addressing**: `ADDRESS application` to switch target applications
 - **Parameter Types**: Support for strings, numbers, booleans, and expressions
 
@@ -533,6 +549,72 @@ SELECT
     prepareDish name="Simple {mealName}" servings=1
 END
 ```
+
+### Operations vs Functions with REQUIRE 🔧
+
+**Loading External Libraries with Both Operations and Functions:**
+
+RexxJS libraries can export both **operations** (imperative commands) and **functions** (query/expression calls). This enables a clean separation between state-changing actions and data retrieval.
+
+```rexx
+-- Load a library that provides both operations and functions
+REQUIRE "cwd:libs/bathhouse-library.js"
+
+-- Operations: Side-effect commands (no parentheses)
+SERVE_GUEST guest="river_spirit" bath="herbal"
+CLEAN_BATHHOUSE area="main_hall" intensity="deep"
+FEED_SOOT_SPRITES treats="konpeito" amount=3
+ISSUE_TOKEN worker="chihiro" task="cleaning"
+
+-- Functions: Query operations (with parentheses, return values)
+LET capacity = BATHHOUSE_CAPACITY()
+LET spirit = IDENTIFY_SPIRIT(description="muddy")  -- Named params
+LET count = COUNT_TOKENS()
+LET energy = SOOT_SPRITE_ENERGY()
+
+-- Functions support both positional and named parameters
+LET spirit1 = IDENTIFY_SPIRIT("hungry")            -- Positional
+LET spirit2 = IDENTIFY_SPIRIT(description="quiet") -- Named
+
+-- Named parameters work in all contexts including pipes
+LET result = "  hello  "
+  |> STRIP()
+  |> SUBSTR(start=2, length=3)  -- Named params in pipe operator
+```
+
+**Using REQUIRE AS for Prefixes:**
+
+```rexx
+-- Prefix both operations and functions from a library
+REQUIRE "cwd:libs/bathhouse-library.js" AS bh_(.*)
+
+-- Operations with prefix
+bh_SERVE_GUEST guest="no_face" bath="luxury"
+bh_CLEAN_BATHHOUSE area="lobby"
+
+-- Functions with prefix
+LET capacity = bh_BATHHOUSE_CAPACITY()
+LET log = bh_GET_LOG()
+LET spirit = bh_IDENTIFY_SPIRIT(description="hungry")
+```
+
+**Key Differences:**
+
+| Feature | Operations | Functions |
+|---------|-----------|-----------|
+| **Syntax** | No parentheses | Always use parentheses |
+| **Purpose** | Side effects, state changes | Return values, queries |
+| **Parameters** | Named only, passed as object | Positional OR named (flexible) |
+| **Usage** | `SERVE_GUEST guest="alice"` | `IDENTIFY_SPIRIT(description="x")` |
+| **In Expressions** | ❌ Not allowed | ✅ Works everywhere |
+| **In Pipes** | ❌ Not allowed | ✅ `x \|> FUNC(param=val)` |
+
+**Parameter Conversion:**
+
+Functions use the parameter-converter system to support both styles:
+- Positional: `SUBSTR("hello world", 7, 5)` → `"world"`
+- Named: `SUBSTR(start=7, length=5)` with piped data → `"world"`
+- Mixed: Pipe provides first arg, named params provide rest
 
 ### JSON Processing Functions 🔄
 

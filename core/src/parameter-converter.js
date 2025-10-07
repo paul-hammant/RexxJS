@@ -1597,6 +1597,110 @@ function convertParamsToArgs(functionName, params) {
                 params.value || params.object || params.data || Object.values(params)[0]
             ];
 
+        // Shell Functions
+        case 'LS':
+            // LS(path, recursive, pattern, type)
+            return [
+                params.path || params.dir || params.directory || Object.values(params)[0] || '.',
+                params.recursive || false,
+                params.pattern || params.glob || null,
+                params.type || null
+            ];
+
+        case 'CAT':
+            // CAT(path, encoding)
+            return [
+                params.path || params.file || params.filename || Object.values(params)[0] || '',
+                params.encoding || 'utf8'
+            ];
+
+        case 'GREP':
+            // GREP(pattern, path, recursive, ignoreCase)
+            return [
+                params.pattern || params.regex || Object.values(params)[0] || '',
+                params.path || params.file || params.dir || Object.values(params)[1] || '',
+                params.recursive || false,
+                params.ignoreCase || params.caseInsensitive || false
+            ];
+
+        case 'FIND':
+            // FIND(path, type, name, modifiedWithin, minSize, maxSize)
+            return [
+                params.path || params.dir || params.directory || Object.values(params)[0] || '.',
+                params.type || null,
+                params.name || params.pattern || null,
+                params.modifiedWithin || params.mtime || null,
+                params.minSize || params.min_size || null,
+                params.maxSize || params.max_size || null
+            ];
+
+        case 'MKDIR':
+            // MKDIR(path, recursive)
+            return [
+                params.path || params.dir || params.directory || Object.values(params)[0] || '',
+                params.recursive || params.parents || false
+            ];
+
+        case 'CP':
+            // CP(source, dest, recursive)
+            return [
+                params.source || params.src || params.from || Object.values(params)[0] || '',
+                params.dest || params.destination || params.to || Object.values(params)[1] || '',
+                params.recursive || false
+            ];
+
+        case 'MV':
+            // MV(source, dest)
+            return [
+                params.source || params.src || params.from || Object.values(params)[0] || '',
+                params.dest || params.destination || params.to || Object.values(params)[1] || ''
+            ];
+
+        case 'RM':
+            // RM(path, recursive, force)
+            return [
+                params.path || params.file || params.dir || Object.values(params)[0] || '',
+                params.recursive || params.r || false,
+                params.force || params.f || false
+            ];
+
+        case 'STAT':
+            // STAT(path)
+            return [
+                params.path || params.file || params.filename || Object.values(params)[0] || ''
+            ];
+
+        case 'BASENAME':
+            // BASENAME(path, ext)
+            return [
+                params.path || params.file || params.filename || Object.values(params)[0] || '',
+                params.ext || params.extension || ''
+            ];
+
+        case 'DIRNAME':
+            // DIRNAME(path)
+            return [
+                params.path || params.file || params.filename || Object.values(params)[0] || ''
+            ];
+
+        case 'PATH_JOIN':
+            // PATH_JOIN(parts)
+            return [
+                params.parts || params.paths || Object.values(params)[0] || []
+            ];
+
+        case 'PATH_RESOLVE':
+            // PATH_RESOLVE(path)
+            return [
+                params.path || params.file || Object.values(params)[0] || ''
+            ];
+
+        case 'PATH_EXTNAME':
+            // PATH_EXTNAME(path)
+            return [
+                params.path || params.file || params.filename || Object.values(params)[0] || ''
+            ];
+
         default:
             // Default: return all parameter values as arguments
             return Object.values(params);

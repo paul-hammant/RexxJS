@@ -4038,6 +4038,29 @@ describe('Rexx-lite Interpreter', () => {
       
       afterEach(() => {
         delete global.localStorage;
+
+        // Clean up filesystem files created by tests (Node.js mode)
+        const fs = require('fs');
+        const testFiles = [
+          'test.txt', 'existing.txt', 'sized.txt', 'deleteme.txt',
+          'append.txt', 'new.txt', 'pattern1.txt', 'pattern2.txt', 'other.txt',
+          'source.txt', 'copy.txt', 'moved.txt', 'backup.txt', 'backup.txt.bak',
+          'important.txt', 'important.txt.backup', 'data.txt', 'dynamic.txt', 'local.txt',
+          'app.config', 'app.config.original', 'data.json', 'config.json'
+        ];
+        testFiles.forEach(file => {
+          try {
+            if (fs.existsSync(file)) {
+              fs.unlinkSync(file);
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+        });
+
+        // Clear the tracked files set
+        const { clearTrackedFiles } = require('../src/file-functions');
+        clearTrackedFiles();
       });
 
       it('should write and read files', async () => {

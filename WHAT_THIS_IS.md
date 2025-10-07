@@ -34,6 +34,18 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 - **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
 - **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements
 
+### Operations vs Functions Architecture
+RexxJS distinguishes between two types of callable code:
+- **Operations** (imperative commands without parentheses): Side-effect actions like `SERVE_GUEST guest="alice"` or `CLEAN_BATHHOUSE area="lobby"`
+  - Receive parameters as named params object directly
+  - Used for state-changing commands and imperative workflows
+  - Can be called from REQUIRE'd libraries alongside functions
+- **Functions** (expressions with parentheses): Pure/query operations like `COUNT_TOKENS()` or `IDENTIFY_SPIRIT(description="muddy")`
+  - Support both positional (`SUBSTR("hello", 2, 3)`) and named parameters (`SUBSTR(start=2, length=3)`)
+  - Parameters converted via parameter-converter for flexibility
+  - Work in all contexts: assignments, expressions, pipe operators
+- **REQUIRE system**: Libraries export both functions and operations, automatically loaded and prefixed via `REQUIRE "lib" AS prefix_(.*)`
+
 ### Function Execution Priority
 When a function is called, the interpreter resolves it in this order:
 1. **Built-in REXX functions** (LENGTH, SUBSTR, POS, etc.) - Always available regardless of ADDRESS context
@@ -119,6 +131,17 @@ Comprehensive infrastructure management with VM, container automation, and **clo
 -- Modern variable assignment
 LET data = [1, 2, 3, 4, 5]
 LET processed = MAP(data, "x * 2")
+
+-- Operations (imperative, no parentheses) and Functions (expressions, with parentheses)
+REQUIRE "cwd:libs/bathhouse.js"
+SERVE_GUEST guest="river_spirit" bath="herbal"     -- Operation: side-effect action
+LET count = COUNT_TOKENS()                          -- Function: returns value
+LET spirit = IDENTIFY_SPIRIT(description="muddy")   -- Function with named params
+
+-- Named parameters work everywhere (functions only)
+LET substr1 = SUBSTR("hello world", 7, 5)           -- Positional: "world"
+LET substr2 = SUBSTR(start=7, length=5)             -- Named, data-first via pipe
+LET result = "hello world" |> SUBSTR(start=7, length=5)  -- Named params in pipe: "world"
 
 -- Database operations
 ADDRESS sql

@@ -904,6 +904,7 @@ class RexxInterpreter {
     let importedDomOperations = {};
     let importedDataFunctions = {};
     let importedProbabilityFunctions = {};
+    let importedShellFunctions = {};
     // R functions removed - use REQUIRE statements to load them
     try {
       if (typeof require !== 'undefined') {
@@ -930,6 +931,7 @@ class RexxInterpreter {
         const { domFunctions, functions: domFunctionsOnly, operations: domOperations } = require('./dom-functions');
         const { dataFunctions } = require('./data-functions');
         const { probabilityFunctions } = require('./probability-functions');
+        const shellFunctions = require('./shell-functions');
         // R functions are now available via REQUIRE statements in user scripts
         // e.g., REQUIRE "r-inspired/math-stats" to load R math functions
         importedStringFunctions = stringFunctions;
@@ -951,6 +953,7 @@ class RexxInterpreter {
         importedDomOperations = domOperations || {};
         importedDataFunctions = dataFunctions;
         importedProbabilityFunctions = probabilityFunctions;
+        importedShellFunctions = shellFunctions;
         // R functions removed - use REQUIRE statements to load them
       } else if (typeof window !== 'undefined') {
         // Browser environment
@@ -1066,8 +1069,9 @@ class RexxInterpreter {
       // DOM functions/operations intentionally NOT included - they route through ADDRESS/RPC
       ...importedDataFunctions,
       ...importedProbabilityFunctions,
+      ...importedShellFunctions,  // Shell functions last, includes Node.js FILE_EXISTS override
       // R functions removed - use REQUIRE statements to load them
-      
+
       // Debug function for JavaScript introspection
       'JS_SHOW': (value) => {
         const output = [];
