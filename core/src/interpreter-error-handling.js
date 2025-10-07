@@ -81,6 +81,21 @@ async function handleError(error, currentIndex, errorHandlers, currentCommands, 
   variables.set('SIGL', currentIndex !== undefined ? currentIndex + 1 : 0);
   
   // Capture error context
+  // Clean the originalError to avoid circular references (don't include sourceContext.interpreter)
+  const cleanedError = {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+    type: error.type,
+    // Include sourceContext but without circular references
+    sourceContext: error.sourceContext ? {
+      lineNumber: error.sourceContext.lineNumber,
+      sourceLine: error.sourceContext.sourceLine,
+      sourceFilename: error.sourceContext.sourceFilename
+      // Exclude interpreter to prevent circular reference during Jest serialization
+    } : undefined
+  };
+
   context.errorContext = {
     line: currentIndex !== undefined ? currentIndex + 1 : 0,
     command: currentCommand,
@@ -90,7 +105,7 @@ async function handleError(error, currentIndex, errorHandlers, currentCommands, 
     stack: error.stack,
     timestamp: new Date().toISOString(),
     functionName: getCurrentFunctionName(currentCommand),
-    originalError: error
+    originalError: cleanedError
   };
   
   // Check if there's an active error handler for ERROR condition

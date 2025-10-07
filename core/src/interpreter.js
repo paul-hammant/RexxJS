@@ -537,7 +537,12 @@ class RexxInterpreter {
     this.address = 'default';  // Default namespace
     this.variables = new Map();
     this.argv = []; // Command-line arguments as array (cleaner than ARG.1, ARG.2, etc.)
+    this.operations = {}; // Operations (side-effecting actions, separate from pure functions) - MUST initialize before initializeBuiltInFunctions
     this.builtInFunctions = this.initializeBuiltInFunctions();
+
+    // NOTE: REQUIRE is NOT added to operations to avoid circular reference during Jest serialization
+    // It's handled as a special case in executeFunctionCall before checking operations
+
     this.externalFunctions = {}; // Functions from REQUIRE'd libraries
 
     // Initialize scriptPath for path resolution
@@ -896,6 +901,7 @@ class RexxInterpreter {
     let importedLogicFunctions = {};
     let importedCryptoFunctions = {};
     let importedDomFunctions = {};
+    let importedDomOperations = {};
     let importedDataFunctions = {};
     let importedProbabilityFunctions = {};
     // R functions removed - use REQUIRE statements to load them
@@ -921,7 +927,7 @@ class RexxInterpreter {
         const { statisticsFunctions } = require('./statistics-functions');
         const { logicFunctions } = require('./logic-functions');
         const { cryptoFunctions } = require('./cryptography-functions');
-        const { domFunctions } = require('./dom-functions');
+        const { domFunctions, functions: domFunctionsOnly, operations: domOperations } = require('./dom-functions');
         const { dataFunctions } = require('./data-functions');
         const { probabilityFunctions } = require('./probability-functions');
         // R functions are now available via REQUIRE statements in user scripts
@@ -941,7 +947,8 @@ class RexxInterpreter {
         importedStatisticsFunctions = statisticsFunctions;
         importedLogicFunctions = logicFunctions;
         importedCryptoFunctions = cryptoFunctions;
-        importedDomFunctions = domFunctions;
+        importedDomFunctions = domFunctionsOnly || domFunctions;  // Prefer split version, fall back to combined
+        importedDomOperations = domOperations || {};
         importedDataFunctions = dataFunctions;
         importedProbabilityFunctions = probabilityFunctions;
         // R functions removed - use REQUIRE statements to load them
@@ -962,7 +969,8 @@ class RexxInterpreter {
         importedStatisticsFunctions = window.statisticsFunctions || {};
         importedLogicFunctions = window.logicFunctions || {};
         importedCryptoFunctions = window.cryptoFunctions || {};
-        importedDomFunctions = window.domFunctions || {};
+        importedDomFunctions = window.domFunctionsOnly || window.domFunctions || {};
+        importedDomOperations = window.domOperations || {};
         importedDataFunctions = window.dataFunctions || {};
         importedProbabilityFunctions = window.probabilityFunctions || {};
         // R functions removed - use REQUIRE statements to load them
@@ -1031,6 +1039,13 @@ class RexxInterpreter {
       }
     }
 
+    // Note: DOM functions/operations are NOT added to built-in registries
+    // They route through ADDRESS/RPC system for proper environment handling:
+    // - Node.js tests: Mock RPC intercepts
+    // - Browser: Real DOM manager
+    // - Node.js production: "Not supported" stub
+    // The split into importedDomFunctions/importedDomOperations is kept for semantic clarity
+
     return {
       // Import external functions
       ...importedStringFunctions,
@@ -1048,7 +1063,7 @@ class RexxInterpreter {
       ...importedStatisticsFunctions,
       ...importedLogicFunctions,
       ...importedCryptoFunctions,
-      ...this.wrapDomFunctions(importedDomFunctions),
+      // DOM functions/operations intentionally NOT included - they route through ADDRESS/RPC
       ...importedDataFunctions,
       ...importedProbabilityFunctions,
       // R functions removed - use REQUIRE statements to load them
@@ -1330,9 +1345,10 @@ class RexxInterpreter {
           
           // Share the same address context
           subInterpreter.address = this.address;
-          
-          // Share the same built-in functions and error handling state
+
+          // Share the same built-in functions, operations, and error handling state
           subInterpreter.builtInFunctions = this.builtInFunctions;
+          subInterpreter.operations = this.operations;
           subInterpreter.errorHandlers = new Map(this.errorHandlers);
           subInterpreter.labels = new Map(this.labels);
           subInterpreter.subroutines = new Map(this.subroutines);
@@ -2264,11 +2280,29 @@ class RexxInterpreter {
   async executeFunctionCall(funcCall) {
     const method = funcCall.command.toUpperCase();
 
-
     // Special handling for REXX built-in variables that might be parsed as function calls
     const rexxSpecialVars = ['RC', 'ERRORTEXT', 'SIGL'];
     if (rexxSpecialVars.includes(method)) {
       return this.variables.get(method) || method; // Return variable value or variable name if not set
+    }
+
+    // Special handling for REQUIRE to avoid circular reference in operations registry
+    // REQUIRE is handled separately because it captures 'this' and would create circular refs
+    if (method === 'REQUIRE') {
+      const resolvedParams = {};
+      for (const [key, value] of Object.entries(funcCall.params || {})) {
+        // asClause should not be resolved - it's a literal pattern string
+        if (key === 'asClause') {
+          resolvedParams[key] = value;
+        } else {
+          const resolved = await this.resolveValue(value);
+          resolvedParams[key] = resolved;
+        }
+      }
+
+      const libraryName = resolvedParams.value || resolvedParams.libraryName;
+      const asClause = resolvedParams.asClause || null;
+      return await this.builtInFunctions['REQUIRE'](libraryName, asClause);
     }
 
     // Check if this is a built-in REXX function FIRST
@@ -2290,10 +2324,8 @@ class RexxInterpreter {
         }
       }
 
-      // For built-in functions, we need to handle parameter conversion
+      // For built-in functions, convert named parameters to positional arguments
       const builtInFunc = this.builtInFunctions[method];
-
-      // Convert named parameters to positional arguments based on function
       const args = callConvertParamsToArgs(method, resolvedParams);
 
       if (method.startsWith('DOM_')) {
@@ -2301,6 +2333,28 @@ class RexxInterpreter {
       }
 
       return await builtInFunc(...args);
+    }
+
+    // Check if this is a built-in operation
+    // Operations receive named params directly (not converted to positional args)
+    // Check both original case and uppercase (like externalFunctions)
+    if (this.operations[funcCall.command] || this.operations[method]) {
+      const resolvedParams = {};
+
+      for (const [key, value] of Object.entries(funcCall.params || {})) {
+        // asClause should not be resolved - it's a literal pattern string
+        if (key === 'asClause') {
+          resolvedParams[key] = value;
+        } else {
+          const resolved = await this.resolveValue(value);
+          resolvedParams[key] = resolved;
+        }
+      }
+
+      const operation = this.operations[funcCall.command] || this.operations[method];
+
+      // Pass params object directly - operations use named parameters
+      return await operation(resolvedParams);
     }
 
     // Check if this is an external function from REQUIRE'd library (case-sensitive check first, then uppercase)
@@ -2836,6 +2890,7 @@ class RexxInterpreter {
         const subInterpreter = new RexxInterpreter(this.addressSender, this.outputHandler);
         subInterpreter.address = this.address;
         subInterpreter.builtInFunctions = this.builtInFunctions;
+        subInterpreter.operations = this.operations;
         subInterpreter.errorHandlers = new Map(this.errorHandlers);
         subInterpreter.labels = new Map(this.labels);
         subInterpreter.addressTargets = new Map(this.addressTargets);
@@ -2860,6 +2915,7 @@ class RexxInterpreter {
         const subInterpreter = new RexxInterpreter(this.addressSender, this.outputHandler);
         subInterpreter.address = this.address;
         subInterpreter.builtInFunctions = this.builtInFunctions;
+        subInterpreter.operations = this.operations;
         subInterpreter.addressTargets = new Map(this.addressTargets);
         subInterpreter.errorHandlers = new Map(this.errorHandlers);
         subInterpreter.labels = new Map(this.labels);
@@ -2890,6 +2946,7 @@ class RexxInterpreter {
         const subInterpreter = new RexxInterpreter(this.addressSender, this.outputHandler);
         subInterpreter.address = this.address;
         subInterpreter.builtInFunctions = this.builtInFunctions;
+        subInterpreter.operations = this.operations;
         subInterpreter.errorHandlers = new Map(this.errorHandlers);
         subInterpreter.labels = new Map(this.labels);
         subInterpreter.addressTargets = new Map(this.addressTargets);
@@ -3002,8 +3059,11 @@ class RexxInterpreter {
   }
 
   isLikelyFunctionName(name) {
-    // Check if it's a built-in function
+    // Check if it's a built-in function or operation
     if (this.builtInFunctions[name.toUpperCase()]) {
+      return true;
+    }
+    if (this.operations[name.toUpperCase()]) {
       return true;
     }
     
@@ -3021,8 +3081,8 @@ class RexxInterpreter {
       this.evaluateConcatenation.bind(this),
       this.executeFunctionCall.bind(this),
       this.isLikelyFunctionName.bind(this),
-      (method) => !!this.builtInFunctions[method],
-      (method) => this.builtInFunctions[method],
+      (method) => !!(this.builtInFunctions[method] || this.operations[method]),
+      (method) => this.builtInFunctions[method] || this.operations[method],
       callConvertParamsToArgs,
       isNumericString
     );
@@ -3207,10 +3267,14 @@ class RexxInterpreter {
           }
         }
 
-        // Execute built-in function
+        // Execute built-in function or operation
         if (this.builtInFunctions[funcName]) {
           const func = this.builtInFunctions[funcName];
           return await func(...args);
+        }
+        if (this.operations[funcName]) {
+          const operation = this.operations[funcName];
+          return await operation(...args);
         }
       }
     }
@@ -4527,7 +4591,29 @@ class RexxInterpreter {
   }
 
   registerLibraryFunctions(libraryName, asClause = null) {
+
+    // FIRST: Retrieve and store metadata if available
+    // This must happen before getLibraryFunctionList so metadata is available for function discovery
+    if (this.libraryMetadataProviders && this.libraryMetadataProviders.has(libraryName)) {
+      const metadataFunctionName = this.libraryMetadataProviders.get(libraryName);
+
+      try {
+        // Call the metadata provider function to get full metadata
+        const metadataFunc = this.getGlobalFunction(metadataFunctionName, libraryName);
+        if (metadataFunc) {
+          const metadata = metadataFunc();
+
+          // Store metadata for later use by require system and function/operation discovery
+          this.libraryMetadata = this.libraryMetadata || new Map();
+          this.libraryMetadata.set(libraryName, metadata);
+        }
+      } catch (error) {
+        throw new Error(`Metadata provider function ${metadataFunctionName} failed: ${error.message}`);
+      }
+    }
+
     // Get list of functions that should be registered for this library
+    // This now has access to metadata stored above
     const libraryFunctions = this.getLibraryFunctionList(libraryName);
 
     for (const functionName of libraryFunctions) {
@@ -4543,35 +4629,21 @@ class RexxInterpreter {
         };
       }
     }
-    
-    // NEW: Check if this library has a metadata provider function
-    if (this.libraryMetadataProviders && this.libraryMetadataProviders.has(libraryName)) {
-      const metadataFunctionName = this.libraryMetadataProviders.get(libraryName);
-      
-      try {
-        // Call the metadata provider function to get full metadata
-        const metadataFunc = this.getGlobalFunction(metadataFunctionName, libraryName);
-        if (metadataFunc) {
-          const metadata = metadataFunc();
-          console.log(`✓ Retrieved metadata from ${metadataFunctionName} for ${libraryName}:`, metadata);
-          
-          // Store metadata for later use by require system
-          this.libraryMetadata = this.libraryMetadata || new Map();
-          this.libraryMetadata.set(libraryName, metadata);
-          
-          // Extract and validate dependencies if they exist
-          if (metadata.dependencies) {
-            const depKeys = Object.keys(metadata.dependencies);
-            if (depKeys.length > 0) {
-              console.log(`✓ Library ${libraryName} declares dependencies: ${depKeys.join(', ')}`);
-            }
-          }
-        } else {
-          console.warn(`Metadata function ${metadataFunctionName} not found for ${libraryName}`);
-        }
-      } catch (error) {
-        console.error(`Failed to call metadata function ${metadataFunctionName} for ${libraryName}:`, error);
-        throw new Error(`Metadata provider function ${metadataFunctionName} failed: ${error.message}`);
+
+    // Register operations from this library (if any)
+    const libraryOperations = this.getLibraryOperationList(libraryName);
+
+    for (const operationName of libraryOperations) {
+      // Get the operation from global scope (with library context)
+      const op = this.getGlobalFunction(operationName, libraryName);
+      if (op) {
+        // Apply AS clause transformation if provided
+        const registeredName = this.applyAsClauseToFunction(operationName, asClause);
+
+        // Register as operation (receives params object directly)
+        this.operations[registeredName] = (params) => {
+          return op(params);
+        };
       }
     }
   }
@@ -4610,10 +4682,21 @@ class RexxInterpreter {
   }
 
   getLibraryFunctionList(libraryName) {
-    // Check the modern registry first
+    // Check library metadata first (from metadata provider function)
+    const metadata = this.libraryMetadata && this.libraryMetadata.get(libraryName);
+    if (metadata && metadata.functions) {
+      // Handle both array format and object format
+      if (Array.isArray(metadata.functions)) {
+        return metadata.functions;
+      } else if (typeof metadata.functions === 'object') {
+        return Object.keys(metadata.functions);
+      }
+    }
+
+    // Check the modern registry
     if (typeof window !== 'undefined' && window.REXX_FUNCTION_LIBS) {
-      const found = window.REXX_FUNCTION_LIBS.find(lib => 
-        lib.path === libraryName || 
+      const found = window.REXX_FUNCTION_LIBS.find(lib =>
+        lib.path === libraryName ||
         lib.name === libraryName ||
         lib.path.endsWith('/' + libraryName) ||
         libraryName.endsWith('/' + lib.name)
@@ -4622,14 +4705,24 @@ class RexxInterpreter {
         return Object.keys(found.functions);
       }
     }
-    
+
     // Check if this is a built-in library first
     if (this.isBuiltinLibrary(libraryName)) {
       return this.discoverBuiltinLibraryFunctions(libraryName);
     }
-    
+
     // Auto-discover functions for third-party libraries
     return this.discoverLibraryFunctions(libraryName);
+  }
+
+  getLibraryOperationList(libraryName) {
+    // Get operations from library metadata
+    // Operations are discovered via the metadata provider function
+    const metadata = this.libraryMetadata && this.libraryMetadata.get(libraryName);
+    if (metadata && metadata.operations) {
+      return Object.keys(metadata.operations);
+    }
+    return [];
   }
 
   isBuiltinLibrary(libraryName) {

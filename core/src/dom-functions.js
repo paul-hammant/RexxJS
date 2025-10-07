@@ -332,11 +332,11 @@ const domFunctions = {
   },
   
   'SLEEP': async (params) => {
-    const ms = (params && params.ms !== undefined) ? parseInt(params.ms) : 
+    const ms = (params && params.ms !== undefined) ? parseInt(params.ms) :
                (typeof params === 'number') ? params : 1000;
     await new Promise(resolve => setTimeout(resolve, ms));
     return true;
-  }
+  },
 
   // Element reference functions - require DOM Manager from interpreter
   'DOM_GET': function(params) {
@@ -1511,9 +1511,74 @@ const domFunctions = {
 
 };
 
+// Split into operations (side effects) and functions (return values)
+const domOperations = {
+  // Selector-based operations
+  'DOM_CLICK': domFunctions['DOM_CLICK'],
+  'DOM_TYPE': domFunctions['DOM_TYPE'],
+  'DOM_SET': domFunctions['DOM_SET'],
+  'DOM_ADD_CLASS': domFunctions['DOM_ADD_CLASS'],
+  'DOM_REMOVE_CLASS': domFunctions['DOM_REMOVE_CLASS'],
+  'DOM_SET_STYLE': domFunctions['DOM_SET_STYLE'],
+  'DOM_WAIT': domFunctions['DOM_WAIT'],
+  'DOM_SELECT_OPTION': domFunctions['DOM_SELECT_OPTION'],
+  'DOM_SLEEP': domFunctions['DOM_SLEEP'],
+  'SLEEP': domFunctions['SLEEP'],
+
+  // Element-based operations
+  'DOM_ELEMENT_CLICK': domFunctions['DOM_ELEMENT_CLICK'],
+  'DOM_ELEMENT_SET_ATTR': domFunctions['DOM_ELEMENT_SET_ATTR'],
+  'DOM_ELEMENT_SET_STYLE': domFunctions['DOM_ELEMENT_SET_STYLE'],
+  'DOM_ELEMENT_APPEND': domFunctions['DOM_ELEMENT_APPEND'],
+  'DOM_ELEMENT_PREPEND': domFunctions['DOM_ELEMENT_PREPEND'],
+  'DOM_ELEMENT_INSERT_BEFORE': domFunctions['DOM_ELEMENT_INSERT_BEFORE'],
+  'DOM_ELEMENT_INSERT_AFTER': domFunctions['DOM_ELEMENT_INSERT_AFTER'],
+  'DOM_ELEMENT_REMOVE': domFunctions['DOM_ELEMENT_REMOVE'],
+  'DOM_ELEMENT_REPLACE': domFunctions['DOM_ELEMENT_REPLACE'],
+  'DOM_ELEMENT_ON_CLICK': domFunctions['DOM_ELEMENT_ON_CLICK'],
+  'DOM_ELEMENT_ON_CHANGE': domFunctions['DOM_ELEMENT_ON_CHANGE'],
+  'DOM_ELEMENT_ON_EVENT': domFunctions['DOM_ELEMENT_ON_EVENT'],
+  'DOM_ELEMENT_OFF_EVENT': domFunctions['DOM_ELEMENT_OFF_EVENT'],
+  'DOM_ELEMENT_TRIGGER_EVENT': domFunctions['DOM_ELEMENT_TRIGGER_EVENT']
+};
+
+const domFunctionsOnly = {
+  // Selector-based functions
+  'DOM_QUERY': domFunctions['DOM_QUERY'],
+  'DOM_WAIT_FOR': domFunctions['DOM_WAIT_FOR'],
+
+  // Element-based functions
+  'DOM_GET': domFunctions['DOM_GET'],
+  'DOM_GET_ALL': domFunctions['DOM_GET_ALL'],
+  'DOM_ELEMENT_TEXT': domFunctions['DOM_ELEMENT_TEXT'],
+  'DOM_ELEMENT_GET_ATTR': domFunctions['DOM_ELEMENT_GET_ATTR'],
+  'DOM_ELEMENT_QUERY': domFunctions['DOM_ELEMENT_QUERY'],
+  'DOM_ELEMENT_QUERY_ALL': domFunctions['DOM_ELEMENT_QUERY_ALL'],
+  'DOM_ELEMENT_PARENT': domFunctions['DOM_ELEMENT_PARENT'],
+  'DOM_ELEMENT_CHILDREN': domFunctions['DOM_ELEMENT_CHILDREN'],
+  'DOM_ELEMENT_SIBLINGS': domFunctions['DOM_ELEMENT_SIBLINGS'],
+  'DOM_ELEMENT_NEXT_SIBLING': domFunctions['DOM_ELEMENT_NEXT_SIBLING'],
+  'DOM_ELEMENT_PREV_SIBLING': domFunctions['DOM_ELEMENT_PREV_SIBLING'],
+  'DOM_ELEMENT_TAG': domFunctions['DOM_ELEMENT_TAG'],
+  'DOM_ELEMENT_ID': domFunctions['DOM_ELEMENT_ID'],
+  'DOM_ELEMENT_CLASSES': domFunctions['DOM_ELEMENT_CLASSES'],
+  'DOM_ELEMENT_CLASS': domFunctions['DOM_ELEMENT_CLASS'],
+  'DOM_ELEMENT_VISIBLE': domFunctions['DOM_ELEMENT_VISIBLE'],
+  'DOM_ELEMENT_BOUNDS': domFunctions['DOM_ELEMENT_BOUNDS'],
+  'DOM_CREATE_ELEMENT': domFunctions['DOM_CREATE_ELEMENT'],
+  'DOM_CREATE_TEXT': domFunctions['DOM_CREATE_TEXT'],
+  'DOM_ELEMENT_CLONE': domFunctions['DOM_ELEMENT_CLONE']
+};
+
 // Export for both Node.js and browser
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { domFunctions };
+  module.exports = {
+    domFunctions,  // Keep for backward compatibility
+    functions: domFunctionsOnly,
+    operations: domOperations
+  };
 } else if (typeof window !== 'undefined') {
   window.domFunctions = domFunctions;
+  window.domFunctionsOnly = domFunctionsOnly;
+  window.domOperations = domOperations;
 }

@@ -1681,6 +1681,15 @@ function parseFunctionCall(line) {
     }
   }
 
+  // Special handling for REQUIRE with AS clause
+  // REQUIRE "library" AS pattern
+  if (command.toUpperCase() === 'REQUIRE' && argsStr) {
+    const asMatch = argsStr.match(/\bAS\s+(\S+)/i);
+    if (asMatch) {
+      params.asClause = asMatch[1];
+    }
+  }
+
   return {
     type: 'FUNCTION_CALL',
     command: command,

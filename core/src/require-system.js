@@ -579,6 +579,10 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
             throw new Error(`Library executed but detection function not found: ${detectionFunction}`);
           }
 
+          // Store the metadata provider BEFORE calling registerLibraryFunctions
+          // This ensures metadata is available for function/operation discovery
+          ctx.libraryMetadataProviders = ctx.libraryMetadataProviders || new Map();
+          ctx.libraryMetadataProviders.set(libraryName, detectionFunction);
 
           // Register the library functions
           ctx.registerLibraryFunctions(libraryName);
@@ -658,6 +662,10 @@ async function extractDependencies(libraryName, ctx) {
   const detectionFunction = getLibraryDetectionFunction(actualLibraryName);
   const func = ctx.getGlobalFunction(detectionFunction, actualLibraryName);
   if (func) {
+    // Store the metadata provider for later use by registerLibraryFunctions
+    ctx.libraryMetadataProviders = ctx.libraryMetadataProviders || new Map();
+    ctx.libraryMetadataProviders.set(libraryName, detectionFunction);
+
     try {
       const info = func();
       if (info && info.dependencies) {
@@ -675,6 +683,9 @@ async function extractDependencies(libraryName, ctx) {
     } catch (error) {
       console.warn(`Failed to get runtime dependencies for ${libraryName}: ${error.message}`);
     }
+
+    // Even if no dependencies, return empty array (metadata provider is now stored)
+    return [];
   }
   
   // PRIORITY 2: Parse comment metadata from source code

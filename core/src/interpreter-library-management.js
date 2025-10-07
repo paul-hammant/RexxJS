@@ -52,8 +52,12 @@ async function requireWithDependencies(libraryName, loadingQueue, checkLibraryPe
   
   // Check if already loaded
   if (isLibraryLoadedFn(libraryName)) {
-    // Even if library is globally loaded, we need to ensure ADDRESS targets are registered for this instance
+    // Even if library is globally loaded, we need to ensure ADDRESS targets AND
+    // functions/operations are registered for this interpreter instance
     detectAndRegisterAddressTargetsFn(libraryName);
+    // Extract dependencies to populate metadata provider before registering functions
+    await extractDependenciesFn(libraryName);
+    registerLibraryFunctionsFn(libraryName);
     return true;
   }
   
