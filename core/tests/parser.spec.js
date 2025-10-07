@@ -90,7 +90,7 @@ describe('Rexx-lite Parser', () => {
         type: 'FUNCTION_CALL',
         command: 'prepareDish',
         params: {
-          name: 'Chicken Parmesan',
+          name: { type: 'LITERAL', value: 'Chicken Parmesan' },
           servings: 4,
           time: 45
         },
@@ -153,7 +153,7 @@ describe('Rexx-lite Parser', () => {
         {
           type: 'FUNCTION_CALL',
           command: 'prepareDish',
-          params: { name: 'Salad', servings: 2 },
+          params: { name: { type: 'LITERAL', value: 'Salad' }, servings: 2 },
           lineNumber: 3,
           originalLine: "prepareDish name='Salad' servings=2"
         }
@@ -358,7 +358,7 @@ describe('Rexx-lite Parser', () => {
             {
               type: 'FUNCTION_CALL',
               command: 'prepareDish',
-              params: { name: 'Feast', servings: 8 },
+              params: { name: { type: 'LITERAL', value: 'Feast' }, servings: 8 },
               lineNumber: 4,
               originalLine: "prepareDish name='Feast' servings=8"
             }
@@ -386,7 +386,7 @@ describe('Rexx-lite Parser', () => {
         {
           type: 'FUNCTION_CALL',
           command: 'prepareDish',
-          params: { name: 'Light Meal', servings: 2 },
+          params: { name: { type: 'LITERAL', value: 'Light Meal' }, servings: 2 },
           lineNumber: 8,
           originalLine: "prepareDish name='Light Meal' servings=2"
         }
@@ -744,7 +744,7 @@ describe('Rexx-lite Parser', () => {
         type: 'FUNCTION_CALL',
         command: 'prepareDish',
         params: {
-          name: "Simple Name",
+          name: { type: 'LITERAL', value: "Simple Name" },
           servings: 2
         },
         lineNumber: 1,
@@ -764,7 +764,7 @@ describe('Rexx-lite Parser', () => {
             template: "Meal for {guest}"
           },
           chicken: 2,
-          note: "Regular string"
+          note: { type: 'LITERAL', value: "Regular string" }
         },
         lineNumber: 1,
         originalLine: 'createMeal name="Meal for {guest}" chicken=2 note="Regular string"'

@@ -1671,7 +1671,11 @@ function parseFunctionCall(line) {
             template: rawString
           };
         } else {
-          value = rawString;
+          // Mark as a literal string to prevent variable resolution
+          value = {
+            type: 'LITERAL',
+            value: rawString
+          };
         }
       } 
       // Handle simple numeric values first

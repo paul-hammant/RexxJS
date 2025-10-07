@@ -803,6 +803,109 @@ function PATH_EXTNAME(pathArg) {
   return path.extname(pathArg);
 }
 
+/**
+ * Word, line, and character count (like Unix wc)
+ * @param {string|Array} input - Input text or array of lines
+ * @param {string} [type] - Type of count: "lines", "words", "chars", or undefined for object with all counts
+ * @returns {number|Object} Count of specified type or object with all counts
+ */
+function WC(input, type) {
+  let text;
+  
+  // Convert input to text string
+  if (Array.isArray(input)) {
+    text = input.join('\n');
+  } else if (typeof input === 'string') {
+    text = input;
+  } else {
+    throw new Error('WC input must be a string or array of strings');
+  }
+  
+  // Calculate counts
+  const chars = text.length;
+  const lines = text ? text.split('\n').length : 0;
+  const words = text ? text.trim().split(/\s+/).filter(w => w.length > 0).length : 0;
+  
+  // Return specific count or full object
+  switch (type) {
+    case 'lines':
+      return lines;
+    case 'words':
+      return words;
+    case 'chars':
+      return chars;
+    default:
+      return { lines, words, chars };
+  }
+}
+
+/**
+ * Extract fields from text lines (like Unix cut)
+ * @param {string|Array} input - Input text or array of lines
+ * @param {string} [fields] - Field numbers to extract (e.g., "2" or "1,3")
+ * @param {string} [delimiter] - Field delimiter (default: tab)
+ * @returns {Array} Array of extracted field values
+ */
+function CUT(input, fields = "1", delimiter = "\t") {
+  let lines;
+  
+  // Convert input to array of lines
+  if (Array.isArray(input)) {
+    lines = input;
+  } else if (typeof input === 'string') {
+    lines = input.split('\n');
+  } else {
+    throw new Error('CUT input must be a string or array of strings');
+  }
+  
+  // Parse field numbers
+  const fieldNums = fields.split(',').map(f => parseInt(f.trim()) - 1); // Convert to 0-based
+  
+  const result = [];
+  for (const line of lines) {
+    const parts = line.split(delimiter);
+    const extracted = fieldNums.map(fieldNum => parts[fieldNum] || '').filter(f => f !== '');
+    
+    if (fieldNums.length === 1) {
+      // Single field - return just the value
+      result.push(extracted[0] || '');
+    } else {
+      // Multiple fields - join with delimiter
+      result.push(extracted.join(delimiter));
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Combine arrays side by side (like Unix paste)
+ * @param {Array} inputs - Array of arrays to combine
+ * @param {string} [delimiter] - Delimiter between fields (default: tab)
+ * @returns {Array} Array of combined lines
+ */
+function PASTE(inputs, delimiter = "\t") {
+  if (!Array.isArray(inputs)) {
+    throw new Error('PASTE inputs must be an array of arrays');
+  }
+  
+  // Find the maximum length
+  const maxLength = Math.max(...inputs.map(arr => Array.isArray(arr) ? arr.length : 0));
+  
+  const result = [];
+  for (let i = 0; i < maxLength; i++) {
+    const line = inputs.map(arr => {
+      if (Array.isArray(arr) && i < arr.length) {
+        return arr[i];
+      }
+      return '';
+    }).join(delimiter);
+    result.push(line);
+  }
+  
+  return result;
+}
+
 // Export functions only in Node.js environment
 // In browser mode, export empty object (these functions won't be used)
 if (isNodeJS) {
@@ -821,6 +924,9 @@ if (isNodeJS) {
     PATH_JOIN,
     PATH_RESOLVE,
     PATH_EXTNAME,
+    WC,
+    CUT,
+    PASTE,
   };
 } else if (typeof module !== 'undefined' && module.exports) {
   // Browser mode with module system (webpack) - export empty object
