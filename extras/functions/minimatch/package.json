@@ -1,13 +1,19 @@
 {
-  "name": "@rexxjs/minimatch-functions",
+  "name": "rexxjs-minimatch-functions",
   "version": "1.0.0",
   "description": "Enhanced pattern matching functions with full glob support",
   "main": "minimatch-functions.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "install:core": "cd ../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
   "dependencies": {
     "minimatch": "^9.0.3"
   },
-  "peerDependencies": {
-    "rexxjs": "*"
+  "devDependencies": {
+    "jest": "^29.7.0"
   },
   "keywords": [
     "rexxjs",
@@ -15,5 +21,15 @@
     "glob",
     "pattern-matching"
   ],
-  "license": "MIT"
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/*.test.js",
+      "**/*.spec.js"
+    ]
+  },
+  "type": "commonjs"
 }

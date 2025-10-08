@@ -1,22 +1,20 @@
-/**
+/*!
  * Enhanced Pattern Matching Functions
  *
  * Provides full glob pattern support using minimatch library.
+ * @rexxjs-meta=MINIMATCH_FUNCTIONS_META
  *
  * IMPORTANT: Requiring this module REPLACES the built-in LS and FIND functions
  * with enhanced versions that support advanced glob patterns.
  *
  * Advanced patterns supported:
- * - Character classes: [a-z]*, [!0-9]*
- * - Brace expansion: {foo,bar}*
- * - Negation: !(*.txt)
- * - Extended globs: ?(pattern), *(pattern), +(pattern), @(pattern)
- *
- * Simple patterns (*, ?, **) are delegated to core functions for performance.
+ * - Character classes
+ * - Brace expansion
+ * - Negation patterns
+ * - Extended globs
  *
  * Usage:
  *   REQUIRE "extras/functions/minimatch/minimatch-functions"
- *   LET files = LS(path=".", pattern="[A-Z]*.{js,ts}")  /* LS is now enhanced */
  */
 
 const { minimatch } = require('minimatch');
