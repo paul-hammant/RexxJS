@@ -56,31 +56,41 @@ const excelFunctions = {
   'EXCEL_FUNCTIONS_MAIN': () => EXCEL_FUNCTIONS_META(),
   
   // Lookup Functions
-  'VLOOKUP': (tableArray, lookupValue, colIndex, exactMatch = false) => {
-    try {
-      const table = typeof tableArray === 'string' ? JSON.parse(tableArray) : tableArray;
-      if (!Array.isArray(table) || table.length === 0) return null;
+  'VLOOKUP': (() => {
+    const func = (tableArray, lookupValue, colIndex, exactMatch = false) => {
+      try {
+        const table = typeof tableArray === 'string' ? JSON.parse(tableArray) : tableArray;
+        if (!Array.isArray(table) || table.length === 0) return null;
 
-      const colIdx = parseInt(colIndex) - 1;
-      const exact = String(exactMatch).toLowerCase() === 'true';
+        const colIdx = parseInt(colIndex) - 1;
+        const exact = String(exactMatch).toLowerCase() === 'true';
 
-      for (const row of table) {
-        if (!Array.isArray(row) || row.length <= colIdx) continue;
+        for (const row of table) {
+          if (!Array.isArray(row) || row.length <= colIdx) continue;
 
-        if (exact) {
-          if (row[0] === lookupValue) return row[colIdx];
-        } else {
-          if (String(row[0]).toLowerCase().includes(String(lookupValue).toLowerCase())) {
-            return row[colIdx];
+          if (exact) {
+            if (row[0] === lookupValue) return row[colIdx];
+          } else {
+            if (String(row[0]).toLowerCase().includes(String(lookupValue).toLowerCase())) {
+              return row[colIdx];
+            }
           }
         }
-      }
 
-      return null;
-    } catch (e) {
-      return null;
-    }
-  },
+        return null;
+      } catch (e) {
+        return null;
+      }
+    };
+    func.requiresParameters = true; // VLOOKUP requires parameters
+    func.parameterMetadata = [
+      {name: 'tableArray', optional: false},
+      {name: 'lookupValue', optional: false}, 
+      {name: 'colIndex', optional: false},
+      {name: 'exactMatch', optional: true}
+    ];
+    return func;
+  })(),
   
   'HLOOKUP': (tableArray, lookupValue, rowIndex, exactMatch = false) => {
     try {
@@ -270,13 +280,17 @@ const excelFunctions = {
   },
 
   // Date Functions (Excel style)
-  'TODAY': () => {
-    try {
-      return Math.floor(Date.now() / 86400000) + 25569; // Excel serial date
-    } catch (e) {
-      return 0;
-    }
-  },
+  'TODAY': (() => {
+    const func = () => {
+      try {
+        return Math.floor(Date.now() / 86400000) + 25569; // Excel serial date
+      } catch (e) {
+        return 0;
+      }
+    };
+    func.requiresParameters = false; // TODAY doesn't need parameters
+    return func;
+  })(),
   
   'EXCEL_NOW': () => {
     try {

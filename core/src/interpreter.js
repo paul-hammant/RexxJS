@@ -2285,6 +2285,12 @@ class RexxInterpreter {
   async executeFunctionCall(funcCall) {
     const method = funcCall.command.toUpperCase();
 
+    // Check for functions that require parameters but were called without any
+    const hasNoParams = Object.keys(funcCall.params || {}).length === 0;
+    if (hasNoParams && this.checkFunctionRequiresParameters(method)) {
+      throw new Error(`${funcCall.command} function requires parameters`);
+    }
+
     // Special handling for REXX built-in variables that might be parsed as function calls
     const rexxSpecialVars = ['RC', 'ERRORTEXT', 'SIGL'];
     if (rexxSpecialVars.includes(method)) {
@@ -2423,6 +2429,46 @@ class RexxInterpreter {
     const rpcMethod = funcCall.command;
     
     return await this.addressSender.send(namespace, rpcMethod, resolvedParams);
+  }
+
+  checkFunctionRequiresParameters(method) {
+    // Check function metadata for parameter requirements
+    const func = this.builtInFunctions[method] || this.operations[method];
+    if (func) {
+      // Check if function has metadata declaring parameter requirements
+      if (func.requiresParameters === true) {
+        return true;
+      }
+      if (func.requiresParameters === false) {
+        return false;
+      }
+      // Check if function has parameterMetadata
+      if (func.parameterMetadata && func.parameterMetadata.length > 0) {
+        // If function has parameter metadata, it likely requires parameters
+        const requiredParams = func.parameterMetadata.filter(p => !p.optional);
+        return requiredParams.length > 0;
+      }
+    }
+    
+    // Pattern-based checks for known function types
+    // DOM functions always require parameters
+    if (method.startsWith('DOM_')) {
+      return true;
+    }
+    
+    // Functions that are known to not require parameters
+    const parameterlessFunction = ['TODAY', 'EXCEL_NOW', 'NOW', 'RANDOM', 'UUID', 'RC', 'ERRORTEXT', 'SIGL'].includes(method);
+    if (parameterlessFunction) {
+      return false;
+    }
+    
+    // If function exists but no metadata, assume it needs parameters (safer default)
+    if (func) {
+      return true;
+    }
+    
+    // Function not found - let normal flow handle it
+    return false;
   }
 
   createMissingFunctionError(method) {
