@@ -88,13 +88,18 @@ async function main() {
     return runTests();
   }
 
+  // Check for --stdin flag
+  const stdinMode = args.includes('--stdin');
+
   // Regular script mode continues below
-  if (args.length === 0) {
+  if (args.length === 0 && !stdinMode) {
     console.error('Usage: node cli.js <script.rexx> [options]');
+    console.error('       node cli.js --stdin [options]');
     console.error('');
     console.error('Options:');
     console.error('  --help, -h    Show this help message');
     console.error('  --verbose, -v Show verbose output');
+    console.error('  --stdin       Read script from standard input');
     console.error('');
     console.error('Examples:');
     console.error('  node cli.js tests/scripts/simple-command.rexx');
@@ -109,26 +114,56 @@ async function main() {
     console.log('Note: External services (DOM, file system, etc.) are mocked for local execution.');
     console.log('');
     console.log('Usage: node cli.js <script.rexx> [options]');
+    console.log('       node cli.js --stdin [options]');
     console.log('');
     console.log('Options:');
     console.log('  --help, -h    Show this help message');
     console.log('  --verbose, -v Show verbose output');
+    console.log('  --stdin       Read script from standard input');
     console.log('');
     console.log('Examples:');
     console.log('  node cli.js tests/scripts/simple-command.rexx');
     console.log('  node cli.js my-script.rexx --verbose');
+    console.log('  echo "SAY \'Hello\'" | node cli.js --stdin');
+    console.log('  cat script.rexx | ssh vm "rexx --stdin"');
     return;
   }
 
-  const scriptPath = path.resolve(args[0]);
   const verbose = args.includes('--verbose') || args.includes('-v');
+  let scriptPath = null;
+  let scriptContent = null;
+
+  // Handle --stdin mode
+  if (stdinMode) {
+    if (verbose) {
+      console.log('Reading REXX script from stdin...');
+    }
+
+    // Read from stdin
+    scriptContent = await new Promise((resolve, reject) => {
+      const chunks = [];
+      process.stdin.on('data', chunk => chunks.push(chunk));
+      process.stdin.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      process.stdin.on('error', reject);
+    });
+
+    scriptPath = '<stdin>'; // Placeholder for error messages
+  } else {
+    scriptPath = path.resolve(args[0]);
+
+    if (!fs.existsSync(scriptPath)) {
+      console.error(`Error: Script file not found: ${scriptPath}`);
+      process.exit(1);
+    }
+  }
 
   // Regular script execution mode
   // Collect KEY=VALUE pairs after the script path for interpolation context
   const cliVars = new Map();
-  for (let i = 1; i < args.length; i++) {
+  const startIndex = stdinMode ? 0 : 1; // Skip first arg if not stdin mode
+  for (let i = startIndex; i < args.length; i++) {
     const a = args[i];
-    if (a === '--verbose' || a === '-v') continue;
+    if (a === '--verbose' || a === '-v' || a === '--stdin') continue;
     const eq = a.indexOf('=');
     if (eq > 0) {
       const key = a.slice(0, eq);
@@ -137,17 +172,15 @@ async function main() {
     }
   }
 
-  if (!fs.existsSync(scriptPath)) {
-    console.error(`Error: Script file not found: ${scriptPath}`);
-    process.exit(1);
-  }
-
   try {
-    if (verbose) {
+    if (verbose && !stdinMode) {
       console.log(`Reading REXX script: ${scriptPath}`);
     }
 
-    const scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    // Read script content if not already read from stdin
+    if (!scriptContent) {
+      scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    }
 
     if (verbose) {
       console.log('Script content:');
@@ -165,9 +198,9 @@ async function main() {
 
     // Positional args for PARSE ARG: everything after script path that is not KEY=VALUE
     const positional = [];
-    for (let i = 1; i < args.length; i++) {
+    for (let i = startIndex; i < args.length; i++) {
       const a = args[i];
-      if (a === '--verbose' || a === '-v') continue;
+      if (a === '--verbose' || a === '-v' || a === '--stdin') continue;
       if (a.includes('=')) continue; // skip KEY=VALUE pairs
       positional.push(a);
     }
