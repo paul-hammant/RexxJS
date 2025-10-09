@@ -1747,28 +1747,52 @@ function parseSelectStatement(tokens, startIndex) {
       break;
     }
     
-    // Parse WHEN clause
-    const whenMatch = line.match(/^WHEN\s+(.+?)\s+THEN\s*$/i);
-    if (whenMatch) {
-      const condition = parseCondition(whenMatch[1]);
+    // Parse WHEN clause - handle both single-line and multi-line forms
+    // Pattern 1: WHEN condition THEN statement (single line)
+    const whenSingleLineMatch = line.match(/^WHEN\s+(.+?)\s+THEN\s+(?!DO\s*$)(.+)$/i);
+    if (whenSingleLineMatch) {
+      const condition = parseCondition(whenSingleLineMatch[1]);
+      const statement = whenSingleLineMatch[2].trim();
+
+      // Parse the statement on the same line
+      const stmtTokens = [{
+        type: 'LINE',
+        content: statement,
+        lineNumber: tokens[currentIndex].lineNumber
+      }];
+      const stmtResult = parseStatement(stmtTokens, 0);
+      const whenCommands = stmtResult.command ? [stmtResult.command] : [];
+
+      whenClauses.push({
+        condition: condition,
+        commands: whenCommands
+      });
+      currentIndex++;
+      continue;
+    }
+
+    // Pattern 2: WHEN condition THEN (multi-line with optional DO)
+    const whenMultiLineMatch = line.match(/^WHEN\s+(.+?)\s+THEN(?:\s+DO)?\s*$/i);
+    if (whenMultiLineMatch) {
+      const condition = parseCondition(whenMultiLineMatch[1]);
       const whenCommands = [];
       currentIndex++;
-      
+
       // Collect commands for this WHEN clause until next WHEN, OTHERWISE, or END
       while (currentIndex < tokens.length) {
         const nextLine = tokens[currentIndex].content;
-        
+
         if (nextLine.match(/^(WHEN|OTHERWISE)\s/i) || nextLine.match(/^(OTHERWISE|END)\s*$/i)) {
           break;
         }
-        
+
         const result = parseStatement(tokens, currentIndex);
         if (result.command) {
           whenCommands.push(result.command);
         }
         currentIndex = result.nextIndex;
       }
-      
+
       whenClauses.push({
         condition: condition,
         commands: whenCommands
@@ -1776,19 +1800,40 @@ function parseSelectStatement(tokens, startIndex) {
       continue;
     }
     
-    // Parse OTHERWISE clause
-    const otherwiseMatch = line.match(/^OTHERWISE\s*$/i);
-    if (otherwiseMatch) {
+    // Parse OTHERWISE clause - handle both single-line and multi-line forms
+    // Pattern 1: OTHERWISE statement (single line)
+    const otherwiseSingleLineMatch = line.match(/^OTHERWISE\s+(.+)$/i);
+    if (otherwiseSingleLineMatch) {
+      const statement = otherwiseSingleLineMatch[1].trim();
+
+      // Parse the statement on the same line
+      const stmtTokens = [{
+        type: 'LINE',
+        content: statement,
+        lineNumber: tokens[currentIndex].lineNumber
+      }];
+      const stmtResult = parseStatement(stmtTokens, 0);
+      if (stmtResult.command) {
+        otherwiseCommands.push(stmtResult.command);
+      }
+
       currentIndex++;
-      
+      continue;
+    }
+
+    // Pattern 2: OTHERWISE (multi-line)
+    const otherwiseMultiLineMatch = line.match(/^OTHERWISE\s*$/i);
+    if (otherwiseMultiLineMatch) {
+      currentIndex++;
+
       // Collect commands for OTHERWISE clause until END
       while (currentIndex < tokens.length) {
         const nextLine = tokens[currentIndex].content;
-        
+
         if (nextLine.match(/^END\s*$/i)) {
           break;
         }
-        
+
         const result = parseStatement(tokens, currentIndex);
         if (result.command) {
           otherwiseCommands.push(result.command);
