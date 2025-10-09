@@ -4,264 +4,566 @@
  */
 /**
  * ADDRESS NSPAWN Handler
- * Provides explicit ADDRESS NSPAWN integration for container operations
+ * Provides systemd-nspawn container operations with CoW cloning
+ *
+ * systemd-nspawn offers lightweight OS containers with:
+ * - Built into systemd (no installation needed)
+ * - Works on any filesystem (directory, btrfs, ZFS)
+ * - Fast boot times (<1s)
+ * - Simple directory-based containers
+ * - CoW cloning via btrfs snapshots or rsync hardlinks
+ *
+ * CoW strategies:
+ * 1. btrfs subvolume snapshot (instant, <100ms)
+ * 2. rsync with --link-dest (fast hardlinks, <1s)
+ * 3. cp -al (hardlink copy fallback, <2s)
  *
  * Usage:
- *   REQUIRE "rexxjs/address-nspawn" AS NSPAWN
+ *   REQUIRE "cwd:extras/addresses/nspawn-address/nspawn-address.js"
  *   ADDRESS NSPAWN
- *   "create image=debian:stable name=test-container"
- *   "status"
- *   "list"
+ *   "create name=test-container distro=ubuntu"
+ *   "start name=test-container"
+ *   "execute name=test-container command='apt update'"
  *
  * Copyright (c) 2025 Paul Hammant
  * Licensed under the MIT License
  */
 
-// Interpolation is now handled by the interpreter before ADDRESS commands are invoked
-
-// Environment-aware module loading for pkg support
-let spawn, fs, path, sharedUtils;
-
-try {
-  // Check global environment info provided by RexxJS interpreter
-  const globalScope = typeof window !== 'undefined' ? window : global;
-  const env = globalScope.REXX_ENVIRONMENT;
-  
-  if (env && env.type === 'pkg' && !env.hasNodeJsRequire) {
-    // In pkg environment, use pre-loaded modules from global scope
-    const pkgModules = globalScope.PKG_NODEJS_MODULES;
-    if (pkgModules) {
-      spawn = pkgModules.child_process.spawn;
-      fs = pkgModules.fs;
-      path = pkgModules.path;
-    } else {
-      throw new Error('Node.js modules not pre-loaded in pkg environment');
-    }
-    
-    // Try to get shared utils from global
-    sharedUtils = globalScope.__REXXJS_SHARED_UTILS__ || {
-      interpolateMessage: async (template, context = {}) => {
-        if (!template || typeof template !== 'string') return template;
-        return template.replace(/\{([^}]+)\}/g, (m, v) => (context[v] !== undefined ? String(context[v]) : m));
-      },
-      createLogFunction: (handlerName) => {
-        return function log(operation, details) {
-          if (typeof process !== 'undefined' && process.env && process.env.DEBUG) {
-            try { console.log(`[${handlerName}] ${operation}`, details); } catch {}
-          }
-        };
-      },
-      parseCommand: (cmd) => {
-        const trimmed = (cmd || '').trim();
-        if (!trimmed) return { operation: '', params: {} };
-        if (['status', 'list'].includes(trimmed)) return { operation: trimmed, params: {} };
-        
-        const parts = trimmed.split(/\s+/);
-        const operation = parts[0] || '';
-        const params = {};
-        
-        for (let i = 1; i < parts.length; i++) {
-          const part = parts[i];
-          if (part.includes('=')) {
-            const [key, ...valueParts] = part.split('=');
-            params[key] = valueParts.join('=').replace(/^["']|["']$/g, '');
-          } else {
-            params[part] = true;
-          }
-        }
-        return { operation, params };
-      },
-      parseMemoryLimit: (limit) => 0,
-      validateVolumePath: (path) => true,
-      validateBinaryPath: (path) => true,
-      auditSecurityEvent: () => {},
-      calculateUptime: (start) => Math.max(0, Date.now() - (start || Date.now())),
-      parseKeyValueString: (str) => ({}),
-      parseCheckpointOutput: (output) => [],
-      wrapScriptWithCheckpoints: (script) => script,
-      parseEnhancedCheckpointOutput: (output) => [],
-      formatStatus: (runtime, containers, max, security) => `${runtime} | containers: ${containers}/${max} | security: ${security}`
-    };
-  } else {
-    // Normal Node.js environment
-    spawn = require('child_process').spawn;
-    fs = require('fs');
-    path = require('path');
-    sharedUtils = require('../_shared/provisioning-shared-utils');
-  }
-} catch (error) {
-  throw new Error(`Failed to load required modules: ${error.message}`);
-}
-
-const { interpolateMessage, createLogFunction, parseCommandParts, parseCommand, parseMemoryLimit, validateCommand, validateVolumePath, validateBinaryPath, auditSecurityEvent: sharedAuditSecurityEvent, calculateUptime, parseKeyValueString, parseCheckpointOutput: sharedParseCheckpointOutput, wrapScriptWithCheckpoints: sharedWrapScriptWithCheckpoints, parseEnhancedCheckpointOutput: sharedParseEnhancedCheckpointOutput, formatStatus } = sharedUtils;
-// testRuntime and validateCommand were previously sourced locally; define simple versions here or import if available
-function testRuntime(runtime) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(runtime, ['--version'], { stdio: 'ignore' });
-    const to = setTimeout(() => { try { proc.kill(); } catch {} ; reject(new Error(`${runtime} test timeout`)); }, 5000);
-    proc.on('close', code => { clearTimeout(to); code === 0 ? resolve(true) : reject(new Error(`${runtime} test failed with code ${code}`)); });
-    proc.on('error', err => { clearTimeout(to); reject(new Error(`${runtime} not found: ${err.message}`)); });
-  });
-}
-// Note: validateCommand is imported from shared-utils, not defined locally
-// Inline utility functions for universal compatibility (Node.js, pkg binary, web/DOM)
-
-// Helper function for logging
-const log = createLogFunction('ADDRESS_NSPAWN');
+// Will be loaded in initialize()
+let execAsync = null;
 
 class AddressNspawnHandler {
   constructor() {
     this.activeContainers = new Map();
     this.containerCounter = 0;
     this.defaultTimeout = 60000;
-    this.maxContainers = 20;
-    this.securityMode = 'moderate';
-    this.allowedImages = new Set(['debian:stable', 'ubuntu:latest', 'alpine:latest']);
-    this.trustedBinaries = new Set();
+    this.maxContainers = 200; // Higher than VMs
     this.runtime = 'systemd-nspawn';
-    
-    // Remote execution support
-    this.remoteConfig = {
-      enabled: false,
-      sshHandler: null,
-      sessionId: null,
-      host: null,
-      user: null
-    };
-    
-    // Enhanced security settings
-    this.securityPolicies = {
-      allowPrivileged: false,
-      allowHostNetwork: false,
-      allowHostPid: false,
-      maxMemory: '2g',
-      maxCpus: '4.0',
-      allowedVolumePaths: new Set(['/tmp', '/var/tmp']),
-      bannedCommands: new Set(['rm -rf /', 'dd if=/dev/zero', 'fork()', ':(){ :|:& };:'])
-    };
-    this.auditLog = [];
-    
-    // Container process management
-    this.processMonitor = {
-      enabled: true,
-      checkInterval: 30000, // 30 seconds
-      healthChecks: new Map(),
-      processStats: new Map()
-    };
-    this.monitoringTimer = null;
-    
-    // Enhanced CHECKPOINT progress monitoring
-    this.checkpointMonitor = {
-      enabled: true,
-      activeStreams: new Map(), // container -> stream info
-      callbacks: new Map(),     // container -> callback function
-      realtimeData: new Map()   // container -> latest checkpoint data
-    };
+    this.machinesDir = '/var/lib/machines';
+    this.baseImageRegistry = new Map();
+    this.initialized = false;
+    this.cowMethod = null; // Will be detected: 'btrfs', 'rsync', or 'cp'
+
+    // Pre-load Node.js modules
+    this.spawn = null;
+    this.exec = null;
+    this.fs = null;
+    this.path = null;
   }
 
-  /**
-   * Initialize the ADDRESS NSPAWN handler
-   */
   async initialize(config = {}) {
-    this.securityMode = config.securityMode || this.securityMode;
-    this.maxContainers = config.maxContainers || this.maxContainers;
-    this.defaultTimeout = config.defaultTimeout || this.defaultTimeout;
-    
-    if (config.allowedImages && Array.isArray(config.allowedImages)) {
-      this.allowedImages = new Set(config.allowedImages);
-    }
-    
-    if (config.trustedBinaries && Array.isArray(config.trustedBinaries)) {
-      this.trustedBinaries = new Set(config.trustedBinaries);
-    }
+    if (this.initialized) return;
 
-    // Detect runtime availability
-    await this.detectRuntime();
+    // Load Node.js modules once
+    const { exec, spawn } = require('child_process');
+    const { promisify } = require('util');
+    const fs = require('fs');
+    const path = require('path');
 
-    log('initialize', {
-      securityMode: this.securityMode,
-      maxContainers: this.maxContainers,
-      runtime: this.runtime,
-      allowedImages: Array.from(this.allowedImages)
-    });
+    this.exec = exec;
+    this.spawn = spawn;
+    this.fs = fs;
+    this.path = path;
+
+    // Set global execAsync
+    execAsync = promisify(exec);
+
+    // Detect best CoW method
+    await this.detectCowMethod();
+
+    this.initialized = true;
   }
 
   /**
-   * Detect if systemd-nspawn runtime is available
+   * Detect best CoW cloning method for this system
    */
-  async detectRuntime() {
+  async detectCowMethod() {
     try {
-      await testRuntime('systemd-nspawn');
-      this.runtime = 'systemd-nspawn';
+      // Check if /var/lib/machines is on ZFS or btrfs
+      const { stdout } = await execAsync('findmnt -n -o FSTYPE /var/lib/machines 2>/dev/null || findmnt -n -o FSTYPE / 2>/dev/null', {
+        timeout: 5000
+      });
+
+      const fstype = stdout.trim();
+
+      if (fstype === 'zfs') {
+        this.cowMethod = 'zfs';
+        // Get the ZFS dataset name
+        const { stdout: source } = await execAsync('findmnt -n -o SOURCE /var/lib/machines', { timeout: 2000 });
+        this.zfsDataset = source.trim(); // e.g., lxd-pool/nspawn
+        return;
+      }
+
+      if (fstype === 'btrfs') {
+        this.cowMethod = 'btrfs';
+        return;
+      }
+    } catch (error) {
+      // Fall through to rsync
+    }
+
+    // Check for rsync
+    try {
+      await execAsync('which rsync', { timeout: 2000 });
+      this.cowMethod = 'rsync';
       return;
     } catch (error) {
-      throw new Error('systemd-nspawn runtime not found or not available');
+      // Fall through to cp
+    }
+
+    // Fallback to cp
+    this.cowMethod = 'cp';
+  }
+
+  /**
+   * Execute machinectl command
+   */
+  async execMachinectl(args, options = {}) {
+    const timeout = options.timeout || 10000;
+    const cmd = `sudo machinectl ${args.join(' ')}`;
+
+    try {
+      const { stdout, stderr } = await execAsync(cmd, {
+        timeout,
+        maxBuffer: 10 * 1024 * 1024
+      });
+      return { exitCode: 0, stdout: stdout.trim(), stderr: stderr.trim() };
+    } catch (error) {
+      return { exitCode: error.code || 1, stdout: '', stderr: error.message };
     }
   }
 
+  /**
+   * Execute systemd-nspawn command
+   */
+  async execNspawn(args, options = {}) {
+    const timeout = options.timeout || 10000;
+    const cmd = `sudo systemd-nspawn ${args.join(' ')}`;
+
+    try {
+      const { stdout, stderr } = await execAsync(cmd, {
+        timeout,
+        maxBuffer: 10 * 1024 * 1024
+      });
+      return { exitCode: 0, stdout: stdout.trim(), stderr: stderr.trim() };
+    } catch (error) {
+      return { exitCode: error.code || 1, stdout: '', stderr: error.message };
+    }
+  }
 
   /**
-   * Main handler for ADDRESS NSPAWN commands
+   * List containers using machinectl
+   */
+  async listContainers() {
+    const result = await this.execMachinectl(['list', '--no-legend']);
+    if (result.exitCode === 0 && result.stdout) {
+      const containers = [];
+      const lines = result.stdout.split('\n').filter(l => l.trim());
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 3) {
+          const name = parts[0];
+          const info = this.activeContainers.get(name) || {};
+          containers.push({
+            name: parts[0],
+            class: parts[1],
+            service: parts[2],
+            status: 'Running',
+            ...info
+          });
+        }
+      }
+      return containers;
+    }
+    return [];
+  }
+
+  /**
+   * Create minimal container directory structure
+   */
+  async createContainer(params) {
+    const { name, distro = 'ubuntu', release = '22.04' } = params;
+
+    if (!name) {
+      throw new Error('Missing required parameter: name');
+    }
+
+    // Check if container already exists
+    const containerPath = this.path.join(this.machinesDir, name);
+    if (this.fs.existsSync(containerPath)) {
+      throw new Error(`Container ${name} already exists at ${containerPath}`);
+    }
+
+    // Create container based on filesystem type
+    try {
+      if (this.cowMethod === 'zfs') {
+        // Create ZFS dataset for container
+        const dataset = `${this.zfsDataset}/${name}`;
+        await execAsync(`sudo zfs create ${dataset}`, { timeout: 5000 });
+        // Path will be automatically mounted at /var/lib/machines/${name}
+        // Create directory structure (use bash -c for brace expansion)
+        await execAsync(`sudo bash -c "mkdir -p ${containerPath}/{etc,root,tmp,var,usr/bin,usr/lib}"`, { timeout: 5000 });
+      } else {
+        // Create regular directory structure
+        await execAsync(`sudo bash -c "mkdir -p ${containerPath}/{etc,root,tmp,var,usr/bin,usr/lib}"`, { timeout: 5000 });
+        await execAsync(`sudo chmod 755 ${containerPath}`, { timeout: 2000 });
+      }
+
+      // Create minimal /etc/os-release
+      const osRelease = `NAME="${distro}"\nVERSION="${release}"\nID=${distro}\n`;
+      await execAsync(`echo '${osRelease}' | sudo tee ${containerPath}/etc/os-release > /dev/null`, { timeout: 2000 });
+
+      // Store container info
+      this.activeContainers.set(name, {
+        name,
+        distro,
+        release,
+        status: 'Stopped',
+        created: new Date().toISOString(),
+        path: containerPath
+      });
+
+      return {
+        success: true,
+        operation: 'create',
+        container: name,
+        distro,
+        release,
+        path: containerPath,
+        cowMethod: this.cowMethod,
+        output: `Container ${name} created at ${containerPath} (${this.cowMethod})`
+      };
+    } catch (error) {
+      throw new Error(`Failed to create container: ${error.message}`);
+    }
+  }
+
+  /**
+   * Start container using machinectl
+   */
+  async startContainer(params) {
+    const { name } = params;
+    if (!name) throw new Error('Missing required parameter: name');
+
+    const result = await this.execMachinectl(['start', name]);
+    if (result.exitCode === 0) {
+      const info = this.activeContainers.get(name);
+      if (info) {
+        info.status = 'Running';
+        info.started = new Date().toISOString();
+      }
+      return {
+        success: true,
+        operation: 'start',
+        container: name,
+        status: 'Running',
+        output: `Started ${name}`
+      };
+    }
+    throw new Error(`Failed to start: ${result.stderr}`);
+  }
+
+  /**
+   * Stop container using machinectl
+   */
+  async stopContainer(params) {
+    const { name } = params;
+    if (!name) throw new Error('Missing required parameter: name');
+
+    const result = await this.execMachinectl(['stop', name]);
+    if (result.exitCode === 0) {
+      const info = this.activeContainers.get(name);
+      if (info) {
+        info.status = 'Stopped';
+        info.stopped = new Date().toISOString();
+      }
+      return {
+        success: true,
+        operation: 'stop',
+        container: name,
+        status: 'Stopped',
+        output: `Stopped ${name}`
+      };
+    }
+    throw new Error(`Failed to stop: ${result.stderr}`);
+  }
+
+  /**
+   * Delete container
+   */
+  async deleteContainer(params) {
+    const { name } = params;
+    if (!name) throw new Error('Missing required parameter: name');
+
+    // Stop if running
+    try {
+      await this.stopContainer({ name });
+    } catch (error) {
+      // Ignore if already stopped
+    }
+
+    // Remove container directory
+    const containerPath = this.path.join(this.machinesDir, name);
+    try {
+      await execAsync(`sudo rm -rf ${containerPath}`, { timeout: 30000 });
+      this.activeContainers.delete(name);
+
+      return {
+        success: true,
+        operation: 'delete',
+        container: name,
+        output: `Deleted ${name}`
+      };
+    } catch (error) {
+      throw new Error(`Failed to delete: ${error.message}`);
+    }
+  }
+
+  /**
+   * Execute command in container
+   */
+  async executeInContainer(params) {
+    const { name, command } = params;
+
+    if (!name || !command) {
+      throw new Error('Missing required parameters: name and command');
+    }
+
+    // Use machinectl shell for command execution
+    const result = await this.execMachinectl(['shell', name, '/bin/bash', '-c', `"${command}"`], { timeout: 60000 });
+
+    return {
+      success: result.exitCode === 0,
+      operation: 'execute',
+      container: name,
+      command,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      output: result.exitCode === 0 ? result.stdout : `Command failed: ${result.stderr}`
+    };
+  }
+
+  /**
+   * Clone container using detected CoW method
+   */
+  async cloneContainer(params) {
+    const { source, destination } = params;
+
+    if (!source || !destination) {
+      throw new Error('Missing required parameters: source and destination');
+    }
+
+    const sourcePath = this.path.join(this.machinesDir, source);
+    const destPath = this.path.join(this.machinesDir, destination);
+
+    // Check source exists
+    if (!this.fs.existsSync(sourcePath)) {
+      throw new Error(`Source container not found: ${source}`);
+    }
+
+    // Check destination doesn't exist
+    if (this.fs.existsSync(destPath)) {
+      throw new Error(`Destination container already exists: ${destination}`);
+    }
+
+    const cloneStart = Date.now();
+
+    try {
+      let cloneCmd;
+
+      switch (this.cowMethod) {
+        case 'zfs':
+          // ZFS snapshot + clone (instant CoW)
+          // 1. Create snapshot of source
+          const snapshotName = `${this.zfsDataset}/${source}@clone-${Date.now()}`;
+          await execAsync(`sudo zfs snapshot ${snapshotName}`, { timeout: 5000 });
+
+          // 2. Clone from snapshot
+          const destDataset = `${this.zfsDataset}/${destination}`;
+          cloneCmd = `sudo zfs clone ${snapshotName} ${destDataset}`;
+          break;
+
+        case 'btrfs':
+          // Instant btrfs snapshot
+          cloneCmd = `sudo btrfs subvolume snapshot ${sourcePath} ${destPath}`;
+          break;
+
+        case 'rsync':
+          // rsync with hardlinks (pseudo-CoW)
+          cloneCmd = `sudo mkdir -p ${destPath} && sudo rsync -a --link-dest=${sourcePath} ${sourcePath}/ ${destPath}/`;
+          break;
+
+        case 'cp':
+          // cp with hardlinks fallback
+          cloneCmd = `sudo cp -al ${sourcePath} ${destPath}`;
+          break;
+
+        default:
+          throw new Error(`Unknown CoW method: ${this.cowMethod}`);
+      }
+
+      await execAsync(cloneCmd, { timeout: 30000 });
+
+      const cloneTime = Date.now() - cloneStart;
+
+      // Store container info
+      const sourceInfo = this.activeContainers.get(source);
+      this.activeContainers.set(destination, {
+        name: destination,
+        distro: sourceInfo?.distro || 'unknown',
+        release: sourceInfo?.release || 'unknown',
+        status: 'Stopped',
+        created: new Date().toISOString(),
+        clonedFrom: source,
+        path: destPath
+      });
+
+      return {
+        success: true,
+        operation: 'clone',
+        source,
+        destination,
+        cloneTimeMs: cloneTime,
+        method: this.cowMethod,
+        status: 'Stopped',
+        output: `Cloned ${source} to ${destination} in ${cloneTime}ms using ${this.cowMethod}`
+      };
+    } catch (error) {
+      throw new Error(`Clone failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Register base container
+   */
+  async registerBaseImage(params) {
+    const { name, distro = 'ubuntu', release = '22.04' } = params;
+
+    if (!name) {
+      throw new Error('Missing required parameter: name');
+    }
+
+    // Check if container exists
+    const containerPath = this.path.join(this.machinesDir, name);
+    if (!this.fs.existsSync(containerPath)) {
+      // Create it
+      await this.createContainer({ name, distro, release });
+    }
+
+    // Register it
+    this.baseImageRegistry.set(name, {
+      name,
+      distro,
+      release,
+      registered: new Date().toISOString()
+    });
+
+    return {
+      success: true,
+      operation: 'register_base',
+      baseName: name,
+      distro,
+      release,
+      output: `Base image ${name} registered (${distro} ${release})`
+    };
+  }
+
+  /**
+   * Clone from base
+   */
+  async cloneFromBase(params) {
+    const { base, name } = params;
+
+    if (!base || !name) {
+      throw new Error('Missing required parameters: base and name');
+    }
+
+    const baseInfo = this.baseImageRegistry.get(base);
+    if (!baseInfo) {
+      throw new Error(`Base image not found: ${base}. Register it first with register_base.`);
+    }
+
+    return await this.cloneContainer({ source: base, destination: name });
+  }
+
+  /**
+   * List base images
+   */
+  async listBaseImages() {
+    const bases = Array.from(this.baseImageRegistry.values());
+
+    return {
+      success: true,
+      operation: 'list_bases',
+      bases,
+      count: bases.length,
+      output: `Found ${bases.length} base images`
+    };
+  }
+
+  /**
+   * Main command handler
    */
   async handleAddressCommand(command, context = {}) {
     try {
-      const interpolatedCommand = await interpolateMessage(command, context);
-      log('command', { command: interpolatedCommand });
+      const parts = command.trim().split(/\s+/);
+      const operation = parts[0].toLowerCase();
 
-      const parsed = parseCommand(interpolatedCommand);
-      
-      switch (parsed.operation) {
-        case 'status':
-          return await this.getStatus();
-        case 'list':
-          return await this.listContainers();
+      // Parse key=value parameters
+      const params = {};
+      for (let i = 1; i < parts.length; i++) {
+        const [key, value] = parts[i].split('=');
+        if (key && value) {
+          params[key.toLowerCase()] = value;
+        }
+      }
+
+      switch (operation) {
         case 'create':
-          return await this.createContainer(parsed.params, context);
+          return await this.createContainer(params);
         case 'start':
-          return await this.startContainer(parsed.params, context);
+          return await this.startContainer(params);
         case 'stop':
-          return await this.stopContainer(parsed.params, context);
+          return await this.stopContainer(params);
+        case 'delete':
         case 'remove':
-          return await this.removeContainer(parsed.params, context);
-        case 'copy_to':
-          return await this.handleCopyTo(parsed.params, context);
-        case 'copy_from':
-          return await this.handleCopyFrom(parsed.params, context);
-        case 'logs':
-          return await this.handleLogs(parsed.params, context);
-        case 'cleanup':
-          return await this.handleCleanup(parsed.params, context);
-        case 'security_audit':
-          return this.getSecurityAuditLog();
-        case 'process_stats':
-          return this.getProcessStatistics();
-        case 'configure_health_check':
-          return this.configureHealthCheck(parsed.params);
-        case 'start_monitoring':
-          this.startProcessMonitoring();
-          return { success: true, operation: 'start_monitoring', enabled: true };
-        case 'stop_monitoring':
-          this.stopProcessMonitoring();
-          return { success: true, operation: 'stop_monitoring', enabled: false };
-        case 'checkpoint_status':
-          return this.getCheckpointMonitoringStatus();
-        case 'deploy_rexx':
-          return await this.deployRexx(parsed.params, context);
+          return await this.deleteContainer(params);
         case 'execute':
-          return await this.executeInContainer(parsed.params, context);
-        case 'execute_rexx':
-          return await this.executeRexx(parsed.params, context);
-        case 'connect_remote':
-          return await this.connectRemote(parsed.params, context);
-        case 'disconnect_remote':
-          return await this.disconnectRemote();
-        case 'remote_status':
-          return this.getRemoteStatus();
+        case 'exec':
+          return await this.executeInContainer(params);
+        case 'clone':
+        case 'copy':
+          return await this.cloneContainer(params);
+        case 'register_base':
+          return await this.registerBaseImage(params);
+        case 'clone_from_base':
+          return await this.cloneFromBase(params);
+        case 'list_bases':
+          return await this.listBaseImages();
+        case 'list':
+          const containers = await this.listContainers();
+          return {
+            success: true,
+            operation: 'list',
+            containers,
+            count: containers.length,
+            output: `Found ${containers.length} containers`
+          };
+        case 'status':
+          return {
+            success: true,
+            operation: 'status',
+            runtime: this.runtime,
+            cowMethod: this.cowMethod,
+            activeContainers: this.activeContainers.size,
+            maxContainers: this.maxContainers,
+            output: `nspawn handler active (CoW: ${this.cowMethod}), ${this.activeContainers.size} tracked containers`
+          };
         default:
-          throw new Error(`Unknown ADDRESS NSPAWN command: ${parsed.operation}`);
+          throw new Error(`Unknown command: ${operation}`);
       }
     } catch (error) {
-      log('error', { error: error.message, command });
       return {
         success: false,
         operation: 'error',
@@ -270,1670 +572,72 @@ class AddressNspawnHandler {
       };
     }
   }
-
-
-
-  /**
-   * Get handler status
-   */
-  async getStatus() {
-    const containerCount = this.activeContainers.size;
-    
-    return {
-      success: true,
-      operation: 'status',
-      runtime: this.runtime,
-      activeContainers: containerCount,
-      maxContainers: this.maxContainers,
-      securityMode: this.securityMode,
-      output: formatStatus(this.runtime, containerCount, this.maxContainers, this.securityMode)
-    };
-  }
-
-  /**
-   * List containers
-   */
-  async listContainers() {
-    const containers = Array.from(this.activeContainers.entries()).map(([name, info]) => ({
-      name,
-      image: info.image,
-      status: info.status,
-      created: info.created,
-      interactive: info.interactive || false,
-      memory: info.memory,
-      cpus: info.cpus,
-      volumes: info.volumes,
-      environment: info.environment,
-      rexxDeployed: info.rexxDeployed || false
-    }));
-
-    return {
-      success: true,
-      operation: 'list',
-      containers,
-      count: containers.length,
-      output: `Found ${containers.length} containers`
-    };
-  }
-
-  /**
-   * Create a new container
-   */
-  async createContainer(params, context) {
-    const { image, name, interactive = 'false', memory, cpus, volumes, environment } = params;
-    
-    if (!image) {
-      throw new Error('Missing required parameter: image');
-    }
-
-    // Validate image
-    if (this.securityMode === 'strict' && !this.allowedImages.has(image)) {
-      throw new Error(`Image not allowed in strict mode: ${image}`);
-    }
-
-    // Check container limits
-    if (this.activeContainers.size >= this.maxContainers) {
-      throw new Error(`Maximum containers reached: ${this.maxContainers}`);
-    }
-
-    // Enhanced security validation
-    const securityViolations = this.validateContainerSecurity(params);
-    if (securityViolations.length > 0) {
-      this.auditSecurityEvent('security_violation', { violations: securityViolations, operation: 'create' });
-      throw new Error(`Security violations: ${securityViolations.join('; ')}`);
-    }
-
-    const containerName = (name && name.trim()) || `nspawn-container-${++this.containerCounter}`;
-    
-    // Check for name conflicts
-    if (name && name.trim() && this.activeContainers.has(name.trim())) {
-      throw new Error(`Container name already exists: ${name.trim()}`);
-    }
-    
-    // Real systemd-nspawn container creation with enhanced options
-    const createArgs = ['create', '--name', containerName];
-    
-    // Add resource limits
-    if (memory) {
-      createArgs.push('--memory', memory);
-    }
-    if (cpus) {
-      createArgs.push('--cpus', cpus);
-    }
-    
-    // Add volume mounts
-    if (volumes) {
-      const volumeMounts = volumes.split(',');
-      for (const mount of volumeMounts) {
-        createArgs.push('-v', mount.trim());
-      }
-    }
-    
-    // Add environment variables
-    if (environment) {
-      const envVars = environment.split(',');
-      for (const envVar of envVars) {
-        createArgs.push('-e', envVar.trim());
-      }
-    }
-    
-    // Add interactive flags
-    if (interactive === 'true') {
-      createArgs.push('-i', '-t'); // interactive and pseudo-TTY
-    }
-    
-    createArgs.push(image);
-    
-    // If interactive, start with bash
-    if (interactive === 'true') {
-      createArgs.push('bash');
-    }
-    
-    log('nspawn_create_start', { containerName, image, args: createArgs });
-    const result = await this.execNspawnCommand(createArgs);
-    log('nspawn_create_result', { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
-    
-    if (result.exitCode === 0) {
-      const containerInfo = {
-        name: containerName,
-        image,
-        status: 'created',
-        created: new Date().toISOString(),
-        runtime: this.runtime,
-        containerId: result.stdout.trim(),
-        interactive: interactive === 'true',
-        memory: memory,
-        cpus: cpus,
-        volumes: volumes,
-        environment: environment
-      };
-
-      this.activeContainers.set(containerName, containerInfo);
-
-      log('container_created', { name: containerName, image, containerId: containerInfo.containerId });
-
-      return {
-        success: true,
-        operation: 'create',
-        container: containerName,
-        image,
-        status: 'created',
-        containerId: containerInfo.containerId,
-        interactive: containerInfo.interactive,
-        memory: containerInfo.memory,
-        cpus: containerInfo.cpus,
-        volumes: containerInfo.volumes,
-        environment: containerInfo.environment,
-        output: `Container ${containerName} created successfully`
-      };
-    } else {
-      throw new Error(`Failed to create container: ${result.stderr}`);
-    }
-  }
-
-  /**
-   * Start a container
-   */
-  async startContainer(params, context) {
-    const { name } = params;
-    
-    if (!name) {
-      throw new Error('Missing required parameter: name');
-    }
-
-    const container = this.activeContainers.get(name);
-    if (!container) {
-      throw new Error(`Container not found: ${name}`);
-    }
-    if (container.status === 'running') {
-      throw new Error(`Container ${name} is already running`);
-    }
-
-    // Real systemd-nspawn start
-    const result = await this.execNspawnCommand(['start', name]);
-    
-    if (result.exitCode === 0) {
-      // Update container status
-      container.status = 'running';
-      container.started = new Date().toISOString();
-
-      log('container_started', { name });
-
-      return {
-        success: true,
-        operation: 'start',
-        container: name,
-        status: 'running',
-        output: `Container ${name} started successfully`
-      };
-    } else {
-      throw new Error(`Failed to start container: ${result.stderr}`);
-    }
-  }
-
-  /**
-   * Stop a container
-   */
-  async stopContainer(params, context) {
-    const { name } = params;
-    
-    if (!name) {
-      throw new Error('Missing required parameter: name');
-    }
-
-    const container = this.activeContainers.get(name);
-    if (!container) {
-      throw new Error(`Container not found: ${name}`);
-    }
-    if (container.status !== 'running') {
-      throw new Error(`Container ${name} is not running`);
-    }
-
-    const result = await this.execNspawnCommand(['stop', name]);
-
-    if (result.exitCode === 0) {
-      container.status = 'stopped';
-      container.stopped = new Date().toISOString();
-
-      log('container_stopped', { name });
-
-      return {
-        success: true,
-        operation: 'stop',
-        container: name,
-        status: 'stopped',
-        output: `Container ${name} stopped successfully`
-      };
-    } else {
-        throw new Error(`Failed to stop container: ${result.stderr}`);
-    }
-  }
-
-  /**
-   * Remove a container
-   */
-  async removeContainer(params, context) {
-    const { name } = params;
-    
-    if (!name) {
-      throw new Error('Missing required parameter: name');
-    }
-
-    if (!this.activeContainers.has(name)) {
-      throw new Error(`Container not found: ${name}`);
-    }
-
-    const result = await this.execNspawnCommand(['rm', name]);
-
-    if (result.exitCode === 0) {
-        this.activeContainers.delete(name);
-
-        log('container_removed', { name });
-
-        return {
-          success: true,
-          operation: 'remove',
-          container: name,
-          output: `Container ${name} removed successfully`
-        };
-    } else {
-        throw new Error(`Failed to remove container: ${result.stderr}`);
-    }
-  }
-
-  /**
-   * Deploy RexxJS binary to a container
-   * deploy_rexx container="test-container" rexx_binary="/path/to/rexx-linux-x64" target="/usr/local/bin/rexx"
-   */
-  async deployRexx(params, context) {
-    const { container: name, rexx_binary, target = '/usr/local/bin/rexx' } = params;
-    
-    if (!name) {
-      throw new Error('Missing required parameter: container');
-    }
-    
-    if (!rexx_binary) {
-      throw new Error('Missing required parameter: rexx_binary');
-    }
-
-    const container = this.activeContainers.get(name);
-    if (!container) {
-      throw new Error(`Container not found: ${name}`);
-    }
-
-    if (container.status !== 'running') {
-      throw new Error(`Container ${name} must be running to deploy RexxJS binary`);
-    }
-
-    // Check if binary exists
-    const interpolatedBinary = await interpolateMessage(rexx_binary, context);
-    const interpolatedTarget = await interpolateMessage(target, context);
-    
-    // Security validation
-    if (!validateBinaryPath(interpolatedBinary, this.securityMode, this.trustedBinaries, this.auditSecurityEvent.bind(this))) {
-      throw new Error(`RexxJS binary path ${interpolatedBinary} not trusted by security policy`);
-    }
-    
-    if (!fs.existsSync(interpolatedBinary)) {
-      throw new Error(`RexxJS binary not found: ${interpolatedBinary}`);
-    }
-
-    try {
-      // Copy binary to container
-      await this.copyToContainer(name, interpolatedBinary, interpolatedTarget);
-      
-      // Make executable
-      await this.execInContainer(name, `chmod +x ${interpolatedTarget}`, { timeout: 5000 });
-
-      // Test binary
-      const testResult = await this.execInContainer(name, `${interpolatedTarget} --help`, { timeout: 10000 });
-      
-      if (testResult.exitCode !== 0) {
-        throw new Error(`RexxJS binary test failed: ${testResult.stderr}`);
-      }
-
-      // Mark container as having RexxJS deployed
-      container.rexxDeployed = true;
-      container.rexxPath = interpolatedTarget;
-
-      log('binary_deployed', { 
-        container: name, 
-        binary: interpolatedBinary, 
-        target: interpolatedTarget 
-      });
-
-      return {
-        success: true,
-        operation: 'deploy_rexx',
-        container: name,
-        binary: interpolatedBinary,
-        target: interpolatedTarget,
-        output: `RexxJS binary deployed to ${name} at ${interpolatedTarget}`
-      };
-    } catch (error) {
-      throw new Error(`Failed to deploy RexxJS binary: ${error.message}`);
-    }
-  }
-
-  /**
-   * Execute command in container
-   * execute container="test-container" command="ls -la" [timeout=30000] [working_dir="/tmp"]
-   */
-  async executeInContainer(params, context) {
-    const { container: name, command: cmd, timeout, working_dir } = params;
-
-    if (!name || !cmd) {
-      throw new Error('Missing required parameters: container and command');
-    }
-
-    const container = this.activeContainers.get(name);
-    if (!container) {
-      throw new Error(`Container not found: ${name}`);
-    }
-
-    if (container.status !== 'running') {
-      throw new Error(`Container ${name} must be running to execute commands`);
-    }
-
-    const interpolatedCmd = await interpolateMessage(cmd, context);
-    const interpolatedDir = working_dir ? await interpolateMessage(working_dir, context) : null;
-    
-    // Security validation for command
-    const commandViolations = validateCommand(interpolatedCmd, this.securityPolicies.bannedCommands);
-    if (commandViolations.length > 0) {
-      this.auditSecurityEvent('command_blocked', { 
-        command: interpolatedCmd, 
-        violations: commandViolations, 
-        container: name 
-      });
-      throw new Error(`Command blocked by security policy: ${commandViolations.join('; ')}`);
-    }
-    
-    const execTimeout = timeout ? parseInt(timeout) : this.defaultTimeout;
-
-    const fullCommand = interpolatedDir 
-      ? `cd ${interpolatedDir} && ${interpolatedCmd}`
-      : interpolatedCmd;
-
-    try {
-      const result = await this.execInContainer(name, fullCommand, { timeout: execTimeout });
-
-      log('command_executed', {
-        container: name,
-        command: interpolatedCmd,
-        exitCode: result.exitCode
-      });
-
-      return {
-        success: result.exitCode === 0,
-        operation: 'execute',
-        container: name,
-        command: interpolatedCmd,
-        exitCode: result.exitCode,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        output: result.exitCode === 0 ? result.stdout : `Command failed: ${result.stderr}`
-      };
-    } catch (error) {
-      throw new Error(`Command execution failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Execute RexxJS script in container with CHECKPOINT support
-   * execute_rexx container="test-container" script="SAY 'Hello'" [timeout=30000] [progress_callback=true]
-   */
-  async executeRexx(params, context) {
-    const { container: name, script, timeout, progress_callback = 'false', script_file } = params;
-
-    if (!name || (!script && !script_file)) {
-      throw new Error('Missing required parameters: container and (script or script_file)');
-    }
-
-    const container = this.activeContainers.get(name);
-    if (!container) {
-      throw new Error(`Container not found: ${name}`);
-    }
-
-    if (container.status !== 'running') {
-      throw new Error(`Container ${name} must be running to execute RexxJS scripts`);
-    }
-    
-    if (!container.rexxDeployed) {
-      throw new Error(`RexxJS binary not deployed to container ${name}. Use deploy_rexx first.`);
-    }
-
-    const execTimeout = timeout ? parseInt(timeout) : this.defaultTimeout;
-    const enableProgressCallback = progress_callback.toString().toLowerCase() === 'true';
-
-    let rexxScript;
-    if (script_file) {
-      const interpolatedFile = await interpolateMessage(script_file, context);
-      rexxScript = fs.readFileSync(interpolatedFile, 'utf8');
-    } else {
-      rexxScript = await interpolateMessage(script, context);
-    }
-
-    try {
-      let result;
-      
-      if (enableProgressCallback) {
-        // Execute with streaming progress updates
-        result = await this.executeRexxWithProgress(container, rexxScript, {
-          timeout: execTimeout,
-          progressCallback: (checkpoint, params) => {
-            log('rexx_progress', {
-              container: name,
-              checkpoint: checkpoint,
-              progress: params
-            });
-          }
-        });
-      } else {
-        // Simple execution
-        // Real mode: execute in actual container
-        const tempScript = `/tmp/rexx_script_${Date.now()}.rexx`;
-        await this.writeToContainer(name, tempScript, rexxScript);
-        
-        result = await this.execInContainer(name, `${container.rexxPath} ${tempScript}`, { 
-          timeout: execTimeout 
-        });
-
-        // Cleanup temp script
-        await this.execInContainer(name, `rm -f ${tempScript}`, { timeout: 5000 });
-      }
-
-      log('rexx_executed', {
-        container: name,
-        exitCode: result.exitCode,
-        progressEnabled: enableProgressCallback
-      });
-
-      return {
-        success: result.exitCode === 0,
-        operation: 'execute_rexx',
-        container: name,
-        exitCode: result.exitCode,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        output: result.exitCode === 0 ? result.stdout : `RexxJS execution failed: ${result.stderr}`
-      };
-    } catch (error) {
-      throw new Error(`RexxJS execution failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Handle copy_to command
-   * copy_to container="test-container" local="/path/to/file" remote="/container/path"
-   */
-  async handleCopyTo(params, context) {
-    const { container, local, remote } = params;
-
-    if (!container || !local || !remote) {
-      throw new Error('copy_to requires container, local, and remote parameters');
-    }
-
-    const containerInfo = this.activeContainers.get(container);
-    if (!containerInfo) {
-      throw new Error(`Container not found: ${container}`);
-    }
-
-    // Real mode - execute actual systemd-nspawn cp command
-    const args = ['cp', local, `${container}:${remote}`];
-    
-    try {
-      const result = await this.execNspawnCommand(args);
-      
-      if (result.exitCode === 0) {
-        log('copy_to_success', {
-          container,
-          local,
-          remote
-        });
-
-        return {
-          success: true,
-          operation: 'copy_to',
-          container,
-          localPath: local,
-          remotePath: remote,
-          output: `Copied ${local} to ${container}:${remote}`
-        };
-      } else {
-        throw new Error(`Copy operation failed: ${result.stderr || result.stdout}`);
-      }
-    } catch (error) {
-      throw new Error(`Copy to container failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Handle copy_from command
-   * copy_from container="test-container" remote="/container/path" local="/host/path"
-   */
-  async handleCopyFrom(params, context) {
-    const { container, remote, local } = params;
-
-    if (!container || !remote || !local) {
-      throw new Error('copy_from requires container, remote, and local parameters');
-    }
-
-    const containerInfo = this.activeContainers.get(container);
-    if (!containerInfo) {
-      throw new Error(`Container not found: ${container}`);
-    }
-
-    // Real mode - execute actual systemd-nspawn cp command
-    const args = ['cp', `${container}:${remote}`, local];
-    
-    try {
-      const result = await this.execNspawnCommand(args);
-      
-      if (result.exitCode === 0) {
-        log('copy_from_success', {
-          container,
-          remote,
-          local
-        });
-
-        return {
-          success: true,
-          operation: 'copy_from',
-          container,
-          remotePath: remote,
-          localPath: local,
-          output: `Copied ${container}:${remote} to ${local}`
-        };
-      } else {
-        throw new Error(`Copy operation failed: ${result.stderr || result.stdout}`);
-      }
-    } catch (error) {
-      throw new Error(`Copy from container failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Handle logs command
-   * logs container="test-container" [lines=50]
-   */
-  async handleLogs(params, context) {
-    const { container, lines = '50' } = params;
-
-    if (!container) {
-      throw new Error('logs requires container parameter');
-    }
-
-    const containerInfo = this.activeContainers.get(container);
-    if (!containerInfo) {
-      throw new Error(`Container not found: ${container}`);
-    }
-
-    const logLines = parseInt(lines);
-
-    // Real mode - execute actual systemd-nspawn logs command
-    const args = ['logs', '--tail', logLines.toString(), container];
-    
-    try {
-      const result = await this.execNspawnCommand(args);
-      
-      if (result.exitCode === 0) {
-        log('logs_success', {
-          container,
-          lines: logLines,
-          logLength: result.stdout.length
-        });
-
-        return {
-          success: true,
-          operation: 'logs',
-          container,
-          lines: logLines,
-          logs: result.stdout,
-          output: `Retrieved logs from ${container}`
-        };
-      } else {
-        throw new Error(`Logs retrieval failed: ${result.stderr || result.stdout}`);
-      }
-    } catch (error) {
-      throw new Error(`Get container logs failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Handle cleanup command
-   * cleanup [all=false]
-   */
-  async handleCleanup(params, context) {
-    const { all = 'false' } = params;
-
-    let cleaned = 0;
-    let errors = [];
-
-    try {
-      if (all === 'true') {
-        // Remove all containers
-        for (const [id, container] of this.activeContainers) {
-          try {
-            // Real mode - stop and remove container
-            if (container.status === 'running') {
-              await this.execNspawnCommand(['stop', id]);
-            }
-            await this.execNspawnCommand(['rm', id]);
-            this.activeContainers.delete(id);
-            cleaned++;
-          } catch (error) {
-            log('cleanup_error', {
-              containerId: id,
-              error: error.message
-            });
-            errors.push(`${id}: ${error.message}`);
-          }
-        }
-      } else {
-        // Remove only stopped containers
-        for (const [id, container] of this.activeContainers) {
-          if (container.status === 'stopped' || container.status === 'created') {
-            try {
-              // Real mode - remove stopped container
-              await this.execNspawnCommand(['rm', id]);
-              this.activeContainers.delete(id);
-              cleaned++;
-            } catch (error) {
-              log('cleanup_error', {
-                containerId: id,
-                error: error.message
-              });
-              errors.push(`${id}: ${error.message}`);
-            }
-          }
-        }
-      }
-
-      log('cleanup_completed', {
-        cleaned,
-        remaining: this.activeContainers.size,
-        all: all === 'true'
-      });
-
-      return {
-        success: true,
-        operation: 'cleanup',
-        cleaned,
-        remaining: this.activeContainers.size,
-        all: all === 'true',
-        errors: errors.length > 0 ? errors : undefined,
-        output: `Cleaned up ${cleaned} containers, ${this.activeContainers.size} remaining`
-      };
-    } catch (error) {
-      throw new Error(`Cleanup failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Low-level container execution
-   */
-  async execInContainer(containerName, command, options = {}) {
-    return new Promise((resolve, reject) => {
-      const startTime = Date.now();
-      const timeout = options.timeout || this.defaultTimeout;
-
-      const exec = spawn('systemd-nspawn', ['-M', containerName, 'sh', '-c', command], {
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      exec.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      exec.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      const timeoutHandle = setTimeout(() => {
-        exec.kill('SIGTERM');
-        reject(new Error(`Command timeout after ${timeout}ms: ${command}`));
-      }, timeout);
-
-      exec.on('close', (code) => {
-        clearTimeout(timeoutHandle);
-        const duration = Date.now() - startTime;
-        
-        resolve({
-          exitCode: code,
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
-          duration: duration
-        });
-      });
-
-      exec.on('error', (error) => {
-        clearTimeout(timeoutHandle);
-        reject(new Error(`Execution error: ${error.message}`));
-      });
-    });
-  }
-
-  /**
-   * Copy file to container
-   */
-  async copyToContainer(containerName, localPath, remotePath) {
-    return new Promise((resolve, reject) => {
-      const copy = spawn('systemd-nspawn', ['-M', containerName, 'cp', localPath, remotePath], {
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-
-      let stderr = '';
-      copy.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      copy.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`File copy failed: ${stderr}`));
-        }
-      });
-
-      copy.on('error', (error) => {
-        reject(new Error(`Copy operation error: ${error.message}`));
-      });
-    });
-  }
-
-  /**
-   * Write content to file in container
-   */
-  async writeToContainer(containerName, remotePath, content) {
-    return new Promise((resolve, reject) => {
-      const write = spawn('systemd-nspawn', ['-M', containerName, '-i', 'sh', '-c', `cat > ${remotePath}`], {
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      write.stdin.write(content);
-      write.stdin.end();
-
-      let stderr = '';
-      write.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      write.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`File write failed: ${stderr}`));
-        }
-      });
-
-      write.on('error', (error) => {
-        reject(new Error(`Write operation error: ${error.message}`));
-      });
-    });
-  }
-
-  /**
-   * Execute systemd-nspawn command (local or remote)
-   */
-  async execNspawnCommand(args, options = {}) {
-    const timeout = options.timeout || this.defaultTimeout;
-    
-    // If remote execution is enabled, use SSH handler
-    if (this.remoteConfig.enabled && this.remoteConfig.sshHandler) {
-      const command = `sudo systemd-nspawn ${args.join(' ')}`;
-      try {
-        const result = await this.remoteConfig.sshHandler.exec({
-          id: this.remoteConfig.sessionId,
-          command: command,
-          timeout: timeout
-        });
-        return {
-          exitCode: result.exitCode || (result.success ? 0 : 1),
-          stdout: result.stdout || '',
-          stderr: result.stderr || ''
-        };
-      } catch (error) {
-        throw new Error(`Remote systemd-nspawn command failed: ${error.message}`);
-      }
-    }
-    
-    // Local execution
-    return new Promise((resolve, reject) => {
-      const child = spawn('systemd-nspawn', args, {
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        resolve({
-          exitCode: code,
-          stdout: stdout.trim(),
-          stderr: stderr.trim()
-        });
-      });
-
-      child.on('error', (error) => {
-        reject(new Error(`systemd-nspawn command failed: ${error.message}`));
-      });
-
-      // Set timeout
-      if (timeout > 0) {
-        setTimeout(() => {
-          child.kill('SIGKILL');
-          reject(new Error(`systemd-nspawn command timeout after ${timeout}ms`));
-        }, timeout);
-      }
-    });
-  }
-
-  /**
-   * Execute RexxJS script with enhanced CHECKPOINT progress monitoring
-   */
-  async executeRexxWithProgress(containerInfo, script, options = {}) {
-    const tempScript = `/tmp/rexx_script_progress_${Date.now()}.rexx`;
-    
-    try {
-      // Enhanced script with CHECKPOINT monitoring wrapper
-      const enhancedScript = this.wrapScriptWithCheckpoints(script, options);
-      
-      // Real mode: execute with enhanced streaming progress
-      await this.writeToContainer(containerInfo.name, tempScript, enhancedScript);
-      
-      // Setup bidirectional CHECKPOINT monitoring
-      if (options.progressCallback) {
-        this.setupCheckpointMonitoring(containerInfo.name, options.progressCallback);
-      }
-      
-      const result = await this.execInContainerWithProgress(
-        containerInfo.name, 
-        `${containerInfo.rexxPath} ${tempScript}`, 
-        {
-          timeout: options.timeout || this.defaultTimeout,
-          progressCallback: options.progressCallback,
-          bidirectional: true
-        }
-      );
-
-      // Cleanup temp script
-      await this.execInContainer(containerInfo.name, `rm -f ${tempScript}`, { timeout: 5000 });
-      
-      return result;
-    } catch (error) {
-      // Ensure cleanup on error
-      try {
-        await this.execInContainer(containerInfo.name, `rm -f ${tempScript}`, { timeout: 5000 });
-      } catch (cleanupError) {
-        // Log cleanup failure but don't mask original error
-        log('cleanup_error', { script: tempScript, error: cleanupError.message });
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Wrap RexxJS script with CHECKPOINT monitoring capabilities
-   */
-  wrapScriptWithCheckpoints(script, options = {}) {
-    return sharedWrapScriptWithCheckpoints(script, options);
-  }
-
-  /**
-   * Execute command in container with progress monitoring
-   */
-  async execInContainerWithProgress(containerName, command, options = {}) {
-    return new Promise((resolve, reject) => {
-      const { spawn } = require('child_process');
-      const child = spawn('systemd-nspawn', ['-M', containerName, 'sh', '-c', command], {
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-      const startTime = Date.now();
-
-      child.stdout.on('data', (data) => {
-        const output = data.toString();
-        stdout += output;
-        
-        // Parse CHECKPOINT outputs for progress monitoring
-        if (options.progressCallback && output.includes('CHECKPOINT')) {
-          this.parseCheckpointOutput(output, options.progressCallback);
-        }
-      });
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        const duration = Date.now() - startTime;
-        resolve({
-          exitCode: code,
-          stdout,
-          stderr,
-          duration
-        });
-      });
-
-      child.on('error', (error) => {
-        reject(new Error(`Container execution error: ${error.message}`));
-      });
-
-      // Set timeout if specified
-      if (options.timeout > 0) {
-        setTimeout(() => {
-          child.kill('SIGKILL');
-          reject(new Error(`Container execution timeout after ${options.timeout}ms`));
-        }, options.timeout);
-      }
-    });
-  }
-
-  /**
-   * Parse CHECKPOINT output for progress monitoring
-   */
-  parseCheckpointOutput(output, progressCallback) {
-    return sharedParseCheckpointOutput(output, progressCallback);
-  }
-
-  /**
-   * Parse key=value parameter string
-   */
-  parseKeyValueString(paramStr) {
-    return parseKeyValueString(paramStr);
-  }
-
-
-  /**
-   * Enhanced security validation for container parameters
-   */
-  validateContainerSecurity(params) {
-    const violations = [];
-    
-    // Validate memory limits
-    if (params.memory) {
-      const memoryLimit = parseMemoryLimit(params.memory);
-      const maxMemoryLimit = parseMemoryLimit(this.securityPolicies.maxMemory);
-      if (memoryLimit > maxMemoryLimit) {
-        violations.push(`Memory limit ${params.memory} exceeds maximum allowed ${this.securityPolicies.maxMemory}`);
-      }
-    }
-    
-    // Validate CPU limits
-    if (params.cpus) {
-      const cpuLimit = parseFloat(params.cpus);
-      const maxCpuLimit = parseFloat(this.securityPolicies.maxCpus);
-      if (cpuLimit > maxCpuLimit) {
-        violations.push(`CPU limit ${params.cpus} exceeds maximum allowed ${this.securityPolicies.maxCpus}`);
-      }
-    }
-    
-    // Validate volume paths
-    if (params.volumes) {
-      const volumeMounts = params.volumes.split(',');
-      for (const mount of volumeMounts) {
-        const [hostPath] = mount.split(':');
-        if (!validateVolumePath(hostPath.trim(), this.securityMode, this.securityPolicies.allowedVolumePaths)) {
-          violations.push(`Volume path ${hostPath} not allowed by security policy`);
-        }
-      }
-    }
-    
-    // Check for privileged operations
-    if (params.privileged === 'true' && !this.securityPolicies.allowPrivileged) {
-      violations.push('Privileged containers not allowed by security policy');
-    }
-    
-    return violations;
-  }
-
-
-
-
-  /**
-   * Audit security events for compliance
-   */
-  auditSecurityEvent(event, details) {
-    sharedAuditSecurityEvent(event, details, this.securityMode, this.auditLog, log);
-  }
-
-  /**
-   * Get security audit log
-   */
-  getSecurityAuditLog() {
-    return {
-      success: true,
-      operation: 'security_audit',
-      events: this.auditLog.slice(-100), // Return last 100 events
-      totalEvents: this.auditLog.length,
-      securityMode: this.securityMode,
-      policies: this.securityPolicies
-    };
-  }
-
-  /**
-   * Container Process Management Methods
-   */
-
-  /**
-   * Start process monitoring for containers
-   */
-  startProcessMonitoring() {
-    if (this.monitoringTimer || !this.processMonitor.enabled) {
-      return;
-    }
-
-    this.monitoringTimer = setInterval(() => {
-      this.checkContainerHealth();
-    }, this.processMonitor.checkInterval);
-
-    log('process_monitoring_started', { 
-      interval: this.processMonitor.checkInterval,
-      containers: this.activeContainers.size 
-    });
-  }
-
-  /**
-   * Stop process monitoring
-   */
-  stopProcessMonitoring() {
-    if (this.monitoringTimer) {
-      clearInterval(this.monitoringTimer);
-      this.monitoringTimer = null;
-      log('process_monitoring_stopped');
-    }
-  }
-
-  /**
-   * Check health of all active containers
-   */
-  async checkContainerHealth() {
-    for (const [name, container] of this.activeContainers) {
-      try {
-        const health = await this.getContainerHealth(name);
-        this.processStats.set(name, {
-          ...health,
-          lastCheck: new Date().toISOString()
-        });
-
-        // Check for unhealthy containers
-        if (health.status === 'unhealthy' || health.status === 'exited') {
-          this.handleUnhealthyContainer(name, container, health);
-        }
-      } catch (error) {
-        log('health_check_error', { container: name, error: error.message });
-      }
-    }
-  }
-
-  /**
-   * Get container health and process information
-   */
-  async getContainerHealth(containerName) {
-    try {
-      // Real mode: get actual container stats
-      const inspectResult = await this.execNspawnCommand(['inspect', containerName]);
-      const statsResult = await this.execNspawnCommand(['stats', '--no-stream', containerName]);
-      
-      if (inspectResult.exitCode === 0 && statsResult.exitCode === 0) {
-        const inspectData = JSON.parse(inspectResult.stdout)[0];
-        const running = inspectData.State.Running;
-        
-        return {
-          status: running ? 'running' : 'stopped',
-          running: running,
-          pid: inspectData.State.Pid,
-          memory: this.parseStatsMemory(statsResult.stdout),
-          cpu: this.parseStatsCpu(statsResult.stdout),
-          uptime: calculateUptime(inspectData.State.StartedAt)
-        };
-      }
-    } catch (error) {
-      log('health_check_failed', { container: containerName, error: error.message });
-    }
-
-    return {
-      status: 'unknown',
-      running: false,
-      pid: 0,
-      memory: '0MB',
-      cpu: '0%',
-      uptime: '0s'
-    };
-  }
-
-  /**
-   * Handle unhealthy containers
-   */
-  async handleUnhealthyContainer(name, container, health) {
-    log('unhealthy_container_detected', { 
-      container: name, 
-      status: health.status,
-      lastKnownGood: container.status 
-    });
-
-    // Update container status
-    container.status = health.status;
-
-    // Audit the event
-    this.auditSecurityEvent('container_health_issue', {
-      container: name,
-      healthStatus: health.status,
-      action: 'monitoring'
-    });
-
-    // Auto-recovery logic for certain conditions
-    if (health.status === 'exited' && container.autoRestart) {
-      try {
-        log('attempting_auto_restart', { container: name });
-        await this.startContainer({ name }, {});
-      } catch (error) {
-        log('auto_restart_failed', { container: name, error: error.message });
-      }
-    }
-  }
-
-  /**
-   * Get process statistics for all containers
-   */
-  getProcessStatistics() {
-    const stats = Array.from(this.processStats.entries()).map(([name, stats]) => ({
-      container: name,
-      ...stats,
-      containerInfo: this.activeContainers.get(name)
-    }));
-
-    return {
-      success: true,
-      operation: 'process_stats',
-      containers: stats,
-      monitoringEnabled: this.processMonitor.enabled,
-      lastUpdate: new Date().toISOString()
-    };
-  }
-
-  /**
-   * Configure container health checks
-   */
-  configureHealthCheck(params) {
-    const { container, enabled = true, interval = 30000, command, retries = 3 } = params;
-
-    if (!container) {
-      throw new Error('Container name required for health check configuration');
-    }
-
-    if (!this.activeContainers.has(container)) {
-      throw new Error(`Container not found: ${container}`);
-    }
-
-    this.processMonitor.healthChecks.set(container, {
-      enabled,
-      interval,
-      command,
-      retries,
-      failureCount: 0,
-      lastCheck: null
-    });
-
-    log('health_check_configured', { 
-      container, 
-      enabled, 
-      interval, 
-      command: command ? 'custom' : 'default' 
-    });
-
-    return {
-      success: true,
-      operation: 'configure_health_check',
-      container,
-      configuration: { enabled, interval, command, retries }
-    };
-  }
-
-  /**
-   * Utility methods for parsing container stats
-   */
-  parseStatsMemory(statsOutput) {
-    const match = statsOutput.match(/(\d+\.?\d*\s*[KMGT]?B)/);
-    return match ? match[1] : '0MB';
-  }
-
-  parseStatsCpu(statsOutput) {
-    const match = statsOutput.match(/(\d+\.?\d*%)/);
-    return match ? match[1] : '0%';
-  }
-
-
-  /**
-   * Enhanced CHECKPOINT Progress Monitoring Methods
-   */
-
-  /**
-   * Setup bidirectional CHECKPOINT monitoring for a container
-   */
-  setupCheckpointMonitoring(containerName, progressCallback) {
-    if (!this.checkpointMonitor.enabled) {
-      return;
-    }
-
-    // Register the callback for this container
-    this.checkpointMonitor.callbacks.set(containerName, progressCallback);
-    this.checkpointMonitor.realtimeData.set(containerName, {
-      started: new Date().toISOString(),
-      checkpoints: [],
-      lastUpdate: null
-    });
-
-    log('checkpoint_monitoring_setup', { 
-      container: containerName,
-      bidirectional: true 
-    });
-  }
-
-  /**
-   * Process incoming CHECKPOINT data from container
-   */
-  processCheckpointData(containerName, checkpointData) {
-    const callback = this.checkpointMonitor.callbacks.get(containerName);
-    const realtimeData = this.checkpointMonitor.realtimeData.get(containerName);
-
-    if (realtimeData) {
-      realtimeData.checkpoints.push({
-        timestamp: new Date().toISOString(),
-        ...checkpointData
-      });
-      realtimeData.lastUpdate = new Date().toISOString();
-    }
-
-    // Call the progress callback with the new data
-    if (callback) {
-      callback(checkpointData.checkpoint, checkpointData.params || {});
-    }
-
-    // Log the checkpoint for debugging
-    log('checkpoint_received', {
-      container: containerName,
-      checkpoint: checkpointData.checkpoint,
-      params: checkpointData.params
-    });
-  }
-
-  /**
-   * Enhanced container execution with real-time CHECKPOINT parsing
-   */
-  async execInContainerWithProgress(containerName, command, options = {}) {
-    return new Promise((resolve, reject) => {
-      const { spawn } = require('child_process');
-      const child = spawn('systemd-nspawn', ['-M', containerName, 'sh', '-c', command], {
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-      const startTime = Date.now();
-
-      child.stdout.on('data', (data) => {
-        const output = data.toString();
-        stdout += output;
-        
-        // Enhanced CHECKPOINT parsing for bidirectional communication
-        if (options.progressCallback && output.includes('CHECKPOINT')) {
-          this.parseEnhancedCheckpointOutput(containerName, output, options.progressCallback);
-        }
-      });
-
-      child.stderr.on('data', (data) => {
-        const errorOutput = data.toString();
-        stderr += errorOutput;
-        
-        // Also check stderr for CHECKPOINT outputs (RexxJS might output there)
-        if (options.progressCallback && errorOutput.includes('CHECKPOINT')) {
-          this.parseEnhancedCheckpointOutput(containerName, errorOutput, options.progressCallback);
-        }
-      });
-
-      child.on('close', (code) => {
-        const duration = Date.now() - startTime;
-        
-        // Cleanup checkpoint monitoring for this execution
-        this.cleanupCheckpointMonitoring(containerName);
-        
-        resolve({
-          exitCode: code,
-          stdout,
-          stderr,
-          duration
-        });
-      });
-
-      child.on('error', (error) => {
-        this.cleanupCheckpointMonitoring(containerName);
-        reject(new Error(`Container execution error: ${error.message}`));
-      });
-
-      // Set timeout if specified
-      if (options.timeout > 0) {
-        setTimeout(() => {
-          child.kill('SIGKILL');
-          this.cleanupCheckpointMonitoring(containerName);
-          reject(new Error(`Container execution timeout after ${options.timeout}ms`));
-        }, options.timeout);
-      }
-    });
-  }
-
-  /**
-   * Parse enhanced CHECKPOINT output with structured data support
-   */
-  parseEnhancedCheckpointOutput(containerName, output, progressCallback) {
-    return sharedParseEnhancedCheckpointOutput(output, (rec) => {
-      this.processCheckpointData(containerName, rec);
-      if (typeof progressCallback === 'function') {
-        progressCallback(rec.checkpoint, rec.params);
-      }
-    });
-  }
-
-  /**
-   * Cleanup checkpoint monitoring for a container
-   */
-  cleanupCheckpointMonitoring(containerName) {
-    this.checkpointMonitor.callbacks.delete(containerName);
-    
-    // Keep realtime data for a while for inspection
-    setTimeout(() => {
-      this.checkpointMonitor.realtimeData.delete(containerName);
-    }, 60000); // Keep for 1 minute
-  }
-
-  /**
-   * Get current checkpoint monitoring status
-   */
-  getCheckpointMonitoringStatus() {
-    const activeMonitoring = Array.from(this.checkpointMonitor.callbacks.keys());
-    const realtimeData = {};
-    
-    for (const [container, data] of this.checkpointMonitor.realtimeData.entries()) {
-      realtimeData[container] = {
-        ...data,
-        checkpointCount: data.checkpoints.length,
-        latestCheckpoint: data.checkpoints[data.checkpoints.length - 1]
-      };
-    }
-    
-    return {
-      success: true,
-      operation: 'checkpoint_monitoring_status',
-      enabled: this.checkpointMonitor.enabled,
-      activeContainers: activeMonitoring,
-      realtimeData: realtimeData,
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  /**
-   * Connect to remote host for nspawn operations
-   */
-  async connectRemote(params, context) {
-    const { host, user, port = '22', identity, id = 'nspawn-remote' } = params;
-    
-    if (!host || !user) {
-      throw new Error('connect_remote requires host and user parameters');
-    }
-    
-    try {
-      // Get SSH handler instance - dynamically load based on environment
-      let AddressSSHHandler;
-      try {
-        // Try to get from global scope first (pkg environment)
-        const globalScope = typeof window !== 'undefined' ? window : global;
-        if (globalScope.ADDRESS_SSH_HANDLER) {
-          // Use the handler function directly
-          AddressSSHHandler = class {
-            async connect(params) { return await globalScope.ADDRESS_SSH_HANDLER('connect', params); }
-            async exec(params) { return await globalScope.ADDRESS_SSH_HANDLER('exec', params); }
-            async close(params) { return await globalScope.ADDRESS_SSH_HANDLER('close', params); }
-            async initialize() { return true; }
-          };
-        } else {
-          // Normal Node.js environment
-          const sshModule = require('../google-cloud-platform/address-ssh.js');
-          AddressSSHHandler = sshModule.AddressSSHHandler;
-        }
-      } catch (reqError) {
-        throw new Error(`Failed to load SSH handler: ${reqError.message}`);
-      }
-      
-      if (!this.remoteConfig.sshHandler) {
-        this.remoteConfig.sshHandler = new AddressSSHHandler();
-        await this.remoteConfig.sshHandler.initialize();
-      }
-      
-      // Connect to remote host
-      const connectResult = await this.remoteConfig.sshHandler.connect({
-        host, user, port, identity, id
-      });
-      
-      if (connectResult.success) {
-        this.remoteConfig.enabled = true;
-        this.remoteConfig.sessionId = connectResult.id;
-        this.remoteConfig.host = host;
-        this.remoteConfig.user = user;
-        
-        // Test nspawn availability on remote host
-        const testResult = await this.remoteConfig.sshHandler.exec({
-          id: connectResult.id,
-          command: 'which systemd-nspawn && sudo systemd-nspawn --version',
-          timeout: 10000
-        });
-        
-        if (!testResult.success) {
-          throw new Error(`systemd-nspawn not available on remote host: ${testResult.stderr}`);
-        }
-        
-        log('remote_connected', { host, user, id: connectResult.id });
-        return {
-          success: true,
-          operation: 'connect_remote',
-          host, user, id: connectResult.id,
-          nspawnAvailable: true,
-          output: `Connected to ${user}@${host} for remote nspawn operations`
-        };
-      } else {
-        throw new Error(`Failed to connect: ${connectResult.errorMessage || 'Unknown error'}`);
-      }
-    } catch (error) {
-      throw new Error(`Remote connection failed: ${error.message}`);
-    }
-  }
-  
-  /**
-   * Disconnect from remote host
-   */
-  async disconnectRemote() {
-    if (!this.remoteConfig.enabled || !this.remoteConfig.sshHandler) {
-      return {
-        success: true,
-        operation: 'disconnect_remote',
-        output: 'No remote connection active'
-      };
-    }
-    
-    try {
-      await this.remoteConfig.sshHandler.close({ id: this.remoteConfig.sessionId });
-      
-      const host = this.remoteConfig.host;
-      const user = this.remoteConfig.user;
-      
-      this.remoteConfig.enabled = false;
-      this.remoteConfig.sessionId = null;
-      this.remoteConfig.host = null;
-      this.remoteConfig.user = null;
-      
-      log('remote_disconnected', { host, user });
-      return {
-        success: true,
-        operation: 'disconnect_remote',
-        output: `Disconnected from ${user}@${host}`
-      };
-    } catch (error) {
-      throw new Error(`Disconnect failed: ${error.message}`);
-    }
-  }
-  
-  /**
-   * Get remote connection status
-   */
-  getRemoteStatus() {
-    return {
-      success: true,
-      operation: 'remote_status',
-      enabled: this.remoteConfig.enabled,
-      host: this.remoteConfig.host,
-      user: this.remoteConfig.user,
-      sessionId: this.remoteConfig.sessionId,
-      output: this.remoteConfig.enabled 
-        ? `Connected to ${this.remoteConfig.user}@${this.remoteConfig.host}`
-        : 'No remote connection active'
-    };
-  }
-
-  /**
-   * Cleanup process monitoring on handler destruction
-   */
-  destroy() {
-    this.stopProcessMonitoring();
-    
-    // Cleanup checkpoint monitoring
-    this.checkpointMonitor.callbacks.clear();
-    this.checkpointMonitor.realtimeData.clear();
-    
-    this.activeContainers.clear();
-    this.processStats.clear();
-    this.auditLog.length = 0;
-  }
 }
 
-// Global handler instance
-let nspawnHandlerInstance = null;
-
-// Consolidated metadata provider function
+// RexxJS detection metadata
 function NSPAWN_ADDRESS_META() {
   return {
-    namespace: "rexxjs",
-    dependencies: {"child_process": "builtin"},
-    envVars: [],
-    type: 'address-target',
-    name: 'ADDRESS NSPAWN Container Service',
+    type: 'address',
+    name: 'NSPAWN',
     version: '1.0.0',
-    description: 'systemd-nspawn container management via ADDRESS interface',
-    detectionFunction: 'ADDRESS_NSPAWN_MAIN'
+    description: 'systemd-nspawn lightweight containers with CoW cloning',
+    methods: {
+      handlerFunction: 'ADDRESS_NSPAWN_HANDLER',
+      methodsObject: 'ADDRESS_NSPAWN_METHODS'
+    },
+    capabilities: {
+      cow_cloning: true,
+      btrfs_snapshots: 'detected',
+      rsync_hardlinks: true,
+      builtin: true // Part of systemd
+    },
+    requirements: {
+      systemd: 'required'
+    }
   };
 }
 
-// Primary detection function with ADDRESS target metadata
-function ADDRESS_NSPAWN_MAIN() {
-  return NSPAWN_ADDRESS_META();
-}
+// Create singleton handler instance
+const nspawnHandlerInstance = new AddressNspawnHandler();
 
-// ADDRESS target handler function with REXX variable management
+// Main ADDRESS handler function
 async function ADDRESS_NSPAWN_HANDLER(commandOrMethod, params, sourceContext) {
-  // Initialize handler instance if not exists
-  if (!nspawnHandlerInstance) {
-    nspawnHandlerInstance = new AddressNspawnHandler();
+  // Initialize if needed
+  if (!nspawnHandlerInstance.initialized) {
     await nspawnHandlerInstance.initialize();
   }
-  
-  let commandString = commandOrMethod;
-  let context = sourceContext ? Object.fromEntries(sourceContext.variables) : {};
 
-  if (params) { // Method call style
-      const paramsString = Object.entries(params)
-          .map(([key, value]) => {
-              if (typeof value === 'string' && value.includes(' ')) {
-                  return `${key}="${value}"`;
-              }
-              return `${key}=${value}`;
-          })
-          .join(' ');
-      commandString = `${commandOrMethod} ${paramsString}`;
-      context = { ...context, ...params };
+  // Handle as string command
+  if (typeof commandOrMethod === 'string') {
+    return await nspawnHandlerInstance.handleAddressCommand(commandOrMethod, sourceContext || {});
   }
 
-  try {
-    const result = await nspawnHandlerInstance.handleAddressCommand(commandString, context);
-    
-    // Convert to REXX-style result
-    return {
-      success: result.success,
-      errorCode: result.success ? 0 : 1,
-      errorMessage: result.error || null,
-      output: result.output || '',
-      result: result,
-      rexxVariables: {
-        'NSPAWN_OPERATION': result.operation || '',
-        'NSPAWN_CONTAINER': result.container || '',
-        'NSPAWN_STATUS': result.status || '',
-        'NSPAWN_COUNT': result.count || 0,
-        'NSPAWN_EXIT_CODE': result.exitCode || 0,
-        'NSPAWN_STDOUT': result.stdout || '',
-        'NSPAWN_STDERR': result.stderr || '',
-        'NSPAWN_BINARY': result.binary || '',
-        'NSPAWN_TARGET': result.target || ''
-      }
-    };
-  } catch (error) {
-    return {
-      success: false,
-      errorCode: 1,
-      errorMessage: error.message,
-      output: error.message,
-      result: { error: error.message },
-      rexxVariables: {
-        'NSPAWN_ERROR': error.message
-      }
-    };
+  // Handle as method call
+  if (typeof commandOrMethod === 'object' && commandOrMethod.method) {
+    const { method, ...methodParams } = commandOrMethod;
+    const command = `${method} ${Object.entries(methodParams).map(([k, v]) => `${k}=${v}`).join(' ')}`;
+    return await nspawnHandlerInstance.handleAddressCommand(command, sourceContext || {});
   }
+
+  throw new Error('Invalid NSPAWN command format');
 }
 
-// Method names for RexxJS method detection
+// Methods documentation
 const ADDRESS_NSPAWN_METHODS = {
-  'status': 'Get NSPAWN handler status',
-  'list': 'List containers',
-  'create': 'Create a new container [interactive=true] [memory=512m] [cpus=1.0] [volumes=host:container] [environment=KEY=value]',
-  'start': 'Start a container',
-  'stop': 'Stop a container', 
-  'remove': 'Remove a container',
-  'deploy_rexx': 'Deploy RexxJS binary to container',
+  'status': 'Get nspawn handler status and CoW method',
+  'list': 'List all containers',
+  'create': 'Create container [distro=ubuntu] [release=22.04]',
+  'start': 'Start container',
+  'stop': 'Stop container',
+  'delete': 'Delete container',
+  'remove': 'Delete container (alias)',
   'execute': 'Execute command in container',
-  'execute_rexx': 'Execute RexxJS script in container [progress_callback=true] [timeout=30000]',
-  'copy_to': 'Copy file to container',
-  'connect_remote': 'Connect to remote host [host] [user] [port=22] [identity] [id=nspawn-remote]',
-  'disconnect_remote': 'Disconnect from remote host',
-  'remote_status': 'Get remote connection status',
-  'copy_from': 'Copy file from container',
-  'logs': 'Get container logs [lines=50]',
-  'cleanup': 'Cleanup containers [all=true]',
-  'security_audit': 'Get security audit log and policies',
-  'process_stats': 'Get container process statistics and health',
-  'configure_health_check': 'Configure health check for container [enabled=true] [interval=30000] [command=custom]',
-  'start_monitoring': 'Start container process monitoring',
-  'stop_monitoring': 'Stop container process monitoring',
-  'checkpoint_status': 'Get bidirectional CHECKPOINT monitoring status'
+  'exec': 'Execute command in container (alias)',
+  'clone': 'Clone container [source] [destination]',
+  'copy': 'Clone container (alias)',
+  'register_base': 'Register container as base image [distro=ubuntu] [release=22.04]',
+  'clone_from_base': 'Clone from registered base image [base] [name]',
+  'list_bases': 'List registered base images'
 };
 
 // UMD pattern for both Node.js and browser compatibility
@@ -1941,7 +645,6 @@ if (typeof module !== 'undefined' && module.exports) {
   // Node.js environment
   module.exports = {
     NSPAWN_ADDRESS_META,
-    ADDRESS_NSPAWN_MAIN,
     ADDRESS_NSPAWN_HANDLER,
     ADDRESS_NSPAWN_METHODS,
     AddressNspawnHandler // Export the class for testing
@@ -1949,7 +652,6 @@ if (typeof module !== 'undefined' && module.exports) {
 } else if (typeof window !== 'undefined') {
   // Browser environment - attach to global window
   window.NSPAWN_ADDRESS_META = NSPAWN_ADDRESS_META;
-  window.ADDRESS_NSPAWN_MAIN = ADDRESS_NSPAWN_MAIN;
   window.ADDRESS_NSPAWN_HANDLER = ADDRESS_NSPAWN_HANDLER;
   window.ADDRESS_NSPAWN_METHODS = ADDRESS_NSPAWN_METHODS;
 }

@@ -185,6 +185,13 @@ class AddressLxdHandler {
     });
     startProcess.unref(); // Don't wait for it
 
+    // TODO: Container starts sometimes timeout waiting for cloud-init to complete
+    // This is especially true for fresh containers. Consider:
+    // 1. Increasing timeout beyond 60s
+    // 2. Using lxc config to disable cloud-init for template containers
+    // 3. Pre-warming base images before registration
+    // 4. Adding a force_start option that doesn't wait for Running state
+
     // Wait for Running state by polling
     const waitResult = await this.waitForContainerState(name, 'Running', 60000);
 

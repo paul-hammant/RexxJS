@@ -31,6 +31,9 @@ class AddressVirtualBoxHandler {
     this.runtime = 'virtualbox';
     this.initialized = false;
 
+    // Base image registry for CoW cloning
+    this.baseImages = new Map(); // baseName -> { vm: vmName, created: timestamp }
+
     // Enhanced security settings
     this.securityPolicies = {
       allowPrivileged: false,
@@ -223,6 +226,15 @@ class AddressVirtualBoxHandler {
           return await this.attachISO(parsed.params, context);
         case 'detach_iso':
           return await this.detachISO(parsed.params, context);
+        case 'register_base':
+          return await this.registerBase(parsed.params, context);
+        case 'clone':
+        case 'copy':
+          return await this.cloneVM(parsed.params, context);
+        case 'clone_from_base':
+          return await this.cloneFromBase(parsed.params, context);
+        case 'list_bases':
+          return await this.listBases();
         default:
           throw new Error(`Unknown ADDRESS VIRTUALBOX command: ${parsed.operation}`);
       }
@@ -750,6 +762,180 @@ class AddressVirtualBoxHandler {
     } else {
         throw new Error(`Failed to remove VM: ${result.stderr}`);
     }
+  }
+
+  /**
+   * Register a VM as a base image for CoW cloning
+   */
+  async registerBase(params, context) {
+    const { name, vm } = params;
+
+    if (!name) {
+      throw new Error('Missing required parameter: name (base image name)');
+    }
+
+    // If vm parameter provided, use it; otherwise use name as both base name and VM name
+    const vmName = vm || name;
+
+    if (!this.activeVMs.has(vmName)) {
+      throw new Error(`VM not found: ${vmName}`);
+    }
+
+    const vmInfo = this.activeVMs.get(vmName);
+
+    // Ensure VM is stopped before registering as base
+    if (vmInfo.status === 'running') {
+      throw new Error(`VM ${vmName} must be stopped before registering as base image`);
+    }
+
+    // Register as base image
+    this.baseImages.set(name, {
+      vm: vmName,
+      created: new Date().toISOString(),
+      template: vmInfo.template,
+      memory: vmInfo.memory,
+      cpus: vmInfo.cpus,
+      osType: vmInfo.osType
+    });
+
+    this.log('base_registered', { baseName: name, vm: vmName });
+
+    return {
+      success: true,
+      operation: 'register_base',
+      baseName: name,
+      vm: vmName,
+      output: `VM ${vmName} registered as base image: ${name}`
+    };
+  }
+
+  /**
+   * Clone a VM using VirtualBox linked clones (CoW)
+   */
+  async cloneVM(params, context) {
+    const { source, name } = params;
+
+    if (!source || !name) {
+      throw new Error('Missing required parameters: source and name');
+    }
+
+    if (!this.activeVMs.has(source)) {
+      throw new Error(`Source VM not found: ${source}`);
+    }
+
+    if (this.activeVMs.has(name)) {
+      throw new Error(`VM name already exists: ${name}`);
+    }
+
+    // Check VM limits
+    if (this.activeVMs.size >= this.maxVMs) {
+      throw new Error(`Maximum VMs reached: ${this.maxVMs}`);
+    }
+
+    const sourceVM = this.activeVMs.get(source);
+
+    // Ensure source is stopped
+    if (sourceVM.status === 'running') {
+      throw new Error(`Source VM ${source} must be stopped before cloning`);
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // Use VirtualBox linked clone (CoW with differencing disks)
+      const cloneArgs = [
+        'clonevm', source,
+        '--name', name,
+        '--mode', 'link',  // This creates a linked clone with differencing disks (CoW)
+        '--register'
+      ];
+
+      this.log('clone_start', { source, name, method: 'linked-clone' });
+      const result = await this.execVBoxCommand(cloneArgs);
+
+      if (result.exitCode !== 0) {
+        throw new Error(`Clone failed: ${result.stderr}`);
+      }
+
+      const cloneTimeMs = Date.now() - startTime;
+
+      // Register the cloned VM
+      const cloneInfo = {
+        name: name,
+        template: sourceVM.template,
+        status: 'created',
+        created: new Date().toISOString(),
+        runtime: this.runtime,
+        memory: sourceVM.memory,
+        cpus: sourceVM.cpus,
+        osType: sourceVM.osType,
+        clonedFrom: source,
+        cloneMethod: 'linked-clone'
+      };
+
+      this.activeVMs.set(name, cloneInfo);
+
+      this.log('clone_completed', {
+        source,
+        name,
+        cloneTimeMs,
+        method: 'linked-clone'
+      });
+
+      return {
+        success: true,
+        operation: 'clone',
+        source: source,
+        name: name,
+        cloneTimeMs: cloneTimeMs,
+        method: 'linked-clone',
+        output: `VM ${name} cloned from ${source} in ${cloneTimeMs}ms using linked clone`
+      };
+    } catch (error) {
+      throw new Error(`Failed to clone VM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Clone from registered base image
+   */
+  async cloneFromBase(params, context) {
+    const { base, name } = params;
+
+    if (!base || !name) {
+      throw new Error('Missing required parameters: base and name');
+    }
+
+    const baseImage = this.baseImages.get(base);
+    if (!baseImage) {
+      throw new Error(`Base image not found: ${base}. Use register_base first.`);
+    }
+
+    // Clone from the base VM
+    return await this.cloneVM({ source: baseImage.vm, name }, context);
+  }
+
+  /**
+   * List registered base images
+   */
+  async listBases() {
+    const bases = Array.from(this.baseImages.entries()).map(([name, info]) => ({
+      name,
+      vm: info.vm,
+      created: info.created,
+      template: info.template,
+      memory: info.memory,
+      cpus: info.cpus,
+      osType: info.osType
+    }));
+
+    return {
+      success: true,
+      operation: 'list_bases',
+      bases,
+      count: bases.length,
+      output: `Found ${bases.length} registered base images`
+    };
   }
 
   /**
@@ -2472,7 +2658,11 @@ const ADDRESS_VIRTUALBOX_METHODS = {
   'verify_host': 'Verify host system VirtualBox setup',
   'configure_network': 'Configure VM network [adapter=1] [type=nat|bridged|hostonly|intnet] [network_name]',
   'attach_iso': 'Attach ISO to VM [port=0] [device=0]',
-  'detach_iso': 'Detach ISO from VM [port=0] [device=0]'
+  'detach_iso': 'Detach ISO from VM [port=0] [device=0]',
+  'register_base': 'Register VM as base image for CoW cloning [vm=source-vm-name]',
+  'clone': 'Clone VM using linked clone (CoW) source= name=',
+  'clone_from_base': 'Clone from registered base image base= name=',
+  'list_bases': 'List registered base images'
 };
 
 // UMD pattern for both Node.js and browser compatibility
