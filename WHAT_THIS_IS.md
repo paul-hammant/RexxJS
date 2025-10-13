@@ -16,12 +16,13 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - **node core/src/cli.js** - Node.js CLI for development (requires Node.js installation)  
 - **./rexxt** - Test runner (via src/test-interpreter.js) with TUI experience 
 
-### Function Libraries (core `src/` and modular `extras/functions/`)
-- **Core functions**: String processing, JSON/Web, security, validation (in `src/`)
-- **R-style functions**: Statistical computing (data frames, factors, mathematical operations) - relocated to `extras/functions/r-inspired/`
-- **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`  
-- **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
-- **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements
+### Function Libraries (Core: `src/`, Modular: `extras/functions/`)
+- **Core functions**: A foundational set of utilities for string processing, JSON, and validation, located in the main `src/` directory.
+- **Modular Packages**: The `extras/` directory contains standalone packages, each with its own source code, tests, and `package.json`. These are designed to be self-contained and independently maintainable. Examples include:
+    - **`extras/functions/r-inspired/`**: Statistical computing functions.
+    - **`extras/functions/scipy/`**: Scientific computing tools.
+    - **`extras/functions/excel/`**: Spreadsheet operations.
+- **On-Demand Loading**: All modular function libraries are loaded into Rexx scripts on-demand via the `REQUIRE` statement (e.g., `REQUIRE "org.rexxjs/excel-functions"`).
 
 ### ADDRESS mechanism 
 - **Cross-Application Communication** is one way of looking at it

@@ -30,10 +30,10 @@ describe('Graphviz Functions - Rexx Integration Tests', () => {
       LET result = GRAPHVIZ_FUNCTIONS_MAIN
       SAY "Detection function result: " || result.loaded
     `;
-    
+
     const commands = parse(rexxCode);
     await interpreter.run(commands);
-    
+
     const result = interpreter.variables.get('result');
     expect(result).toBeDefined();
     expect(result.type).toBe('library_info');
@@ -41,38 +41,27 @@ describe('Graphviz Functions - Rexx Integration Tests', () => {
     expect(result.name).toBe('Graphviz Functions');
   });
 
-  test('should handle RENDER function parameters', async () => {
-    const rexxCode = `
-      LET dotString = "digraph { A -> B; B -> C; }"
-      LET options = "{\"engine\": \"dot\"}"
-      SAY "Testing RENDER function with dot string: " || dotString
-    `;
-    
-    const commands = parse(rexxCode);
-    await interpreter.run(commands);
-    
-    // Verify parameters are set correctly
-    expect(interpreter.variables.get('dotString')).toBe('digraph { A -> B; B -> C; }');
-    expect(interpreter.variables.get('options')).toBe('{"engine": "dot"}');
+  test('should register DOT, NEATO, and FDP functions correctly', () => {
+    expect(interpreter.builtInFunctions.DOT).toBeDefined();
+    expect(typeof interpreter.builtInFunctions.DOT).toBe('function');
+    expect(interpreter.builtInFunctions.NEATO).toBeDefined();
+    expect(typeof interpreter.builtInFunctions.NEATO).toBe('function');
+    expect(interpreter.builtInFunctions.FDP).toBeDefined();
+    expect(typeof interpreter.builtInFunctions.FDP).toBe('function');
   });
 
-  test('should register RENDER function correctly', () => {
-    // Verify the RENDER function is properly registered
-    expect(interpreter.builtInFunctions.RENDER).toBeDefined();
-    expect(typeof interpreter.builtInFunctions.RENDER).toBe('function');
-  });
-
-  test('should handle function availability check', async () => {
+  test('should handle passing parameters to DOT function in Rexx', async () => {
     const rexxCode = `
-      LET renderAvailable = "true"
-      SAY "RENDER function is available: " || renderAvailable
+      LET dotString = "digraph { A -> B; }"
+      LET options = "{format: 'png'}" /* Rexx doesn't have native objects, so we pass a string */
+      SAY "Passing to DOT: " || dotString
     `;
-    
+
     const commands = parse(rexxCode);
     await interpreter.run(commands);
-    
-    const available = interpreter.variables.get('renderAvailable');
-    expect(available).toBe('true');
+
+    expect(interpreter.variables.get('dotString')).toBe('digraph { A -> B; }');
+    expect(interpreter.variables.get('options')).toBe("{format: 'png'}");
   });
 
   // Note: We don't test actual RENDER execution here because it requires 
