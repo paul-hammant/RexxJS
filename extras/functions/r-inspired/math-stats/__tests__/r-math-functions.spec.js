@@ -4,7 +4,7 @@
  * Tests for R Mathematical & Statistical Computing Functions
  */
 
-const { rMathFunctions } = require('./r-math-functions');
+const { rMathFunctions } = require('../r-math-functions.js');
 
 describe('R Mathematical & Statistical Computing Functions', () => {
   describe('ABS', () => {

@@ -4,7 +4,7 @@
  * Tests for R Regression & Statistical Modeling Functions
  */
 
-const { rRegressionFunctions } = require('./r-regression-functions');
+const { rRegressionFunctions } = require('../src/r-regression-functions.js');
 
 describe('R Regression & Statistical Modeling Functions', () => {
   let sampleData;

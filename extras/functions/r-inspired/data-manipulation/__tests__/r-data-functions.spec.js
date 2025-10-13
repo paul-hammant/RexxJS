@@ -5,7 +5,7 @@
  * Tests mirror R-language behavior and edge cases
  */
 
-const { rDataFunctions } = require('./r-data-functions');
+const { rDataFunctions } = require('../r-data-functions.js');
 
 describe('R-Style Data Manipulation Functions', () => {
 

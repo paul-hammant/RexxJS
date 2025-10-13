@@ -110,6 +110,21 @@ extract_rexxt_stats() {
   fi
 }
 
+run_test() {
+  local module_path="$1"
+  local module_name="$2"
+  echo "  🧪 Testing $module_name..."
+  cd "$module_path"
+  if [ -f "package.json" ]; then
+    MODULE_JEST_TEMP=$(mktemp)
+    MODULE_JEST_OUTPUT=$(npm test 2>&1 | tee "$MODULE_JEST_TEMP")
+    extract_jest_stats "$MODULE_JEST_OUTPUT" "$module_name" "$(pwd)" "$MODULE_JEST_TEMP"
+    rm -f "$MODULE_JEST_TEMP"
+  fi
+  cd - > /dev/null
+}
+
+
 echo "🚀 Starting CI pipeline..."
 echo "========================="
 
@@ -129,58 +144,48 @@ cd ..
 
 echo ""
 echo "📁 Running extras/functions tests..."
+run_test "extras/functions/graphviz" "graphviz"
+run_test "extras/functions/graphviz/src" "graphviz/src"
+# run_test "extras/functions/r-inspired/advanced-analytics" "r-inspired/advanced-analytics"
+# run_test "extras/functions/r-inspired/data-manipulation" "r-inspired/data-manipulation"
+# run_test "extras/functions/r-inspired/data-types" "r-inspired/data-types"
+# run_test "extras/functions/r-inspired/graphics" "r-inspired/graphics"
+# run_test "extras/functions/r-inspired/math-stats" "r-inspired/math-stats"
+# run_test "extras/functions/r-inspired/signal-processing" "r-inspired/signal-processing"
+# run_test "extras/functions/r-inspired" "r-inspired"
+run_test "extras/functions/scipy-inspired/interpolation" "scipy-inspired/interpolation"
+run_test "extras/functions/scipy-inspired/stats" "scipy-inspired/stats"
+run_test "extras/functions/scipy-inspired/stats/src" "scipy-inspired/stats/src"
+run_test "extras/functions/excel" "excel"
+run_test "extras/functions/numpy-inspired" "numpy-inspired"
+run_test "extras/functions/sympy-inspired/src" "sympy-inspired/src"
+run_test "extras/functions/sympy-inspired" "sympy-inspired"
+run_test "extras/functions/numpy-via-pyoide" "numpy-via-pyoide"
+run_test "extras/functions/jq-functions" "jq-functions"
+run_test "extras/functions/jq-wasm-functions" "jq-wasm-functions"
+run_test "extras/functions/minimatch" "minimatch"
+run_test "extras/functions/diff" "diff"
+run_test "extras/functions/sed" "sed"
 
-# Iterate over each subdirectory in extras/functions and run tests
-for dir in extras/functions/*/; do
-  dirname=$(basename "$dir")
-  if [ "$dirname" = "r-inspired" ] || [ "$dirname" = "scipy-inspired" ]; then
-    # Handle directories with subdirectories (r-inspired, scipy-inspired)
-    for subdir in "$dir"*/; do
-      if [ -d "$subdir" ]; then
-        subdirname=$(basename "$subdir")
-        echo "  🧪 Testing $dirname/$subdirname..."
-        cd "$subdir"
-        if [ -f "package.json" ]; then
-          MODULE_JEST_TEMP=$(mktemp)
-          MODULE_JEST_OUTPUT=$(npm test 2>&1 | tee "$MODULE_JEST_TEMP")
-          extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname/$subdirname" "$(pwd)" "$MODULE_JEST_TEMP"
-          rm -f "$MODULE_JEST_TEMP"
-        fi
-        if ls *test.rexx 1> /dev/null 2>&1; then
-          MODULE_REXXT_TEMP=$(mktemp)
-          MODULE_REXXT_OUTPUT=$(../../../core/rexxt *test.rexx 2>&1 | tee "$MODULE_REXXT_TEMP")
-          extract_rexxt_stats "$MODULE_REXXT_OUTPUT" "$dirname/$subdirname" "$(pwd)" "$MODULE_REXXT_TEMP"
-          rm -f "$MODULE_REXXT_TEMP"
-        fi
-        cd - > /dev/null
-      fi
-    done
-  else
-    # Handle other function directories normally
-    cd "$dir"
-    # Skip empty directories
-    if [ "$(ls -A .)" ]; then
-      echo "  🧪 Testing $dirname..."
-      if [ -f "package.json" ]; then
-        MODULE_JEST_TEMP=$(mktemp)
-        MODULE_JEST_OUTPUT=$(npm test 2>&1 | tee "$MODULE_JEST_TEMP")
-        extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname" "$(pwd)" "$MODULE_JEST_TEMP"
-        rm -f "$MODULE_JEST_TEMP"
-      fi
-      
-      if ls *test.rexx 1> /dev/null 2>&1; then
-        MODULE_REXXT_TEMP=$(mktemp)
-        MODULE_REXXT_OUTPUT=$(../../core/rexxt *test.rexx 2>&1 | tee "$MODULE_REXXT_TEMP")
-        extract_rexxt_stats "$MODULE_REXXT_OUTPUT" "$dirname" "$(pwd)" "$MODULE_REXXT_TEMP"
-        rm -f "$MODULE_REXXT_TEMP"
-      fi
-    else
-      echo "  ⏭️  Skipping empty directory: $dirname"
-      SKIPPED_MODULES+=("$dirname (empty)")
-    fi
-    cd - > /dev/null
-  fi
-done
+echo ""
+echo "📁 Running extras/addresses tests..."
+run_test "extras/addresses/anthropic-ai/claude" "anthropic-ai/claude"
+run_test "extras/addresses/sqlite3" "sqlite3"
+run_test "extras/addresses/open-ai/chat-completions" "open-ai/chat-completions"
+run_test "extras/addresses/pyodide/src" "pyodide/src"
+run_test "extras/addresses/pyodide" "pyodide"
+run_test "extras/addresses/system" "system"
+run_test "extras/addresses/duckdb-address" "duckdb-address"
+run_test "extras/addresses/duckdb-wasm-address" "duckdb-wasm-address"
+run_test "extras/addresses/duckdb-wasm-address/src" "duckdb-wasm-address/src"
+run_test "extras/addresses/docker-address" "docker-address"
+run_test "extras/addresses/gcp-address" "gcp-address"
+run_test "extras/addresses/google-cloud-platform" "google-cloud-platform"
+run_test "extras/addresses/nspawn-address" "nspawn-address"
+run_test "extras/addresses/podman-address" "podman-address"
+run_test "extras/addresses/qemu-address" "qemu-address"
+run_test "extras/addresses/virtualbox-address" "virtualbox-address"
+run_test "extras/addresses/gemini-address" "gemini-address"
 
 # Print final statistics
 echo ""

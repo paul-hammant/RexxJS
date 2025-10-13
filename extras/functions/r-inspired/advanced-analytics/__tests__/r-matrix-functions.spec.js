@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rMatrixFunctions } = require('./r-matrix-functions');
+const { rMatrixFunctions } = require('../r-matrix-functions.js');
 
 describe('R Matrix & Linear Algebra Functions', () => {
   // Matrix Creation Functions

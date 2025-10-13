@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rFactorFunctions } = require('./r-factor-functions');
+const { rFactorFunctions } = require('../src/r-factor-functions.js');
 
 describe('R Factor & Categorical Data Functions', () => {
   // Factor Creation and Management

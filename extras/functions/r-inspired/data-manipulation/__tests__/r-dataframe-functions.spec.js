@@ -4,7 +4,7 @@
  * Tests for R Data Structures & Advanced Manipulation Functions
  */
 
-const { rDataFrameFunctions } = require('./r-dataframe-functions');
+const { rDataFrameFunctions } = require('../r-dataframe-functions.js');
 
 describe('R Data Structures & Advanced Manipulation Functions', () => {
   let sampleDF;

@@ -5,7 +5,7 @@
  * Tests mirror R-language behavior and edge cases
  */
 
-const { rSetFunctions } = require('./r-set-functions');
+const { rSetFunctions } = require('../src/r-set-functions.js');
 
 describe('R-Style Set Operation Functions', () => {
 

@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rMlFunctions } = require('./r-ml-functions');
+const { rMlFunctions } = require('../r-ml-functions.js');
 
 describe('R Machine Learning and Classification Functions', () => {
   describe('KMEANS', () => {

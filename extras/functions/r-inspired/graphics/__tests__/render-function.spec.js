@@ -7,7 +7,7 @@
  */
 
 const { RexxInterpreter } = require('../../../../../core/src/interpreter');
-const { rGraphicsFunctions } = require('./graphics-functions');
+const { rGraphicsFunctions } = require('../r-graphics-functions');
 const fs = require('fs');
 const path = require('path');
 const { createCanvas, loadImage } = require('canvas');

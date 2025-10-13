@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rDateTimeFunctions } = require('./r-datetime-functions');
+const { rDateTimeFunctions } = require('../r-datetime-functions.js');
 
 describe('R Date/Time & Temporal Data Functions', () => {
   // Current Date/Time Functions
