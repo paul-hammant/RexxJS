@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rSignalFunctions } = require('./r-signal-functions');
+const { rSignalFunctions } = require('../r-signal-functions.js');
 
 describe('R Signal Processing and Filtering Functions', () => {
   describe('FFT', () => {

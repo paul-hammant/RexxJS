@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rApplyStringFunctions } = require('./r-apply-string-functions');
+const { rApplyStringFunctions } = require('../r-apply-string-functions.js');
 
 describe('R Apply Family & String Processing Functions', () => {
   // Apply Family Functions

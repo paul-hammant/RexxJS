@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const rOptimizationFunctions = require('./r-optimization-functions');
+const rOptimizationFunctions = require('../r-optimization-functions.js');
 
 describe('R Optimization Functions', () => {
     // Test helper functions

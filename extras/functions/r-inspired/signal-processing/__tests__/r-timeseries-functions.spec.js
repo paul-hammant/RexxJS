@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rTimeseriesFunctions } = require('./r-timeseries-functions');
+const { rTimeseriesFunctions } = require('../src/r-timeseries-functions.js');
 
 describe('R Time Series Analysis and Forecasting Functions', () => {
   describe('TS', () => {

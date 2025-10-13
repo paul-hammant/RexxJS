@@ -1,6 +1,6 @@
 /* Copyright (c) 2025 Paul Hammant ... Licensed under the MIT License */
 
-const { rLogicalFunctions } = require('./r-logical-functions');
+const { rLogicalFunctions } = require('../r-logical-functions.js');
 
 describe('R Logical & Conditional Functions', () => {
   // Logical Operations

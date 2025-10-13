@@ -4,7 +4,7 @@
   "description": "R-style mathematical and statistical functions for RexxJS",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --experimental-vm-modules",
     "test:watch": "jest --watch",
     "install:core": "cd ../../../../core && npm install",
     "pretest": "npm run install:core",

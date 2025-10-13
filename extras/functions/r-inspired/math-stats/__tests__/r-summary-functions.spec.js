@@ -5,7 +5,7 @@
  * Tests mirror R-language behavior and edge cases
  */
 
-const { rSummaryFunctions } = require('./r-summary-functions');
+const { rSummaryFunctions } = require('../src/r-summary-functions.js');
 
 describe('R-Style Summary Functions', () => {
 
