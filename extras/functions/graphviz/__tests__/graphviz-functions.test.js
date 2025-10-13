@@ -36,45 +36,51 @@ describe('Graphviz Functions Library Tests', () => {
         expect(global.GRAPHVIZ_FUNCTIONS_META).toBeDefined();
     });
 
-    describe('RENDER function', () => {
-        test('should call graphviz.layout and return SVG', async () => {
+    test('should only load WASM once across different function calls', async () => {
             loadModule();
-            const dot = 'digraph { a -> b }';
-            const svg = await global.GRAPHVIZ_FUNCTIONS.RENDER(dot);
+        await global.GRAPHVIZ_FUNCTIONS.DOT('digraph { a -> b }');
+        await global.GRAPHVIZ_FUNCTIONS.NEATO('digraph { c -> d }');
+        await global.GRAPHVIZ_FUNCTIONS.FDP('digraph { e -> f }');
 
-            expect(mockGraphviz.loadWASM).toHaveBeenCalled();
-            expect(mockGraphviz.layout).toHaveBeenCalledWith(dot, 'svg', 'dot');
-            expect(svg).toBe('<svg><!-- dot --></svg>');
+        expect(mockGraphviz.loadWASM).toHaveBeenCalledTimes(1);
         });
 
-        test('should use the specified engine from options', async () => {
+    describe.each([
+        ['DOT', 'dot'],
+        ['NEATO', 'neato'],
+        ['FDP', 'fdp']
+    ])('%s function', (funcName, engine) => {
+        test(`should call graphviz.layout with the correct engine ('${engine}') and default format ('svg')`, async () => {
             loadModule();
             const dot = 'digraph { a -> b }';
-            await global.GRAPHVIZ_FUNCTIONS.RENDER(dot, { engine: 'neato' });
+            const result = await global.GRAPHVIZ_FUNCTIONS[funcName](dot);
 
-            expect(mockGraphviz.layout).toHaveBeenCalledWith(dot, 'svg', 'neato');
+            expect(mockGraphviz.loadWASM).toHaveBeenCalled();
+            expect(mockGraphviz.layout).toHaveBeenCalledWith(dot, 'svg', engine);
+            expect(result).toBe(`<svg><!-- ${engine} --></svg>`);
+        });
+
+        test('should use the specified format from options', async () => {
+            loadModule();
+            const dot = 'digraph { a -> b }';
+            mockGraphviz.layout.mockImplementation((dot, format, engine) => `<${format}>${engine}</${format}>`);
+            const result = await global.GRAPHVIZ_FUNCTIONS[funcName](dot, { format: 'png' });
+
+            expect(mockGraphviz.layout).toHaveBeenCalledWith(dot, 'png', engine);
+            expect(result).toBe(`<png>${engine}</png>`);
         });
 
         test('should throw an error for non-string input', async () => {
             loadModule();
-            await expect(global.GRAPHVIZ_FUNCTIONS.RENDER(123))
-                .rejects.toThrow('The first argument to GRAPHVIZ_RENDER must be a DOT string.');
+            await expect(global.GRAPHVIZ_FUNCTIONS[funcName](123))
+                .rejects.toThrow('The first argument must be a DOT string.');
         });
 
         test('should handle errors from graphviz.layout', async () => {
             loadModule();
             const dot = 'digraph { error }';
-            await expect(global.GRAPHVIZ_FUNCTIONS.RENDER(dot))
+            await expect(global.GRAPHVIZ_FUNCTIONS[funcName](dot))
                 .rejects.toThrow('Graphviz rendering failed: Invalid DOT string');
         });
-
-        test('should only load WASM once', async () => {
-            loadModule();
-            // Call render multiple times
-            await global.GRAPHVIZ_FUNCTIONS.RENDER('digraph { a -> b }');
-            await global.GRAPHVIZ_FUNCTIONS.RENDER('digraph { c -> d }');
-
-            expect(mockGraphviz.loadWASM).toHaveBeenCalledTimes(1);
         });
-    });
 });

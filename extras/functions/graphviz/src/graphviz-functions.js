@@ -8,7 +8,7 @@
  * Usage:
  *   REQUIRE "graphviz-functions"
  *   LET dot = 'digraph { a -> b }'
- *   LET svg = GRAPHVIZ_RENDER(dot)
+ *   LET svg = GVZ_DOT(dot)
  */
 
 let graphviz = null;
@@ -48,34 +48,35 @@ async function loadWASM() {
     wasmLoadingPromise = null;
 }
 
-const GRAPHVIZ_FUNCTIONS = {
-    // Detection function for REQUIRE system
-    'GRAPHVIZ_FUNCTIONS_MAIN': () => GRAPHVIZ_FUNCTIONS_META(),
-    
-    /**
-     * Renders a DOT string into an SVG using Graphviz.
-     * @param {string} dot - The DOT string to render.
-     * @param {object} [options] - Optional parameters.
-     * @param {string} [options.engine='dot'] - The layout engine to use (e.g., 'dot', 'neato', 'fdp').
-     * @returns {Promise<string>} A promise that resolves to the SVG string.
-     */
-    'RENDER': async (dot, options) => {
-        if (typeof dot !== 'string') {
-            throw new Error('The first argument to GRAPHVIZ_RENDER must be a DOT string.');
-        }
-
-        await loadWASM();
-
-        const engine = options?.engine || 'dot';
-
-        try {
-            const svg = graphviz.layout(dot, 'svg', engine);
-            return svg;
-        } catch (error) {
-            console.error("Error rendering Graphviz DOT string:", error);
-            throw new Error(`Graphviz rendering failed: ${error.message}`);
-        }
+/**
+ * Internal rendering function that interfaces with graphviz-wasm.
+ * @param {string} dot - The DOT string to render.
+ * @param {string} engine - The layout engine (e.g., 'dot', 'neato').
+ * @param {string} format - The output format (e.g., 'svg', 'png').
+ * @returns {Promise<string>} A promise that resolves to the rendered output.
+ */
+async function renderGraphviz(dot, engine, format) {
+    if (typeof dot !== 'string') {
+        throw new Error(`The first argument must be a DOT string.`);
     }
+
+    await loadWASM();
+
+    try {
+        const result = graphviz.layout(dot, format, engine);
+        return result;
+    } catch (error) {
+        console.error(`Error rendering Graphviz DOT string with ${engine}:`, error);
+        throw new Error(`Graphviz rendering failed: ${error.message}`);
+    }
+}
+
+const GRAPHVIZ_FUNCTIONS = {
+    'GRAPHVIZ_FUNCTIONS_MAIN': () => GRAPHVIZ_FUNCTIONS_META(),
+
+    'DOT': (dot, options) => renderGraphviz(dot, 'dot', options?.format || 'svg'),
+    'NEATO': (dot, options) => renderGraphviz(dot, 'neato', options?.format || 'svg'),
+    'FDP': (dot, options) => renderGraphviz(dot, 'fdp', options?.format || 'svg')
 };
 
 // Consolidated metadata provider function
@@ -88,10 +89,20 @@ function GRAPHVIZ_FUNCTIONS_META() {
         version: '1.0.0',
         description: 'Provides functions for rendering Graphviz DOT strings.',
         functions: {
-            'GRAPHVIZ_RENDER': {
-                description: "Renders a DOT string into an SVG.",
-                params: ["dot_string", {name: "options", optional: true}],
-                returns: "The rendered SVG as a string."
+            'DOT': {
+                description: "Renders a DOT string using the 'dot' engine.",
+                params: ["dot_string", {name: "options", optional: true, schema: {format: "output format (e.g., 'svg', 'png')"}}],
+                returns: "The rendered output as a string."
+            },
+            'NEATO': {
+                description: "Renders a DOT string using the 'neato' engine.",
+                params: ["dot_string", {name: "options", optional: true, schema: {format: "output format (e.g., 'svg', 'png')"}}],
+                returns: "The rendered output as a string."
+            },
+            'FDP': {
+                description: "Renders a DOT string using the 'fdp' engine.",
+                params: ["dot_string", {name: "options", optional: true, schema: {format: "output format (e.g., 'svg', 'png')"}}],
+                returns: "The rendered output as a string."
             }
         },
         detectionFunction: 'GRAPHVIZ_FUNCTIONS_MAIN'

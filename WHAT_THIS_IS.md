@@ -32,7 +32,7 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 - **R-style functions**: Statistical computing (data frames, factors, mathematical operations) - relocated to `extras/functions/r-inspired/`
 - **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`
 - **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
-- **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements
+- **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements. Libraries can be loaded by their published name (e.g., `REQUIRE "org.rexxjs/excel-functions"`) or by a relative path to the source file (e.g., `REQUIRE "../path/to/excel-functions.js"`)
 
 ### Operations vs Functions Architecture
 RexxJS distinguishes between two types of callable code:

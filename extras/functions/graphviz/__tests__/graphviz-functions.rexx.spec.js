@@ -82,4 +82,21 @@ describe('Graphviz Functions - Rexx Integration Tests', () => {
   // 2. Parameters can be passed correctly
   // 3. Detection function works for REQUIRE system
   // 4. Module exports are consistent with other modules
+
+  test('should correctly set up a stem variable for options', async () => {
+    const rexxCode = `
+      LET dotString = 'digraph { A -> B; }'
+      LET options. = ''
+      LET options.format = 'png'
+    `;
+
+    const commands = parse(rexxCode);
+    await interpreter.run(commands);
+
+    // Verify that the stem variable is correctly set in the interpreter's state.
+    // This is a weaker test, but it confirms the Rexx code is valid and
+    // the options are being prepared as expected.
+    const formatOption = interpreter.variables.get('options.format');
+    expect(formatOption).toBe('png');
+  });
 });

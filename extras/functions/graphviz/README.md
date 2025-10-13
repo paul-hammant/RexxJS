@@ -14,26 +14,34 @@ REQUIRE "graphviz-functions"
 LET dot_string = "digraph { a -> b; b -> c; c -> a; }"
 
 -- Render the graph to an SVG string
-LET svg_output = GRAPHVIZ_RENDER(dot_string)
+-- Load the library with a custom prefix
+-- REQUIRE "org.rexxjs/graphviz-functions" AS "GVZ_"
+
+-- Render the graph to an SVG string using the 'dot' engine
+LET svg_output = GVZ_DOT(dot_string)
 
 SAY "SVG Output Length: " svg_output.length
 
--- Render using a different layout engine
-LET options = '{"engine": "neato"}'
-LET neato_svg = GRAPHVIZ_RENDER(dot_string, options)
+-- Render to a PNG image using the 'neato' engine
+LET options = "{format: 'png'}"
+LET neato_png = GVZ_NEATO(dot_string, options)
 
-SAY "Neato SVG Output Length: " neato_svg.length
+SAY "Neato PNG Output Length: " neato_png.length
 ```
 
 ## Available Functions
 
-### `GRAPHVIZ_RENDER(dot_string, [options])`
+The library provides separate functions for each of the main Graphviz layout engines.
 
-Renders a DOT language string into an SVG image.
+### `DOT(dot_string, [options])`
+### `NEATO(dot_string, [options])`
+### `FDP(dot_string, [options])`
+
+Renders a DOT language string into an image format.
 
 -   **`dot_string`**: A string containing the graph definition in the DOT language.
--   **`options`** (optional): A JSON string with rendering options.
-    -   `engine`: The layout engine to use. Can be `'circo'`, `'dot'`, `'fdp'`, `'neato'`, `'osage'`, `'patchwork'`, `'sfdp'`, or `'twopi'`. Defaults to `'dot'`.
+-   **`options`** (optional): A Rexx object (or a string that can be interpreted as one) with rendering options.
+    -   `format`: The output format. Common values include `'svg'` (default), `'png'`, and `'jpg'`.
 
 ## Dependencies
 
