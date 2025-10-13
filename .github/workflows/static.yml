@@ -54,13 +54,16 @@ jobs:
 
           # Create bundled version at /repl/ (overwrite with bundled)
           cp -r core/src/repl/dist/* _site/repl/
-          # Create bundled index.html that uses the bundle
-          sed 's|<script src="../interpreter-web-loader.js"></script>|<script src="repl.bundle.js"></script>|' core/src/repl/index.html > _site/repl/index.html
+          # Replace the loader section for bundled version
+          sed '/<!-- REXX_LOADER_SECTION_START -->/,/<!-- REXX_LOADER_SECTION_END -->/c\
+          <!-- Bundled version - interpreter included directly -->\
+          <script src="repl.bundle.js"></script>' core/src/repl/index.html > _site/repl/index.html
 
           # Copy unbundled version to /repl/unbundled/
           mkdir -p _site/repl/unbundled
-          cp core/src/repl/index.html _site/repl/unbundled/
-          # Unbundled needs access to parent directory interpreter-web-loader.js
+          # Replace the loader path for unbundled version served from subdirectory
+          sed 's|<script src="../interpreter-web-loader.js"></script>|<script src="/interpreter-web-loader.js"></script>|' core/src/repl/index.html > _site/repl/unbundled/index.html
+          # Copy interpreter-web-loader.js to site root
           cp core/src/interpreter-web-loader.js _site/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

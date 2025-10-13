@@ -2,13 +2,10 @@ const path = require('path');
 
 module.exports = {
   mode: 'production',
-  entry: path.resolve(__dirname, '../interpreter-web-loader.js'),
+  entry: path.resolve(__dirname, 'interpreter-bundle-entry.js'),
   output: {
     filename: 'repl.bundle.js',
-    path: path.resolve(__dirname, 'dist'),
-    library: 'RexxInterpreter',
-    libraryTarget: 'umd',
-    globalObject: 'this'
+    path: path.resolve(__dirname, 'dist')
   },
   resolve: {
     extensions: ['.js'],
@@ -16,7 +13,17 @@ module.exports = {
       "fs": false,
       "path": false,
       "crypto": false,
-      "child_process": false
+      "child_process": false,
+      "vm": false,
+      "https": false,
+      "http": false,
+      "os": false,
+      "zlib": false,
+      "module": false,
+      "url": false,
+      "stream": false,
+      "buffer": false,
+      "util": false
     }
   },
   target: 'web',

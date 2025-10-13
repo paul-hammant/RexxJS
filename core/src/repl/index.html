@@ -147,8 +147,10 @@
         </div>
     </div>
     
-    <!-- Load only the web loader -->
+    <!-- REXX_LOADER_SECTION_START -->
+    <!-- This section will be replaced for bundled version by GitHub Actions -->
     <script src="../interpreter-web-loader.js"></script>
+    <!-- REXX_LOADER_SECTION_END -->
     
     <script>
         const statusDiv = document.getElementById('status');
@@ -191,7 +193,7 @@
         // Demo REXX scripts showcasing various features
         const demoScripts = {
             basic: `
-                    SAY "=== REXX Web Loader Demo ==="
+                    SAY "=== REXX Demo ==="
 
                     // Variables and string interpolation
                     LET name = "World"
@@ -279,14 +281,36 @@
         
         async function loadRexx() {
             try {
-                updateStatus('Loading REXX Interpreter dependencies...');
-                replHistory.innerHTML = '<div class="repl-output">Loading dependencies...</div>';
+                // Check if we're using bundled version (RexxInterpreter already available)
+                // or unbundled version (need to use RexxWebLoader)
+                if (typeof RexxInterpreter !== 'undefined') {
+                    // Bundled version - RexxInterpreter is already loaded
+                    updateStatus('Initializing REXX Interpreter...');
+                    replHistory.innerHTML = '<div class="repl-output">Initializing bundled interpreter...</div>';
+                } else if (typeof RexxWebLoader !== 'undefined') {
+                    // Unbundled version - use the loader
+                    updateStatus('Loading REXX Interpreter dependencies...');
+                    replHistory.innerHTML = '<div class="repl-output">Loading dependencies...</div>';
+                    
+                    // Determine basePath based on current location
+                    // For local dev at /core/src/repl/ use '../'
+                    // For production at /repl/unbundled/ use '/'
+                    const currentPath = window.location.pathname;
+                    const basePath = currentPath.includes('/unbundled/') ? '/' : '../';
+                    
+                    await RexxWebLoader.load({
+                        basePath: basePath,
+                        verbose: false  // Mute verbose loading messages
+                        // No onProgress callback to avoid cluttering REPL
+                    });
+                } else {
+                    throw new Error('Neither RexxInterpreter nor RexxWebLoader found. Check script loading.');
+                }
                 
-                await RexxWebLoader.load({
-                    basePath: '../',
-                    verbose: false  // Mute verbose loading messages
-                    // No onProgress callback to avoid cluttering REPL
-                });
+                // Verify interpreter is available
+                if (typeof RexxInterpreter === 'undefined') {
+                    throw new Error('RexxInterpreter not available after loading.');
+                }
                 
                 updateStatus('✅ REXX Interpreter loaded successfully!', 'success');
                 demoSelect.disabled = false;
