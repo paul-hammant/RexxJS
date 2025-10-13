@@ -905,6 +905,7 @@ class RexxInterpreter {
     let importedDataFunctions = {};
     let importedProbabilityFunctions = {};
     let importedShellFunctions = {};
+    let importedInterpolationFunctions = {};
     // R functions, DIFF, SED, and other @extras functions - use REQUIRE statements to load them
     try {
       if (typeof require !== 'undefined') {
@@ -932,6 +933,7 @@ class RexxInterpreter {
         const { dataFunctions } = require('./data-functions');
         const { probabilityFunctions } = require('./probability-functions');
         const shellFunctions = require('./shell-functions');
+        const interpolationFunctions = require('./interpolation-functions');
 
         // R functions, DIFF, SED are now available via REQUIRE statements in user scripts
         // e.g., REQUIRE "r-inspired/math-stats" to load R math functions
@@ -955,6 +957,7 @@ class RexxInterpreter {
         importedDataFunctions = dataFunctions;
         importedProbabilityFunctions = probabilityFunctions;
         importedShellFunctions = shellFunctions;
+        importedInterpolationFunctions = interpolationFunctions;
         // R functions removed - use REQUIRE statements to load them
       } else if (typeof window !== 'undefined') {
         // Browser environment
@@ -1050,7 +1053,7 @@ class RexxInterpreter {
     // - Node.js production: "Not supported" stub
     // The split into importedDomFunctions/importedDomOperations is kept for semantic clarity
 
-    return {
+    const builtIns = {
       // Import external functions
       ...importedStringFunctions,
       ...importedMathFunctions,
@@ -1071,6 +1074,7 @@ class RexxInterpreter {
       ...importedDataFunctions,
       ...importedProbabilityFunctions,
       ...importedShellFunctions,  // Shell functions last, includes Node.js FILE_EXISTS override
+      ...importedInterpolationFunctions,  // Interpolation pattern configuration functions
       // R functions, DIFF, SED - use REQUIRE statements to load them
 
       // Debug function for JavaScript introspection
@@ -1677,8 +1681,10 @@ class RexxInterpreter {
       },
 
     };
+
+    return builtIns;
   }
-  
+
   // Helper methods for date/time formatting
   formatDate(date, timezone = 'UTC', format = 'YYYY-MM-DD') {
     return traceFormattingUtils.formatDate(date, timezone, format);
@@ -2208,6 +2214,10 @@ class RexxInterpreter {
           await this.executeExitStatement(command);
           break;
 
+        case 'EXIT_UNLESS':
+          await this.executeExitUnlessStatement(command);
+          break;
+
         case 'SAY':
           await this.executeSayStatement(command);
           break;
@@ -2687,7 +2697,16 @@ class RexxInterpreter {
       if (part.startsWith('"') && part.endsWith('"')) {
         // Handle quoted string with potential interpolation
         const rawString = part.substring(1, part.length - 1);
-        if (rawString.match(/\{[a-zA-Z_][a-zA-Z0-9_.]*\}/)) {
+        // Check for interpolation using current pattern
+        let pattern;
+        try {
+          pattern = require('./interpolation').getCurrentPattern();
+        } catch (error) {
+          // Fallback to handlebars pattern
+          pattern = { hasDelims: (str) => str.includes('{{') };
+        }
+
+        if (pattern.hasDelims(rawString)) {
           // Interpolated string
           const interpolated = await this.interpolateString(rawString);
           outputParts.push(interpolated);
@@ -2900,6 +2919,177 @@ class RexxInterpreter {
     exitError.isExit = true;
     exitError.exitCode = finalCode;
     throw exitError;
+  }
+
+  async executeExitUnlessStatement(command) {
+    // Parse the condition string into a condition object
+    // The condition string can be:
+    // - A simple comparison: "status = 200"
+    // - A logical expression: "auth AND valid"
+    // - A boolean variable: "success"
+    // - A complex expression: "(status = 200) AND hasData AND (count > 0)"
+
+    const conditionStr = command.condition;
+
+    // Parse the condition using a simple parser
+    const condition = this.parseConditionString(conditionStr);
+
+    // Evaluate the condition
+    const conditionResult = await this.evaluateCondition(condition);
+
+    // If condition is FALSE, exit with the specified code and message
+    if (!conditionResult) {
+      // Evaluate the message (it may contain concatenation with ||)
+      let message = '';
+      if (command.message.includes('||')) {
+        message = await this.evaluateConcatenation(command.message);
+      } else {
+        message = await this.resolveValue(command.message);
+      }
+
+      // Check if message needs interpolation (double-quoted strings with {{...}} markers)
+      if (typeof message === 'string') {
+        // Get current interpolation pattern
+        try {
+          const interpolationModule = require('./interpolation');
+          const pattern = interpolationModule.getCurrentPattern();
+          if (pattern.hasDelims(message)) {
+            message = await this.interpolateString(message);
+          }
+        } catch (error) {
+          // Interpolation module not available or failed - use message as-is
+        }
+      }
+
+      // Output the message (only if outputHandler is available)
+      if (this.outputHandler && this.outputHandler.output) {
+        this.outputHandler.output(String(message));
+      }
+
+      // Exit with the specified code
+      const exitError = new Error(`Script terminated with EXIT ${command.code}`);
+      exitError.isExit = true;
+      exitError.exitCode = command.code;
+      throw exitError;
+    }
+    // Otherwise, continue execution - return undefined (no result)
+    return undefined;
+  }
+
+  parseConditionString(conditionStr) {
+    // Handle logical operators: AND, OR, NOT
+    // Check for AND first (higher precedence than OR)
+    const andParts = this.splitByLogicalOperator(conditionStr, 'AND');
+    if (andParts.length > 1) {
+      return {
+        type: 'LOGICAL_AND',
+        parts: andParts.map(part => this.parseConditionString(part.trim()))
+      };
+    }
+
+    // Check for OR
+    const orParts = this.splitByLogicalOperator(conditionStr, 'OR');
+    if (orParts.length > 1) {
+      return {
+        type: 'LOGICAL_OR',
+        parts: orParts.map(part => this.parseConditionString(part.trim()))
+      };
+    }
+
+    // Check for NOT prefix
+    const notMatch = conditionStr.trim().match(/^NOT\s+(.+)$/i);
+    if (notMatch) {
+      return {
+        type: 'LOGICAL_NOT',
+        operand: this.parseConditionString(notMatch[1].trim())
+      };
+    }
+
+    // Remove outer parentheses if present
+    let cleanCondition = conditionStr.trim();
+    if (cleanCondition.startsWith('(') && cleanCondition.endsWith(')')) {
+      cleanCondition = cleanCondition.substring(1, cleanCondition.length - 1).trim();
+      return this.parseConditionString(cleanCondition);
+    }
+
+    // Check for comparison operators: =, <>, <, >, <=, >=
+    const comparisonMatch = cleanCondition.match(/^(.+?)\s*([><=]+|<>)\s*(.+)$/);
+    if (comparisonMatch) {
+      return {
+        type: 'COMPARISON',
+        left: comparisonMatch[1].trim(),
+        operator: comparisonMatch[2].trim(),
+        right: comparisonMatch[3].trim()
+      };
+    }
+
+    // Simple boolean expression (variable or literal)
+    return {
+      type: 'BOOLEAN',
+      expression: cleanCondition
+    };
+  }
+
+  splitByLogicalOperator(str, operator) {
+    // Split by logical operator while respecting parentheses and quotes
+    const parts = [];
+    let current = '';
+    let parenDepth = 0;
+    let inQuotes = false;
+    let quoteChar = '';
+
+    const operatorRegex = new RegExp(`\\b${operator}\\b`, 'i');
+    let i = 0;
+
+    while (i < str.length) {
+      const char = str[i];
+
+      if (!inQuotes && (char === '"' || char === "'")) {
+        inQuotes = true;
+        quoteChar = char;
+        current += char;
+        i++;
+      } else if (inQuotes && char === quoteChar) {
+        inQuotes = false;
+        quoteChar = '';
+        current += char;
+        i++;
+      } else if (!inQuotes && char === '(') {
+        parenDepth++;
+        current += char;
+        i++;
+      } else if (!inQuotes && char === ')') {
+        parenDepth--;
+        current += char;
+        i++;
+      } else if (!inQuotes && parenDepth === 0) {
+        // Check if we're at the operator
+        const remaining = str.substring(i);
+        const match = remaining.match(operatorRegex);
+        if (match && match.index === 0) {
+          // Found operator at current position
+          parts.push(current);
+          current = '';
+          i += operator.length;
+          // Skip whitespace after operator
+          while (i < str.length && str[i] === ' ') {
+            i++;
+          }
+        } else {
+          current += char;
+          i++;
+        }
+      } else {
+        current += char;
+        i++;
+      }
+    }
+
+    if (current.trim()) {
+      parts.push(current);
+    }
+
+    return parts.length > 1 ? parts : [str];
   }
 
   async executeInterpretStatement(command) {
