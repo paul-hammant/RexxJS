@@ -22,11 +22,11 @@ rexxBinary = './rexx'
 
 SAY 'Target Environment:' targetEnv
 SAY 'Base Image:' baseName
-SAY 'Instances:' instances~length
+SAY 'Instances:' ARRAY_LENGTH(instances)
 SAY ''
 
 /* Load ADDRESS handler */
-INTERPRET 'REQUIRE "rexxjs/address-' || targetEnv~lower || '"'
+INTERPRET 'REQUIRE "rexxjs/address-' || (targetEnv |> LOWER) || '"'
 ADDRESS VALUE targetEnv
 
 /* Initialize environment configuration */
@@ -40,14 +40,18 @@ baseStart = TIME('E')
 
 /* Check if base exists */
 "list_bases"
-baseExists = RESULT.success & RESULT.bases~some({base => base.name = baseName})
+baseExists = 0
+IF RESULT.success THEN DO
+  matches = ARRAY_FILTER(RESULT.bases, {base => base.name = baseName})
+  baseExists = ARRAY_LENGTH(matches) > 0
+END
 
-IF \baseExists THEN DO
+IF baseExists = 0 THEN DO
   SAY '  Creating new base image...'
 
   /* Create and start temporary VM/container */
   "create name=temp-base kernel=/boot/vmlinuz rootfs=/var/lib/base.ext4 mem=512"
-  IF \RESULT.success THEN EXIT SAY('  Error:' RESULT.error)
+  IF RESULT.success = 0 THEN EXIT SAY('  Error:' RESULT.error)
 
   "start name=temp-base"
 
@@ -88,7 +92,8 @@ PROVISION_SCRIPT
   "delete name=temp-base"
 
   SAY '  ✅ Base created in' FORMAT(TIME('E') - baseStart, , 1) 'seconds'
-ELSE
+END
+ELSE DO
   SAY '  ✅ Base already exists'
 END
 
@@ -97,14 +102,18 @@ SAY ''
 /* ============================================
  * STEP 2: Deploy via CoW cloning
  * ============================================ */
-SAY 'Step 2: Deploying' instances~length 'instances via CoW cloning...'
+SAY 'Step 2: Deploying' ARRAY_LENGTH(instances) 'instances via CoW cloning...'
 SAY ''
 
 totalCloneTime = 0
 DO instance OVER instances
   /* Check if instance already exists */
   "list"
-  instanceExists = RESULT.success & RESULT.instances~some({i => i.name = instance})
+  instanceExists = 0
+  IF RESULT.success THEN DO
+    matches = ARRAY_FILTER(RESULT.instances, {i => i.name = instance})
+    instanceExists = ARRAY_LENGTH(matches) > 0
+  END
 
   IF instanceExists THEN DO
     SAY '  ⚠️ ' instance 'already exists - stopping and deleting...'
@@ -116,7 +125,7 @@ DO instance OVER instances
 
   /* CoW clone from base (109ms-275ms!) */
   "clone_from_base base=" || baseName "name=" || instance
-  IF \RESULT.success THEN DO
+  IF RESULT.success = 0 THEN DO
     SAY '  Error cloning' instance ':' RESULT.error
     ITERATE
   END
@@ -181,13 +190,13 @@ DEPLOY_SCRIPT
   SAY ''
 END
 
-avgCloneTime = FORMAT(totalCloneTime / instances~length, , 0)
+avgCloneTime = FORMAT(totalCloneTime / ARRAY_LENGTH(instances), , 0)
 
 SAY ''
 SAY '=== Deployment Complete! ==='
 SAY ''
 SAY 'Performance Metrics:'
-SAY '  Total instances deployed:' instances~length
+SAY '  Total instances deployed:' ARRAY_LENGTH(instances)
 SAY '  Total clone time:' totalCloneTime 'ms'
 SAY '  Average clone time:' avgCloneTime 'ms'
 SAY '  Space savings: 99.98% (CoW cloning)'
@@ -292,14 +301,14 @@ ExecEnvCmd: PROCEDURE EXPOSE targetEnv envConfig.
   IF cmd = '' THEN RETURN 1
 
   /* Substitute placeholders */
-  cmd = cmd~changeStr('{target}', target)
-  cmd = cmd~changeStr('{binary}', binary)
-  cmd = cmd~changeStr('{script}', script)
+  cmd = CHANGESTR('{target}', cmd, target)
+  cmd = CHANGESTR('{binary}', cmd, binary)
+  cmd = CHANGESTR('{script}', cmd, script)
 
   /* Handle ADDRESS switching */
-  IF cmd~left(6) = '@BASH:' THEN DO
+  IF LEFT(cmd, 6) = '@BASH:' THEN DO
     ADDRESS BASH
-    cmd = cmd~substr(7)
+    cmd = SUBSTR(cmd, 7)
   END
   ELSE
     ADDRESS VALUE targetEnv
@@ -313,7 +322,8 @@ ExecEnvCmd: PROCEDURE EXPOSE targetEnv envConfig.
 DeployRexxBinary: PROCEDURE EXPOSE targetEnv envConfig.
   PARSE ARG targetName, binaryPath
 
-  IF \CALL ExecEnvCmd('copy', targetName, binaryPath, '') THEN EXIT SAY('    Error copying binary')
+  success = CALL ExecEnvCmd('copy', targetName, binaryPath, '')
+  IF success = 0 THEN EXIT SAY('    Error copying binary')
   CALL ExecEnvCmd 'chmod', targetName, '', ''
   RETURN
 
@@ -335,7 +345,7 @@ ExecuteRexxViaStdin: PROCEDURE EXPOSE targetEnv envConfig.
   ADDRESS BASH
   "rm -f" tempFile
 
-  IF \success THEN SAY '    Warning: Script execution failed'
+  IF success = 0 THEN SAY '    Warning: Script execution failed'
   RETURN
 
 /**

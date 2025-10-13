@@ -18,7 +18,7 @@ SAY 'Base Image:' baseImage
 SAY ''
 
 /* Load Docker handler */
-REQUIRE 'rexxjs/address-docker' AS Docker
+REQUIRE '../../docker-address/docker-address.js'
 ADDRESS DOCKER
 
 /* Step 1: Check handler status */
@@ -146,7 +146,7 @@ SAY ''
 
 /* Optional: Auto-start the app */
 PARSE PULL response 'Do you want to start the app now? (y/n): ' .
-IF ABBREV('YES', response~upper, 1) THEN DO
+IF ABBREV('YES', UPPER(response), 1) THEN DO
   SAY ''
   SAY 'Starting Sinatra app in background...'
   "execute container=" || instanceName "command=nohup ruby /app/app.rb > /app/sinatra.log 2>&1 &"
