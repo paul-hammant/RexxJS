@@ -22,7 +22,7 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
     - **`extras/functions/r-inspired/`**: Statistical computing functions.
     - **`extras/functions/scipy/`**: Scientific computing tools.
     - **`extras/functions/excel/`**: Spreadsheet operations.
-- **On-Demand Loading**: All modular function libraries are loaded into Rexx scripts on-demand via the `REQUIRE` statement (e.g., `REQUIRE "org.rexxjs/excel-functions"`).
+- **On-Demand Loading**: All modular function libraries are loaded into Rexx scripts on-demand via the `REQUIRE` statement. Libraries can be loaded by their published name (e.g., `REQUIRE "org.rexxjs/excel-functions"`) or by a relative path to the source file (e.g., `REQUIRE "../path/to/excel-functions.js"`).
 
 ### ADDRESS mechanism 
 - **Cross-Application Communication** is one way of looking at it
