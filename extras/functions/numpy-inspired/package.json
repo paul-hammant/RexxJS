@@ -4,7 +4,7 @@
   "description": "Tiny NumPy-inspired array creation and manipulation helpers (pure JS) for the rexxjs monorepo",
   "main": "index.js",
   "scripts": {
-    "test": "jest --runInBand"
+    "test": "node --experimental-vm-modules ../../../node_modules/jest/bin/jest.js --runInBand"
   },
   "keywords": [
     "numpy",

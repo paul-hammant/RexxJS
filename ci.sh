@@ -161,10 +161,12 @@ for dir in extras/functions/*/; do
     # Skip empty directories
     if [ "$(ls -A .)" ]; then
       echo "  🧪 Testing $dirname..."
-      MODULE_JEST_TEMP=$(mktemp)
-      MODULE_JEST_OUTPUT=$(npx jest 2>&1 | tee "$MODULE_JEST_TEMP")
-      extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname" "$(pwd)" "$MODULE_JEST_TEMP"
-      rm -f "$MODULE_JEST_TEMP"
+      if [ -f "package.json" ]; then
+        MODULE_JEST_TEMP=$(mktemp)
+        MODULE_JEST_OUTPUT=$(npm test 2>&1 | tee "$MODULE_JEST_TEMP")
+        extract_jest_stats "$MODULE_JEST_OUTPUT" "$dirname" "$(pwd)" "$MODULE_JEST_TEMP"
+        rm -f "$MODULE_JEST_TEMP"
+      fi
       
       if ls *test.rexx 1> /dev/null 2>&1; then
         MODULE_REXXT_TEMP=$(mktemp)

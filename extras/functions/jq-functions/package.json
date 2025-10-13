@@ -4,7 +4,7 @@
   "description": "jq functions library for RexxJS using native jq binary (fast, requires system jq)",
   "main": "src/jq-functions.js",
   "scripts": {
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "jest --watch",
     "install:core": "cd ../../../core && npm install",
     "pretest": "npm run install:core"

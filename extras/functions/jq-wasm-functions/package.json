@@ -9,7 +9,7 @@
     "build:nodeps": "NODE_ENV=production webpack --config webpack.nodeps.config.js",
     "build:nodeps:dev": "webpack --config webpack.nodeps.config.js --mode=development",
     "build:all": "npm run build && npm run build:nodeps",
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "jest --watch",
     "install:core": "cd ../../../core && npm install",
     "pretest": "npm run install:core"
