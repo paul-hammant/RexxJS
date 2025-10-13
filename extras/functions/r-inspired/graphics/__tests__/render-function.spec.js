@@ -6,7 +6,7 @@
  * Licensed under the MIT License
  */
 
-const { RexxInterpreter } = require('../../../../core/src/interpreter');
+const { RexxInterpreter } = require('../../../../../core/src/interpreter');
 const { rGraphicsFunctions } = require('./graphics-functions');
 const fs = require('fs');
 const path = require('path');

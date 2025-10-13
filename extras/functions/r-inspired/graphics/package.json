@@ -4,7 +4,7 @@
   "description": "R-style graphics and visualization functions for RexxJS",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
+    "test": "node --experimental-vm-modules ../../../../../node_modules/jest/bin/jest.js",
     "test:watch": "jest --watch",
     "install:core": "cd ../../../../core && npm install",
     "pretest": "npm run install:core",

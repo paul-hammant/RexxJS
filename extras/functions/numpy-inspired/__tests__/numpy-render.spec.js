@@ -7,13 +7,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const { RexxInterpreter } = require('../../../core/src/interpreter');
-const { parse } = require('../../../core/src/parser');
+const { RexxInterpreter } = require('../../../../core/src/interpreter');
+const { parse } = require('../../../../core/src/parser');
 
 // Import the functions we're testing
-const numpyFunctions = require('./numpy.js');
-const numpyRender = require('./numpy-render.js');
-const jsonFunctions = require('../../../core/src/json-functions.js');
+const numpyFunctions = require('../numpy.js');
+const numpyRender = require('../numpy-render.js');
+const jsonFunctions = require('../../../../core/src/json-functions.js');
 
 // Try to load canvas for PNG verification (optional)
 let loadImage, createCanvas;
