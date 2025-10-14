@@ -78,7 +78,16 @@ function setupDefaultMocks() {
     }
 
     if (command === 'qemu-img' && args) {
-      // QEMU image operations (snapshot, etc.)
+      // QEMU image operations
+      if (args.includes('info')) {
+        // Mock qemu-img info output for base image validation
+        return createMockSpawn(0, 'image: test.qcow2\nfile format: qcow2\nvirtual size: 10G\ncluster_size: 65536');
+      }
+      if (args.includes('create') && args.includes('-b')) {
+        // CoW clone with backing file
+        return createMockSpawn(0, 'Formatting ..., fmt=qcow2 backing_file=...');
+      }
+      // Default: snapshot, etc.
       return createMockSpawn(0, '');
     }
 

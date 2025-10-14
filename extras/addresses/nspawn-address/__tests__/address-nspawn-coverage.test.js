@@ -4,8 +4,8 @@
  */
 
 const { createNspawnTestHandler } = require('./test-helper');
-const { AddressNspawnHandler } = require('../address-nspawn');
-const { validateBinaryPath } = require('../shared-utils');
+const { AddressNspawnHandler } = require('../nspawn-address');
+const { validateBinaryPath } = require('../../_shared/provisioning-shared-utils');
 
 
 describe('ADDRESS NSPAWN Handler - Coverage Tests', () => {

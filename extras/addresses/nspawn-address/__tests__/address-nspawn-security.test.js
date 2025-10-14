@@ -1,5 +1,5 @@
 const { createNspawnTestHandler } = require('./test-helper');
-const { parseMemoryLimit, validateCommand, validateVolumePath } = require('../shared-utils');
+const { parseMemoryLimit, validateCommand, validateVolumePath } = require('../../_shared/provisioning-shared-utils');
 
 describe('ADDRESS NSPAWN Handler - Security Tests', () => {
   let containerCounter = 0;

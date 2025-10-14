@@ -5,6 +5,6 @@
   "description": "RexxJS QEMU/KVM ADDRESS handler for virtual machines",
   "main": "qemu-address.js",
   "scripts": {
-    "test": "echo \"No tests yet\""
+    "test": "jest"
   }
 }

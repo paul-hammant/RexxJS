@@ -5,6 +5,6 @@
   "description": "RexxJS systemd-nspawn ADDRESS handler for OS containers",
   "main": "nspawn-address.js",
   "scripts": {
-    "test": "echo \"No tests yet\""
+    "test": "jest"
   }
 }
