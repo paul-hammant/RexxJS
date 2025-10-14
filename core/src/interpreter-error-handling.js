@@ -271,6 +271,61 @@ function shouldHandleError(error, errorHandlers) {
   );
 }
 
+/**
+ * Creates a detailed error message for missing functions
+ * @param {string} method - The method name that was not found
+ * @returns {string} Formatted error message
+ */
+function createMissingFunctionError(method) {
+  // Note: This delegates to security module for consistency
+  // Import is done inline to avoid circular dependencies
+  try {
+    const security = require('./security');
+    return security.createMissingFunctionError(method);
+  } catch (e) {
+    // Fallback if security module not available
+    return `Function '${method}' not found. Check function name and ensure required libraries are loaded with REQUIRE.`;
+  }
+}
+
+/**
+ * Creates an error context for better error reporting
+ * @param {Error} error - The original error
+ * @param {number} lineNumber - Line number where error occurred
+ * @param {string} sourceLine - The source line content
+ * @param {string} sourceFilename - The source filename
+ * @param {Map} variables - Current variable state
+ * @returns {Object} Error context object
+ */
+function createErrorContext(error, lineNumber, sourceLine, sourceFilename, variables) {
+  return {
+    line: lineNumber || 0,
+    message: error.message,
+    stack: error.stack,
+    functionName: error.functionName || 'Unknown',
+    commandText: sourceLine || '',
+    timestamp: new Date().toISOString(),
+    sourceFilename: sourceFilename || 'unknown',
+    variables: variables || new Map()
+  };
+}
+
+/**
+ * Captures current error state for debugging
+ * @param {Object} interpreter - The interpreter instance
+ * @returns {Object} Captured error state
+ */
+function captureErrorState(interpreter) {
+  return {
+    currentLineNumber: interpreter.currentLineNumber,
+    currentCommands: interpreter.currentCommands,
+    variables: new Map(interpreter.variables),
+    errorHandlers: new Map(interpreter.errorHandlers),
+    callStack: [...(interpreter.callStack || [])],
+    executionStack: [...(interpreter.executionStack || [])]
+  };
+}
+
 // UMD pattern for both Node.js and browser compatibility
 if (typeof module !== 'undefined' && module.exports) {
     // Node.js environment
@@ -281,7 +336,10 @@ if (typeof module !== 'undefined' && module.exports) {
         jumpToLabel,
         discoverLabels,
         setupErrorHandler,
-        shouldHandleError
+        shouldHandleError,
+        createMissingFunctionError,
+        createErrorContext,
+        captureErrorState
     };
 } else if (typeof window !== 'undefined') {
     // Browser environment - register in registry to avoid conflicts
@@ -296,7 +354,10 @@ if (typeof module !== 'undefined' && module.exports) {
             jumpToLabel,
             discoverLabels,
             setupErrorHandler,
-            shouldHandleError
+            shouldHandleError,
+            createMissingFunctionError,
+            createErrorContext,
+            captureErrorState
         });
     }
 }
