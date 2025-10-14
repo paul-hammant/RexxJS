@@ -33,6 +33,20 @@
  * SOFTWARE.
  */
 
+// Import browser histogram rendering functions to include them in the bundle
+try {
+  if (typeof window !== 'undefined') {
+    // In browser environment, import the renderer functions
+    const rendererModule = require('../histogram-browser-renderer.js');
+    if (rendererModule) {
+      // Make renderer functions globally available
+      Object.assign(window, rendererModule);
+    }
+  }
+} catch (e) {
+  // Ignore import errors - renderer functions may not be available in all environments
+}
+
 // Helper function to suggest render to REPL
 function suggestRender(plotData, options = {}) {
   if (typeof window !== 'undefined' && window.rexxjs) {
@@ -70,17 +84,16 @@ function renderPlotToDOM(plotData, output, options = {}) {
     output = '#' + containerId;
   }
   
-  // For now, create a simple text representation
-  // In a full implementation, this would render actual graphics
+  // Actual canvas rendering implementation
   if (typeof document !== 'undefined') {
     const targetElement = typeof output === 'string' ? 
       (output.startsWith('#') ? document.querySelector(output) : document.getElementById(output)) :
       output;
       
     if (targetElement) {
-      // Create a placeholder for the plot
-      const plotInfo = document.createElement('div');
-      plotInfo.style.cssText = `
+      // Create container for the plot
+      const plotContainer = document.createElement('div');
+      plotContainer.style.cssText = `
         border: 2px solid #4CAF50;
         border-radius: 8px;
         padding: 20px;
@@ -90,32 +103,89 @@ function renderPlotToDOM(plotData, output, options = {}) {
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       `;
       
-      // Add plot details
+      // Add plot title
       const plotType = plotData.type || 'plot';
       const title = (plotData.options && plotData.options.main) || `${plotType.toUpperCase()} Visualization`;
       
-      plotInfo.innerHTML = `
-        <div style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">
-          📊 ${title}
-        </div>
-        <div style="color: #666;">
-          <div>Type: ${plotType}</div>
-          <div>Dimensions: ${width}x${height}px</div>
-          ${plotData.data ? `<div>Data points: ${Array.isArray(plotData.data) ? plotData.data.length : 'N/A'}</div>` : ''}
-          ${plotData.bins ? `<div>Bins: ${plotData.bins.length}</div>` : ''}
-          ${plotData.timestamp ? `<div style="font-size: 11px; color: #999; margin-top: 5px;">Generated: ${new Date(plotData.timestamp).toLocaleString()}</div>` : ''}
-        </div>
-        <div style="margin-top: 15px; padding: 10px; background: white; border-radius: 4px; font-size: 12px;">
-          <div style="color: #888; margin-bottom: 5px;">Plot Data Preview:</div>
-          <pre style="margin: 0; color: #444; max-height: 200px; overflow-y: auto;">${JSON.stringify(plotData, null, 2).substring(0, 500)}${JSON.stringify(plotData).length > 500 ? '...' : ''}</pre>
-        </div>
+      const titleDiv = document.createElement('div');
+      titleDiv.style.cssText = `
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 15px;
+        text-align: center;
+      `;
+      titleDiv.textContent = `📊 ${title}`;
+      plotContainer.appendChild(titleDiv);
+      
+      // Create canvas element
+      const canvasId = 'canvas-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+      const canvas = document.createElement('canvas');
+      canvas.id = canvasId;
+      canvas.width = width;
+      canvas.height = height;
+      canvas.style.cssText = `
+        display: block;
+        margin: 0 auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: white;
       `;
       
-      targetElement.appendChild(plotInfo);
+      plotContainer.appendChild(canvas);
+      
+      try {
+        // Render based on plot type using browser renderers
+        if (typeof renderPlotToCanvas === 'function') {
+          // Use the universal renderer if available
+          renderPlotToCanvas(plotData, canvasId, { margin: options.margin });
+        } else if (plotData.type === 'hist' && typeof renderHistogramToCanvas === 'function') {
+          // Use specific histogram renderer
+          renderHistogramToCanvas(plotData, canvasId, { margin: options.margin });
+        } else {
+          // Fallback: create error message
+          const context = canvas.getContext('2d');
+          context.fillStyle = 'white';
+          context.fillRect(0, 0, width, height);
+          context.fillStyle = 'red';
+          context.font = '16px Arial';
+          context.textAlign = 'center';
+          context.fillText(`${plotData.type} renderer not available`, width / 2, height / 2);
+          context.font = '12px Arial';
+          context.fillText('Make sure histogram-browser-renderer.js is loaded', width / 2, height / 2 + 25);
+        }
+        
+        // Add plot info below canvas
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = `
+          color: #666;
+          font-size: 12px;
+          margin-top: 10px;
+          text-align: center;
+        `;
+        infoDiv.innerHTML = `
+          Type: ${plotType} | Dimensions: ${width}x${height}px
+          ${plotData.data ? ` | Data points: ${Array.isArray(plotData.data) ? plotData.data.length : 'N/A'}` : ''}
+          ${plotData.bins ? ` | Bins: ${plotData.bins.length}` : ''}
+        `;
+        plotContainer.appendChild(infoDiv);
+        
+      } catch (error) {
+        // Show error in canvas
+        const context = canvas.getContext('2d');
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, width, height);
+        context.fillStyle = 'red';
+        context.font = '14px Arial';
+        context.textAlign = 'center';
+        context.fillText(`Render Error: ${error.message}`, width / 2, height / 2);
+      }
+      
+      targetElement.appendChild(plotContainer);
       
       // Scroll into view if in REPL
       if (targetElement.parentElement && targetElement.parentElement.id === 'repl-history') {
-        plotInfo.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        plotContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
       
       return targetElement.id || 'rendered';

@@ -550,6 +550,10 @@
                             } else {
                                 addGraphicsInfo(`📊 Plot auto-rendered successfully`);
                             }
+                            
+                            // Scroll to bottom after render completes and graphics info is added
+                            setTimeout(() => scrollToBottom(), 100);
+                            
                         } catch (renderError) {
                             addGraphicsInfo(`❌ Auto-render failed: ${renderError.message}`, 'error');
                         }
