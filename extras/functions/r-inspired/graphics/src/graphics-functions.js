@@ -47,6 +47,84 @@ function suggestRender(plotData, options = {}) {
   }
 }
 
+// Helper function to render plot to DOM
+function renderPlotToDOM(plotData, output, options = {}) {
+  const { width = 800, height = 600, format = 'png' } = options;
+  
+  // Special handling for 'auto' output - create a new element in REPL
+  if (output === 'auto' && typeof window !== 'undefined') {
+    // Create a unique container
+    const containerId = 'repl-plot-' + Date.now();
+    const container = document.createElement('div');
+    container.id = containerId;
+    container.style.margin = '10px 0';
+    
+    // Find the REPL history element or body
+    const replHistory = document.getElementById('repl-history');
+    if (replHistory) {
+      replHistory.appendChild(container);
+    } else {
+      document.body.appendChild(container);
+    }
+    
+    output = '#' + containerId;
+  }
+  
+  // For now, create a simple text representation
+  // In a full implementation, this would render actual graphics
+  if (typeof document !== 'undefined') {
+    const targetElement = typeof output === 'string' ? 
+      (output.startsWith('#') ? document.querySelector(output) : document.getElementById(output)) :
+      output;
+      
+    if (targetElement) {
+      // Create a placeholder for the plot
+      const plotInfo = document.createElement('div');
+      plotInfo.style.cssText = `
+        border: 2px solid #4CAF50;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 10px 0;
+        background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+        font-family: monospace;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      `;
+      
+      // Add plot details
+      const plotType = plotData.type || 'plot';
+      const title = (plotData.options && plotData.options.main) || `${plotType.toUpperCase()} Visualization`;
+      
+      plotInfo.innerHTML = `
+        <div style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">
+          📊 ${title}
+        </div>
+        <div style="color: #666;">
+          <div>Type: ${plotType}</div>
+          <div>Dimensions: ${width}x${height}px</div>
+          ${plotData.data ? `<div>Data points: ${Array.isArray(plotData.data) ? plotData.data.length : 'N/A'}</div>` : ''}
+          ${plotData.bins ? `<div>Bins: ${plotData.bins.length}</div>` : ''}
+          ${plotData.timestamp ? `<div style="font-size: 11px; color: #999; margin-top: 5px;">Generated: ${new Date(plotData.timestamp).toLocaleString()}</div>` : ''}
+        </div>
+        <div style="margin-top: 15px; padding: 10px; background: white; border-radius: 4px; font-size: 12px;">
+          <div style="color: #888; margin-bottom: 5px;">Plot Data Preview:</div>
+          <pre style="margin: 0; color: #444; max-height: 200px; overflow-y: auto;">${JSON.stringify(plotData, null, 2).substring(0, 500)}${JSON.stringify(plotData).length > 500 ? '...' : ''}</pre>
+        </div>
+      `;
+      
+      targetElement.appendChild(plotInfo);
+      
+      // Scroll into view if in REPL
+      if (targetElement.parentElement && targetElement.parentElement.id === 'repl-history') {
+        plotInfo.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      
+      return targetElement.id || 'rendered';
+    }
+  }
+  
+  return 'render-failed';
+}
+
 const rGraphicsFunctions = {
   // Primary detection function (must be first)
   'HISTOGRAM': (data, bins = 10, options = {}) => {
@@ -1599,7 +1677,7 @@ if (typeof window !== 'undefined') {
   
   // Register in the modern registry
   window.REXX_FUNCTION_LIBS.push({
-    path: 'graphics-functions.js',
+    path: 'r-graphics-functions.js',
     name: 'r-graphics-functions', 
     version: '1.0.0',
     description: 'R Graphics and Visualization Functions',

@@ -43,7 +43,7 @@ module.exports = {
   entry: path.resolve(__dirname, 'src/system-address.js'),
   output: {
     filename: 'system-address.bundle.js',
-    path: path.resolve(getGitRoot(), 'dist/addresses'),
+    path: path.resolve(getGitRoot(), '../dist/addresses'),
     library: 'system-address',
     libraryTarget: 'umd',
     globalObject: 'this'

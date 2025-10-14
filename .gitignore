@@ -8,6 +8,8 @@ test-results.json
 core/playwright-report/
 core/debug-screenshot.png
 core/test-results.json
+live-tests/test-results/
+live-tests/playwright-report/
 core/tests/generated_images/
 extras/functions/r-inspired/graphics/generated_images/
 coverage
