@@ -13,6 +13,7 @@ live-tests/playwright-report/
 core/tests/generated_images/
 extras/functions/r-inspired/graphics/generated_images/
 coverage
+core/process.log.checkpoint
 
 # Binary build artifacts
 *.bundle.js
