@@ -610,17 +610,9 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
  */
 function wrapNodeJSModule(nodeModule, libraryName) {
   const libName = libraryName.split('/').pop().split('.')[0]; // Get base name
-  const detectionFunction = `${libName.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_MAIN`;
   
   const wrapper = {
-    // Add detection function
-    [detectionFunction]: () => ({
-      type: 'library_info',
-      name: `${libName} (Node.js module)`,
-      version: 'unknown',
-      source: 'nodejs-require',
-      loaded: true
-    })
+    // Node.js module wrapper - no hardcoded detection functions
   };
   
   // Convert Node.js exports to RexxJS-style functions
@@ -795,6 +787,7 @@ function getLibraryDetectionFunction(libraryName) {
     return global.LIBRARY_DETECTION_REGISTRY.get(lookupName);
   }
 
+  // Handle specific known HTTPS URLs - use @rexxjs-meta comment parsing instead of hardcoded names
 
   // For local file paths, extract directly from the file
   if (typeof require !== 'undefined') {

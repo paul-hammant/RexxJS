@@ -87,6 +87,11 @@ async function checkNodeJSPermissions(libraryName, libraryType) {
     return true;
   }
   
+  // Direct HTTPS URLs are allowed without GitHub validation
+  if (libraryType === 'https-url') {
+    return true;
+  }
+  
   throw new Error(`Unknown library type for permissions check: ${libraryName}`);
 }
 
@@ -129,6 +134,10 @@ async function checkWebPermissions(libraryName, libraryType) {
         // Simple third-party libraries (like r-graphing) are allowed
         return true;
       }
+      // Direct HTTPS URLs are allowed in moderate policy
+      if (libraryType === 'https-url') {
+        return true;
+      }
       throw new Error(`Library ${libraryName} blocked by moderate security policy`);
       
     case 'default':
@@ -143,6 +152,10 @@ async function checkWebPermissions(libraryName, libraryType) {
           return await validateGitHubLibrary.call(this, libraryName);
         }
         // Simple third-party libraries (like r-graphing) are allowed
+        return true;
+      }
+      // Direct HTTPS URLs are allowed in all web policies
+      if (libraryType === 'https-url') {
         return true;
       }
       return true;

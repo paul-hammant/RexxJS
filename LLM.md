@@ -23,10 +23,12 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 
 #### Modes of operation
 
-- In the repo - un-built: core/src/interpreter.js with core/src/parser.js should work in a Jest test where that's Rexx lines embedded, but otherwise a Javascript tests with classic expectations
-- In the repo - un-built: core/rexx executable - does scripting to setup the interpreter given commandline invocation.
-- Built for NodeJs: bin/rexx executable (after make-binary.sh invocation). This does scripting to setup the interpreter given commandline invocation. Should work on Glibc and Musl x86-64 systems.
-- Built for Web: GitHub-Action makes a bundle of the interpreter. 
+- In the repo - un-built for NodeJs: core/src/interpreter.js with core/src/parser.js. Typical use would be Rexx lines embedded in a jest test with classic expectations
+- In the repo - un-built for NodeJs: `core/rexx` executable - does scripting to setup the interpreter given command line invocation. Devs of this repo, might use that.
+- Built for NodeJs: bin/rexx executable (after make-binary.sh invocation). This does scripting to setup the interpreter given commandline invocation. Should work on Glibc and Musl x86-64 systems. The result should be identical in operation an capabilities to `core/rexx`, but this time made by 'pkg'
+- Built for Web: GitHub-Action makes a bundle of the interpreter. `cd core/src/repl && npm install` to make it, or just use the one online that github-actions made: https://repl.rexxjs.org/repl/dist/rexxjs.bundle.js
+- In the repo - un-built for Web: core/src/interpreter.js and core/src/parser.js again but served up via https://localhost:portNum/core/src/interpreter-web-loader.js
+
 
 ## CLI & Distribution
 
@@ -231,22 +233,228 @@ The codebase follows a modular design:
 
 ### Module Loading Support Matrix
 
-RexxJS supports 6 different module loading combinations across 3 execution environments and 2 bundle modes:
+RexxJS's `REQUIRE` system adapts dynamically to the execution environment, providing consistent module loading across Node.js, web bundles, and browser contexts. The system automatically detects the runtime environment and chooses the appropriate loading strategy.
 
-| Environment | Bundled Modules (.bundle.js) | Unbundled Modules (.js) |
-|-------------|------------------------------|-------------------------|
-| **Node.js** | ✅ All dependencies included via webpack<br>Loaded from registry or local | ✅ Dependencies resolved from unpkg.com<br>Cached to `.rexxjs-modules/`<br>Uses Node.js scoped `require()` |
-| **pkg executable** | ✅ system-address.bundle.js embedded<br>Other bundles from registry | ✅ Dependencies resolved from unpkg.com<br>Cached to `.rexxjs-modules/`<br>Works without node_modules |
-| **Browser/DOM** | ✅ All dependencies included via webpack<br>Loaded from registry | ✅ Dependencies resolved from unpkg.com<br>Runtime resolution only (no FS cache) |
+#### Environment Detection & Loading Strategies
+
+**Node.js Environment (`nodejs`)**
+
+- **Local files**: `REQUIRE "./extras/addresses/sqlite3/sqlite-address.js"` 
+- **Node modules**: `REQUIRE "lodash"` (npm packages from node_modules)
+- **Remote registries**: `REQUIRE "registry:org.rexxjs/excel-functions"`
+- **Dependency resolution**: Full npm-style dependency graph with circular dependency detection
+- **Security**: Permission-based loading with configurable restrictions
+
+NodeJS modes are via `bin/rexx`, `core/rexx`, direct to `core/src/cli.js`, and via Jest tests in `core/*` under npm-test execution. Web-specific aspects will have to be mocked for tests to pass, and are unavailable to genuine users on the command line. 
+
+TODO: transitive dep handling.
+
+**Web Standalone (`web-standalone`)**
+
+- **Bundled modules**: `REQUIRE "registry:org.rexxjs/jq-address.bundle"` (webpack-compiled, self-contained)
+- **Remote loading**: Fetches unbundled modules from unpkg.com or custom registries
+- **Browser-optimized**: Modules adapted for browser environment (no Node.js APIs)
+- **Dynamic imports**: Uses browser's native import() for ES modules
+
+Web modes are via the `rexxjs.bundle.js` (main live usage), via http://localhost:port/core/src/interpreter-web-loader.js, and in a more limited way file://path/to/core/src/interpreter-web-loader.js.  Note same-origin policy for those last two.
+
+**Web Control Bus (`web-controlbus`)**
+- 
+- **Cross-iframe communication**: Modules loaded in parent frame, functions available via postMessage RPC
+- **Distributed execution**: Functions execute in director frame, results passed back to worker
+- **Security isolation**: Each iframe has separate module scope and permissions
+- **Streaming support**: Real-time progress updates via `CHECKPOINT()` mechanism
+
+Web control-bus modes are via the `rexxjs.bundle.js` (main live usage), via http://localhost:port/core/src/interpreter-web-loader.js.
+
+#### Module Resolution Patterns
+
+**Preference Lists** - Automatic fallback through multiple sources:
+
+```rexx
+REQUIRE "registry:org.rexxjs/excel-functions.bundle, registry:org.rexxjs/excel-functions, ./local/excel.js"
+```
+- 
+- Tries bundled version first (fastest)
+- Falls back to unbundled registry version  
+- Finally attempts local file
+
+**Registry Prefixes** - Explicit source specification:
+
+```rexx
+REQUIRE "registry:org.rexxjs/sqlite-address"     // GitHub Pages registry
+REQUIRE "cwd:local/custom-functions.js"         // Current working directory
+REQUIRE "npm:lodash"                             // Node.js modules (Node.js only)
+REQUIRE "root:extras/addresses/docker.js"       // Project root directory
+```
+
+**Path Resolution Strategies** (Environment-Dependent):
+
+**Node.js Environments** (`nodejs`):
+- **`cwd:`** - Resolves relative to current working directory (where command was executed)
+  ```rexx
+  // If executed from /home/user/project/scripts/
+  REQUIRE "cwd:../lib/utils.js"    // → /home/user/project/lib/utils.js
+  REQUIRE "cwd:helpers.js"         // → /home/user/project/scripts/helpers.js
+  ```
+- **`root:`** - Resolves relative to project root (where package.json or .git exists)
+  ```rexx
+  REQUIRE "root:extras/addresses/sqlite.js"    // Always from project root
+  ```
+- **`./` or `../`** - Resolves relative to current script file location
+  ```rexx
+  REQUIRE "./local-helper.js"      // Same directory as current script
+  ```
+- **`/` or `C:\`** - Absolute filesystem paths
+  ```rexx
+  REQUIRE "/usr/local/lib/custom.js"           // Unix absolute
+  REQUIRE "C:\\Program Files\\MyLib\\lib.js"   // Windows absolute
+  ```
+
+**Web Environments** (`web-standalone`, `web-controlbus`):
+- **`cwd:` and `root:` are NOT supported** - These require Node.js filesystem access
+- **Registry and bundled modules only**:
+  ```rexx
+  REQUIRE "registry:org.rexxjs/excel-functions.bundle"    // Pre-bundled for web
+  REQUIRE "registry:org.rexxjs/lodash-adapter"           // RexxJS wrapper for lodash
+  REQUIRE "https://raw.githubusercontent.com/RexxJS/dist/latest/addresses/echo-address.bundle.js"  // Direct bundle URLs
+  ```
+- **JavaScript libraries need adapters** - Raw JS libraries like lodash require RexxJS wrapper modules that export functions with RexxJS calling conventions
+
+**Cross-Environment Adapter Example** (hypothetical `lodash-adapter`):
+```rexx
+// Same REQUIRE works in both environments
+REQUIRE "registry:org.rexxjs/lodash-adapter" AS _(.*)
+LET doubled = _MAP([1,2,3], "x * 2")        // → [2,4,6]
+LET filtered = _FILTER(users, "age > 18")   // → adult users only
+```
+
+**Behind the scenes**:
+- **Node.js**: Adapter uses `require('lodash')` from node_modules and wraps functions
+- **Web**: Adapter includes bundled lodash code or loads from unpkg.com, same RexxJS interface
+- **Function translation**: Converts RexxJS expression strings (`"x * 2"`) to JavaScript functions (`x => x * 2`)
+- **Parameter adaptation**: Handles RexxJS named parameters and type conversion
+
+**GitHub Module Example** (real):
+```rexx
+// Load echo ADDRESS handler from GitHub repository
+REQUIRE "github.com/RexxJS/dist@latest"
+
+// Now use the echo ADDRESS target
+ADDRESS echo
+"Testing echo functionality"
+LET result = getLastEcho()
+SAY "Echo result: " || result
+```
+
+**GitHub Module with AS Clause** (ADDRESS renaming):
+```rexx
+// Load same echo handler but rename the ADDRESS target
+REQUIRE "github.com/RexxJS/dist@latest" AS REPEAT_BACK_TO_ME
+
+// Now use the renamed ADDRESS target
+ADDRESS REPEAT_BACK_TO_ME
+"Hello from my custom ADDRESS name"
+LET response = getLastEcho()
+SAY "Custom ADDRESS response: " || response
+```
+
+**Note**: Direct HTTPS URLs (like `https://raw.githubusercontent.com/...`) are currently blocked by RexxJS security validation. Use the GitHub module format (`github.com/username/repo@version`) instead.
+
+- **Relative paths limited** - Only work in specific web loader contexts
+
+**Ambiguous Path Prevention**: RexxJS rejects ambiguous paths and suggests explicit prefixes to prevent confusion about resolution context. Web environments enforce stricter limitations due to browser security restrictions.
+
+**AS Clause** - Namespace management and prefix transformation:
+
+```rexx
+REQUIRE "./extras/addresses/docker-address.js" AS docker_(.*)
+REQUIRE "registry:org.rexxjs/r-stats" AS stats_(.*)
+REQUIRE "cwd:bathhouse-library.js" AS bath_(.*)
+```
+
+The AS clause transforms function and operation names from loaded modules by applying prefixes to prevent naming conflicts and provide logical namespacing:
+
+**Regex Pattern Transformation** (`prefix_(.*)`)
+- **Pattern**: `bath_(.*)` captures the original function name and prefixes it
+- **Example**: `SERVE_GUEST` becomes `bath_SERVE_GUEST`, `GET_LOG` becomes `bath_GET_LOG`
+- **Usage**: Both operations and functions get the prefix
+  ```rexx
+  bath_CLEAN_BATHHOUSE area="lobby" intensity="deep"     // Operation
+  LET capacity = bath_BATHHOUSE_CAPACITY()               // Function
+  ```
+
+**Simple Prefix** (no regex)
+- **Pattern**: `docker` (automatically adds underscore → `docker_`)
+- **Example**: `CREATE_CONTAINER` becomes `docker_CREATE_CONTAINER`
+- **ADDRESS Targets**: Use exact name replacement (no regex patterns allowed)
+  ```rexx
+  REQUIRE "cwd:qemu-address.js" AS QEMU                  // ADDRESS QEMU
+  ```
+
+**Multiple Namespaces** - Same library with different prefixes:
+```rexx
+REQUIRE "cwd:bathhouse-library.js" AS yubabaHouse_(.*)
+REQUIRE "cwd:bathhouse-library.js" AS zenibaHouse_(.*)
+
+yubabaHouse_SERVE_GUEST guest="chihiro"
+zenibaHouse_SERVE_GUEST guest="haku"
+LET log1 = yubabaHouse_GET_LOG()      // Independent state
+LET log2 = zenibaHouse_GET_LOG()      // Independent state
+```
+
+**Namespace Isolation Benefits**:
+- **Conflict prevention**: Multiple libraries can have same function names
+- **Version management**: Load different versions with different prefixes  
+- **Logical grouping**: Group related functionality under meaningful prefixes
+- **Independent state**: Each prefixed instance maintains separate internal state
+
+#### Bundling & Distribution Architecture
+
+**Bundled Modules** (`.bundle` suffix)
+- **Webpack-compiled**: All dependencies included, no runtime resolution needed
+- **Browser-ready**: Compatible with web-standalone and web-controlbus
+- **Size optimized**: Tree-shaken and minified for production use
+- **GitHub Pages registry**: Published as static files for CDN-like performance
+
+**Unbundled Modules** (standard name)
+- **Source distribution**: Raw JavaScript with runtime dependency loading
+- **Development-friendly**: Easier debugging and modification
+- **Dynamic dependencies**: npm packages fetched from unpkg.com as needed
+- **Local development**: Available from `extras/` directory structure
+
+#### Advanced Features
+
+**Dependency Management**
+- **Circular detection**: Prevents infinite loading loops
+- **Version resolution**: Handles multiple versions of same library
+- **Load-time permissions**: Security policies applied during module loading
+- **Dependency graphs**: Tracks relationships for debugging and optimization
+
+**Remote Orchestration** (SCRO - Streaming CheckpOint Remote Orchestration)
+- **CHECKPOINT-based loading**: Modules requested from director via streaming protocol
+- **Distributed libraries**: Functions execute remotely, results streamed back
+- **Security boundaries**: Director controls what modules workers can access
+- **Real-time updates**: Progress and intermediate results via `CHECKPOINT()`
+
+**Environmental Adaptation**
+```rexx
+// Same REQUIRE statement works across all environments
+REQUIRE "registry:org.rexxjs/excel-functions"
+
+// Node.js: Downloads and caches from registry
+// Web bundle: Uses pre-bundled version from dist/
+// Web control bus: Requests from director frame
+// All provide identical VLOOKUP(), SUMIF(), etc. functions
+```
 
 **Key Design Principles:**
 - **No fallbacks**: Users explicitly choose bundled vs unbundled via REQUIRE statement
-  - `REQUIRE "registry:org.rexxjs/jq-address.bundle"` - bundled version
-  - `REQUIRE "registry:org.rexxjs/jq-address"` - unbundled version
-- **Universal dependency source**: All npm dependencies fetched from unpkg.com
-- **Separate distributions**:
-  - Bundled modules published to GitHub Pages registry (../dist/ repo)
-  - Unbundled modules available locally (dist/) or from registry
+- **Environment-agnostic**: Same module code works in Node.js and browsers
+- **Universal dependency source**: npm dependencies always fetched from unpkg.com for consistency
+- **Explicit control**: Registry prefixes and preference lists give users full control over loading strategy
+- **Security-first**: Permission system prevents unauthorized module access
+- **Performance-optimized**: Bundled versions for production, unbundled for development
 
 ## Use Cases
 

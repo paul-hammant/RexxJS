@@ -35,6 +35,7 @@ require('../logic-functions.js');
 require('../data-functions.js');
 require('../validation-functions.js');
 require('../cryptography-functions.js');
+require('../dom-functions.js');
 
 // Main interpreter - must be loaded last
 require('../interpreter.js');
@@ -58,6 +59,18 @@ if (typeof window !== 'undefined') {
         }
     } catch (e) {
         // parse might be already global from parser.js
+    }
+    
+    // Force DOM functions to window (webpack context needs explicit assignment)
+    try {
+        const domModule = require('../dom-functions.js');
+        if (domModule) {
+            window.domFunctions = domModule.domFunctions || domModule;
+            window.domFunctionsOnly = domModule.functions || {};
+            window.domOperations = domModule.operations || {};
+        }
+    } catch (e) {
+        console.warn('Could not load DOM functions:', e);
     }
     
     console.log('RexxJS bundle loaded - RexxInterpreter available globally');

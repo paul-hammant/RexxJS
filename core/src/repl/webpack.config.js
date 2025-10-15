@@ -4,7 +4,7 @@ module.exports = {
   mode: 'production',
   entry: path.resolve(__dirname, 'interpreter-bundle-entry.js'),
   output: {
-    filename: 'repl.bundle.js',
+    filename: 'rexxjs.bundle.js',
     path: path.resolve(__dirname, 'dist')
   },
   resolve: {

@@ -1000,6 +1000,31 @@ class RexxInterpreter {
     }
   }
 
+  /**
+   * Run a REXX script stored in a script element by its ID
+   * @param {string} scriptElementId - The ID of the script element containing REXX code
+   * @returns {Promise} - Promise that resolves when script execution completes
+   */
+  async runScriptInId(scriptElementId) {
+    if (typeof document === 'undefined') {
+      throw new Error('runScriptInId() is only available in browser environments');
+    }
+    
+    const scriptElement = document.getElementById(scriptElementId);
+    if (!scriptElement) {
+      throw new Error(`Script element with ID '${scriptElementId}' not found`);
+    }
+    
+    const scriptText = scriptElement.textContent.trim();
+    if (!scriptText) {
+      throw new Error(`Script element '${scriptElementId}' contains no text content`);
+    }
+    
+    // Parse and execute the REXX script
+    const commands = parse(scriptText);
+    return await this.run(commands, scriptText, `script#${scriptElementId}`);
+  }
+
   // Removed: discoverLabels - now bound to errorHandlingUtils in constructor
 
   async executeCommands(commands, startIndex = 0) {
@@ -3137,7 +3162,7 @@ class RexxInterpreter {
       try {
         const metadata = globalScope[detectionFunction]();
         if (metadata && typeof metadata === 'object' && 
-            (metadata.type === 'address-target' || metadata.type === 'hybrid') &&
+            (metadata.type === 'address-target' || metadata.type === 'address-handler' || metadata.type === 'hybrid') &&
             metadata.provides && metadata.provides.addressTarget) {
           
           const originalTargetName = metadata.provides.addressTarget;
@@ -3604,6 +3629,12 @@ class RexxInterpreter {
       return await this.requireRegistryStyleLibrary(libraryName);
     }
     
+    // Handle direct HTTPS URLs - try script tag first, fallback to fetch
+    if (libraryName.startsWith('https://')) {
+      return await this.loadHttpsLibraryAdaptive(libraryName);
+    }
+    
+    // Handle local libraries via script tag
     const scriptUrl = this.resolveWebLibraryUrl(libraryName);
     
     return new Promise((resolve, reject) => {
@@ -3630,6 +3661,74 @@ class RexxInterpreter {
       
       document.head.appendChild(script);
     });
+  }
+
+  async loadHttpsLibraryAdaptive(libraryName) {
+    // First attempt: Try script tag approach (works with proper MIME types)
+    try {
+      return await this.loadHttpsLibraryViaScript(libraryName);
+    } catch (scriptError) {
+      console.log(`Script tag loading failed for ${libraryName}, trying fetch approach...`);
+      
+      // Second attempt: Fetch and evaluate (works around MIME type issues)
+      try {
+        return await this.loadHttpsLibraryViaFetch(libraryName);
+      } catch (fetchError) {
+        throw new Error(`Failed to load ${libraryName}: Script approach failed (${scriptError.message}), Fetch approach failed (${fetchError.message})`);
+      }
+    }
+  }
+
+  async loadHttpsLibraryViaScript(libraryName) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = libraryName;
+      
+      script.onload = () => {
+        // Give the library a moment to register itself globally
+        setTimeout(() => {
+          if (this.isLibraryLoaded(libraryName)) {
+            // Register loaded functions as built-ins
+            this.registerLibraryFunctions(libraryName);
+            console.log(`✓ Loaded ${libraryName} via script tag`);
+            resolve(true);
+          } else {
+            reject(new Error(`Library loaded but detection function not found`));
+          }
+        }, 10);
+      };
+      
+      script.onerror = () => {
+        reject(new Error(`Script tag loading failed`));
+      };
+      
+      document.head.appendChild(script);
+    });
+  }
+
+  async loadHttpsLibraryViaFetch(libraryName) {
+    const response = await fetch(libraryName);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const libraryCode = await response.text();
+    
+    // Execute the library code
+    const func = new Function(libraryCode);
+    func();
+    
+    // Give the library a moment to register itself globally
+    await new Promise(resolve => setTimeout(resolve, 10));
+    
+    if (this.isLibraryLoaded(libraryName)) {
+      // Register loaded functions as built-ins
+      this.registerLibraryFunctions(libraryName);
+      console.log(`✓ Loaded ${libraryName} via fetch`);
+      return true;
+    } else {
+      throw new Error(`Library loaded but detection function not found`);
+    }
   }
 
   async requireControlBus(libraryName) {
@@ -3985,8 +4084,8 @@ class RexxInterpreter {
       throw new Error(`Cannot use regex patterns in AS clause for ADDRESS modules (${metadata.type})`);
     }
 
-    // For ADDRESS targets, AS clause is the exact new name
-    return asClause;
+    // For ADDRESS targets, AS clause is the exact new name but converted to lowercase to match ADDRESS command convention
+    return asClause.toLowerCase();
   }
 
   getLibraryFunctionList(libraryName) {

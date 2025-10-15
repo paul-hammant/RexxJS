@@ -1,0 +1,24 @@
+anthropic-ai/src/anthropic-address.js                  - Anthropic AI/Claude ADDRESS handler (remediation needed to remove _MAIN and _META duality)
+docker-address/src/docker-address.js                - Docker container management ADDRESS handler
+duckdb-address/src/duckdb-address.js                - DuckDB database ADDRESS handler (missing webpack.bundle.config.js - preserving important comments, particularly `@rexxjs-meta`)
+duckdb-wasm/src/duckdb-wasm-address.js              - DuckDB WebAssembly ADDRESS handler
+duckdb-wasm-address/src/duckdb-wasm-address.js      - DuckDB WebAssembly ADDRESS handler (variant)
+echo/src/echo-address.js                            - Simple echo ADDRESS handler for testing
+firecracker-address/src/firecracker-address.js      - Firecracker microVM ADDRESS handler (missing webpack.bundle.config.js - preserving important comments, particularly `@rexxjs-meta`)
+gcp-address/src/gcp-address.js                      - Google Cloud Platform ADDRESS handler
+gemini-address/src/gemini-address.js                - Google Gemini AI ADDRESS handler (remediation needed to remove _MAIN and _META duality)
+google-cloud-platform/src/gcp-address.js           - Google Cloud Platform ADDRESS handler (variant) (remediation needed to remove _MAIN and _META duality)
+lxd-address/src/lxd-address.js                      - LXD container ADDRESS handler (missing webpack.bundle.config.js - preserving important comments, particularly `@rexxjs-meta`)
+nspawn-address/src/nspawn-address.js                - systemd-nspawn container ADDRESS handler
+open-ai/src/openai-address.js                       - OpenAI API ADDRESS handler (remediation needed to remove _MAIN and _META duality)
+podman-address/src/podman-address.js                - Podman container ADDRESS handler
+provisioning-and-orchestration/src/provisioning-address.js - Infrastructure provisioning ADDRESS handler
+proxmox-address/src/proxmox-address.js              - Proxmox virtualization ADDRESS handler (remediation needed to remove _MAIN and _META duality) (missing webpack.bundle.config.js - preserving important comments, particularly `@rexxjs-meta`)
+pyodide/src/pyodide-address.js                      - Python (Pyodide) ADDRESS handler
+qemu-address/src/qemu-address.js                    - QEMU virtualization ADDRESS handler
+sqlite3/src/sqlite-address.js                       - SQLite3 database ADDRESS handler
+system/src/system-address.js                        - System/OS command execution ADDRESS handler
+virtualbox-address/src/virtualbox-address.js        - VirtualBox virtualization ADDRESS handler (remediation needed to remove _MAIN and _META duality)
+
+NOTE: Handlers missing webpack.bundle.config.js cannot be properly bundled for web deployment.
+All webpack configs should use mode: 'development' and BannerPlugin to preserve @rexxjs-meta comments.

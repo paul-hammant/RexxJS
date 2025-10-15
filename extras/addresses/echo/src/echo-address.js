@@ -17,7 +17,7 @@
  * Licensed under the MIT License
  */
 
-// Consolidated metadata provider function
+// Metadata provider function
 function ECHO_ADDRESS_META() {
   return {
     canonical: "org.rexxjs/echo-address",
@@ -37,15 +37,10 @@ function ECHO_ADDRESS_META() {
     },
     requirements: {
       environment: 'nodejs-or-browser'
-    },
-    detectionFunction: 'ECHO_ADDRESS_MAIN'
+    }
   };
 }
 
-// Primary detection function
-function ECHO_ADDRESS_MAIN() {
-  return ECHO_ADDRESS_META();
-}
 
 // ADDRESS target handler function
 async function ADDRESS_ECHO_HANDLER(commandOrMethod, params, sourceContext) {
@@ -129,13 +124,12 @@ function parseKeyValueHeredoc(multilineText) {
   return params;
 }
 
-// Export to global scope
+
+// Export to global scope - only metadata, handler discovered via metadata
 if (typeof window !== 'undefined') {
   window.ECHO_ADDRESS_META = ECHO_ADDRESS_META;
-  window.ECHO_ADDRESS_MAIN = ECHO_ADDRESS_MAIN;
   window.ADDRESS_ECHO_HANDLER = ADDRESS_ECHO_HANDLER;
 } else if (typeof global !== 'undefined') {
   global.ECHO_ADDRESS_META = ECHO_ADDRESS_META;
-  global.ECHO_ADDRESS_MAIN = ECHO_ADDRESS_MAIN;
   global.ADDRESS_ECHO_HANDLER = ADDRESS_ECHO_HANDLER;
 }

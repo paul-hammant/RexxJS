@@ -300,6 +300,14 @@ async function runTestFile(filePath, options = {}) {
 
     // Create a test address sender that handles ADDRESS commands
     class TestAddressSender {
+      constructor() {
+        this.interpreter = null; // Will be set by the interpreter
+      }
+      
+      setInterpreter(interpreter) {
+        this.interpreter = interpreter;
+      }
+      
       async send(address, command, params = {}) {
         // Handle default ADDRESS calls
         if (address.toUpperCase() === 'EXPECTATIONS') {
@@ -314,6 +322,16 @@ async function runTestFile(filePath, options = {}) {
         }
         if (address === 'default') {
           return { status: 'ignored', result: 'Default ADDRESS call ignored' };
+        }
+        
+        // Check if the interpreter has registered this ADDRESS target
+        if (this.interpreter && this.interpreter.addressTargets) {
+          if (this.interpreter.addressTargets.has(address)) {
+            const target = this.interpreter.addressTargets.get(address);
+            if (target && target.handler) {
+              return await target.handler(command, params);
+            }
+          }
         }
         
         // For other addresses, throw error like CLI fallback handler
@@ -348,6 +366,10 @@ async function runTestFile(filePath, options = {}) {
     // Pass .*Test$ as default argument when no script arguments provided
     const scriptArgs = options.scriptArgs && options.scriptArgs.length > 0 ? options.scriptArgs : ['.*Test$'];
     const interpreter = new TestRexxInterpreter(testAddressSender, {}, outputHandler, scriptArgs, options);
+    
+    // Set the interpreter reference in the address sender so it can check registered ADDRESS targets
+    testAddressSender.setInterpreter(interpreter);
+    
     await interpreter.run(commands, rexxCode, filePath);
     
     // Read actual expectation count from temp file

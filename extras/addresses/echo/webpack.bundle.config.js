@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-  mode: 'production',
+  mode: 'development', // No minification to preserve comments
   entry: path.resolve(__dirname, 'src/echo-address.js'),
   output: {
     filename: 'echo-address.bundle.js',
@@ -11,7 +11,10 @@ module.exports = {
     globalObject: 'this'
   },
   target: 'web',
-  optimization: {
-    minimize: true
-  }
+  plugins: [
+    new (require('webpack')).BannerPlugin({
+      banner: '/*!\n * @rexxjs-meta=ECHO_ADDRESS_META\n */',
+      raw: true
+    })
+  ]
 };

@@ -59,7 +59,20 @@ async function executeQuotedString(command) {
           // Only set RESULT if the ADDRESS target explicitly provides output
           // Don't overwrite RESULT for operations like EXPECTATIONS that shouldn't affect it
           if (interpreter.address !== 'expectations') {
-            interpreter.variables.set('RESULT', result);
+            // Extract appropriate content for RESULT variable following REXX conventions
+            let resultValue = result;
+            if (result && typeof result === 'object') {
+              // Prefer output, then message, then echo, then the whole object
+              // Use !== undefined to handle empty strings correctly
+              if (result.output !== undefined) {
+                resultValue = result.output;
+              } else if (result.message !== undefined) {
+                resultValue = result.message;
+              } else if (result.echo !== undefined) {
+                resultValue = result.echo;
+              }
+            }
+            interpreter.variables.set('RESULT', resultValue);
           }
           if (!result.success && result.errorMessage) {
             interpreter.variables.set('ERRORTEXT', result.errorMessage);
@@ -149,7 +162,20 @@ async function executeHeredocString(command) {
           // Only set RESULT if the ADDRESS target explicitly provides output
           // Don't overwrite RESULT for operations like EXPECTATIONS that shouldn't affect it
           if (interpreter.address !== 'expectations') {
-            interpreter.variables.set('RESULT', result);
+            // Extract appropriate content for RESULT variable following REXX conventions
+            let resultValue = result;
+            if (result && typeof result === 'object') {
+              // Prefer output, then message, then echo, then the whole object
+              // Use !== undefined to handle empty strings correctly
+              if (result.output !== undefined) {
+                resultValue = result.output;
+              } else if (result.message !== undefined) {
+                resultValue = result.message;
+              } else if (result.echo !== undefined) {
+                resultValue = result.echo;
+              }
+            }
+            interpreter.variables.set('RESULT', resultValue);
           }
           if (!result.success && result.errorMessage) {
             interpreter.variables.set('ERRORTEXT', result.errorMessage);

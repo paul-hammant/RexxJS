@@ -77,6 +77,11 @@ function getLibraryType(libraryName, isBuiltinLibraryFn) {
     return 'builtin';
   }
   
+  // Check if it's a direct HTTPS URL
+  if (libraryName.startsWith('https://')) {
+    return 'https-url';
+  }
+  
   // Check if it's a local file path
   if (libraryName.startsWith('./') || libraryName.startsWith('../') || libraryName.startsWith('/')) {
     return 'local';
@@ -218,6 +223,11 @@ function resolveWebLibraryUrl(libraryName) {
     }
   }
   
+  // Handle direct HTTPS URLs - return as-is
+  if (libraryName.startsWith('https://')) {
+    return libraryName;
+  }
+  
   // Handle relative paths (../src/file.js or ./file.js) - return as-is
   if (libraryName.startsWith('../') || libraryName.startsWith('./') || libraryName.startsWith('/')) {
     return libraryName;
@@ -240,6 +250,14 @@ function resolveWebLibraryUrl(libraryName) {
  */
 function getLibrarySources(libraryName, isBuiltinLibraryFn) {
   const sources = [];
+  const libraryType = getLibraryType(libraryName, isBuiltinLibraryFn);
+  
+  // Handle direct HTTPS URLs - return as-is
+  if (libraryType === 'https-url') {
+    sources.push({ type: 'Direct HTTPS', url: libraryName });
+    return sources;
+  }
+  
   const tag = getLibraryTag(libraryName, isBuiltinLibraryFn);
   const libName = libraryName.split('/').pop().split('@')[0];
   

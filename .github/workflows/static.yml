@@ -57,7 +57,7 @@ jobs:
           # Replace the loader section for bundled version
           sed '/<!-- REXX_LOADER_SECTION_START -->/,/<!-- REXX_LOADER_SECTION_END -->/c\
           <!-- Bundled version - interpreter included directly -->\
-          <script src="repl.bundle.js"></script>' core/src/repl/index.html > _site/repl/index.html
+          <script src="rexxjs.bundle.js"></script>' core/src/repl/index.html > _site/repl/index.html
 
           # Copy unbundled version to /repl/unbundled/
           mkdir -p _site/repl/unbundled

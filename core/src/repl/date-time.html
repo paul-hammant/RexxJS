@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Date/Time Demo - Auto Document.Write</title>
+    
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .intro {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for date/time display -->
+    <script type="text/rexx" id="datetime-script">
+        /* Auto-executing REXX Date/Time Script */
+
+        /* Display current date */
+        LET currentDate = DATE()
+        SAY "Today's Date: " || currentDate
+
+        /* Display current time */
+        LET currentTime = TIME()
+        SAY "Current Time: " || currentTime
+
+        /* Display formatted date/time combinations */
+        LET dateTime = currentDate || " at " || currentTime
+        SAY "Full Date/Time: " || dateTime
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Date/Time Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> that displays date/time information using the document.write codepath.</p>
+        <p>No container element is provided, so the output handler will use old-school <code>document.write()</code> to inject styled output directly into the page flow.</p>
+    </div>
+    
+    <h2>REXX Output (via document.write, with optional styling):</h2>
+    <!-- Note: No rexx-output-container div here - this triggers document.write path -->
+
+    <script>
+        // Auto-execute - DOM is already loaded since script is at bottom of page
+        (async function() {
+            // Create styled output handler with null container to trigger document.write
+            const outputHandler = new DocumentWriteStyledOutputHandler(
+                false,         // No timestamps - we want clean output
+                'rexx-output', // CSS class
+                null          // trigger document.write!
+            );
+
+            // Create interpreter with the output handler
+            const interpreter = new RexxInterpreter(null, {
+                output: (text) => {
+                    outputHandler.output(text);
+                }
+            });
+
+            // Execute the REXX script directly by ID
+            await interpreter.runScriptInId('datetime-script');
+        })();
+    </script>
+    
+    <h2>Notes</h2>
+    <p>While you could use this technique, you'd be better using explicit dom interaction as document.write(..)
+        output could be non-visible if the moment of writing is outside of a visible element and the browser
+        decides it does not know what to do with it.
+    </p>
+    
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+    
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

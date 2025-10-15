@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS REPEAT_BACK_TO_ME Demo - ADDRESS AS Clause</title>
+    
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .intro {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for ADDRESS AS clause demonstration -->
+    <script type="text/rexx" id="repeat-back-script">
+        /* Auto-executing REXX ADDRESS AS Clause Script */
+
+        /* Load echo ADDRESS handler but rename it to REPEAT_BACK_TO_ME */
+        REQUIRE "https://raw.githubusercontent.com/RexxJS/dist/latest/addresses/echo-address.bundle.js" AS REPEAT_BACK_TO_ME
+
+        /* Now use the renamed ADDRESS target */
+        ADDRESS REPEAT_BACK_TO_ME
+        "Hello from my custom ADDRESS name"
+        
+        /* Exit on error, otherwise show result */
+        IF RC <> 0 THEN EXIT RC
+        SAY "Custom ADDRESS response: " || RESULT
+
+        /* Try another message */
+        ADDRESS REPEAT_BACK_TO_ME
+        "Testing the renamed echo functionality"
+        
+        IF RC <> 0 THEN EXIT RC
+        SAY "Second response: " || RESULT
+        
+        /* Demonstrate empty command */
+        ADDRESS REPEAT_BACK_TO_ME
+        ""
+        
+        IF RC <> 0 THEN EXIT RC
+        SAY "Empty command result: '" || RESULT || "'"
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS REPEAT_BACK_TO_ME Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating ADDRESS target renaming with AS clause.</p>
+        <p>Loads the echo ADDRESS handler from GitHub Pages but renames it to <code>REPEAT_BACK_TO_ME</code> for semantic clarity.</p>
+        <p>Shows how ADDRESS operations set standard REXX variables: <code>RC</code> (return code) and <code>RESULT</code> (response content).</p>
+    </div>
+    
+    <h2>REXX Output (via document.write, with styling):</h2>
+    <!-- Note: No rexx-output-container div here - this triggers document.write path -->
+
+    <script>
+        // Auto-execute - DOM is already loaded since script is at bottom of page
+        (async function() {
+            // Create styled output handler with null container to trigger document.write
+            const outputHandler = new DocumentWriteStyledOutputHandler(
+                false,         // No timestamps - we want clean output
+                'rexx-output', // CSS class
+                null          // trigger document.write!
+            );
+
+            // Create interpreter with the output handler
+            const interpreter = new RexxInterpreter(null, {
+                output: (text) => {
+                    outputHandler.output(text);
+                }
+            });
+
+            // Execute the REXX script directly by ID
+            await interpreter.runScriptInId('repeat-back-script');
+        })();
+    </script>
+    
+    <h2>About This Demo</h2>
+    <p>This page demonstrates loading an ADDRESS handler module from a direct GitHub Pages URL and using the AS clause to rename the ADDRESS target from <code>echo</code> to <code>REPEAT_BACK_TO_ME</code>. This showcases:</p>
+    <ul>
+        <li><strong>Direct URL module loading</strong> - Fetching RexxJS modules from GitHub Pages</li>
+        <li><strong>ADDRESS target renaming</strong> - Using AS clause to give semantic names to ADDRESS targets</li>
+        <li><strong>Standard REXX variables</strong> - How ADDRESS operations automatically set RC and RESULT</li>
+        <li><strong>Cross-environment compatibility</strong> - Same module works in both Node.js and web contexts</li>
+    </ul>
+    
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+    
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

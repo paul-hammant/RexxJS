@@ -1,0 +1,41 @@
+{
+  "name": "rexxjs-echo-address",
+  "version": "1.0.0",
+  "description": "Echo ADDRESS library for RexxJS - simple echo handler for testing",
+  "main": "src/echo-address.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "install:core": "cd ../../../core && npm install",
+    "pretest": "npm run install:core"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [
+    "rexxjs",
+    "echo",
+    "address",
+    "testing",
+    "handler"
+  ],
+  "author": "RexxJS Project",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/*.test.js",
+      "**/*.spec.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/"
+    ]
+  },
+  "rexxjs": {
+    "type": "address-handler",
+    "canonical": "org.rexxjs/echo-address",
+    "entry": "src/echo-address.js"
+  },
+  "type": "commonjs"
+}
