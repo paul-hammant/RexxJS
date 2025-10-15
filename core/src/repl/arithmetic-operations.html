@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Arithmetic Operations Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for arithmetic operations demonstration -->
+    <script type="text/rexx" id="arithmetic-script">
+        /* Auto-executing REXX Arithmetic Operations Demo */
+
+        SAY "=== REXX Arithmetic Operations Demo ==="
+        SAY ""
+
+        /* Basic arithmetic */
+        LET a = 10
+        LET b = 3
+        SAY "Basic Arithmetic:"
+        SAY "  a = " || a || ", b = " || b
+        SAY "  Addition: a + b = " || (a + b)
+        SAY "  Subtraction: a - b = " || (a - b)
+        SAY "  Multiplication: a * b = " || (a * b)
+        SAY "  Division: a / b = " || (a / b)
+        SAY "  Modulo (remainder): a % b = " || (a % b)
+        SAY "  Power: a ** 2 = " || (a ** 2)
+        SAY ""
+
+        /* Floating point arithmetic */
+        LET x = 3.14159
+        LET y = 2.71828
+        SAY "Floating Point Arithmetic:"
+        SAY "  x = " || x || ", y = " || y
+        SAY "  x + y = " || (x + y)
+        SAY "  x * y = " || (x * y)
+        SAY "  x / y = " || (x / y)
+        SAY ""
+
+        /* Integer arithmetic functions */
+        SAY "Integer Functions:"
+        SAY "  ABS(-42) = " || ABS(-42)
+        SAY "  ABS(42) = " || ABS(42)
+        SAY "  INT(3.7) = " || INT(3.7)
+        SAY "  INT(-3.7) = " || INT(-3.7)
+        SAY ""
+
+        /* Mathematical functions */
+        SAY "Mathematical Functions:"
+        SAY "  SQRT(16) = " || SQRT(16)
+        SAY "  SQRT(2) = " || SQRT(2)
+        SAY "  MAX(10, 5, 20, 3) = " || MAX(10, 5, 20, 3)
+        SAY "  MIN(10, 5, 20, 3) = " || MIN(10, 5, 20, 3)
+        SAY ""
+
+        /* Increment and decrement patterns */
+        LET counter = 5
+        SAY "Counter Operations:"
+        SAY "  Initial counter = " || counter
+        counter = counter + 1
+        SAY "  After increment: " || counter
+        counter = counter - 1
+        SAY "  After decrement: " || counter
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Arithmetic Operations Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating arithmetic operations and mathematical functions.</p>
+        <p>Covers basic arithmetic, floating-point operations, and built-in mathematical functions.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('arithmetic-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Arithmetic Operators</h2>
+    <ul>
+        <li><strong>+ (Addition)</strong> - Adds two numbers</li>
+        <li><strong>- (Subtraction)</strong> - Subtracts the second number from the first</li>
+        <li><strong>* (Multiplication)</strong> - Multiplies two numbers</li>
+        <li><strong>/ (Division)</strong> - Divides the first number by the second</li>
+        <li><strong>% (Modulo)</strong> - Returns the remainder of division</li>
+        <li><strong>** (Power/Exponentiation)</strong> - Raises the first number to the power of the second</li>
+    </ul>
+
+    <h2>Mathematical Functions</h2>
+    <ul>
+        <li><strong>ABS(number)</strong> - Returns the absolute value</li>
+        <li><strong>INT(number)</strong> - Returns the integer part of a number</li>
+        <li><strong>SQRT(number)</strong> - Returns the square root</li>
+        <li><strong>MAX(arg1, arg2, ...)</strong> - Returns the maximum value</li>
+        <li><strong>MIN(arg1, arg2, ...)</strong> - Returns the minimum value</li>
+    </ul>
+
+    <h2>Important Notes</h2>
+    <ul>
+        <li>REXX performs automatic type conversion between strings and numbers</li>
+        <li>Operator precedence follows standard mathematical rules (exponentiation, then multiplication/division, then addition/subtraction)</li>
+        <li>Use parentheses to explicitly control operation order</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Arrays and Lists Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for arrays and lists demonstration -->
+    <script type="text/rexx" id="arrays-script">
+        /* Auto-executing REXX Arrays and Lists Demo */
+
+        SAY "=== REXX Arrays and Lists Demo ==="
+        SAY ""
+
+        /* Simple array/stem initialization */
+        SAY "Stem Variable (Array) Examples:"
+        fruits.0 = 3
+        fruits.1 = "Apple"
+        fruits.2 = "Banana"
+        fruits.3 = "Cherry"
+
+        SAY "  Fruit count: " || fruits.0
+        DO i = 1 TO fruits.0
+            SAY "    " || i || ": " || fruits.i
+        END
+        SAY ""
+
+        /* Building a list */
+        SAY "Building a List:"
+        colors.1 = "Red"
+        colors.2 = "Green"
+        colors.3 = "Blue"
+        colors.4 = "Yellow"
+        colors.0 = 4
+
+        DO i = 1 TO colors.0
+            SAY "  Color " || i || ": " || colors.i
+        END
+        SAY ""
+
+        /* Accessing array elements */
+        SAY "Array Access:"
+        numbers.1 = 10
+        numbers.2 = 20
+        numbers.3 = 30
+        numbers.0 = 3
+
+        SAY "  First element: " || numbers.1
+        SAY "  Middle element: " || numbers.2
+        SAY "  Last element: " || numbers.3
+        SAY ""
+
+        /* Dynamic array building */
+        SAY "Dynamic Array Building:"
+        items.0 = 0
+        items.0 = items.0 + 1
+        items.1 = "First"
+        items.0 = items.0 + 1
+        items.2 = "Second"
+        items.0 = items.0 + 1
+        items.3 = "Third"
+
+        SAY "  Built array with " || items.0 || " items:"
+        DO i = 1 TO items.0
+            SAY "    " || i || ": " || items.i
+        END
+        SAY ""
+
+        /* Multi-dimensional stem arrays */
+        SAY "Multi-dimensional Array (Matrix):"
+        matrix.1.1 = "A"
+        matrix.1.2 = "B"
+        matrix.2.1 = "C"
+        matrix.2.2 = "D"
+
+        DO row = 1 TO 2
+            DO col = 1 TO 2
+                SAY "  [" || row || "," || col || "] = " || matrix.row.col
+            END
+        END
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Arrays and Lists Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating arrays and list structures using stem variables.</p>
+        <p>Shows how to create, populate, and iterate over arrays in REXX using the stem variable syntax.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('arrays-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Arrays and Stem Variables in REXX</h2>
+    <ul>
+        <li><strong>Stem variables</strong> - Variables with a dot notation for compound indexing (e.g., <code>array.1</code>)</li>
+        <li><strong>No array declaration</strong> - Arrays are created on-the-fly by assignment</li>
+        <li><strong>Dynamic sizing</strong> - Arrays can grow and shrink during execution</li>
+        <li><strong>Compound names</strong> - Can use multiple indices (e.g., <code>matrix.row.col</code>)</li>
+    </ul>
+
+    <h2>Common Patterns</h2>
+    <ul>
+        <li><strong>array.0</strong> - Often used to store the count of elements</li>
+        <li><strong>1-based indexing</strong> - REXX typically uses 1-based arrays (like classic BASIC and COBOL)</li>
+        <li><strong>Iterating with DO</strong> - Use <code>DO i = 1 TO array.0</code> to loop through elements</li>
+        <li><strong>Building arrays</strong> - Increment array.0, then assign values to array.i</li>
+    </ul>
+
+    <h2>Multi-dimensional Arrays</h2>
+    <ul>
+        <li>Use multiple indices for 2D, 3D, or higher dimensional arrays</li>
+        <li>Example: <code>matrix.row.col</code> for a 2D matrix</li>
+        <li>Example: <code>cube.x.y.z</code> for a 3D array</li>
+        <li>Useful for representing tables, matrices, and complex data structures</li>
+    </ul>
+
+    <h2>Use Cases</h2>
+    <ul>
+        <li>Storing collections of related values</li>
+        <li>Building lookup tables and dictionaries</li>
+        <li>Representing matrices and grids</li>
+        <li>Processing lists of data records</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

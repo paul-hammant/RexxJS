@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS String Parsing Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for string parsing demonstration -->
+    <script type="text/rexx" id="string-parsing-script">
+        /* Auto-executing REXX String Parsing Demo */
+
+        SAY "=== REXX String Parsing Demo ==="
+        SAY ""
+
+        /* PARSE with template */
+        LET data = "John Doe 35 Engineer"
+        SAY "PARSE with template:"
+        SAY "  Input: " || data
+        PARSE VAR data firstName lastName age profession
+        SAY "  firstName: " || firstName
+        SAY "  lastName: " || lastName
+        SAY "  age: " || age
+        SAY "  profession: " || profession
+        SAY ""
+
+        /* PARSE with WORD function */
+        LET sentence = "The quick brown fox jumps"
+        SAY "WORD function (extract word by position):"
+        SAY "  Input: " || sentence
+        SAY "  WORD 1: " || WORD(sentence, 1)
+        SAY "  WORD 3: " || WORD(sentence, 3)
+        SAY "  WORD 5: " || WORD(sentence, 5)
+        SAY "  WORDS in sentence: " || WORDS(sentence)
+        SAY ""
+
+        /* Splitting by delimiter */
+        LET csv = "apple,banana,cherry,date"
+        SAY "Manual splitting by comma:"
+        SAY "  Input: " || csv
+        LET item1 = WORD(TRANSLATE(csv, " ", ","), 1)
+        SAY "  Item 1: " || item1
+        LET converted = TRANSLATE(csv, " ", ",")
+        SAY "  All items: " || converted
+        SAY ""
+
+        /* ABBREV function for prefix matching */
+        LET command = "DELETE"
+        SAY "ABBREV function (prefix matching):"
+        SAY "  Command: " || command
+        SAY "  ABBREV('DELETE', 'DEL') = " || ABBREV(command, "DEL")
+        SAY "  ABBREV('DELETE', 'DXL') = " || ABBREV(command, "DXL")
+        SAY ""
+
+        /* POS function (alternative to INDEX) */
+        LET text = "Find the needle in the haystack"
+        SAY "Position finding:"
+        SAY "  Text: " || text
+        SAY "  POS('needle', text) = " || POS("needle", text)
+        SAY "  POS('x', text) = " || POS("x", text)
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS String Parsing Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating string parsing and extraction techniques.</p>
+        <p>Covers PARSE, WORD, WORDS, TRANSLATE, ABBREV, and position-finding functions.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('string-parsing-script');
+            })();
+        </script>
+    </div>
+
+    <h2>String Parsing Functions</h2>
+    <ul>
+        <li><strong>PARSE VAR</strong> - Splits a variable into components based on whitespace or explicit patterns</li>
+        <li><strong>WORD(string, n)</strong> - Extracts the nth word from a string (words separated by spaces)</li>
+        <li><strong>WORDS(string)</strong> - Returns the count of words in a string</li>
+        <li><strong>TRANSLATE(string, tochar, fromchar)</strong> - Replaces all occurrences of fromchar with tochar</li>
+        <li><strong>ABBREV(string, prefix [, length])</strong> - Tests if string starts with prefix</li>
+        <li><strong>POS(substring, string)</strong> - Returns position of substring (alternative to INDEX)</li>
+    </ul>
+
+    <h2>Parsing Patterns</h2>
+    <ul>
+        <li><strong>By whitespace</strong> - Default behavior of PARSE, splits on any whitespace</li>
+        <li><strong>By delimiter</strong> - Use TRANSLATE to convert delimiters to spaces, then PARSE</li>
+        <li><strong>By position</strong> - Use SUBSTR with calculated positions</li>
+        <li><strong>By pattern matching</strong> - Use INDEX/POS to find landmarks, then extract</li>
+    </ul>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+        <li>Processing CSV or delimited data files</li>
+        <li>Parsing command-line arguments</li>
+        <li>Extracting fields from structured text</li>
+        <li>Command abbreviation matching</li>
+        <li>Log file analysis</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Variables and Assignment Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for variables and assignment demonstration -->
+    <script type="text/rexx" id="variables-script">
+        /* Auto-executing REXX Variables and Assignment Demo */
+
+        SAY "=== REXX Variables and Assignment Demo ==="
+        SAY ""
+
+        /* Basic assignment */
+        SAY "Basic Assignment:"
+        LET name = "Alice"
+        LET age = 30
+        LET active = 1
+        SAY "  name = " || name
+        SAY "  age = " || age
+        SAY "  active = " || active
+        SAY ""
+
+        /* String concatenation */
+        SAY "String Concatenation:"
+        LET firstName = "John"
+        LET lastName = "Smith"
+        LET fullName = firstName || " " || lastName
+        SAY "  firstName = " || firstName
+        SAY "  lastName = " || lastName
+        SAY "  fullName = " || fullName
+        SAY ""
+
+        /* Type coercion (string to number and back) */
+        SAY "Type Coercion:"
+        LET numStr = "42"
+        LET result = numStr + 8
+        SAY "  numStr = '" || numStr || "' (treated as '" || numStr || "')"
+        SAY "  numStr + 8 = " || result || " (numeric operation)"
+        LET textResult = result || " items"
+        SAY "  result || ' items' = '" || textResult || "'"
+        SAY ""
+
+        /* Numeric strings */
+        SAY "Numeric String Comparison:"
+        LET val1 = "10"
+        LET val2 = "2"
+        SAY "  val1 = '" || val1 || "', val2 = '" || val2 || "'"
+        IF val1 > val2 THEN
+            SAY "  String comparison: '" || val1 || "' > '" || val2 || "' = TRUE"
+        SAY "  Numeric result: " || val1 || " > " || val2 || " = " || (val1 + 0 > val2 + 0)
+        SAY ""
+
+        /* Multi-word variables */
+        SAY "Variable Initialization:"
+        LET counter = 0
+        LET total = 0
+        LET message = ""
+        SAY "  counter = " || counter
+        SAY "  total = " || total
+        SAY "  message = '" || message || "'"
+        SAY ""
+
+        /* Updating variables */
+        SAY "Variable Updates:"
+        LET count = 5
+        SAY "  Initial count = " || count
+        count = count + 3
+        SAY "  After count = count + 3: " || count
+        LET status = "active"
+        SAY "  status = " || status
+        status = UPPER(status)
+        SAY "  After UPPER: " || status
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Variables and Assignment Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating variable declaration, assignment, and manipulation.</p>
+        <p>Covers basic assignment, string concatenation, type coercion, and variable updates.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('variables-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Variable Assignment in REXX</h2>
+    <ul>
+        <li><strong>LET variable = value</strong> - Explicit variable assignment</li>
+        <li><strong>variable = value</strong> - Also valid for assignment</li>
+        <li><strong>No type declarations</strong> - Variables are dynamically typed</li>
+        <li><strong>No pre-initialization required</strong> - Uninitialized variables have empty string value</li>
+    </ul>
+
+    <h2>Variable Naming Rules</h2>
+    <ul>
+        <li>Can contain letters, digits, and underscores</li>
+        <li>Must start with a letter or underscore</li>
+        <li>Case-insensitive (by default, though some REXX implementations allow case preservation)</li>
+        <li>No reserved word restrictions for variables</li>
+    </ul>
+
+    <h2>Type Coercion</h2>
+    <ul>
+        <li><strong>String to Number</strong> - Automatic conversion in arithmetic operations</li>
+        <li><strong>Number to String</strong> - Automatic conversion in concatenation</li>
+        <li><strong>Numeric strings</strong> - Strings that look like numbers are treated as numbers in operations</li>
+        <li><strong>Operators determine behavior</strong> - Arithmetic operators force numeric context, concatenation forces string context</li>
+    </ul>
+
+    <h2>Variable Scope</h2>
+    <ul>
+        <li>Variables are global by default within a REXX program</li>
+        <li>Procedures can have local variables (via PROCEDURE statement with EXPOSE)</li>
+        <li>Variables persist from assignment to END or EXIT</li>
+    </ul>
+
+    <h2>Common Initialization Patterns</h2>
+    <ul>
+        <li><code>counter = 0</code> - Initialize numeric counters</li>
+        <li><code>message = ""</code> - Initialize string variables</li>
+        <li><code>result = -1</code> - Use sentinel values for error conditions</li>
+        <li><code>flag = 0</code> - Use 0/1 for boolean-like values</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

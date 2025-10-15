@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS String Functions Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for string functions demonstration -->
+    <script type="text/rexx" id="string-functions-script">
+        /* Auto-executing REXX String Functions Demo */
+
+        SAY "=== REXX String Functions Demo ==="
+        SAY ""
+
+        /* LENGTH function */
+        LET text = "Hello, World!"
+        SAY "LENGTH example:"
+        SAY "  Original: " || text
+        SAY "  Length: " || LENGTH(text)
+        SAY ""
+
+        /* UPPER and LOWER functions */
+        SAY "UPPER and LOWER examples:"
+        SAY "  Original: " || text
+        SAY "  UPPER: " || UPPER(text)
+        SAY "  LOWER: " || LOWER(text)
+        SAY ""
+
+        /* SUBSTR function */
+        SAY "SUBSTR examples:"
+        SAY "  Original: " || text
+        SAY "  SUBSTR(8, 5): " || SUBSTR(text, 8, 5)
+        SAY "  SUBSTR(1, 5): " || SUBSTR(text, 1, 5)
+        SAY ""
+
+        /* INDEX function */
+        SAY "INDEX examples:"
+        SAY "  Original: " || text
+        SAY "  INDEX of 'World': " || INDEX(text, "World")
+        SAY "  INDEX of 'xyz': " || INDEX(text, "xyz")
+        SAY ""
+
+        /* STRIP function */
+        LET padded = "   spaces everywhere   "
+        SAY "STRIP examples:"
+        SAY "  Original: '" || padded || "'"
+        SAY "  STRIP: '" || STRIP(padded) || "'"
+        SAY ""
+
+        /* TRANSLATE function */
+        SAY "TRANSLATE examples:"
+        SAY "  Original: " || text
+        SAY "  Replace 'o' with '0': " || TRANSLATE(text, "0", "o")
+        SAY ""
+
+        /* REVERSE function */
+        SAY "REVERSE example:"
+        SAY "  Original: " || text
+        SAY "  REVERSE: " || REVERSE(text)
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS String Functions Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating common string manipulation functions.</p>
+        <p>Explores core string functions including LENGTH, UPPER, LOWER, SUBSTR, INDEX, STRIP, TRANSLATE, and REVERSE.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('string-functions-script');
+            })();
+        </script>
+    </div>
+
+    <h2>About String Functions</h2>
+    <p>REXX provides a comprehensive set of string manipulation functions:</p>
+    <ul>
+        <li><strong>LENGTH(string)</strong> - Returns the number of characters in a string</li>
+        <li><strong>UPPER(string)</strong> - Converts a string to uppercase</li>
+        <li><strong>LOWER(string)</strong> - Converts a string to lowercase</li>
+        <li><strong>SUBSTR(string, start [, length])</strong> - Extracts a substring</li>
+        <li><strong>INDEX(string, substring)</strong> - Finds the position of a substring</li>
+        <li><strong>STRIP(string [, option [, char]])</strong> - Removes leading/trailing characters</li>
+        <li><strong>TRANSLATE(string [, tochar [, fromchar]])</strong> - Translates characters</li>
+        <li><strong>REVERSE(string)</strong> - Reverses the order of characters</li>
+    </ul>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+        <li>Data validation and normalization</li>
+        <li>Text processing and parsing</li>
+        <li>String formatting and display</li>
+        <li>Message and log processing</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

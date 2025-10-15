@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Number Formatting Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for number formatting demonstration -->
+    <script type="text/rexx" id="number-formatting-script">
+        /* Auto-executing REXX Number Formatting Demo */
+
+        SAY "=== REXX Number Formatting Demo ==="
+        SAY ""
+
+        /* Basic number formatting */
+        SAY "Basic Number Output:"
+        LET num1 = 42
+        LET num2 = 3.14159
+        LET num3 = -123
+        SAY "  Integer: " || num1
+        SAY "  Float: " || num2
+        SAY "  Negative: " || num3
+        SAY ""
+
+        /* Padding with leading zeros */
+        SAY "Padding with Leading Zeros:"
+        LET id = 5
+        SAY "  Original ID: " || id
+        LET paddedID = RIGHT(id, 5, "0")
+        SAY "  Padded to 5 digits: " || paddedID
+        SAY "  Another example: " || RIGHT(123, 6, "0")
+        SAY ""
+
+        /* Padding with spaces */
+        SAY "Right-Alignment with Spaces:"
+        LET amount1 = 100
+        LET amount2 = 5
+        SAY "  Amount 1: " || RIGHT(amount1, 8)
+        SAY "  Amount 2: " || RIGHT(amount2, 8)
+        SAY ""
+
+        /* LEFT padding */
+        SAY "Left-Alignment with Padding:"
+        LET label1 = "Price"
+        LET label2 = "Qty"
+        SAY "  Label 1: " || LEFT(label1, 10) || "| value"
+        SAY "  Label 2: " || LEFT(label2, 10) || "| value"
+        SAY ""
+
+        /* Decimal places */
+        SAY "Decimal Precision:"
+        LET pi = 3.14159265
+        SAY "  Original: " || pi
+        LET rounded1 = INT(pi * 100) / 100
+        SAY "  2 decimal places: " || rounded1
+        LET rounded2 = INT(pi * 10) / 10
+        SAY "  1 decimal place: " || rounded2
+        SAY ""
+
+        /* Number to string conversion */
+        SAY "Number to String Conversion:"
+        LET value = 42
+        LET strValue = value || ""
+        SAY "  Number 42 as string: '" || strValue || "'"
+        SAY "  String length: " || LENGTH(strValue)
+        SAY ""
+
+        /* Currency formatting (manual) */
+        SAY "Currency Formatting (Manual):"
+        LET amount = 1234.56
+        SAY "  Raw amount: " || amount
+        LET formatted = "$" || amount
+        SAY "  With dollar sign: " || formatted
+        SAY ""
+
+        /* Scientific notation readability */
+        SAY "Large Numbers:"
+        LET large1 = 1000000
+        LET large2 = 1000
+        SAY "  One million: " || large1
+        SAY "  One thousand: " || large2
+        SAY ""
+
+        /* Number alignment for reports */
+        SAY "Report-style Alignment:"
+        SAY "  Item        Price    Qty   Total"
+        SAY "  " || LEFT("Apple", 10) || RIGHT(1.50, 8) || RIGHT(5, 5) || RIGHT(7.50, 8)
+        SAY "  " || LEFT("Orange", 10) || RIGHT(0.75, 8) || RIGHT(10, 5) || RIGHT(7.50, 8)
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Number Formatting Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating number formatting techniques.</p>
+        <p>Covers padding, alignment, decimal precision, and string formatting for numbers.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('number-formatting-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Key Formatting Functions</h2>
+    <ul>
+        <li><strong>RIGHT(string, length [, pad])</strong> - Right-align string in field of specified length</li>
+        <li><strong>LEFT(string, length [, pad])</strong> - Left-align string in field of specified length</li>
+        <li><strong>CENTER(string, length [, pad])</strong> - Center string in field of specified length</li>
+        <li><strong>INT(number)</strong> - Extract integer part (for rounding)</li>
+    </ul>
+
+    <h2>Number Formatting Techniques</h2>
+    <ul>
+        <li><strong>Leading zeros</strong> - Use RIGHT(num, width, "0") for zero-padding</li>
+        <li><strong>Right-alignment</strong> - Use RIGHT(num, width) for numeric columns (default pad is space)</li>
+        <li><strong>Decimal precision</strong> - Multiply, INT, and divide: INT(value * 100) / 100</li>
+        <li><strong>Currency symbols</strong> - Concatenate "$" or other symbols with formatted number</li>
+    </ul>
+
+    <h2>Common Patterns</h2>
+    <ul>
+        <li><strong>ID/Account numbers</strong> - <code>RIGHT(id, 6, "0")</code> for zero-padded IDs</li>
+        <li><strong>Report columns</strong> - Use RIGHT() for numeric columns, LEFT() for text</li>
+        <li><strong>Money amounts</strong> - Combine RIGHT() for alignment with currency symbols</li>
+        <li><strong>Phone numbers</strong> - <code>LEFT(area, 3) || "-" || MID(num, 1, 3) || "-" || RIGHT(num, 4)</code></li>
+    </ul>
+
+    <h2>Report Formatting Tips</h2>
+    <ul>
+        <li>Use RIGHT() to align numeric columns for easier reading</li>
+        <li>Use LEFT() to align text columns</li>
+        <li>Use CENTER() for titles and headers</li>
+        <li>Maintain consistent field widths for tabular data</li>
+        <li>Use zero-padding for codes and IDs that should have fixed length</li>
+    </ul>
+
+    <h2>Decimal and Precision Handling</h2>
+    <ul>
+        <li>REXX represents numbers with high precision internally</li>
+        <li>For display, limit decimal places: <code>INT(value * 100) / 100</code></li>
+        <li>Always round after financial calculations to avoid accumulation errors</li>
+        <li>Use INT() and arithmetic for precise control over decimal display</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Date and Time Functions Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for date and time functions demonstration -->
+    <script type="text/rexx" id="datetime-functions-script">
+        /* Auto-executing REXX Date and Time Functions Demo */
+
+        SAY "=== REXX Date and Time Functions Demo ==="
+        SAY ""
+
+        /* Current date and time */
+        SAY "Current Date and Time:"
+        SAY "  DATE(): " || DATE()
+        SAY "  TIME(): " || TIME()
+        SAY "  DATE('U'): " || DATE('U')
+        SAY ""
+
+        /* Date formats */
+        SAY "DATE() Formats:"
+        SAY "  DATE() [default]: " || DATE()
+        SAY "  DATE('S'): " || DATE('S')
+        SAY "  DATE('B'): " || DATE('B')
+        SAY "  DATE('D'): " || DATE('D')
+        SAY ""
+
+        /* Time formats */
+        SAY "TIME() Formats:"
+        SAY "  TIME() [default]: " || TIME()
+        SAY "  TIME('S'): " || TIME('S')
+        SAY "  TIME('L'): " || TIME('L')
+        SAY "  TIME('C'): " || TIME('C')
+        SAY ""
+
+        /* Elapsed time tracking */
+        SAY "Elapsed Time Example:"
+        LET start = TIME('S')
+        SAY "  Start time (seconds): " || start
+
+        /* Simulate some work */
+        LET sum = 0
+        DO i = 1 TO 100
+            sum = sum + i
+        END
+
+        LET elapsed = TIME('S') - start
+        SAY "  Elapsed time: " || elapsed || " seconds"
+        SAY "  Calculation result: " || sum
+        SAY ""
+
+        /* Days manipulation */
+        SAY "Day Operations:"
+        LET today = DATE('U')
+        SAY "  Today (unpadded): " || today
+
+        LET tomorrow = today + 1
+        SAY "  Tomorrow: " || tomorrow
+
+        LET dayOfWeek = DATE('w')
+        SAY "  Day of week (0-6): " || dayOfWeek
+        SAY ""
+
+        /* Time arithmetic */
+        SAY "Time Arithmetic:"
+        LET hour = SUBSTR(TIME(), 1, 2)
+        LET minute = SUBSTR(TIME(), 4, 2)
+        LET second = SUBSTR(TIME(), 7, 2)
+        SAY "  Current time components:"
+        SAY "    Hour: " || hour
+        SAY "    Minute: " || minute
+        SAY "    Second: " || second
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Date and Time Functions Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating date and time manipulation functions.</p>
+        <p>Covers DATE(), TIME() functions with various formats and time calculations.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('datetime-functions-script');
+            })();
+        </script>
+    </div>
+
+    <h2>DATE() Function</h2>
+    <ul>
+        <li><strong>DATE()</strong> - Returns date as "DD Mon YYYY" (e.g., "15 Oct 2025")</li>
+        <li><strong>DATE('S')</strong> - Returns date as "YYYYMMDD" (sortable format)</li>
+        <li><strong>DATE('B')</strong> - Returns date as days since 1/1/0001</li>
+        <li><strong>DATE('D')</strong> - Returns date as "DD/MM/YY"</li>
+        <li><strong>DATE('U')</strong> - Returns date as "DDMMYY" (or similar unpadded format)</li>
+        <li><strong>DATE('w')</strong> - Returns day of week (0=Sunday, 6=Saturday)</li>
+    </ul>
+
+    <h2>TIME() Function</h2>
+    <ul>
+        <li><strong>TIME()</strong> - Returns time as "HH:MM:SS" (default)</li>
+        <li><strong>TIME('S')</strong> - Returns seconds since midnight</li>
+        <li><strong>TIME('L')</strong> - Returns microseconds since midnight</li>
+        <li><strong>TIME('C')</strong> - Returns CPU time used (system-dependent)</li>
+        <li><strong>TIME('E')</strong> - Returns elapsed time since last TIME('E') call</li>
+    </ul>
+
+    <h2>Common Date/Time Operations</h2>
+    <ul>
+        <li><strong>Date arithmetic</strong> - Add/subtract days using the base date format</li>
+        <li><strong>Time calculations</strong> - Use TIME('S') to get seconds for duration tracking</li>
+        <li><strong>Component extraction</strong> - Use SUBSTR() to extract hours, minutes, seconds</li>
+        <li><strong>Elapsed time</strong> - Calculate TIME('S') at start and end to measure duration</li>
+    </ul>
+
+    <h2>Format Specifications</h2>
+    <ul>
+        <li><strong>'S' format</strong> - Best for sorting and comparisons (YYYYMMDD)</li>
+        <li><strong>'B' format</strong> - Useful for date arithmetic (base days)</li>
+        <li><strong>Default format</strong> - Human-readable format (DD Mon YYYY)</li>
+    </ul>
+
+    <h2>Use Cases</h2>
+    <ul>
+        <li>Timestamping log entries</li>
+        <li>Performance monitoring and benchmarking</li>
+        <li>Date calculations and validations</li>
+        <li>Scheduled task execution</li>
+        <li>Business rule processing (e.g., age calculations)</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

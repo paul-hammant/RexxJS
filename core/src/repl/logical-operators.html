@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Logical Operators Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for logical operators demonstration -->
+    <script type="text/rexx" id="logical-operators-script">
+        /* Auto-executing REXX Logical Operators Demo */
+
+        SAY "=== REXX Logical Operators Demo ==="
+        SAY ""
+
+        /* AND operator (&) */
+        SAY "AND Operator (&):"
+        LET age = 25
+        LET hasDL = 1
+        SAY "  age = " || age || ", hasDL = " || hasDL
+        IF age >= 18 & hasDL = 1 THEN
+            SAY "  Can drive: TRUE (both conditions met)"
+        SAY ""
+
+        /* OR operator (|) */
+        SAY "OR Operator (|):"
+        LET isWeekend = 0
+        LET isHoliday = 1
+        SAY "  isWeekend = " || isWeekend || ", isHoliday = " || isHoliday
+        IF isWeekend | isHoliday THEN
+            SAY "  No work today: TRUE (at least one condition met)"
+        SAY ""
+
+        /* NOT operator (\) */
+        SAY "NOT Operator (\):"
+        LET isActive = 1
+        SAY "  isActive = " || isActive
+        IF \ isActive THEN
+            SAY "  Is inactive: TRUE"
+        ELSE
+            SAY "  Is inactive: FALSE (isActive is " || isActive || ")"
+        SAY ""
+
+        /* Complex boolean expressions */
+        SAY "Complex Boolean Expressions:"
+        LET score = 75
+        LET attendance = 0.85
+        LET extraCredit = 1
+        SAY "  score = " || score || ", attendance = " || attendance || ", extraCredit = " || extraCredit
+        IF (score >= 70 | extraCredit) & attendance > 0.8 THEN
+            SAY "  Passes course: TRUE (score or extra credit, AND good attendance)"
+        SAY ""
+
+        /* Operator precedence */
+        SAY "Operator Precedence (AND before OR):"
+        LET a = 1
+        LET b = 0
+        LET c = 1
+        SAY "  a = " || a || ", b = " || b || ", c = " || c
+        IF a | b & c THEN
+            SAY "  a | b & c: TRUE (evaluated as: a | (b & c))"
+        ELSE
+            SAY "  a | b & c: FALSE"
+        SAY ""
+
+        /* De Morgan's Laws */
+        SAY "De Morgan's Laws:"
+        LET x = 1
+        LET y = 0
+        SAY "  x = " || x || ", y = " || y
+        IF \ (x & y) THEN
+            SAY "  NOT (x AND y): TRUE"
+        IF (\ x) | (\ y) THEN
+            SAY "  (NOT x) OR (NOT y): TRUE (De Morgan equivalent)"
+        SAY ""
+
+        /* Short-circuit evaluation */
+        SAY "Short-circuit Evaluation:"
+        LET value = 10
+        SAY "  value = " || value
+        IF value > 5 | (value / 0) THEN
+            SAY "  First part true, short-circuit prevents division by zero"
+        SAY ""
+
+        /* Truth table demonstration */
+        SAY "AND Truth Table:"
+        SAY "  1 & 1 = " || (1 & 1)
+        SAY "  1 & 0 = " || (1 & 0)
+        SAY "  0 & 1 = " || (0 & 1)
+        SAY "  0 & 0 = " || (0 & 0)
+        SAY ""
+
+        SAY "OR Truth Table:"
+        SAY "  1 | 1 = " || (1 | 1)
+        SAY "  1 | 0 = " || (1 | 0)
+        SAY "  0 | 1 = " || (0 | 1)
+        SAY "  0 | 0 = " || (0 | 0)
+        SAY ""
+
+        SAY "NOT Truth Table:"
+        SAY "  \ 1 = " || (\ 1)
+        SAY "  \ 0 = " || (\ 0)
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Logical Operators Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating logical operators and boolean logic.</p>
+        <p>Covers AND, OR, NOT operators, operator precedence, and truth tables.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('logical-operators-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Logical Operators</h2>
+    <ul>
+        <li><strong>& (AND)</strong> - Both conditions must be true</li>
+        <li><strong>| (OR)</strong> - At least one condition must be true</li>
+        <li><strong>\ (NOT)</strong> - Inverts the truth value (unary operator)</li>
+    </ul>
+
+    <h2>Truth Tables</h2>
+    <h3>AND (&) - Both must be true</h3>
+    <ul>
+        <li>1 & 1 = 1 (true AND true = true)</li>
+        <li>1 & 0 = 0 (true AND false = false)</li>
+        <li>0 & 1 = 0 (false AND true = false)</li>
+        <li>0 & 0 = 0 (false AND false = false)</li>
+    </ul>
+
+    <h3>OR (|) - At least one must be true</h3>
+    <ul>
+        <li>1 | 1 = 1 (true OR true = true)</li>
+        <li>1 | 0 = 1 (true OR false = true)</li>
+        <li>0 | 1 = 1 (false OR true = true)</li>
+        <li>0 | 0 = 0 (false OR false = false)</li>
+    </ul>
+
+    <h3>NOT (\) - Invert value</h3>
+    <ul>
+        <li>\ 1 = 0 (NOT true = false)</li>
+        <li>\ 0 = 1 (NOT false = true)</li>
+    </ul>
+
+    <h2>Operator Precedence</h2>
+    <ul>
+        <li>AND (&) has higher precedence than OR (|)</li>
+        <li>NOT (\) has higher precedence than both AND and OR</li>
+        <li>Use parentheses to make precedence explicit and clear</li>
+        <li>Example: <code>a | b & c</code> is evaluated as <code>a | (b & c)</code></li>
+    </ul>
+
+    <h2>De Morgan's Laws</h2>
+    <ul>
+        <li><strong>NOT (A AND B) = (NOT A) OR (NOT B)</strong></li>
+        <li><strong>NOT (A OR B) = (NOT A) AND (NOT B)</strong></li>
+        <li>These laws are useful for simplifying complex conditions</li>
+    </ul>
+
+    <h2>Short-Circuit Evaluation</h2>
+    <ul>
+        <li><strong>AND</strong> - If first condition is false, second is not evaluated</li>
+        <li><strong>OR</strong> - If first condition is true, second is not evaluated</li>
+        <li>Useful for preventing errors (e.g., checking divisor before division)</li>
+        <li>Can affect performance with expensive operations</li>
+    </ul>
+
+    <h2>Common Patterns</h2>
+    <ul>
+        <li><strong>Multiple conditions</strong> - <code>IF a & b & c THEN</code></li>
+        <li><strong>Either/or logic</strong> - <code>IF isWeekend | isHoliday THEN</code></li>
+        <li><strong>Negation</strong> - <code>IF \ condition THEN</code></li>
+        <li><strong>Default values</strong> - <code>IF value = "" | value = 0 THEN useDefault()</code></li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

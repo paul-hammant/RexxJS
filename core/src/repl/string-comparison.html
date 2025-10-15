@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS String Comparison Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for string comparison demonstration -->
+    <script type="text/rexx" id="string-comparison-script">
+        /* Auto-executing REXX String Comparison Demo */
+
+        SAY "=== REXX String Comparison Demo ==="
+        SAY ""
+
+        /* Basic equality */
+        SAY "Basic String Equality:"
+        LET str1 = "hello"
+        LET str2 = "hello"
+        LET str3 = "world"
+        SAY "  str1 = '" || str1 || "'"
+        SAY "  str2 = '" || str2 || "'"
+        SAY "  str3 = '" || str3 || "'"
+        IF str1 = str2 THEN
+            SAY "  str1 = str2: TRUE"
+        IF str1 <> str3 THEN
+            SAY "  str1 <> str3: TRUE"
+        SAY ""
+
+        /* Case sensitivity */
+        SAY "Case Sensitivity:"
+        LET lower = "abc"
+        LET upper = "ABC"
+        SAY "  lower = '" || lower || "'"
+        SAY "  upper = '" || upper || "'"
+        IF lower = upper THEN
+            SAY "  'abc' = 'ABC': TRUE (case-insensitive)"
+        ELSE
+            SAY "  'abc' <> 'ABC': TRUE (if case-sensitive)"
+        SAY ""
+
+        /* Numeric vs string comparison */
+        SAY "Numeric vs String Comparison:"
+        LET numStr1 = "10"
+        LET numStr2 = "2"
+        SAY "  numStr1 = '" || numStr1 || "', numStr2 = '" || numStr2 || "'"
+        IF numStr1 > numStr2 THEN
+            SAY "  String comparison: '10' > '2': TRUE (lexical)"
+        SAY "  Numeric comparison: 10 > 2: " || (numStr1 + 0 > numStr2 + 0)
+        SAY ""
+
+        /* Prefix and suffix matching */
+        SAY "Prefix Matching with ABBREV:"
+        LET command = "DELETE"
+        SAY "  command = '" || command || "'"
+        IF ABBREV(command, "DEL") THEN
+            SAY "  ABBREV('DELETE', 'DEL'): TRUE"
+        IF ABBREV(command, "DEX", 2) THEN
+            SAY "  ABBREV('DELETE', 'DE', 2): TRUE (minimum 2 chars)"
+        SAY ""
+
+        /* Substring position */
+        SAY "Substring Position Checking:"
+        LET text = "The quick brown fox"
+        LET search = "quick"
+        LET pos = INDEX(text, search)
+        SAY "  text = '" || text || "'"
+        SAY "  search = '" || search || "'"
+        IF pos > 0 THEN
+            SAY "  Found at position " || pos
+        ELSE
+            SAY "  Not found"
+        SAY ""
+
+        /* Whitespace comparison */
+        SAY "Whitespace Handling:"
+        LET padded = "  hello  "
+        LET unpadded = "hello"
+        SAY "  padded = '" || padded || "'"
+        SAY "  unpadded = '" || unpadded || "'"
+        IF padded = unpadded THEN
+            SAY "  Are they equal?: TRUE"
+        ELSE
+            SAY "  Are they equal?: FALSE"
+        SAY "  After STRIP: '" || STRIP(padded) || "' = '" || unpadded || "'"
+        SAY ""
+
+        /* Comparative operators */
+        SAY "Comparative Operators:"
+        LET a = "apple"
+        LET b = "banana"
+        LET c = "apple"
+        SAY "  a = '" || a || "', b = '" || b || "', c = '" || c || "'"
+        SAY "  a = c: " || (a = c)
+        SAY "  a < b: " || (a < b)
+        SAY "  b > a: " || (b > a)
+        SAY ""
+
+        /* Empty string checks */
+        SAY "Empty String Checks:"
+        LET empty = ""
+        LET notEmpty = "text"
+        SAY "  empty = '" || empty || "'"
+        SAY "  notEmpty = '" || notEmpty || "'"
+        IF empty = "" THEN
+            SAY "  empty is empty: TRUE"
+        IF notEmpty <> "" THEN
+            SAY "  notEmpty is not empty: TRUE"
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS String Comparison Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating string comparison techniques and operators.</p>
+        <p>Covers equality, case sensitivity, numeric vs string comparison, and various matching strategies.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('string-comparison-script');
+            })();
+        </script>
+    </div>
+
+    <h2>String Comparison Operators</h2>
+    <ul>
+        <li><strong>=</strong> - Equality (exact match)</li>
+        <li><strong><></strong> - Inequality (not equal)</li>
+        <li><strong><</strong> - Lexicographically less than</li>
+        <li><strong>></strong> - Lexicographically greater than</li>
+        <li><strong><=</strong> - Less than or equal</li>
+        <li><strong>>=</strong> - Greater than or equal</li>
+    </ul>
+
+    <h2>Comparison Functions</h2>
+    <ul>
+        <li><strong>ABBREV(string, prefix [, len])</strong> - Check if string starts with prefix (with optional minimum length)</li>
+        <li><strong>INDEX(string, substring)</strong> - Find position of substring (0 if not found)</li>
+        <li><strong>POS(substring, string)</strong> - Alternative to INDEX for finding substring position</li>
+        <li><strong>COMPARE(string1, string2)</strong> - Compare strings and return difference position (if available)</li>
+    </ul>
+
+    <h2>Important Considerations</h2>
+    <ul>
+        <li><strong>Case-insensitivity</strong> - Default behavior in many REXX implementations (may vary)</li>
+        <li><strong>Lexical vs numeric</strong> - Comparison context matters (alphabetic vs numeric sorting)</li>
+        <li><strong>Whitespace</strong> - Spaces are significant; use STRIP() to remove leading/trailing whitespace</li>
+        <li><strong>Type coercion</strong> - Numeric strings are compared as strings unless explicitly converted</li>
+    </ul>
+
+    <h2>Common Patterns</h2>
+    <ul>
+        <li><strong>Empty string check</strong> - <code>IF str = "" THEN</code></li>
+        <li><strong>Prefix matching</strong> - <code>IF ABBREV(cmd, "DEL") THEN</code></li>
+        <li><strong>Contains check</strong> - <code>IF INDEX(text, "search") > 0 THEN</code></li>
+        <li><strong>Case-insensitive match</strong> - <code>IF UPPER(str1) = UPPER(str2) THEN</code></li>
+    </ul>
+
+    <h2>Lexicographic Ordering</h2>
+    <ul>
+        <li>Comparisons follow ASCII/Unicode character ordering</li>
+        <li>Numbers sort before letters in ASCII ordering</li>
+        <li>Uppercase letters sort before lowercase in ASCII</li>
+        <li>Use UPPER() or LOWER() for case-insensitive ordering</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

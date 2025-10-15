@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Type Checking Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for type checking demonstration -->
+    <script type="text/rexx" id="type-checking-script">
+        /* Auto-executing REXX Type Checking Demo */
+
+        SAY "=== REXX Type Checking Demo ==="
+        SAY ""
+
+        /* SYMBOL function to check if variable is defined */
+        SAY "SYMBOL() - Check Variable Definition:"
+        LET defined = "I exist"
+        SAY "  SYMBOL('defined'): " || SYMBOL('defined')
+        SAY "  SYMBOL('undefined'): " || SYMBOL('undefined')
+        SAY ""
+
+        /* Checking for numeric strings */
+        SAY "Numeric String Detection:"
+        LET num1 = "123"
+        LET num2 = "45.67"
+        LET text = "hello"
+        LET mixed = "12abc"
+
+        /* Simple numeric check: add 0 doesn't change numerics */
+        LET check1 = num1 + 0
+        LET check2 = text + 0
+        SAY "  '123' + 0 = " || check1 || " (numeric)"
+        SAY "  'hello' + 0 = " || check2 || " (not numeric, becomes 0 or empty)"
+        SAY ""
+
+        /* Using DATATYPE function if available */
+        SAY "Data Type Checking:"
+        LET str = "test"
+        LET num = 42
+        LET float = 3.14
+        SAY "  'test' is: " || typeof(str)
+        SAY "  42 is: " || typeof(num)
+        SAY "  3.14 is: " || typeof(float)
+        SAY ""
+
+        /* Empty vs undefined checking */
+        SAY "Empty vs Undefined:"
+        LET empty = ""
+        SAY "  empty = '" || empty || "'"
+        IF empty = "" THEN
+            SAY "  Is empty string: TRUE"
+        IF LENGTH(empty) = 0 THEN
+            SAY "  Length is 0: TRUE"
+        SAY ""
+
+        /* Checking if string contains only digits */
+        SAY "String Content Analysis:"
+        LET allDigits = "12345"
+        LET allLetters = "abcde"
+        LET mixed2 = "a1b2c3"
+        SAY "  '" || allDigits || "' is all digits: " || isAllDigits(allDigits)
+        SAY "  '" || allLetters || "' is all letters: " || isAllLetters(allLetters)
+        SAY "  '" || mixed2 || "' is all digits: " || isAllDigits(mixed2)
+        SAY ""
+
+        /* String length implications */
+        SAY "String Length Properties:"
+        LET short = "hi"
+        LET medium = "hello"
+        LET long = "supercalifragilisticexpialidocious"
+        SAY "  '" || short || "' length: " || LENGTH(short)
+        SAY "  '" || medium || "' length: " || LENGTH(medium)
+        SAY "  '" || long || "' length: " || LENGTH(long)
+        SAY ""
+
+        /* Null/undefined value handling */
+        SAY "Handling Missing Values:"
+        IF SYMBOL('maybeUndefined') = 'VAR' THEN
+            SAY "  maybeUndefined is defined"
+        ELSE
+            SAY "  maybeUndefined is not defined"
+        SAY ""
+
+        /* Type consistency in operations */
+        SAY "Type Consistency:"
+        LET a = "10"
+        LET b = 5
+        LET result = a + b
+        SAY "  '10' (string) + 5 (numeric) = " || result || " (coerced to numeric)"
+        LET concat = a || b
+        SAY "  '10' (string) || 5 (numeric) = '" || concat || "' (coerced to string)"
+        SAY ""
+
+        EXIT
+
+        /* Helper functions */
+        typeof: PROCEDURE
+            ARG val
+            IF val = INT(val) & val <> val + 0.5 THEN
+                RETURN "integer"
+            IF val = "" THEN
+                RETURN "empty string"
+            IF val MATCHES "[0-9.]+" THEN
+                RETURN "numeric string"
+            RETURN "string"
+
+        isAllDigits: PROCEDURE
+            ARG str
+            IF str MATCHES "[0-9]+" THEN
+                RETURN 1
+            RETURN 0
+
+        isAllLetters: PROCEDURE
+            ARG str
+            IF str MATCHES "[A-Za-z]+" THEN
+                RETURN 1
+            RETURN 0
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Type Checking Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating type checking and variable analysis.</p>
+        <p>Shows how to detect numeric strings, check variable definitions, analyze content, and handle type coercion.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('type-checking-script');
+            })();
+        </script>
+    </div>
+
+    <h2>SYMBOL() Function</h2>
+    <ul>
+        <li><strong>SYMBOL(name)</strong> - Returns status of a variable</li>
+        <li><strong>'VAR'</strong> - Variable is defined</li>
+        <li><strong>'LIT'</strong> - Variable is not defined (literal)</li>
+        <li><strong>'BAD'</strong> - Invalid variable name</li>
+        <li>Useful for optional parameter checking</li>
+    </ul>
+
+    <h2>Type Coercion in REXX</h2>
+    <ul>
+        <li><strong>Automatic conversion</strong> - REXX converts between strings and numbers as needed</li>
+        <li><strong>Arithmetic context</strong> - Strings are converted to numbers for operations like +, -, *, /</li>
+        <li><strong>String context</strong> - Numbers are converted to strings for || concatenation</li>
+        <li><strong>Numeric strings</strong> - Strings that contain only digits (and optional decimal point/sign)</li>
+    </ul>
+
+    <h2>Numeric String Detection</h2>
+    <ul>
+        <li>Add 0 to a value: numeric strings stay unchanged, non-numeric become 0</li>
+        <li>Use MATCHES "[0-9]+" to test if all digits</li>
+        <li>Use MATCHES "[0-9.]+" for decimal numbers</li>
+        <li>Check with INT(): INT(val) = val indicates integer</li>
+    </ul>
+
+    <h2>Variable Definition Checking</h2>
+    <ul>
+        <li><strong>IF SYMBOL('varName') = 'VAR' THEN</strong> - Variable is defined</li>
+        <li><strong>IF SYMBOL('varName') = 'LIT' THEN</strong> - Variable is not defined</li>
+        <li>Useful for procedures with optional parameters</li>
+        <li>Prevents errors from using undefined variables</li>
+    </ul>
+
+    <h2>String Content Analysis</h2>
+    <ul>
+        <li><strong>All digits:</strong> Use MATCHES "[0-9]+"</li>
+        <li><strong>All letters:</strong> Use MATCHES "[A-Za-z]+"</li>
+        <li><strong>Alphanumeric:</strong> Use MATCHES "[A-Za-z0-9]+"</li>
+        <li><strong>Empty check:</strong> <code>IF str = "" THEN</code></li>
+        <li><strong>Whitespace only:</strong> <code>IF STRIP(str) = "" THEN</code></li>
+    </ul>
+
+    <h2>Safe Numeric Operations</h2>
+    <ul>
+        <li><strong>Check before division:</strong> <code>IF denominator <> 0 THEN result = value / denominator</code></li>
+        <li><strong>Verify numeric input:</strong> <code>IF input MATCHES "[0-9]+" THEN use it</code></li>
+        <li><strong>Provide defaults:</strong> <code>value = value | 0</code> for missing numbers</li>
+    </ul>
+
+    <h2>Common Type Checking Patterns</h2>
+    <ul>
+        <li><strong>Optional parameter:</strong> <code>IF SYMBOL('param') = 'VAR' THEN process(param)</code></li>
+        <li><strong>Numeric validation:</strong> <code>IF value MATCHES "[0-9]+" THEN useAsNumber(value)</code></li>
+        <li><strong>Empty string safe:</strong> <code>IF str <> "" THEN process(str)</code></li>
+        <li><strong>Type-safe operation:</strong> <code>IF isNumeric(val) THEN result = val * 2</code></li>
+    </ul>
+
+    <h2>Type System Philosophy</h2>
+    <ul>
+        <li>REXX is dynamically typed - variables can hold any type</li>
+        <li>Type checking is implicit through operator context</li>
+        <li>Explicit type checking is often needed for robustness</li>
+        <li>Better to validate early than handle errors later</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

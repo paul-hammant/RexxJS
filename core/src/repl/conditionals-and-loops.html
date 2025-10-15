@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Conditionals and Loops Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for conditionals and loops demonstration -->
+    <script type="text/rexx" id="conditionals-loops-script">
+        /* Auto-executing REXX Conditionals and Loops Demo */
+
+        SAY "=== REXX Conditionals and Loops Demo ==="
+        SAY ""
+
+        /* IF-THEN-ELSE */
+        SAY "IF-THEN-ELSE Examples:"
+        LET score = 85
+        IF score >= 90 THEN
+            SAY "  Grade: A"
+        ELSE IF score >= 80 THEN
+            SAY "  Grade: B"
+        ELSE IF score >= 70 THEN
+            SAY "  Grade: C"
+        ELSE
+            SAY "  Grade: F"
+        SAY ""
+
+        /* DO loop with counter */
+        SAY "DO Loop (counter):"
+        DO i = 1 TO 5
+            SAY "  Iteration " || i
+        END
+        SAY ""
+
+        /* DO WHILE loop */
+        SAY "DO WHILE Loop:"
+        LET count = 1
+        DO WHILE count <= 3
+            SAY "  Count = " || count
+            count = count + 1
+        END
+        SAY ""
+
+        /* DO UNTIL loop */
+        SAY "DO UNTIL Loop:"
+        LET x = 0
+        DO UNTIL x >= 3
+            SAY "  x = " || x
+            x = x + 1
+        END
+        SAY ""
+
+        /* SELECT-WHEN-OTHERWISE */
+        SAY "SELECT-WHEN-OTHERWISE:"
+        LET day = 3
+        SELECT
+            WHEN day = 1 THEN SAY "  Monday"
+            WHEN day = 2 THEN SAY "  Tuesday"
+            WHEN day = 3 THEN SAY "  Wednesday"
+            WHEN day = 4 THEN SAY "  Thursday"
+            WHEN day = 5 THEN SAY "  Friday"
+            OTHERWISE SAY "  Weekend"
+        END
+        SAY ""
+
+        /* Nested loops */
+        SAY "Nested Loops (multiplication table):"
+        DO row = 1 TO 3
+            DO col = 1 TO 3
+                SAY "  " || row || " * " || col || " = " || (row * col)
+            END
+        END
+        SAY ""
+
+        /* LEAVE to exit loop early */
+        SAY "LEAVE (exit loop early):"
+        DO i = 1 TO 10
+            IF i = 4 THEN LEAVE
+            SAY "  i = " || i
+        END
+        SAY "  Loop exited when i = 4"
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Conditionals and Loops Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating control flow constructs.</p>
+        <p>Covers IF-THEN-ELSE, DO loops, SELECT-WHEN-OTHERWISE, and loop control statements.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('conditionals-loops-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Conditional Statements</h2>
+    <ul>
+        <li><strong>IF-THEN-ELSE</strong> - Executes one block if condition is true, another if false</li>
+        <li><strong>SELECT-WHEN-OTHERWISE</strong> - Multi-way branching based on multiple conditions</li>
+        <li><strong>Comparison operators</strong> - =, <>, <, >, <=, >= for conditions</li>
+        <li><strong>Logical operators</strong> - &, |, \ for combining conditions</li>
+    </ul>
+
+    <h2>Loop Structures</h2>
+    <ul>
+        <li><strong>DO i = start TO end</strong> - Counted loop (most common)</li>
+        <li><strong>DO i = start TO end BY step</strong> - Counted loop with custom step</li>
+        <li><strong>DO WHILE condition</strong> - Loop while condition is true</li>
+        <li><strong>DO UNTIL condition</strong> - Loop until condition becomes true</li>
+        <li><strong>DO forever</strong> - Infinite loop (exit with LEAVE or EXIT)</li>
+    </ul>
+
+    <h2>Loop Control Statements</h2>
+    <ul>
+        <li><strong>LEAVE</strong> - Exit the current loop immediately</li>
+        <li><strong>ITERATE</strong> - Skip to the next iteration of the loop</li>
+        <li><strong>EXIT</strong> - Exit the entire program</li>
+    </ul>
+
+    <h2>Nested Control Structures</h2>
+    <ul>
+        <li>Loops can be nested within other loops</li>
+        <li>Conditionals can be nested within loops and vice versa</li>
+        <li>Each level must have proper indentation for clarity</li>
+        <li>LEAVE and ITERATE operate on the innermost enclosing loop</li>
+    </ul>
+
+    <h2>Comparison Operators</h2>
+    <ul>
+        <li><strong>=</strong> - Equal</li>
+        <li><strong><></strong> - Not equal</li>
+        <li><strong><</strong> - Less than</li>
+        <li><strong>></strong> - Greater than</li>
+        <li><strong><=</strong> - Less than or equal</li>
+        <li><strong>>=</strong> - Greater than or equal</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

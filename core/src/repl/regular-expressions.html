@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Regular Expressions Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for regular expressions demonstration -->
+    <script type="text/rexx" id="regex-script">
+        /* Auto-executing REXX Regular Expressions Demo */
+
+        SAY "=== REXX Regular Expressions Demo ==="
+        SAY ""
+
+        /* Simple pattern matching with MATCH */
+        SAY "Simple Pattern Matching:"
+        LET text = "Hello123World"
+        SAY "  Text: " || text
+        IF text MATCHES "[A-Za-z0-9]+" THEN
+            SAY "  Contains alphanumeric: TRUE"
+        SAY ""
+
+        /* Email-like pattern */
+        SAY "Email Pattern Matching:"
+        LET email = "user@example.com"
+        SAY "  Email: " || email
+        IF email MATCHES "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+" THEN
+            SAY "  Matches email pattern: TRUE"
+        SAY ""
+
+        /* Digit matching */
+        SAY "Digit Matching:"
+        LET phone = "555-123-4567"
+        SAY "  Phone: " || phone
+        IF phone MATCHES "[0-9]{3}-[0-9]{3}-[0-9]{4}" THEN
+            SAY "  Matches phone pattern: TRUE"
+        SAY ""
+
+        /* Case-insensitive matching */
+        SAY "Case Variations:"
+        LET var1 = "HELLO"
+        LET var2 = "hello"
+        LET var3 = "Hello"
+        SAY "  var1: " || var1
+        SAY "  var2: " || var2
+        SAY "  var3: " || var3
+        IF UPPER(var1) = UPPER(var2) THEN
+            SAY "  UPPER normalized comparison: TRUE"
+        SAY ""
+
+        /* Finding patterns within text */
+        SAY "Finding Patterns in Text:"
+        LET sentence = "The year is 2025 and the time is 14:30"
+        SAY "  Text: " || sentence
+        LET yearPos = INDEX(sentence, "2025")
+        IF yearPos > 0 THEN
+            SAY "  Found year at position: " || yearPos
+        SAY ""
+
+        /* Multiple pattern matching */
+        SAY "Multiple Pattern Matching:"
+        LET test1 = "test123"
+        LET test2 = "abc"
+        LET test3 = "123xyz"
+        SAY "  test1 '" || test1 || "' starts with letter: " || (SUBSTR(test1, 1, 1) MATCHES "[A-Za-z]")
+        SAY "  test2 '" || test2 || "' all letters: " || (test2 MATCHES "[A-Za-z]+")
+        SAY "  test3 '" || test3 || "' starts with digit: " || (SUBSTR(test3, 1, 1) MATCHES "[0-9]")
+        SAY ""
+
+        /* Character class examples */
+        SAY "Character Classes:"
+        LET alpha = "abc"
+        LET numeric = "123"
+        LET mixed = "a1b2c3"
+        SAY "  '" || alpha || "' is all alphabetic: " || (alpha MATCHES "[a-z]+")
+        SAY "  '" || numeric || "' is all numeric: " || (numeric MATCHES "[0-9]+")
+        SAY "  '" || mixed || "' is alphanumeric: " || (mixed MATCHES "[a-z0-9]+")
+        SAY ""
+
+        /* URL-like pattern */
+        SAY "URL Pattern:"
+        LET url = "https://example.com/path"
+        SAY "  URL: " || url
+        IF url MATCHES "https?://.*" THEN
+            SAY "  Is web URL: TRUE"
+        SAY ""
+
+        /* Practical validation examples */
+        SAY "Validation Examples:"
+        LET zipcode = "12345"
+        LET badZip = "ABCDE"
+        SAY "  Zipcode '" || zipcode || "' valid: " || (zipcode MATCHES "[0-9]{5}")
+        SAY "  Zipcode '" || badZip || "' valid: " || (badZip MATCHES "[0-9]{5}")
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Regular Expressions Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating regular expression pattern matching.</p>
+        <p>Covers basic patterns, character classes, validation, and practical use cases.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('regex-script');
+            })();
+        </script>
+    </div>
+
+    <h2>MATCHES Operator</h2>
+    <ul>
+        <li><strong>string MATCHES pattern</strong> - Returns 1 (true) if string matches pattern, 0 (false) otherwise</li>
+        <li><strong>Not case-sensitive by default</strong> - Use UPPER() or LOWER() for consistent case handling</li>
+        <li><strong>Entire string must match</strong> - Pattern anchors implied (^ and $)</li>
+    </ul>
+
+    <h2>Common Pattern Elements</h2>
+    <ul>
+        <li><strong>[A-Z]</strong> - Single uppercase letter</li>
+        <li><strong>[a-z]</strong> - Single lowercase letter</li>
+        <li><strong>[0-9]</strong> - Single digit</li>
+        <li><strong>[A-Za-z0-9]</strong> - Letter or digit</li>
+        <li><strong>.</strong> - Any character (literal dot: \\.)</li>
+        <li><strong>*</strong> - Zero or more of preceding element</li>
+        <li><strong>+</strong> - One or more of preceding element</li>
+        <li><strong>?</strong> - Zero or one of preceding element</li>
+        <li><strong>{n}</strong> - Exactly n occurrences</li>
+        <li><strong>{n,m}</strong> - Between n and m occurrences</li>
+    </ul>
+
+    <h2>Common Patterns</h2>
+    <ul>
+        <li><strong>Digits only:</strong> <code>[0-9]+</code></li>
+        <li><strong>Letters only:</strong> <code>[A-Za-z]+</code></li>
+        <li><strong>Alphanumeric:</strong> <code>[A-Za-z0-9]+</code></li>
+        <li><strong>Email (simple):</strong> <code>[A-Za-z0-9]+@[A-Za-z0-9.]+</code></li>
+        <li><strong>Phone (US):</strong> <code>[0-9]{3}-[0-9]{3}-[0-9]{4}</code></li>
+        <li><strong>Zipcode (US):</strong> <code>[0-9]{5}(-[0-9]{4})?</code></li>
+        <li><strong>URL (basic):</strong> <code>https?://.*</code></li>
+    </ul>
+
+    <h2>Validation Techniques</h2>
+    <ul>
+        <li><strong>Type validation</strong> - Check if string contains only letters, digits, etc.</li>
+        <li><strong>Format validation</strong> - Check if string follows a known format (phone, email)</li>
+        <li><strong>Length validation</strong> - Use LENGTH() to check field size</li>
+        <li><strong>Range validation</strong> - Use arithmetic comparisons on numeric strings</li>
+    </ul>
+
+    <h2>Character Class Shortcuts</h2>
+    <ul>
+        <li><strong>[!A-Z]</strong> - NOT uppercase (negated class)</li>
+        <li><strong>.</strong> - Any character except newline</li>
+        <li><strong>\s</strong> - Whitespace (if supported)</li>
+        <li><strong>\d</strong> - Digit (if supported, else use [0-9])</li>
+        <li><strong>\w</strong> - Word character (if supported)</li>
+    </ul>
+
+    <h2>Practical Use Cases</h2>
+    <ul>
+        <li>Form validation (emails, phone numbers, zipcodes)</li>
+        <li>Log file parsing and filtering</li>
+        <li>Data cleaning and normalization</li>
+        <li>Finding specific patterns in text</li>
+        <li>Input sanitization</li>
+    </ul>
+
+    <h2>Case-Insensitive Matching</h2>
+    <ul>
+        <li>Use <code>UPPER(str) MATCHES pattern</code> or <code>LOWER(str) MATCHES pattern</code></li>
+        <li>Normalize both strings to same case for reliable comparison</li>
+        <li>Example: <code>IF UPPER(input) MATCHES "[A-Z0-9]+" THEN</code></li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

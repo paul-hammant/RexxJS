@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Advanced String Manipulation Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for advanced string manipulation demonstration -->
+    <script type="text/rexx" id="advanced-string-script">
+        /* Auto-executing REXX Advanced String Manipulation Demo */
+
+        SAY "=== REXX Advanced String Manipulation Demo ==="
+        SAY ""
+
+        /* STRING concatenation patterns */
+        SAY "Advanced Concatenation:"
+        LET firstName = "John"
+        LET lastName = "Doe"
+        LET age = 30
+        LET combined = firstName || " " || lastName || " (age: " || age || ")"
+        SAY "  " || combined
+        SAY ""
+
+        /* Building strings incrementally */
+        SAY "Building Strings Incrementally:"
+        LET message = ""
+        message = message || "Start"
+        message = message || " - "
+        message = message || "Middle"
+        message = message || " - "
+        message = message || "End"
+        SAY "  " || message
+        SAY ""
+
+        /* Substring extraction and replacement */
+        SAY "Advanced SUBSTR Operations:"
+        LET original = "ABCDEFGHIJ"
+        SAY "  Original: " || original
+        SAY "  SUBSTR(4, 3): " || SUBSTR(original, 4, 3)
+        SAY "  First 5: " || SUBSTR(original, 1, 5)
+        SAY "  Last 3: " || SUBSTR(original, LENGTH(original) - 2)
+        SAY ""
+
+        /* Finding and replacing patterns */
+        SAY "Pattern Finding and Extraction:"
+        LET sentence = "The quick brown fox jumps over the lazy dog"
+        SAY "  Sentence: " || sentence
+        LET pos = INDEX(sentence, "fox")
+        IF pos > 0 THEN DO
+            SAY "  'fox' found at position: " || pos
+            SAY "  Characters before: " || SUBSTR(sentence, 1, pos - 1)
+            SAY "  Characters after: " || SUBSTR(sentence, pos + 3)
+        END
+        SAY ""
+
+        /* Case conversion and mixing */
+        SAY "Case Manipulation:"
+        LET original2 = "Hello World"
+        SAY "  Original: " || original2
+        SAY "  UPPER: " || UPPER(original2)
+        SAY "  LOWER: " || LOWER(original2)
+        SAY "  First letter upper, rest lower: " || UPPER(SUBSTR(original2, 1, 1)) || LOWER(SUBSTR(original2, 2))
+        SAY ""
+
+        /* Multi-character translation */
+        SAY "Advanced TRANSLATE:"
+        LET text = "Hello123World"
+        SAY "  Original: " || text
+        SAY "  Replace 'e' with '3': " || TRANSLATE(text, "3", "e")
+        SAY "  Replace vowels with '*': " || TRANSLATE(text, "*****", "aeiouAEIOU")
+        SAY ""
+
+        /* Word extraction and manipulation */
+        SAY "Word-by-Word Processing:"
+        LET phrase = "This is a test of the system"
+        SAY "  Phrase: " || phrase
+        SAY "  Word count: " || WORDS(phrase)
+        SAY "  First word: " || WORD(phrase, 1)
+        SAY "  Middle word: " || WORD(phrase, INT(WORDS(phrase) / 2))
+        SAY "  Last word: " || WORD(phrase, WORDS(phrase))
+        SAY ""
+
+        /* String centering for display */
+        SAY "Formatting for Display:"
+        LET title = "REPORT TITLE"
+        LET width = 40
+        LET padding = INT((width - LENGTH(title)) / 2)
+        SAY "  " || COPIES(" ", padding) || title
+        SAY ""
+
+        /* Removing duplicates (manual) */
+        SAY "Character Frequency Analysis:"
+        LET word = "banana"
+        SAY "  Word: " || word
+        SAY "  Length: " || LENGTH(word)
+        SAY "  Unique chars in 'banana': " || TRANSLATE(word, "", "n") || " (with n's removed)"
+        SAY ""
+
+        /* Building formatted lists */
+        SAY "Building Formatted Output:"
+        items.1 = "Apple"
+        items.2 = "Banana"
+        items.3 = "Cherry"
+        items.0 = 3
+        LET list = ""
+        DO i = 1 TO items.0
+            IF i > 1 THEN list = list || ", "
+            list = list || items.i
+        END
+        SAY "  Fruit list: " || list
+        SAY ""
+
+        /* Reverse string operation */
+        SAY "String Reversal:"
+        LET forward = "RexxJS"
+        LET backward = REVERSE(forward)
+        SAY "  Forward: " || forward
+        SAY "  Backward: " || backward
+        SAY ""
+
+        /* Padding and alignment combinations */
+        SAY "Complex Alignment:"
+        DO i = 1 TO 3
+            LET label = "Item " || i
+            LET value = i * 100
+            SAY "  " || LEFT(label, 15) || RIGHT(value, 8)
+        END
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Advanced String Manipulation Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating advanced string manipulation techniques.</p>
+        <p>Covers incremental building, pattern extraction, case manipulation, word processing, and formatting.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('advanced-string-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Advanced String Functions</h2>
+    <ul>
+        <li><strong>REVERSE(string)</strong> - Reverse all characters in a string</li>
+        <li><strong>COPIES(string, count)</strong> - Repeat string n times</li>
+        <li><strong>TRANSLATE(string, tochar, fromchar)</strong> - Multi-character replacement</li>
+        <li><strong>CENTRE/CENTER(string, width [, pad])</strong> - Center a string in a field</li>
+    </ul>
+
+    <h2>Incremental String Building</h2>
+    <ul>
+        <li><strong>Pattern:</strong> <code>str = str || "more text"</code></li>
+        <li><strong>Use for dynamic output</strong> - Especially in loops</li>
+        <li><strong>Concatenation is efficient</strong> - REXX optimizes repeated concatenation</li>
+        <li><strong>Better than COPIES</strong> - For building custom strings</li>
+    </ul>
+
+    <h2>Pattern Finding and Extraction</h2>
+    <ul>
+        <li><strong>INDEX(string, substring)</strong> - Find position of substring</li>
+        <li><strong>SUBSTR with position</strong> - Extract text after found pattern</li>
+        <li><strong>Combined approach:</strong> <code>pos = INDEX(str, pat); before = SUBSTR(str, 1, pos-1)</code></li>
+    </ul>
+
+    <h2>Case and Character Manipulation</h2>
+    <ul>
+        <li><strong>UPPER(string)</strong> - Convert to uppercase</li>
+        <li><strong>LOWER(string)</strong> - Convert to lowercase</li>
+        <li><strong>Mixed case:</strong> <code>UPPER(LEFT(str, 1)) || LOWER(RIGHT(str, LENGTH(str)-1))</code></li>
+        <li><strong>TRANSLATE for bulk replacement</strong> - Multiple character swaps</li>
+    </ul>
+
+    <h2>Word Processing</h2>
+    <ul>
+        <li><strong>WORDS(string)</strong> - Count words (space-separated)</li>
+        <li><strong>WORD(string, n)</strong> - Extract nth word</li>
+        <li><strong>Loop through words:</strong> <code>DO i = 1 TO WORDS(str); w = WORD(str, i)</code></li>
+        <li><strong>Build word list:</strong> Loop through words, concatenate with delimiters</li>
+    </ul>
+
+    <h2>Formatting Techniques</h2>
+    <ul>
+        <li><strong>LEFT(string, width)</strong> - Left-align in field</li>
+        <li><strong>RIGHT(string, width)</strong> - Right-align in field</li>
+        <li><strong>CENTER(string, width)</strong> - Center in field</li>
+        <li><strong>Report layout:</strong> Combine formatting functions for columns</li>
+    </ul>
+
+    <h2>String Reversal and Repetition</h2>
+    <ul>
+        <li><strong>REVERSE(string)</strong> - Mirror characters</li>
+        <li><strong>COPIES(string, count)</strong> - Repeat string n times</li>
+        <li><strong>Useful for:</strong> Creating separators, formatting, palindrome detection</li>
+    </ul>
+
+    <h2>Common Advanced Patterns</h2>
+    <ul>
+        <li><strong>CSV building:</strong> <code>DO i=1 TO n; line = line || "," || items.i</code></li>
+        <li><strong>Numbered lists:</strong> <code>DO i=1 TO count; list = list || i || ". " || items.i || COPIES(" ", pad)</code></li>
+        <li><strong>Tabular output:</strong> <code>SAY LEFT(col1, 20) || RIGHT(col2, 10)</code></li>
+        <li><strong>Dynamic templates:</strong> Build format strings with COPIES and concatenation</li>
+    </ul>
+
+    <h2>Performance Considerations</h2>
+    <ul>
+        <li>Concatenation with || is efficient in modern REXX</li>
+        <li>For very large strings, consider string building strategies</li>
+        <li>Use TRANSLATE for bulk replacements instead of loops</li>
+        <li>Cache computed values (like WORDS count) to avoid repeated calculations</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>

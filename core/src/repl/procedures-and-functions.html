@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Procedures and Functions Demo</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.css" rel="stylesheet" />
+
+    <!-- Shared demo CSS -->
+    <link rel="stylesheet" href="demo-common.css">
+
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/rexxjs.bundle.js"></script>
+
+    <!-- Load the document write styled output handler -->
+    <script src="../output/document-write-styled-output-handler.js"></script>
+
+    <!-- REXX Script for procedures and functions demonstration -->
+    <script type="text/rexx" id="procedures-functions-script">
+        /* Auto-executing REXX Procedures and Functions Demo */
+
+        SAY "=== REXX Procedures and Functions Demo ==="
+        SAY ""
+
+        /* Simple procedure call */
+        SAY "Simple Procedure:"
+        CALL sayHello
+        SAY ""
+
+        /* Procedure with arguments */
+        SAY "Procedure with Arguments:"
+        CALL greet "Alice"
+        CALL greet "Bob"
+        SAY ""
+
+        /* Function returning a value */
+        SAY "Function Returning a Value:"
+        LET result = add(10, 20)
+        SAY "  add(10, 20) = " || result
+        SAY ""
+
+        /* Calculating with functions */
+        SAY "Using Functions in Expressions:"
+        LET num1 = 5
+        LET num2 = 3
+        SAY "  multiply(" || num1 || ", " || num2 || ") = " || multiply(num1, num2)
+        SAY ""
+
+        /* Local variables in procedures */
+        SAY "Local Variables Example:"
+        LET globalVar = "global"
+        CALL demonstrateScope
+        SAY "  After procedure: globalVar = " || globalVar
+        SAY ""
+
+        /* Multiple return values via RETURN */
+        SAY "Using RETURN for Results:"
+        LET answer = calculate(100, 25)
+        SAY "  calculate(100, 25) = " || answer
+        SAY ""
+
+        /* Nested procedure calls */
+        SAY "Nested Procedure Calls:"
+        CALL processData
+        SAY ""
+
+        EXIT
+
+        /* ===== PROCEDURE DEFINITIONS ===== */
+
+        /* Simple procedure with no arguments */
+        sayHello: PROCEDURE
+            SAY "  Hello from a procedure!"
+            RETURN
+
+        /* Procedure with arguments */
+        greet: PROCEDURE
+            ARG name
+            SAY "  Greetings, " || name || "!"
+            RETURN
+
+        /* Function that adds two numbers */
+        add: PROCEDURE
+            ARG a, b
+            result = a + b
+            RETURN result
+
+        /* Function that multiplies */
+        multiply: PROCEDURE
+            ARG x, y
+            RETURN x * y
+
+        /* Demonstrate variable scope */
+        demonstrateScope: PROCEDURE EXPOSE globalVar
+            SAY "  Inside procedure: globalVar = " || globalVar
+            globalVar = "modified"
+            SAY "  After modification: globalVar = " || globalVar
+            RETURN
+
+        /* Calculation function */
+        calculate: PROCEDURE
+            ARG value, divisor
+            IF divisor <> 0 THEN DO
+                result = value / divisor
+                RETURN result
+            END
+            RETURN "Error: division by zero"
+
+        /* Process data with nested calls */
+        processData: PROCEDURE
+            LET count = 5
+            SAY "  Processing " || count || " items"
+            DO i = 1 TO count
+                LET processed = processItem(i)
+                SAY "    Item " || i || ": " || processed
+            END
+            RETURN
+
+        /* Helper procedure */
+        processItem: PROCEDURE
+            ARG itemNum
+            RETURN "processed item " || itemNum
+    </script>
+
+</head>
+<body>
+    <h1>RexxJS Procedures and Functions Demo</h1>
+    <div class="intro">
+        <p><strong>Auto-executing REXX script</strong> demonstrating procedures and functions.</p>
+        <p>Shows procedure definition, function calls, argument passing, and return values.</p>
+    </div>
+
+    <h2>REXX Output:</h2>
+    <div class="output-section">
+
+        <script>
+            // Auto-execute - DOM is already loaded since script is at bottom of page
+            (async function() {
+                // Create styled output handler with null container to trigger document.write
+                const outputHandler = new DocumentWriteStyledOutputHandler(
+                    false,         // No timestamps - we want clean output
+                    'rexx-output', // CSS class
+                    null          // trigger document.write!
+                );
+
+                // Create interpreter with the output handler
+                const interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                });
+
+                // Execute the REXX script directly by ID
+                await interpreter.runScriptInId('procedures-functions-script');
+            })();
+        </script>
+    </div>
+
+    <h2>Procedure and Function Basics</h2>
+    <ul>
+        <li><strong>Procedure</strong> - Reusable block of code defined with a label and PROCEDURE statement</li>
+        <li><strong>CALL</strong> - Invokes a procedure</li>
+        <li><strong>RETURN</strong> - Exits a procedure (optionally returns a value)</li>
+        <li><strong>ARG</strong> - Accesses arguments passed to the procedure</li>
+    </ul>
+
+    <h2>Procedure Definition Pattern</h2>
+    <pre><code>procedureName: PROCEDURE
+    ARG arg1, arg2
+    /* procedure body */
+    RETURN result
+</code></pre>
+
+    <h2>Calling Procedures</h2>
+    <ul>
+        <li><strong>CALL procName</strong> - Call with no return value</li>
+        <li><strong>result = function(args)</strong> - Call and capture return value</li>
+        <li><strong>CALL LABEL</strong> - Can pass arguments</li>
+        <li><strong>Arguments are positional</strong> - Matched in order with ARG statement</li>
+    </ul>
+
+    <h2>Argument Handling</h2>
+    <ul>
+        <li><strong>ARG name</strong> - Get single argument</li>
+        <li><strong>ARG a, b, c</strong> - Get multiple arguments (space-separated in ARG)</li>
+        <li><strong>ARG arg1 arg2</strong> - Alternative syntax without commas</li>
+        <li><strong>PARSE ARG</strong> - More flexible argument parsing</li>
+    </ul>
+
+    <h2>Variable Scope</h2>
+    <ul>
+        <li><strong>Global variables</strong> - Accessible everywhere by default</li>
+        <li><strong>EXPOSE</strong> - Make specific global variables accessible in procedure</li>
+        <li><strong>Local variables</strong> - Variables created inside procedure are local by default</li>
+        <li><strong>PROCEDURE EXPOSE var1, var2</strong> - Declare exposed variables</li>
+    </ul>
+
+    <h2>Return Values</h2>
+    <ul>
+        <li><strong>RETURN value</strong> - Return a specific value</li>
+        <li><strong>RETURN</strong> - Return with no value (undefined)</li>
+        <li><strong>result = funcCall()</strong> - Capture return value in variable</li>
+        <li><strong>Functions vs Procedures</strong> - REXX uses same PROCEDURE for both; functions return values</li>
+    </ul>
+
+    <h2>Common Patterns</h2>
+    <ul>
+        <li><strong>Calculation functions</strong> - <code>sum = add(a, b)</code></li>
+        <li><strong>String formatters</strong> - Return formatted strings</li>
+        <li><strong>Validation functions</strong> - Return true/false (1/0)</li>
+        <li><strong>Iterative processing</strong> - Loop through data calling helper procedures</li>
+    </ul>
+
+    <h2>Best Practices</h2>
+    <ul>
+        <li>Use descriptive procedure names</li>
+        <li>Document parameters and return values</li>
+        <li>Keep procedures focused on single tasks</li>
+        <li>Use EXPOSE cautiously to minimize coupling</li>
+        <li>Validate input parameters</li>
+        <li>Return consistent types (always numeric, always string, etc.)</li>
+    </ul>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.js"></script>
+    <script src="prism-rexxjs.js"></script>
+
+    <!-- Show Source Button -->
+    <script src="show-source.js"></script>
+</body>
+</html>
