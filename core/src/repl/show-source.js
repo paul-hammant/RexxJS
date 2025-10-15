@@ -12,7 +12,36 @@
 
     // Check if Prism is available
     function isPrismAvailable() {
-        return typeof Prism !== 'undefined' && Prism.languages && Prism.languages.rexx;
+        if (typeof Prism === 'undefined') return false;
+        if (!Prism.languages) return false;
+
+        // If REXX language not available, try to wait for it
+        if (!Prism.languages.rexx) {
+            // Give it a brief moment for async loading
+            return false;
+        }
+        return true;
+    }
+
+    // Ensure REXX language is loaded with retries
+    function ensureRexxLanguage() {
+        return new Promise((resolve) => {
+            let attempts = 0;
+            const maxAttempts = 20; // 2 seconds max with 100ms intervals
+
+            const checkRexxLang = () => {
+                if (typeof Prism !== 'undefined' && Prism.languages && Prism.languages.rexx) {
+                    resolve(true);
+                } else if (attempts < maxAttempts) {
+                    attempts++;
+                    setTimeout(checkRexxLang, 100);
+                } else {
+                    resolve(false);
+                }
+            };
+
+            checkRexxLang();
+        });
     }
 
     // REXX syntax highlighter using Prism.js
@@ -108,11 +137,14 @@
         document.body.appendChild(loadingOverlay);
 
         try {
+            // Ensure REXX language is loaded before fetching source
+            await ensureRexxLanguage();
+
             const sourceData = await fetchRawSource();
-            
+
             // Remove loading overlay
             document.body.removeChild(loadingOverlay);
-            
+
             if (sourceData.error) {
                 alert(`Error fetching source: ${sourceData.error}`);
                 return;
