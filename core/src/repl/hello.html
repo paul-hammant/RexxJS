@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RexxJS Hello World - Pure REXX DOM Manipulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            min-height: 50px;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .code-block {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>RexxJS Hello World Example</h1>
+    <p>This page demonstrates using pure REXX code with DOM functions to manipulate HTML elements.</p>
+    
+    <div class="status">Ready to run REXX scripts...</div>
+    
+    <h2>Output:</h2>
+    <pre id="output">Waiting for REXX to update this element...</pre>
+    
+    <h2>Actions:</h2>
+    <button id="hello-btn" onclick="runHelloWorld()" disabled>Run Hello World</button>
+    <button id="time-btn" onclick="runTimeExample()" disabled>Show Current Time</button>
+    <button id="counter-btn" onclick="runCounter()" disabled>Run Counter</button>
+    <button onclick="clearOutput()">Clear Output</button>
+    
+    <h2>REXX Script Being Executed:</h2>
+    <div id="script-display" class="code-block">Script will appear here when you click a button...</div>
+    
+    <!-- Load the RexxJS bundle -->
+    <script src="dist/repl.bundle.js"></script>
+    
+    <script>
+        let interpreter = null;
+        let counter = 0;
+        
+        // Wait for bundle to load, then initialize
+        window.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Check if RexxInterpreter is available from the bundle
+                if (typeof RexxInterpreter === 'undefined') {
+                    throw new Error('RexxInterpreter not found. Make sure repl.bundle.js is built and loaded.');
+                }
+                
+                // Create interpreter instance with DOM functions bound
+                interpreter = new RexxInterpreter(null, {
+                    output: (text) => {
+                        console.log('REXX output:', text);
+                    }
+                });
+                
+                // Enable buttons
+                document.getElementById('hello-btn').disabled = false;
+                document.getElementById('time-btn').disabled = false;
+                document.getElementById('counter-btn').disabled = false;
+                
+                updateStatus('✓ RexxJS loaded successfully! Click a button to run REXX scripts.');
+                
+            } catch (error) {
+                updateStatus('✗ Failed to load RexxJS: ' + error.message, 'error');
+                console.error('Load error:', error);
+            }
+        });
+        
+        function updateStatus(message, type = 'success') {
+            const statusDiv = document.querySelector('.status');
+            statusDiv.textContent = message;
+            statusDiv.style.background = type === 'error' ? '#ffebee' : '#e8f5e9';
+            statusDiv.style.color = type === 'error' ? '#c62828' : '#2e7d32';
+        }
+        
+        function displayScript(script) {
+            document.getElementById('script-display').textContent = script;
+        }
+        
+        async function runHelloWorld() {
+            const script = `
+/* REXX Script: Hello World DOM Manipulation */
+
+/* Use DOM_QUERY to set the text content of the pre element */
+LET result = DOM_QUERY(selector="#output", operation="value", value="Hello, World from REXX!")
+
+/* Also demonstrate using DOM_SET_STYLE to change the color */
+DOM_SET_STYLE selector="#output" property="color" value="#4CAF50"
+DOM_SET_STYLE selector="#output" property="fontSize" value="24px"
+
+SAY "Updated the output element with Hello World!"
+            `.trim();
+            
+            displayScript(script);
+            await executeRexxScript(script);
+        }
+        
+        async function runTimeExample() {
+            const script = `
+/* REXX Script: Display Current Date/Time */
+
+/* Get current date and time using JavaScript Date */
+LET now = DATE()
+LET timeStr = "Current time: " || now
+
+/* Update the pre element with current time */
+LET result = DOM_QUERY(selector="#output", operation="value", value=timeStr)
+
+/* Style it differently */
+DOM_SET_STYLE selector="#output" property="color" value="#2196F3"
+DOM_SET_STYLE selector="#output" property="fontSize" value="20px"
+DOM_SET_STYLE selector="#output" property="fontWeight" value="bold"
+
+SAY "Updated with current time"
+            `.trim();
+            
+            displayScript(script);
+            await executeRexxScript(script);
+        }
+        
+        async function runCounter() {
+            counter++;
+            const script = `
+/* REXX Script: Counter Example */
+
+/* Set counter value from JavaScript */
+LET count = ${counter}
+LET message = "Button clicked " || count || " time"
+IF count > 1 THEN message = message || "s"
+message = message || "!"
+
+/* Update the display */
+LET result = DOM_QUERY(selector="#output", operation="value", value=message)
+
+/* Animated color change based on count */
+IF count // 2 = 0 THEN DO
+    DOM_SET_STYLE selector="#output" property="color" value="#FF9800"
+END
+ELSE DO
+    DOM_SET_STYLE selector="#output" property="color" value="#9C27B0"
+END
+
+DOM_SET_STYLE selector="#output" property="fontSize" value="22px"
+DOM_SET_STYLE selector="#output" property="transition" value="all 0.3s ease"
+
+SAY "Counter updated to:" count
+            `.trim();
+            
+            displayScript(script);
+            await executeRexxScript(script);
+        }
+        
+        async function executeRexxScript(scriptText) {
+            if (!interpreter) {
+                updateStatus('✗ Interpreter not initialized', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Running REXX script...');
+                
+                // Parse and execute the REXX script
+                const commands = parse(scriptText);
+                await interpreter.run(commands);
+                
+                updateStatus('✓ REXX script executed successfully');
+            } catch (error) {
+                updateStatus('✗ Script error: ' + error.message, 'error');
+                console.error('Execution error:', error);
+            }
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').textContent = 'Cleared. Click a button to run a script...';
+            document.getElementById('output').style = '';
+            document.getElementById('script-display').textContent = 'Script will appear here when you click a button...';
+            counter = 0;
+            updateStatus('Output cleared. Ready for new scripts.');
+        }
+    </script>
+</body>
+</html>

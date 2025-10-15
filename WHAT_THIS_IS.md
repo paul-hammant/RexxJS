@@ -8,6 +8,7 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - Complete REXX language implementation with modern extensions
 - Supports classic REXX syntax: `SAY`, `LET`, `DO...END`, `IF...THEN...ELSE`, `SELECT...WHEN`
 - Advanced control structures: `DO OVER` for iteration, `INTERPRET` for dynamic code execution
+- There is `INTERPRET_JS` too dynamic JavaScript code execution - but that's really only for debugging
 - Function library system with 200+ built-in functions across multiple domains
 
 ### Environment Detection & Awareness
@@ -19,6 +20,13 @@ object, and directly to REXX scripts through special `RUNTIME.` stem variables (
 `RUNTIME.IS_PKG`, `RUNTIME.HAS_DOM`). This powerful feature allows both the core system and user
 scripts to implement conditional logic that adapts to the capabilities of the host environment, such
 as accessing the file system in Node.js or manipulating the DOM in a browser.
+
+#### Modes of operation
+
+- In the repo - un-built: core/src/interpreter.js with core/src/parser.js should work in a Jest test where that's Rexx lines embedded, but otherwise a Javascript tests with classic expectations
+- In the repo - un-built: core/rexx executable - does scripting to setup the interpreter given commandline invocation.
+- Built for NodeJs: bin/rexx executable (after make-binary.sh invocation). This does scripting to setup the interpreter given commandline invocation. Should work on Glibc and Musl x86-64 systems.
+- Built for Web: GitHub-Action makes a bundle of the interpreter. 
 
 ## CLI & Distribution
 
