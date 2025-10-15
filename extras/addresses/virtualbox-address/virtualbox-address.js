@@ -2544,20 +2544,23 @@ let virtualboxHandlerInstance = null;
 // Consolidated metadata provider function
 function VIRTUALBOX_ADDRESS_META() {
   return {
-    namespace: "rexxjs",
-    dependencies: {"child_process": "builtin"},
-    envVars: [],
-    type: 'address-target',
-    name: 'ADDRESS VIRTUALBOX Virtual Machine Service',
+    canonical: "org.rexxjs/virtualbox-address",
+    type: 'address-handler',
+    name: 'VirtualBox Virtual Machine Service',
     version: '1.0.0',
     description: 'VirtualBox virtual machine management via ADDRESS interface',
-    detectionFunction: 'ADDRESS_VIRTUALBOX_MAIN'
+    dependencies: {},
+    provides: {
+      addressTarget: 'virtualbox',
+      handlerFunction: 'ADDRESS_VIRTUALBOX_HANDLER',
+      commandSupport: true,
+      methodSupport: true
+    },
+    requirements: {
+      environment: 'nodejs',
+      modules: ['child_process']
+    }
   };
-}
-
-// Primary detection function with ADDRESS target metadata
-function ADDRESS_VIRTUALBOX_MAIN() {
-  return VIRTUALBOX_ADDRESS_META();
 }
 
 // ADDRESS target handler function with REXX variable management
@@ -2669,14 +2672,14 @@ const ADDRESS_VIRTUALBOX_METHODS = {
 if (typeof module !== 'undefined' && module.exports) {
   // Node.js environment
   module.exports = {
-    ADDRESS_VIRTUALBOX_MAIN,
+    VIRTUALBOX_ADDRESS_META,
     ADDRESS_VIRTUALBOX_HANDLER,
     ADDRESS_VIRTUALBOX_METHODS,
     AddressVirtualBoxHandler // Export the class for testing
   };
 } else if (typeof window !== 'undefined') {
   // Browser environment - attach to global window
-  window.ADDRESS_VIRTUALBOX_MAIN = ADDRESS_VIRTUALBOX_MAIN;
+  window.VIRTUALBOX_ADDRESS_META = VIRTUALBOX_ADDRESS_META;
   window.ADDRESS_VIRTUALBOX_HANDLER = ADDRESS_VIRTUALBOX_HANDLER;
   window.ADDRESS_VIRTUALBOX_METHODS = ADDRESS_VIRTUALBOX_METHODS;
 }

@@ -420,15 +420,15 @@ class AddressProxmoxHandler {
 }
 
 // First-class ADDRESS metadata and handler
-function ADDRESS_PROXMOX_MAIN() {
+function PROXMOX_ADDRESS_META() {
   return {
-    type: 'address-target',
-    name: 'ADDRESS PROXMOX LXC Service',
+    canonical: "org.rexxjs/proxmox-address",
+    type: 'address-handler',
+    name: 'Proxmox LXC Service',
     version: '1.0.0',
     description: 'Proxmox pct operations via ADDRESS interface',
     provides: { addressTarget: 'proxmox', handlerFunction: 'ADDRESS_PROXMOX_HANDLER', commandSupport: true, methodSupport: true },
-    dependencies: [],
-    loaded: true,
+    dependencies: {},
     requirements: { environment: 'nodejs', modules: ['child_process'] }
   };
 }
@@ -481,9 +481,9 @@ const ADDRESS_PROXMOX_METHODS = {
 };
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ADDRESS_PROXMOX_MAIN, ADDRESS_PROXMOX_HANDLER, ADDRESS_PROXMOX_METHODS, AddressProxmoxHandler };
+  module.exports = { PROXMOX_ADDRESS_META, ADDRESS_PROXMOX_HANDLER, ADDRESS_PROXMOX_METHODS, AddressProxmoxHandler };
 } else if (typeof window !== 'undefined') {
-  window.ADDRESS_PROXMOX_MAIN = ADDRESS_PROXMOX_MAIN;
+  window.PROXMOX_ADDRESS_META = PROXMOX_ADDRESS_META;
   window.ADDRESS_PROXMOX_HANDLER = ADDRESS_PROXMOX_HANDLER;
   window.ADDRESS_PROXMOX_METHODS = ADDRESS_PROXMOX_METHODS;
 }

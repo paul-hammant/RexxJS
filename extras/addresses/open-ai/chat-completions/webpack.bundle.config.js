@@ -52,15 +52,14 @@ module.exports = {
     'fs': 'fs',
     'path': 'path',
     'crypto': 'crypto',
-    'child_process': 'child_process',
+    'node-fetch': 'node-fetch'
   },
   resolve: {
     extensions: ['.js'],
     fallback: {
       "fs": false,
       "path": false,
-      "crypto": false,
-      "child_process": false
+      "crypto": false
     }
   },
   target: 'web',

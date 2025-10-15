@@ -157,14 +157,16 @@ class AddressRemoteDockerHandler {
   }
 }
 
-function ADDRESS_REMOTE_DOCKER_MAIN() {
+function REMOTE_DOCKER_ADDRESS_META() {
   return {
-    type: 'address-target',
-    name: 'ADDRESS REMOTE DOCKER',
+    canonical: "org.rexxjs/remote-docker-address",
+    type: 'address-handler',
+    name: 'Remote Docker Service',
     version: '1.0.0',
     description: 'Docker on remote host via SSH',
     provides: { addressTarget: 'remote_docker', handlerFunction: 'ADDRESS_REMOTE_DOCKER_HANDLER', commandSupport: true, methodSupport: true },
-    requirements: { environment: 'nodejs' }
+    requirements: { environment: 'nodejs' },
+    dependencies: {}
   };
 }
 
@@ -201,5 +203,5 @@ const ADDRESS_REMOTE_DOCKER_METHODS = {
 };
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ADDRESS_REMOTE_DOCKER_MAIN, ADDRESS_REMOTE_DOCKER_HANDLER, ADDRESS_REMOTE_DOCKER_METHODS, AddressRemoteDockerHandler };
+  module.exports = { REMOTE_DOCKER_ADDRESS_META, ADDRESS_REMOTE_DOCKER_HANDLER, ADDRESS_REMOTE_DOCKER_METHODS, AddressRemoteDockerHandler };
 }

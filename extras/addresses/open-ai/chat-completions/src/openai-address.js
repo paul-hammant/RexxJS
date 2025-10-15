@@ -48,14 +48,8 @@ function OPENAI_ADDRESS_META() {
       environment: 'nodejs-or-browser',
       modules: ['fetch'],
       apiKey: 'OPENAI_API_KEY'
-    },
-    detectionFunction: 'OPENAI_ADDRESS_MAIN'
+    }
   };
-}
-
-// Primary detection function with ADDRESS target metadata
-function OPENAI_ADDRESS_MAIN() {
-  return OPENAI_ADDRESS_META();
 }
 
 // ADDRESS target handler function with REXX variable management
@@ -401,13 +395,11 @@ function formatOpenAIErrorForREXX(error) {
 if (typeof window !== 'undefined') {
   // Browser environment
   window.OPENAI_ADDRESS_META = OPENAI_ADDRESS_META;
-  window.OPENAI_ADDRESS_MAIN = OPENAI_ADDRESS_MAIN;
   window.ADDRESS_OPENAI_HANDLER = ADDRESS_OPENAI_HANDLER;
   window.ADDRESS_OPENAI_METHODS = ADDRESS_OPENAI_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
   global.OPENAI_ADDRESS_META = OPENAI_ADDRESS_META;
-  global.OPENAI_ADDRESS_MAIN = OPENAI_ADDRESS_MAIN;
   global.ADDRESS_OPENAI_HANDLER = ADDRESS_OPENAI_HANDLER;
   global.ADDRESS_OPENAI_METHODS = ADDRESS_OPENAI_METHODS;
 }

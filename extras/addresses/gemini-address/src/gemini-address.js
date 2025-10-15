@@ -60,14 +60,8 @@ function GEMINI_ADDRESS_META() {
       environment: 'nodejs-or-browser',
       modules: ['fetch'],
       apiKey: 'GEMINI_API_KEY'
-    },
-    detectionFunction: 'GEMINI_ADDRESS_MAIN'
+    }
   };
-}
-
-// Primary detection function with ADDRESS target metadata
-function GEMINI_ADDRESS_MAIN() {
-  return GEMINI_ADDRESS_META();
 }
 
 // ADDRESS target handler function with REXX variable management
@@ -467,13 +461,11 @@ async function getImageData(imageUrl) {
 if (typeof window !== 'undefined') {
   // Browser environment
   window.GEMINI_ADDRESS_META = GEMINI_ADDRESS_META;
-  window.GEMINI_ADDRESS_MAIN = GEMINI_ADDRESS_MAIN;
   window.ADDRESS_GEMINI_HANDLER = ADDRESS_GEMINI_HANDLER;
   window.ADDRESS_GEMINI_METHODS = ADDRESS_GEMINI_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
   global.GEMINI_ADDRESS_META = GEMINI_ADDRESS_META;
-  global.GEMINI_ADDRESS_MAIN = GEMINI_ADDRESS_MAIN;
   global.ADDRESS_GEMINI_HANDLER = ADDRESS_GEMINI_HANDLER;
   global.ADDRESS_GEMINI_METHODS = ADDRESS_GEMINI_METHODS;
 }

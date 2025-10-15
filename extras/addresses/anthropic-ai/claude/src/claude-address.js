@@ -52,14 +52,8 @@ function CLAUDE_ADDRESS_META() {
       environment: 'nodejs-or-browser',
       modules: ['fetch'],
       apiKey: 'ANTHROPIC_API_KEY'
-    },
-    detectionFunction: 'CLAUDE_ADDRESS_MAIN'
+    }
   };
-}
-
-// Primary detection function with ADDRESS target metadata
-function CLAUDE_ADDRESS_MAIN() {
-  return CLAUDE_ADDRESS_META();
 }
 
 // ADDRESS target handler function with REXX variable management
@@ -746,13 +740,11 @@ function formatClaudeErrorForREXX(error) {
 if (typeof window !== 'undefined') {
   // Browser environment
   window.CLAUDE_ADDRESS_META = CLAUDE_ADDRESS_META;
-  window.CLAUDE_ADDRESS_MAIN = CLAUDE_ADDRESS_MAIN;
   window.ADDRESS_CLAUDE_HANDLER = ADDRESS_CLAUDE_HANDLER;
   window.ADDRESS_CLAUDE_METHODS = ADDRESS_CLAUDE_METHODS;
 } else if (typeof global !== 'undefined') {
   // Node.js environment
   global.CLAUDE_ADDRESS_META = CLAUDE_ADDRESS_META;
-  global.CLAUDE_ADDRESS_MAIN = CLAUDE_ADDRESS_MAIN;
   global.ADDRESS_CLAUDE_HANDLER = ADDRESS_CLAUDE_HANDLER;
   global.ADDRESS_CLAUDE_METHODS = ADDRESS_CLAUDE_METHODS;
 }

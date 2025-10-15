@@ -40,19 +40,18 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'src/claude-address.js'),
+  entry: path.resolve(__dirname, 'src/duckdb-address.js'),
   output: {
-    filename: 'claude-address.bundle.js',
+    filename: 'duckdb-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    library: 'claude-address',
+    library: 'duckdb-address',
     libraryTarget: 'umd',
     globalObject: 'this'
   },
   externals: {
     'fs': 'fs',
     'path': 'path',
-    'crypto': 'crypto',
-    'node-fetch': 'node-fetch'
+    'crypto': 'crypto'
   },
   resolve: {
     extensions: ['.js'],

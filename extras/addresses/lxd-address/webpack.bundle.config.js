@@ -40,11 +40,11 @@ class RexxMetaPlugin {
 
 module.exports = {
   mode: 'development', // No minification
-  entry: path.resolve(__dirname, 'src/claude-address.js'),
+  entry: path.resolve(__dirname, 'lxd-address.js'),
   output: {
-    filename: 'claude-address.bundle.js',
+    filename: 'lxd-address.bundle.js',
     path: path.resolve(getGitRoot(), '../dist/addresses'),
-    library: 'claude-address',
+    library: 'lxd-address',
     libraryTarget: 'umd',
     globalObject: 'this'
   },
@@ -52,14 +52,15 @@ module.exports = {
     'fs': 'fs',
     'path': 'path',
     'crypto': 'crypto',
-    'node-fetch': 'node-fetch'
+    'child_process': 'child_process'
   },
   resolve: {
     extensions: ['.js'],
     fallback: {
       "fs": false,
       "path": false,
-      "crypto": false
+      "crypto": false,
+      "child_process": false
     }
   },
   target: 'web',
