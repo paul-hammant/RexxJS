@@ -76,6 +76,28 @@ const stringFunctions = {
     return pos === -1 ? 0 : pos + 1; // Convert 0-based to 1-based, 0 means not found
   },
 
+  'ABBREV': (string, abbrev, length = 1) => {
+    try {
+      const str = String(string).toUpperCase();
+      const abbr = String(abbrev).toUpperCase();
+      const minLen = parseInt(length) || 1;
+
+      // Check if abbrev is long enough
+      if (abbr.length < minLen) {
+        return 0;
+      }
+
+      // Check if string starts with abbrev
+      if (str.startsWith(abbr)) {
+        return 1;
+      }
+
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  },
+
   'TRIM': (string) => {
     try {
       return String(string).trim();

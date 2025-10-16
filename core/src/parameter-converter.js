@@ -326,12 +326,78 @@ function convertParamsToArgs(functionName, params) {
 
         case 'DATE':
         case 'TIME':
+            // Classic REXX date/time functions with optional format code, timezone, and locale
+            // Supports:
+            // - DATE() or TIME()
+            // - DATE('N') or TIME('N')
+            // - DATE('N', 'UTC') or TIME('N', 'America/New_York')
+            // - DATE('N', 'UTC', 'fr-FR') or TIME('N', 'UTC', 'de-DE')
+            // - DATE format='N' timezone='UTC' locale='fr-FR'
+
+            let formatCode = '';
+            let timezone = 'UTC';
+            let locale = 'en-US';
+
+            // Handle positional arguments (params.value, params.arg1, params.arg2, etc.)
+            if (params.value) {
+                formatCode = params.value;
+                // Remove quotes if present
+                if ((formatCode.startsWith('"') && formatCode.endsWith('"')) ||
+                    (formatCode.startsWith("'") && formatCode.endsWith("'"))) {
+                    formatCode = formatCode.slice(1, -1);
+                }
+            }
+
+            // Second positional argument: timezone
+            if (params.arg1) {
+                timezone = params.arg1;
+                // Remove quotes if present
+                if ((timezone.startsWith('"') && timezone.endsWith('"')) ||
+                    (timezone.startsWith("'") && timezone.endsWith("'"))) {
+                    timezone = timezone.slice(1, -1);
+                }
+            }
+
+            // Third positional argument: locale
+            if (params.arg2) {
+                locale = params.arg2;
+                // Remove quotes if present
+                if ((locale.startsWith('"') && locale.endsWith('"')) ||
+                    (locale.startsWith("'") && locale.endsWith("'"))) {
+                    locale = locale.slice(1, -1);
+                }
+            }
+
+            // Handle named parameters (override positional if provided)
+            if (params.format) {
+                formatCode = params.format;
+                if ((formatCode.startsWith('"') && formatCode.endsWith('"')) ||
+                    (formatCode.startsWith("'") && formatCode.endsWith("'"))) {
+                    formatCode = formatCode.slice(1, -1);
+                }
+            }
+            if (params.timezone) {
+                timezone = params.timezone;
+                if ((timezone.startsWith('"') && timezone.endsWith('"')) ||
+                    (timezone.startsWith("'") && timezone.endsWith("'"))) {
+                    timezone = timezone.slice(1, -1);
+                }
+            }
+            if (params.locale) {
+                locale = params.locale;
+                if ((locale.startsWith('"') && locale.endsWith('"')) ||
+                    (locale.startsWith("'") && locale.endsWith("'"))) {
+                    locale = locale.slice(1, -1);
+                }
+            }
+
+            return [formatCode, timezone, locale];
+
         case 'NOW':
-            // Modern date/time functions with optional parameters
+            // NOW can take timezone and format parameters
             return [
                 params.timezone || 'UTC',
-                params.format || (functionName === 'DATE' ? 'YYYY-MM-DD' :
-                    functionName === 'TIME' ? 'HH:MM:SS' : 'ISO')
+                params.format || 'ISO'
             ];
 
         case 'DATE_ADD':

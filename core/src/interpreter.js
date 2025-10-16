@@ -1103,7 +1103,7 @@ class RexxInterpreter {
           break;
           
         case 'CALL':
-          this.addTraceOutput(`CALL ${command.subroutine} (${command.arguments.length} args)`, 'call');
+          this.addTraceOutput(`CALL ${command.subroutine} (${command.arguments.length} args)`, 'call', command.lineNumber);
           const callResult = await parseSubroutineUtils.executeCall(
             command,
             this.variables,

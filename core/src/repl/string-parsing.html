@@ -60,12 +60,12 @@
         SAY "  ABBREV('DELETE', 'DXL') = " || ABBREV(command, "DXL")
         SAY ""
 
-        /* POS function (alternative to INDEX) */
+        /* POS function (alternative to INDEX) - note: parameter order is (string, needle) for piping */
         LET text = "Find the needle in the haystack"
         SAY "Position finding:"
         SAY "  Text: " || text
-        SAY "  POS('needle', text) = " || POS("needle", text)
-        SAY "  POS('x', text) = " || POS("x", text)
+        SAY "  POS(text, 'needle') = " || POS(text, "needle")
+        SAY "  POS(text, 'x') = " || POS(text, "x")
         SAY ""
         SAY "=== String Parsing Demo Complete ==="
     </script>

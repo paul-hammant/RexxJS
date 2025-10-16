@@ -80,7 +80,10 @@ async function executeDoStatement(doCommand, resolveValueFn, evaluateConditionFn
       
     case 'WHILE':
       return await executeWhileLoop(loopSpec, doCommand.bodyCommands, evaluateConditionFn, runCommandsFn);
-      
+
+    case 'UNTIL':
+      return await executeUntilLoop(loopSpec, doCommand.bodyCommands, evaluateConditionFn, runCommandsFn);
+
     case 'REPEAT':
       return await executeRepeatLoop(loopSpec, doCommand.bodyCommands, runCommandsFn);
       
@@ -236,18 +239,45 @@ async function executeRangeLoopWithStep(loopSpec, bodyCommands, resolveValueFn, 
 async function executeWhileLoop(loopSpec, bodyCommands, evaluateConditionFn, runCommandsFn) {
   const maxIterations = 10000; // Safety limit
   let iterations = 0;
-  
+
   while (await evaluateConditionFn(loopSpec.condition)) {
     if (iterations++ > maxIterations) {
       throw new Error('DO WHILE loop exceeded maximum iterations (safety limit)');
     }
-    
+
     const result = await runCommandsFn(bodyCommands);
     if (result && result.terminated) {
       return result;
     }
   }
-  
+
+  return null;
+}
+
+/**
+ * Execute UNTIL loop (DO UNTIL condition - loops UNTIL condition becomes true)
+ * @param {Object} loopSpec - Loop specification with condition
+ * @param {Array} bodyCommands - Commands to execute in loop body
+ * @param {Function} evaluateConditionFn - Function to evaluate conditions
+ * @param {Function} runCommandsFn - Function to execute command lists
+ * @returns {Object|null} Result object if terminated, null otherwise
+ */
+async function executeUntilLoop(loopSpec, bodyCommands, evaluateConditionFn, runCommandsFn) {
+  const maxIterations = 10000; // Safety limit
+  let iterations = 0;
+
+  // Loop UNTIL condition becomes true (opposite of WHILE)
+  while (!(await evaluateConditionFn(loopSpec.condition))) {
+    if (iterations++ > maxIterations) {
+      throw new Error('DO UNTIL loop exceeded maximum iterations (safety limit)');
+    }
+
+    const result = await runCommandsFn(bodyCommands);
+    if (result && result.terminated) {
+      return result;
+    }
+  }
+
   return null;
 }
 
@@ -413,12 +443,13 @@ async function executeSelectStatement(selectCommand, evaluateConditionFn, runCom
 // UMD pattern for both Node.js and browser compatibility
 if (typeof module !== 'undefined' && module.exports) {
     // Node.js environment
-    module.exports = { 
+    module.exports = {
         executeIfStatement,
         executeDoStatement,
         executeRangeLoop,
         executeRangeLoopWithStep,
         executeWhileLoop,
+        executeUntilLoop,
         executeRepeatLoop,
         executeOverLoop,
         executeSelectStatement
@@ -435,6 +466,7 @@ if (typeof module !== 'undefined' && module.exports) {
             executeRangeLoop,
             executeRangeLoopWithStep,
             executeWhileLoop,
+            executeUntilLoop,
             executeRepeatLoop,
             executeOverLoop,
             executeSelectStatement

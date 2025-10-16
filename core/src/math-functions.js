@@ -68,7 +68,16 @@ const mathFunctions = {
       return 0;
     }
   },
-  
+
+  'INT': (value) => {
+    // INT() is an alias for MATH_FLOOR - converts to integer by truncating decimal part
+    try {
+      return Math.floor(parseFloat(value));
+    } catch (e) {
+      return 0;
+    }
+  },
+
   'MATH_ROUND': (value, precision = 0) => {
     try {
       const num = parseFloat(value);

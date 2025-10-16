@@ -586,12 +586,12 @@ function parseStatement(tokens, startIndex) {
     }
     
     return {
-      command: {
+      command: addLineNumber({
         type: 'CALL',
         subroutine: subroutineName,
         isVariableCall: isVariableCall,
         arguments: args
-      },
+      }, token),
       nextIndex: startIndex + 1
     };
   }
@@ -1194,8 +1194,8 @@ function parseStatement(tokens, startIndex) {
     };
   }
   
-  // Simple assignment without LET (e.g., variableName = value)
-  const simpleAssignMatch = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)/);
+  // Simple assignment without LET (e.g., variableName = value or stem.0 = value)
+  const simpleAssignMatch = line.match(/^([a-zA-Z_][a-zA-Z0-9_.]*)\s*=\s*(.+)/);
   if (simpleAssignMatch) {
     const variableName = simpleAssignMatch[1];
     const expression = simpleAssignMatch[2];
@@ -1524,7 +1524,16 @@ function parseLoopSpecification(specStr) {
       condition: parseCondition(whileMatch[1])
     };
   }
-  
+
+  // DO UNTIL condition - loops until condition becomes true
+  const untilMatch = spec.match(/^UNTIL\s+(.+)$/i);
+  if (untilMatch) {
+    return {
+      type: 'UNTIL',
+      condition: parseCondition(untilMatch[1])
+    };
+  }
+
   // DO 5 (simple repeat)
   const repeatMatch = spec.match(/^(\d+)$/);
   if (repeatMatch) {

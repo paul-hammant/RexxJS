@@ -73,21 +73,18 @@
 
         /* EXIST function to check if variables are set */
         SAY "Variable Existence Check:"
-        IF SYMBOL('existingVar') = 'LIT' THEN
-            SAY "  Variable 'existingVar' is not defined"
-        ELSE
-            SAY "  Variable 'existingVar' is defined"
+        IF SYMBOL('existingVar') = 'LIT' THEN SAY "  Variable 'existingVar' is not defined"
+        ELSE SAY "  Variable 'existingVar' is defined"
         SAY ""
 
         /* Safe string operations */
         SAY "Safe String Operations:"
         LET str = "Hello"
         LET index = INDEX(str, "llo")
-        IF index > 0 THEN
-            SAY "  Found 'llo' at position " || index
-        ELSE
-            SAY "  'llo' not found in string"
+        IF index > 0 THEN SAY "  Found 'llo' at position " || index
+        ELSE SAY "  'llo' not found in string"
         SAY ""
+        SAY "=== Error Handling Demo Complete ==="
 
         /* Nested error handling */
         SAY "Nested Error Handling:"
