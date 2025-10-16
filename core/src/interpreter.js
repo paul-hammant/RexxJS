@@ -33,8 +33,12 @@ let arrayFunctionsUtils;
 let exitUnlessUtils;
 let libraryRequireWrappersUtils;
 let libraryMetadataUtils;
+let processEscapeSequences;
 
 if (typeof require !== 'undefined') {
+  const escapeProcessor = require('./escape-sequence-processor.js');
+  processEscapeSequences = escapeProcessor.processEscapeSequences;
+
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
   parseQuotedParts = stringProcessing.parseQuotedParts;
   interpolateString = stringProcessing.interpolateString;
@@ -75,7 +79,12 @@ if (typeof require !== 'undefined') {
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
-  
+
+  // Escape sequence processor
+  if (window.processEscapeSequences) {
+    processEscapeSequences = window.processEscapeSequences;
+  }
+
   // String processing functions
   if (registry.has('stringProcessing')) {
     const stringProcessing = registry.get('stringProcessing');
@@ -1240,7 +1249,8 @@ class RexxInterpreter {
             
             // For quoted strings, don't resolve as expressions or function calls - keep as literal
             if (command.isQuotedString) {
-              resolvedValue = command.value;
+              // Process escape sequences in quoted strings
+              resolvedValue = processEscapeSequences ? processEscapeSequences(command.value) : command.value;
             } else {
               // Check if we're in an ADDRESS context and the value could be an ADDRESS method call
               if (this.address && this.address !== 'default' && typeof command.value === 'string') {
@@ -1690,7 +1700,7 @@ class RexxInterpreter {
     for (const part of parts) {
       if (part.startsWith('"') && part.endsWith('"')) {
         // Handle quoted string with potential interpolation
-        const rawString = part.substring(1, part.length - 1);
+        let rawString = part.substring(1, part.length - 1);
         // Check for interpolation using current pattern
         let pattern;
         try {
@@ -1705,7 +1715,10 @@ class RexxInterpreter {
           const interpolated = await this.interpolateString(rawString);
           outputParts.push(interpolated);
         } else {
-          // Simple string
+          // Simple string - apply escape sequence processor
+          if (processEscapeSequences) {
+            rawString = processEscapeSequences(rawString);
+          }
           outputParts.push(rawString);
         }
       } else if (part.startsWith("'") && part.endsWith("'")) {

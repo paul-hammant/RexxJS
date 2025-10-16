@@ -255,6 +255,7 @@ ADDRESS GCP
 - Async/await patterns for browser operations
 - Real-time progress monitoring with `CHECKPOINT()`
 - Configurable string interpolation patterns - switch between `{{var}}`, `${var}`, `%var%`, or custom delimiters with `SET_INTERPOLATION('pattern')`
+- **JavaScript-style escape sequences** in all strings: `\n`, `\t`, `\r`, `\b`, `\f`, `\v`, `\0`, `\'`, `\"`, `\\`, and Unicode escapes `\uXXXX` and `\uXXXXXXXX` - works in assignments, SAY statements, function parameters, and concatenation (**Note: breaks from classic REXX which doesn't support these escape sequences**)
 
 ## Architecture
 
