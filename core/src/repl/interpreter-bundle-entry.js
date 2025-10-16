@@ -46,11 +46,13 @@ if (typeof window !== 'undefined') {
     // Get the interpreter from the module system and force it global
     const interpreterModule = require('../interpreter.js');
     const RexxInterpreter = interpreterModule.RexxInterpreter || interpreterModule.Interpreter;
-    
+    const RexxInterpreterBuilder = interpreterModule.RexxInterpreterBuilder;
+
     // Force global assignment
     window.RexxInterpreter = RexxInterpreter;
     window.Interpreter = RexxInterpreter; // Legacy alias
-    
+    window.RexxInterpreterBuilder = RexxInterpreterBuilder;
+
     // Also ensure parse is available globally
     try {
         const parserModule = require('../parser.js');
@@ -60,7 +62,7 @@ if (typeof window !== 'undefined') {
     } catch (e) {
         // parse might be already global from parser.js
     }
-    
+
     // Force DOM functions to window (webpack context needs explicit assignment)
     try {
         const domModule = require('../dom-functions.js');
@@ -72,6 +74,6 @@ if (typeof window !== 'undefined') {
     } catch (e) {
         console.warn('Could not load DOM functions:', e);
     }
-    
-    console.log('RexxJS bundle loaded - RexxInterpreter available globally');
+
+    console.log('RexxJS bundle loaded - RexxInterpreter and RexxInterpreterBuilder available globally');
 }
