@@ -29,6 +29,8 @@ let interpolation;
 let callbackEvaluation;
 let functionExecution;
 let commandAddressUtils;
+let arrayFunctionsUtils;
+let exitUnlessUtils;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -64,6 +66,8 @@ if (typeof require !== 'undefined') {
   callbackEvaluation = require('./interpreter-callback-evaluation.js');
   functionExecution = require('./interpreter-function-execution.js');
   commandAddressUtils = require('./interpreter-command-address.js');
+  arrayFunctionsUtils = require('./interpreter-array-functions.js');
+  exitUnlessUtils = require('./interpreter-exit-unless.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -372,6 +376,16 @@ if (typeof require !== 'undefined') {
   // Command address utilities
   if (registry.has('commandAddress')) {
     commandAddressUtils = registry.get('commandAddress');
+  }
+
+  // Array functions utilities
+  if (registry.has('arrayFunctions')) {
+    arrayFunctionsUtils = registry.get('arrayFunctions');
+  }
+
+  // Exit unless utilities
+  if (registry.has('exitUnless')) {
+    exitUnlessUtils = registry.get('exitUnless');
   }
 }
 
@@ -766,203 +780,7 @@ class RexxInterpreter {
 
   // Create interpreter-aware array functions that support pure-REXX callbacks
   createInterpreterAwareArrayFunctions(originalArrayFunctions) {
-    const interpreterContext = this;
-    
-    return {
-      ...originalArrayFunctions,
-      'ARRAY_FILTER': async (array, filterExpression) => {
-        try {
-          let arr = Array.isArray(array) ? array : JSON.parse(String(array));
-
-          // Simple filter for non-null/undefined/empty values if no filterExpression
-          if (!filterExpression) {
-            return arr.filter(item => item != null && item !== '');
-          }
-
-          const expr = String(filterExpression).trim();
-
-          // Check for arrow function syntax (param => body)
-          const arrowMatch = expr.match(/^(\w+)\s*=>\s*(.+)$/);
-          if (arrowMatch) {
-            const body = arrowMatch[2];
-
-            // Check if this is a JS callback (has dot notation like .includes, .length, etc.)
-            // JS callbacks should be handled by the original implementation
-            const hasJSSyntax = /\.\w+/.test(body); // dot notation like item.includes
-
-            if (hasJSSyntax) {
-              // Let the original implementation handle JS callbacks
-              return originalArrayFunctions.ARRAY_FILTER(array, filterExpression);
-            }
-
-            // Handle as REXX lambda
-            const paramName = arrowMatch[1];
-            const filteredResults = [];
-            for (const item of arr) {
-              try {
-                // Save current param variable if it exists
-                const originalParam = interpreterContext.variables.get(paramName);
-                interpreterContext.variables.set(paramName, item);
-
-                // Evaluate the arrow function body
-                let result = await interpreterContext.evaluateRexxCallbackExpression(body);
-
-                // Restore original param variable
-                if (originalParam !== undefined) {
-                  interpreterContext.variables.set(paramName, originalParam);
-                } else {
-                  interpreterContext.variables.delete(paramName);
-                }
-
-                // Add item to results if condition is true
-                if (!!result) {
-                  filteredResults.push(item);
-                }
-              } catch (e) {
-                console.debug('Arrow function evaluation failed:', e.message);
-                // Don't add item to results if evaluation failed
-              }
-            }
-            return filteredResults;
-          }
-
-          // Check for pure-REXX callback syntax
-          // Must NOT have JS syntax (=>, &&, ||, ===, !==) and MUST have REXX function calls or REXX operators
-          const hasJSLogicalOps = expr.includes('&&') || expr.includes('||') || expr.includes('===') || expr.includes('!==');
-          const hasRexxFunctions = expr.includes('pos(') || expr.includes('length(') ||
-                                   expr.includes('upper(') || expr.includes('lower(') ||
-                                   expr.includes('substr(') || expr.includes('word(');
-          const hasRexxLogicalOps = (expr.includes(' & ') && !expr.includes('&&')) ||
-                                   (expr.includes(' | ') && !expr.includes('||'));
-
-          const isRexxCallback = !expr.includes('=>') &&
-                                !expr.startsWith('function') &&
-                                !hasJSLogicalOps &&
-                                (hasRexxFunctions || hasRexxLogicalOps);
-
-          if (isRexxCallback) {
-            // Pure-REXX callback evaluation using a simpler approach
-            const filteredResults = [];
-            for (const item of arr) {
-              try {
-                // Save current item variable if it exists
-                const originalItem = interpreterContext.variables.get('item');
-                interpreterContext.variables.set('item', item);
-
-                // Evaluate the REXX expression by treating it as a mini REXX script
-                let result = await interpreterContext.evaluateRexxCallbackExpression(expr);
-
-                // Restore original item variable
-                if (originalItem !== undefined) {
-                  interpreterContext.variables.set('item', originalItem);
-                } else {
-                  interpreterContext.variables.delete('item');
-                }
-
-                // Add item to results if condition is true
-                if (!!result) {
-                  filteredResults.push(item);
-                }
-              } catch (e) {
-                console.debug('REXX callback evaluation failed:', e.message);
-                // Don't add item to results if evaluation failed
-              }
-            }
-            return filteredResults;
-          }
-
-          // Fall back to original ARRAY_FILTER implementation for JS callbacks and object expressions
-          return originalArrayFunctions.ARRAY_FILTER(array, filterExpression);
-        } catch (e) {
-          return [];
-        }
-      },
-      
-      'ARRAY_FIND': async (array, searchProperty, searchValue) => {
-        try {
-          // Ensure we have the right data types
-          let arr = Array.isArray(array) ? array : JSON.parse(String(array));
-          
-          // Call original implementation with proper parameter resolution
-          return originalArrayFunctions.ARRAY_FIND(arr, searchProperty, searchValue);
-        } catch (e) {
-          return null;
-        }
-      },
-      
-      'ARRAY_MAP': async (array, mapExpression) => {
-        try {
-          // Ensure we have the right data types
-          let arr = Array.isArray(array) ? array : JSON.parse(String(array));
-
-          // Simple identity mapping if no mapExpression
-          if (!mapExpression) {
-            return [...arr];
-          }
-
-          const expr = String(mapExpression).trim();
-
-          // Check for arrow function syntax (param => body)
-          const arrowMatch = expr.match(/^(\w+)\s*=>\s*(.+)$/);
-          if (arrowMatch) {
-            const body = arrowMatch[2];
-
-            // Check if this is a JS callback (has dot notation like .includes, .length, etc.)
-            // JS callbacks should be handled by the original implementation
-            const hasJSSyntax = /\.\w+/.test(body); // dot notation like item.includes
-
-            if (hasJSSyntax) {
-              // Let the original implementation handle JS callbacks
-              return originalArrayFunctions.ARRAY_MAP(array, mapExpression);
-            }
-
-            // Handle as REXX lambda
-            const paramName = arrowMatch[1];
-            const mappedResults = [];
-            for (const item of arr) {
-              try {
-                // Save current param variable if it exists
-                const originalParam = interpreterContext.variables.get(paramName);
-                interpreterContext.variables.set(paramName, item);
-
-                // Evaluate the arrow function body
-                let result = await interpreterContext.evaluateRexxCallbackExpression(body);
-
-                // Restore original param variable
-                if (originalParam !== undefined) {
-                  interpreterContext.variables.set(paramName, originalParam);
-                } else {
-                  interpreterContext.variables.delete(paramName);
-                }
-
-                mappedResults.push(result);
-              } catch (e) {
-                console.debug('Arrow function evaluation failed:', e.message);
-                // On error, push original item
-                mappedResults.push(item);
-              }
-            }
-            return mappedResults;
-          }
-
-          // Fall back to original ARRAY_MAP implementation
-          return originalArrayFunctions.ARRAY_MAP(arr, mapExpression);
-        } catch (e) {
-          return [];
-        }
-      },
-
-      // Aliases for pipe-friendly syntax (must use interpreterAwareArrayFunctions)
-      'MAP': async function(...args) {
-        const funcs = interpreterContext.createInterpreterAwareArrayFunctions(originalArrayFunctions);
-        return funcs.ARRAY_MAP(...args);
-      },
-
-      'FILTER': async function(...args) {
-        const funcs = interpreterContext.createInterpreterAwareArrayFunctions(originalArrayFunctions);
-        return funcs.ARRAY_FILTER(...args);
-      }
-    };
+    return arrayFunctionsUtils.createInterpreterAwareArrayFunctions(originalArrayFunctions, this);
   }
   
   wrapDomFunctions(domFunctions) {
@@ -1905,174 +1723,15 @@ class RexxInterpreter {
   }
 
   async executeExitUnlessStatement(command) {
-    // Parse the condition string into a condition object
-    // The condition string can be:
-    // - A simple comparison: "status = 200"
-    // - A logical expression: "auth AND valid"
-    // - A boolean variable: "success"
-    // - A complex expression: "(status = 200) AND hasData AND (count > 0)"
-
-    const conditionStr = command.condition;
-
-    // Parse the condition using a simple parser
-    const condition = this.parseConditionString(conditionStr);
-
-    // Evaluate the condition
-    const conditionResult = await this.evaluateCondition(condition);
-
-    // If condition is FALSE, exit with the specified code and message
-    if (!conditionResult) {
-      // Evaluate the message (it may contain concatenation with ||)
-      let message = '';
-      if (command.message.includes('||')) {
-        message = await this.evaluateConcatenation(command.message);
-      } else {
-        message = await this.resolveValue(command.message);
-      }
-
-      // Check if message needs interpolation (double-quoted strings with {{...}} markers)
-      if (typeof message === 'string') {
-        // Get current interpolation pattern
-        try {
-          const interpolationModule = require('./interpolation');
-          const pattern = interpolationModule.getCurrentPattern();
-          if (pattern.hasDelims(message)) {
-            message = await this.interpolateString(message);
-          }
-        } catch (error) {
-          // Interpolation module not available or failed - use message as-is
-        }
-      }
-
-      // Output the message (only if outputHandler is available)
-      if (this.outputHandler && this.outputHandler.output) {
-        this.outputHandler.output(String(message));
-      }
-
-      // Exit with the specified code
-      const exitError = new Error(`Script terminated with EXIT ${command.code}`);
-      exitError.isExit = true;
-      exitError.exitCode = command.code;
-      throw exitError;
-    }
-    // Otherwise, continue execution - return undefined (no result)
-    return undefined;
+    return await exitUnlessUtils.executeExitUnlessStatement(command, this);
   }
 
   parseConditionString(conditionStr) {
-    // Handle logical operators: AND, OR, NOT
-    // Check for AND first (higher precedence than OR)
-    const andParts = this.splitByLogicalOperator(conditionStr, 'AND');
-    if (andParts.length > 1) {
-      return {
-        type: 'LOGICAL_AND',
-        parts: andParts.map(part => this.parseConditionString(part.trim()))
-      };
-    }
-
-    // Check for OR
-    const orParts = this.splitByLogicalOperator(conditionStr, 'OR');
-    if (orParts.length > 1) {
-      return {
-        type: 'LOGICAL_OR',
-        parts: orParts.map(part => this.parseConditionString(part.trim()))
-      };
-    }
-
-    // Check for NOT prefix
-    const notMatch = conditionStr.trim().match(/^NOT\s+(.+)$/i);
-    if (notMatch) {
-      return {
-        type: 'LOGICAL_NOT',
-        operand: this.parseConditionString(notMatch[1].trim())
-      };
-    }
-
-    // Remove outer parentheses if present
-    let cleanCondition = conditionStr.trim();
-    if (cleanCondition.startsWith('(') && cleanCondition.endsWith(')')) {
-      cleanCondition = cleanCondition.substring(1, cleanCondition.length - 1).trim();
-      return this.parseConditionString(cleanCondition);
-    }
-
-    // Check for comparison operators: =, <>, <, >, <=, >=
-    const comparisonMatch = cleanCondition.match(/^(.+?)\s*([><=]+|<>)\s*(.+)$/);
-    if (comparisonMatch) {
-      return {
-        type: 'COMPARISON',
-        left: comparisonMatch[1].trim(),
-        operator: comparisonMatch[2].trim(),
-        right: comparisonMatch[3].trim()
-      };
-    }
-
-    // Simple boolean expression (variable or literal)
-    return {
-      type: 'BOOLEAN',
-      expression: cleanCondition
-    };
+    return exitUnlessUtils.parseConditionString(conditionStr);
   }
 
   splitByLogicalOperator(str, operator) {
-    // Split by logical operator while respecting parentheses and quotes
-    const parts = [];
-    let current = '';
-    let parenDepth = 0;
-    let inQuotes = false;
-    let quoteChar = '';
-
-    const operatorRegex = new RegExp(`\\b${operator}\\b`, 'i');
-    let i = 0;
-
-    while (i < str.length) {
-      const char = str[i];
-
-      if (!inQuotes && (char === '"' || char === "'")) {
-        inQuotes = true;
-        quoteChar = char;
-        current += char;
-        i++;
-      } else if (inQuotes && char === quoteChar) {
-        inQuotes = false;
-        quoteChar = '';
-        current += char;
-        i++;
-      } else if (!inQuotes && char === '(') {
-        parenDepth++;
-        current += char;
-        i++;
-      } else if (!inQuotes && char === ')') {
-        parenDepth--;
-        current += char;
-        i++;
-      } else if (!inQuotes && parenDepth === 0) {
-        // Check if we're at the operator
-        const remaining = str.substring(i);
-        const match = remaining.match(operatorRegex);
-        if (match && match.index === 0) {
-          // Found operator at current position
-          parts.push(current);
-          current = '';
-          i += operator.length;
-          // Skip whitespace after operator
-          while (i < str.length && str[i] === ' ') {
-            i++;
-          }
-        } else {
-          current += char;
-          i++;
-        }
-      } else {
-        current += char;
-        i++;
-      }
-    }
-
-    if (current.trim()) {
-      parts.push(current);
-    }
-
-    return parts.length > 1 ? parts : [str];
+    return exitUnlessUtils.splitByLogicalOperator(str, operator);
   }
 
   async executeInterpretStatement(command) {
