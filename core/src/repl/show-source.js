@@ -44,13 +44,43 @@
         });
     }
 
-    // REXX syntax highlighter using Prism.js
+    // REXX syntax highlighter using Prism.js with inline styles
     function highlightRexx(code) {
         if (isPrismAvailable()) {
             // Use Prism for highlighting
-            return Prism.highlight(code, Prism.languages.rexx, 'rexx');
+            const highlighted = Prism.highlight(code, Prism.languages.rexx, 'rexx');
+
+            // Apply inline styles to Prism token types
+            return highlighted
+                // Comments: gray italic
+                .replace(/<span class="token comment">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #999; font-style: italic;">$1</span>')
+                // Strings: blue
+                .replace(/<span class="token string">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #183691;">$1</span>')
+                // Keywords: purple/bold
+                .replace(/<span class="token keyword">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #9000ff; font-weight: bold;">$1</span>')
+                // Functions: teal
+                .replace(/<span class="token function">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #0066cc;">$1</span>')
+                // Variables: dark blue
+                .replace(/<span class="token variable">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #0066cc;">$1</span>')
+                // Numbers: orange
+                .replace(/<span class="token number">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #d73a49;">$1</span>')
+                // Operators: red
+                .replace(/<span class="token operator">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #d73a49;">$1</span>')
+                // Punctuation: gray
+                .replace(/<span class="token punctuation">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #666;">$1</span>')
+                // Namespace: purple
+                .replace(/<span class="token namespace">([\s\S]*?)<\/span>/g,
+                    '<span style="color: #9000ff;">$1</span>');
         } else {
-            // Fallback: just escape HTML and return in monospace
+            // Just escape HTML and return in monospace (no highlighting available)
             return code
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
