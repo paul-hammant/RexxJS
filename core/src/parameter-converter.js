@@ -985,12 +985,25 @@ function convertParamsToArgs(functionName, params) {
             ];
 
         case 'INDEX':
-            // array, row, col
-            return [
-                params.array || params.table || Object.values(params)[0] || '[]',
-                params.row || params.rowIndex || Object.values(params)[1] || '1',
-                params.col || params.column || params.colIndex || Object.values(params)[2] || '1'
-            ];
+            // INDEX can be used for two purposes:
+            // 1. String search: INDEX(string, needle [, start]) - like POS
+            // 2. Array indexing: INDEX(array, row, col) - for 3D arrays
+            // We detect based on the parameter names
+            if (params.string || params.text || params.haystack || params.needle || params.substring || params.search) {
+                // String search mode (like POS)
+                return [
+                    params.string || params.text || params.haystack || Object.values(params)[0] || '',
+                    params.needle || params.substring || params.search || Object.values(params)[1] || '',
+                    params.start || params.startPos || Object.values(params)[2] || 1
+                ];
+            } else {
+                // Array indexing mode (3D array)
+                return [
+                    params.array || params.table || Object.values(params)[0] || '[]',
+                    params.row || params.rowIndex || Object.values(params)[1] || '1',
+                    params.col || params.column || params.colIndex || Object.values(params)[2] || '1'
+                ];
+            }
 
         case 'MATCH':
             // lookupArray, lookupValue, matchType (data-first for pipe compatibility)

@@ -67,6 +67,15 @@ const stringFunctions = {
     return pos === -1 ? 0 : pos + 1; // Convert 0-based to 1-based, 0 means not found
   },
 
+  'INDEX': (string, needle, start = 1) => {
+    // INDEX is an alias for POS - finds the position of a substring
+    if (typeof string !== 'string') string = String(string);
+    if (typeof needle !== 'string') needle = String(needle);
+    const startPos = Math.max(0, (parseInt(start) || 1) - 1); // Convert 1-based to 0-based
+    const pos = string.indexOf(needle, startPos);
+    return pos === -1 ? 0 : pos + 1; // Convert 0-based to 1-based, 0 means not found
+  },
+
   'TRIM': (string) => {
     try {
       return String(string).trim();

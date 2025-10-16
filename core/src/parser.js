@@ -380,6 +380,38 @@ function parseStatement(tokens, startIndex) {
     };
   }
 
+  // PARSE VAR varname template (classic REXX syntax, no WITH keyword needed)
+  const parseVarMatch = line.match(/^PARSE\s+VAR\s+(\w+)\s+(.*)/i);
+  if (parseVarMatch) {
+    return {
+      command: {
+        type: 'PARSE',
+        source: 'VAR',
+        input: parseVarMatch[1].trim(),
+        template: parseVarMatch[2].trim()
+      },
+      nextIndex: startIndex + 1
+    };
+  }
+
+  // PARSE VALUE expression template (classic REXX syntax, no WITH keyword needed)
+  // This is more complex because the expression can be anything until we hit the template variables
+  // In classic REXX, it's: PARSE VALUE <expression> <template>
+  // The expression ends where whitespace-separated words that could be template variables begin
+  // For simplicity, we'll require at least 2 space-separated tokens after VALUE
+  const parseValueMatch = line.match(/^PARSE\s+VALUE\s+(.+?)\s+([a-zA-Z_]\w*(?:\s+[a-zA-Z_]\w*)*)$/i);
+  if (parseValueMatch) {
+    return {
+      command: {
+        type: 'PARSE',
+        source: 'VALUE',
+        input: parseValueMatch[1].trim(),
+        template: parseValueMatch[2].trim()
+      },
+      nextIndex: startIndex + 1
+    };
+  }
+
   // PARSE statement - handle both "PARSE ARG template" and "PARSE SOURCE input WITH template"
   const parseWithMatch = line.match(/^PARSE\s+(ARG|VAR|VALUE)\s+(.*?)\s+WITH\s+(.*)/i);
   if (parseWithMatch) {
