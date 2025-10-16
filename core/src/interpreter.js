@@ -26,6 +26,7 @@ let securityUtils;
 let stringUtils;
 let pathResolver;
 let interpolation;
+let callbackEvaluation;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -58,6 +59,7 @@ if (typeof require !== 'undefined') {
   stringUtils = require('./string-processing.js');
   pathResolver = require('./path-resolver.js');
   interpolation = require('./interpolation.js');
+  callbackEvaluation = require('./interpreter-callback-evaluation.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -341,6 +343,17 @@ if (typeof require !== 'undefined') {
 
   // Interpolation utilities
   interpolation = window.InterpolationConfig;
+
+  // Callback evaluation utilities
+  if (registry.has('callbackEvaluation')) {
+    const cbEval = registry.get('callbackEvaluation');
+    callbackEvaluation = cbEval;
+
+    // Set up window globals for backward compatibility
+    window.evaluateRexxCallbackExpression = cbEval.evaluateRexxCallbackExpression;
+    window.evaluateRexxExpressionPart = cbEval.evaluateRexxExpressionPart;
+    window.parseSimpleArguments = cbEval.parseSimpleArguments;
+  }
 }
 
 /**
@@ -2484,230 +2497,31 @@ class RexxInterpreter {
   }
 
   async evaluateRexxCallbackExpression(expr) {
-    // Simple REXX expression evaluator for callback expressions
-    // Supports concatenation (||), logical operators & (AND), | (OR), and comparison operators
-
-    // Handle concatenation operator (||) - must check before logical OR
-    if (expr.includes('||')) {
-      const parts = expr.split('||');
-      let result = '';
-      for (const part of parts) {
-        const partResult = await this.evaluateRexxExpressionPart(part.trim());
-        result += String(partResult);
-      }
-      return result;
-    }
-
-    // Handle logical AND (&)
-    if (expr.includes(' & ')) {
-      const parts = expr.split(' & ');
-      let result = true;
-      for (const part of parts) {
-        const partResult = await this.evaluateRexxCallbackExpression(part.trim());
-        if (!isTruthy(partResult)) {
-          result = false;
-          break;
-        }
-      }
-      return result;
-    }
-    
-    // Handle logical OR (|)
-    if (expr.includes(' | ')) {
-      const parts = expr.split(' | ');
-      let result = false;
-      for (const part of parts) {
-        const partResult = await this.evaluateRexxCallbackExpression(part.trim());
-        if (isTruthy(partResult)) {
-          result = true;
-          break;
-        }
-      }
-      return result;
-    }
-    
-    // Handle comparison operators (with or without spaces)
-    // Try operators in order of length to match longest first (e.g., >= before >)
-    const comparisonRegexes = [
-      { regex: /(.+?)\s*>=\s*(.+)/, op: '>=' },
-      { regex: /(.+?)\s*<=\s*(.+)/, op: '<=' },
-      { regex: /(.+?)\s*!=\s*(.+)/, op: '!=' },
-      { regex: /(.+?)\s*==\s*(.+)/, op: '==' },
-      { regex: /(.+?)\s*<>\s*(.+)/, op: '<>' },
-      { regex: /(.+?)\s*¬=\s*(.+)/, op: '¬=' },
-      { regex: /(.+?)\s*><\s*(.+)/, op: '><' },
-      { regex: /(.+?)\s*>\s*(.+)/, op: '>' },
-      { regex: /(.+?)\s*<\s*(.+)/, op: '<' },
-      { regex: /(.+?)\s*=\s*(.+)/, op: '=' }
-    ];
-
-    for (const {regex, op} of comparisonRegexes) {
-      const match = expr.match(regex);
-      if (match) {
-        const leftVal = await this.evaluateRexxExpressionPart(match[1].trim());
-        const rightVal = await this.evaluateRexxExpressionPart(match[2].trim());
-
-        switch (op) {
-          case '>=':
-            return compareValues(leftVal, rightVal) >= 0;
-          case '<=':
-            return compareValues(leftVal, rightVal) <= 0;
-          case '>':
-            return compareValues(leftVal, rightVal) > 0;
-          case '<':
-            return compareValues(leftVal, rightVal) < 0;
-          case '=':
-          case '==':
-            return compareValues(leftVal, rightVal) === 0;
-          case '!=':
-          case '<>':
-          case '¬=':
-          case '><':
-            return compareValues(leftVal, rightVal) !== 0;
-        }
-      }
-    }
-    
-    // Simple expression - evaluate as single part
-    return await this.evaluateRexxExpressionPart(expr);
+    // Wrapper function that delegates to the extracted callback evaluation module
+    return await callbackEvaluation.evaluateRexxCallbackExpression(
+      expr,
+      (part) => this.evaluateRexxExpressionPart(part),
+      isTruthy,
+      compareValues
+    );
   }
 
   async evaluateRexxExpressionPart(expr) {
-    // Evaluate a single part of a REXX expression (function call, variable, literal, arithmetic)
-    const trimmed = expr.trim();
-
-    // Check if it contains arithmetic operators (*, /, %, +, -, **)
-    const hasArithmetic = /[\+\-\*\/%]/.test(trimmed) && !trimmed.match(/^['"].*['"]$/);
-    if (hasArithmetic) {
-      // Try to evaluate as arithmetic expression using the full expression evaluator
-      try {
-        const {parseExpression} = require('./parser');
-        const parsedExpr = parseExpression(trimmed);
-        if (parsedExpr) {
-          return await this.evaluateExpression(parsedExpr);
-        }
-      } catch (e) {
-        // If parsing fails, continue with simple evaluation
-      }
-    }
-
-    // Check if it's a function call with parentheses (handle nested parentheses)
-    const funcNameMatch = trimmed.match(/^([a-zA-Z_]\w*)\s*\(/);
-    if (funcNameMatch) {
-      const funcName = funcNameMatch[1].toUpperCase();
-      const startIdx = funcNameMatch[0].length - 1; // Index of opening (
-
-      // Find matching closing parenthesis
-      let parenCount = 0;
-      let endIdx = -1;
-      let inQuotes = false;
-      let quoteChar = '';
-
-      for (let i = startIdx; i < trimmed.length; i++) {
-        const char = trimmed[i];
-
-        if (!inQuotes && (char === '"' || char === "'")) {
-          inQuotes = true;
-          quoteChar = char;
-        } else if (inQuotes && char === quoteChar) {
-          inQuotes = false;
-        } else if (!inQuotes && char === '(') {
-          parenCount++;
-        } else if (!inQuotes && char === ')') {
-          parenCount--;
-          if (parenCount === 0) {
-            endIdx = i;
-            break;
-          }
-        }
-      }
-
-      if (endIdx !== -1 && endIdx === trimmed.length - 1) {
-        // Valid function call
-        const argsStr = trimmed.substring(startIdx + 1, endIdx);
-
-        // Parse arguments
-        const args = [];
-        if (argsStr.trim()) {
-          // Simple argument parsing - split by comma but handle quoted strings and nested parens
-          const argParts = this.parseSimpleArguments(argsStr);
-          for (const argPart of argParts) {
-            const argValue = await this.evaluateRexxExpressionPart(argPart.trim());
-            args.push(argValue);
-          }
-        }
-
-        // Execute built-in function or operation
-        if (this.builtInFunctions[funcName]) {
-          const func = this.builtInFunctions[funcName];
-          return await func(...args);
-        }
-        if (this.operations[funcName]) {
-          const operation = this.operations[funcName];
-          return await operation(...args);
-        }
-      }
-    }
-
-    // Check if it's a quoted string
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-      return trimmed.substring(1, trimmed.length - 1);
-    }
-
-    // Check if it's a number
-    if (!isNaN(parseFloat(trimmed)) && isFinite(trimmed)) {
-      return parseFloat(trimmed);
-    }
-
-    // Check if it's a variable
-    if (this.variables.has(trimmed)) {
-      return this.variables.get(trimmed);
-    }
-
-    // Return as literal string
-    return trimmed;
+    // Wrapper function that delegates to the extracted callback evaluation module
+    const context = {
+      variables: this.variables,
+      builtInFunctions: this.builtInFunctions,
+      operations: this.operations,
+      parseSimpleArgsFn: (argsStr) => callbackEvaluation.parseSimpleArguments(argsStr),
+      evaluatePartRecursiveFn: (part) => this.evaluateRexxExpressionPart(part),
+      evaluateExpressionFn: this.evaluateExpression.bind(this)
+    };
+    return await callbackEvaluation.evaluateRexxExpressionPart(expr, context);
   }
 
   parseSimpleArguments(argsStr) {
-    // Argument parser that handles comma-separated values with quoted strings and nested parentheses
-    const args = [];
-    let current = '';
-    let inQuotes = false;
-    let quoteChar = null;
-    let parenDepth = 0;
-
-    for (let i = 0; i < argsStr.length; i++) {
-      const char = argsStr[i];
-
-      if (!inQuotes && (char === '"' || char === "'")) {
-        inQuotes = true;
-        quoteChar = char;
-        current += char;
-      } else if (inQuotes && char === quoteChar) {
-        inQuotes = false;
-        quoteChar = null;
-        current += char;
-      } else if (!inQuotes && char === '(') {
-        parenDepth++;
-        current += char;
-      } else if (!inQuotes && char === ')') {
-        parenDepth--;
-        current += char;
-      } else if (!inQuotes && char === ',' && parenDepth === 0) {
-        // Only split on comma if not inside parentheses
-        args.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-
-    if (current.trim()) {
-      args.push(current.trim());
-    }
-
-    return args;
+    // Wrapper function that delegates to the extracted callback evaluation module
+    return callbackEvaluation.parseSimpleArguments(argsStr);
   }
   
   // UUID/ID Generation helper methods
