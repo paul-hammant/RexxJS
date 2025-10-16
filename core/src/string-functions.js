@@ -460,6 +460,65 @@ const stringFunctions = {
       return '';
     }
   },
+
+  'LEFT': (string, length, pad = ' ') => {
+    try {
+      const str = String(string);
+      const len = parseInt(length) || 0;
+      const padChar = String(pad);
+
+      if (len <= 0) return '';
+      if (str.length >= len) return str.substring(0, len);
+
+      // Pad on the right
+      const padNeeded = len - str.length;
+      const fullPad = padChar.repeat(Math.ceil(padNeeded / padChar.length));
+      return str + fullPad.substring(0, padNeeded);
+    } catch (e) {
+      return '';
+    }
+  },
+
+  'RIGHT': (string, length, pad = ' ') => {
+    try {
+      const str = String(string);
+      const len = parseInt(length) || 0;
+      const padChar = String(pad);
+
+      if (len <= 0) return '';
+      if (str.length >= len) return str.substring(str.length - len);
+
+      // Pad on the left
+      const padNeeded = len - str.length;
+      const fullPad = padChar.repeat(Math.ceil(padNeeded / padChar.length));
+      return fullPad.substring(0, padNeeded) + str;
+    } catch (e) {
+      return '';
+    }
+  },
+
+  'CENTER': (string, length, pad = ' ') => {
+    try {
+      const str = String(string);
+      const len = parseInt(length) || 0;
+      const padChar = String(pad);
+
+      if (len <= 0) return '';
+      if (str.length >= len) return str.substring(0, len);
+
+      // Pad on both sides
+      const padNeeded = len - str.length;
+      const leftPad = Math.floor(padNeeded / 2);
+      const rightPad = padNeeded - leftPad;
+
+      const leftFullPad = padChar.repeat(Math.ceil(leftPad / padChar.length));
+      const rightFullPad = padChar.repeat(Math.ceil(rightPad / padChar.length));
+
+      return leftFullPad.substring(0, leftPad) + str + rightFullPad.substring(0, rightPad);
+    } catch (e) {
+      return '';
+    }
+  },
   
   'SLUG': (string) => {
     try {

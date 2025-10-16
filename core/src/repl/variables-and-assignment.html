@@ -60,6 +60,7 @@
         SAY "  val1 = '" || val1 || "', val2 = '" || val2 || "'"
         IF val1 > val2 THEN
             SAY "  String comparison: '" || val1 || "' > '" || val2 || "' = TRUE"
+        ENDIF
         SAY "  Numeric result: " || val1 || " > " || val2 || " = " || (val1 + 0 > val2 + 0)
         SAY ""
 

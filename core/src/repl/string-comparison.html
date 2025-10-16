@@ -33,8 +33,10 @@
         SAY "  str3 = '" || str3 || "'"
         IF str1 = str2 THEN
             SAY "  str1 = str2: TRUE"
+        ENDIF
         IF str1 <> str3 THEN
             SAY "  str1 <> str3: TRUE"
+        ENDIF
         SAY ""
 
         /* Case sensitivity */
@@ -47,6 +49,7 @@
             SAY "  'abc' = 'ABC': TRUE (case-insensitive)"
         ELSE
             SAY "  'abc' <> 'ABC': TRUE (if case-sensitive)"
+        ENDIF
         SAY ""
 
         /* Numeric vs string comparison */
@@ -56,6 +59,7 @@
         SAY "  numStr1 = '" || numStr1 || "', numStr2 = '" || numStr2 || "'"
         IF numStr1 > numStr2 THEN
             SAY "  String comparison: '10' > '2': TRUE (lexical)"
+        ENDIF
         SAY "  Numeric comparison: 10 > 2: " || (numStr1 + 0 > numStr2 + 0)
         SAY ""
 
@@ -65,8 +69,10 @@
         SAY "  command = '" || command || "'"
         IF ABBREV(command, "DEL") THEN
             SAY "  ABBREV('DELETE', 'DEL'): TRUE"
+        ENDIF
         IF ABBREV(command, "DEX", 2) THEN
             SAY "  ABBREV('DELETE', 'DE', 2): TRUE (minimum 2 chars)"
+        ENDIF
         SAY ""
 
         /* Substring position */
@@ -80,6 +86,7 @@
             SAY "  Found at position " || pos
         ELSE
             SAY "  Not found"
+        ENDIF
         SAY ""
 
         /* Whitespace comparison */
@@ -92,6 +99,7 @@
             SAY "  Are they equal?: TRUE"
         ELSE
             SAY "  Are they equal?: FALSE"
+        ENDIF
         SAY "  After STRIP: '" || STRIP(padded) || "' = '" || unpadded || "'"
         SAY ""
 
@@ -114,8 +122,10 @@
         SAY "  notEmpty = '" || notEmpty || "'"
         IF empty = "" THEN
             SAY "  empty is empty: TRUE"
+        ENDIF
         IF notEmpty <> "" THEN
             SAY "  notEmpty is not empty: TRUE"
+        ENDIF
     </script>
 
 </head>

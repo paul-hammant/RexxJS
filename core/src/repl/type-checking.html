@@ -60,8 +60,10 @@
         SAY "  empty = '" || empty || "'"
         IF empty = "" THEN
             SAY "  Is empty string: TRUE"
+        ENDIF
         IF LENGTH(empty) = 0 THEN
             SAY "  Length is 0: TRUE"
+        ENDIF
         SAY ""
 
         /* Checking if string contains only digits */
@@ -90,6 +92,7 @@
             SAY "  maybeUndefined is defined"
         ELSE
             SAY "  maybeUndefined is not defined"
+        ENDIF
         SAY ""
 
         /* Type consistency in operations */
@@ -109,22 +112,27 @@
             ARG val
             IF val = INT(val) & val <> val + 0.5 THEN
                 RETURN "integer"
+            ENDIF
             IF val = "" THEN
                 RETURN "empty string"
+            ENDIF
             IF val MATCHES "[0-9.]+" THEN
                 RETURN "numeric string"
+            ENDIF
             RETURN "string"
 
         isAllDigits: PROCEDURE
             ARG str
             IF str MATCHES "[0-9]+" THEN
                 RETURN 1
+            ENDIF
             RETURN 0
 
         isAllLetters: PROCEDURE
             ARG str
             IF str MATCHES "[A-Za-z]+" THEN
                 RETURN 1
+            ENDIF
             RETURN 0
     </script>
 
