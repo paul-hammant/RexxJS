@@ -2866,44 +2866,53 @@ class RexxInterpreter {
 
         // Create a require that can load from real filesystem (outside pkg snapshot)
         // Set it globally and keep it - don't restore it
-        if (typeof require !== 'undefined' && !globalScope.require) {
-          // Use Module.createRequire with a path that can find node_modules
-          // Try parent directory first, then cwd
-          const Module = require('module');
-          const path = require('path');
-          const fs = require('fs');
+        // Only run this in Node.js environment (typeof module !== 'undefined' means we're in Node.js, not browser)
+        if (typeof require !== 'undefined' && typeof module !== 'undefined' && !globalScope.require) {
+          try {
+            // Use Module.createRequire with a path that can find node_modules
+            // Try parent directory first, then cwd
+            // eslint-disable-next-line global-require
+            const Module = require('module');
+            // eslint-disable-next-line global-require
+            const path = require('path');
+            // eslint-disable-next-line global-require
+            const fs = require('fs');
 
-          let requirePath = process.cwd();
-          // Check if node_modules exists in parent directory
-          const parentNodeModules = path.join(requirePath, '..', 'node_modules');
-          if (fs.existsSync(parentNodeModules)) {
-            requirePath = path.join(requirePath, '..');
-          }
+            let requirePath = process.cwd();
+            // Check if node_modules exists in parent directory
+            const parentNodeModules = path.join(requirePath, '..', 'node_modules');
+            if (fs.existsSync(parentNodeModules)) {
+              requirePath = path.join(requirePath, '..');
+            }
 
-          const realFsRequire = Module.createRequire(path.join(requirePath, 'package.json'));
+            const realFsRequire = Module.createRequire(path.join(requirePath, 'package.json'));
 
-          // Set global.require so functions can access it
-          globalScope.require = realFsRequire;
+            // Set global.require so functions can access it
+            globalScope.require = realFsRequire;
 
-          // Use Function constructor with require parameter to give eval'd code access
-          const func = new Function('require', 'module', 'exports', `
-            ${libraryCode}
-          `);
+            // Use Function constructor with require parameter to give eval'd code access
+            const func = new Function('require', 'module', 'exports', `
+              ${libraryCode}
+            `);
 
-          // Call with our real filesystem require
-          const mockModule = { exports: {} };
-          func(realFsRequire, mockModule, mockModule.exports);
+            // Call with our real filesystem require
+            const mockModule = { exports: {} };
+            func(realFsRequire, mockModule, mockModule.exports);
 
-          // Make exports globally available
-          if (mockModule.exports && typeof mockModule.exports === 'object') {
-            for (const [key, value] of Object.entries(mockModule.exports)) {
-              if (key && key !== 'undefined' && value !== undefined) {
-                globalScope[key] = value;
+            // Make exports globally available
+            if (mockModule.exports && typeof mockModule.exports === 'object') {
+              for (const [key, value] of Object.entries(mockModule.exports)) {
+                if (key && key !== 'undefined' && value !== undefined) {
+                  globalScope[key] = value;
+                }
               }
             }
+          } catch (error) {
+            // If Node.js specific code fails, fall back to eval
+            eval(libraryCode);
           }
         } else {
-          // If already set or no require available, just eval
+          // If already set, no require available, or in browser, just eval
           eval(libraryCode);
         }
       }

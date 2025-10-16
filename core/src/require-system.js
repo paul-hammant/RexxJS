@@ -243,6 +243,7 @@ async function tryLoadFromUnpkg(moduleName, parentLibraryName, ctx) {
     console.log(`📦 Resolving ${moduleName}@${version} from unpkg for ${parentLibraryName}...`);
 
     // Use unpkg resolver to fetch and cache
+    // eslint-disable-next-line global-require
     const unpkgResolver = require('./unpkg-resolver');
     const loadedModule = await unpkgResolver.resolveModule(moduleName, version);
 
@@ -350,7 +351,9 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
       // Extract detection function from library code if it's a file path
       let detectionFunction = null;
       if (libraryName.startsWith('./') || libraryName.startsWith('../') || libraryName.startsWith('/') || /^[A-Za-z]:[\\/]/.test(libraryName)) {
+        // eslint-disable-next-line global-require
         const fs = require('fs');
+        // eslint-disable-next-line global-require
         const path = require('path');
         const filePath = path.resolve(libraryName);
         if (fs.existsSync(filePath)) {
@@ -396,7 +399,9 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
       // For local files, always use scoped require execution to ensure proper dependency resolution
       // This ensures that when the file does require('dependency'), it resolves from the file's location
       if (true) {  // Always true for local files
+        // eslint-disable-next-line global-require
         const path = require('path');
+        // eslint-disable-next-line global-require
         const fs = require('fs');
 
         // Resolve the file path
@@ -418,6 +423,7 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
             if (Object.keys(dependencies).length > 0) {
               console.log(`📦 Pre-fetching ${Object.keys(dependencies).length} dependencies for ${libraryName}...`);
 
+              // eslint-disable-next-line global-require
               const unpkgResolver = require('./unpkg-resolver');
               for (const [depName, depVersion] of Object.entries(dependencies)) {
                 // Check if already cached
@@ -439,8 +445,11 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
 
         try {
           // Create a scoped require function that resolves relative to the loaded file
+          // eslint-disable-next-line global-require
           const Module = require('module');
+          // eslint-disable-next-line global-require
           const path = require('path');
+          // eslint-disable-next-line global-require
           const fs = require('fs');
 
           // Find a path with node_modules for creating the scoped require
@@ -496,6 +505,7 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
                 console.log(`⚠️  Scoped require failed for ${moduleName}, trying unpkg...`);
 
                 // Try to load from unpkg synchronously (we need to block here)
+                // eslint-disable-next-line global-require
                 const unpkgResolver = require('./unpkg-resolver');
 
                 // Get parent's metadata to find the version
@@ -512,6 +522,7 @@ async function requireNodeJSModule(libraryName, ctx, parentLibraryName = null) {
                       console.log(`📦 Loading ${moduleName}@${version} from unpkg...`);
 
                       // Synchronous unpkg resolution (we'll need to make this work)
+                      // eslint-disable-next-line global-require
                       const Module = require('module');
                       const cachedPath = unpkgResolver.getCachedModulePath(moduleName, version);
 
@@ -793,7 +804,9 @@ function getLibraryDetectionFunction(libraryName) {
   if (typeof require !== 'undefined') {
     if (libraryName.startsWith('./') || libraryName.startsWith('../') || libraryName.startsWith('/') || /^[A-Za-z]:[\\/]/.test(libraryName)) {
       try {
+        // eslint-disable-next-line global-require
         const fs = require('fs');
+        // eslint-disable-next-line global-require
         const path = require('path');
         const filePath = path.resolve(libraryName);
         if (fs.existsSync(filePath)) {
