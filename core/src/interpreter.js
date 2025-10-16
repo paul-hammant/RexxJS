@@ -2456,8 +2456,23 @@ class RexxInterpreter {
   }
   
   async evaluateConcatenation(expression) {
-    // Use the extracted evaluateConcatenation function, passing this.resolveValue as the resolver
-    return await evaluateConcatenation(expression, (variableName) => this.resolveValue(variableName));
+    // Use the extracted evaluateConcatenation function, passing resolveValue, evaluateExpression, and parseExpression
+    // This allows proper evaluation of expressions like (a + b) in concatenation contexts
+    const { parseExpression } = require('./parser');
+    return await evaluateConcatenation(
+      expression,
+      (variableName) => this.resolveValue(variableName),
+      async (exprStr) => {
+        // Parse the string into an expression object, then evaluate it
+        const parsed = parseExpression(exprStr);
+        if (parsed) {
+          return await this.evaluateExpression(parsed);
+        } else {
+          // If parsing fails, try resolving as a variable
+          return await this.resolveValue(exprStr);
+        }
+      }
+    );
   }
   
   async interpolateString(template) {

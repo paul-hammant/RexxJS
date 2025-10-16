@@ -129,17 +129,18 @@ const interpolateString = async function(template, resolveValueFn) {
     return result;
 }
 
-const evaluateConcatenation = async function(expression, resolveValueFn) {
-    // Split the expression by || operators while preserving quoted strings
+const evaluateConcatenation = async function(expression, resolveValueFn, evaluateExpressionFn) {
+    // Split the expression by || operators while preserving quoted strings and parentheses
     const parts = [];
     let current = '';
     let inQuotes = false;
     let quoteChar = '';
-    
+    let parenDepth = 0;
+
     for (let i = 0; i < expression.length; i++) {
       const char = expression[i];
       const nextChar = expression[i + 1];
-      
+
       if (!inQuotes && (char === '"' || char === "'")) {
         inQuotes = true;
         quoteChar = char;
@@ -148,8 +149,14 @@ const evaluateConcatenation = async function(expression, resolveValueFn) {
         inQuotes = false;
         current += char;
         quoteChar = '';
-      } else if (!inQuotes && char === '|' && nextChar === '|') {
-        // Found || operator
+      } else if (!inQuotes && char === '(') {
+        parenDepth++;
+        current += char;
+      } else if (!inQuotes && char === ')') {
+        parenDepth--;
+        current += char;
+      } else if (!inQuotes && parenDepth === 0 && char === '|' && nextChar === '|') {
+        // Found || operator at top level (not inside parentheses)
         parts.push(current.trim());
         current = '';
         i++; // Skip the second |
@@ -157,27 +164,59 @@ const evaluateConcatenation = async function(expression, resolveValueFn) {
         current += char;
       }
     }
-    
+
     if (current.trim()) {
       parts.push(current.trim());
     }
-    
+
     // Evaluate each part and concatenate the results
     const results = [];
     for (const part of parts) {
       if (part.startsWith('"') && part.endsWith('"')) {
-        // Quoted string
-        results.push(part.substring(1, part.length - 1));
+        // Quoted string - remove quotes and interpolate if needed
+        const unquoted = part.substring(1, part.length - 1);
+        // Check if we need to interpolate within the string
+        if (typeof evaluateExpressionFn !== 'undefined' && unquoted.includes('{{')) {
+          // Has interpolation patterns, but keep as-is for now
+          // The interpolateString function will handle it if needed
+        }
+        results.push(unquoted);
       } else if (part.startsWith("'") && part.endsWith("'")) {
-        // Single quoted string
+        // Single quoted string - no interpolation
         results.push(part.substring(1, part.length - 1));
+      } else if (typeof evaluateExpressionFn !== 'undefined') {
+        // For non-quoted, non-string parts, try different evaluation strategies
+
+        // First, check if this looks like it needs parsing (contains operators or parentheses)
+        const hasOperatorsOrParens = part.startsWith('(') ||
+                                     part.includes('+') || part.includes('-') ||
+                                     part.includes('*') || part.includes('/') || part.includes('%') ||
+                                     part.includes('>') || part.includes('<') || part.includes('=') ||
+                                     part.includes('**');
+
+        if (hasOperatorsOrParens) {
+          try {
+            // This looks like an expression - try to evaluate it
+            // Pass the raw string which evaluateExpressionFn should handle
+            const evaluated = await evaluateExpressionFn(part);
+            results.push(String(evaluated));
+          } catch (error) {
+            // If it fails as an expression, try as a variable
+            const resolved = await resolveValueFn(part);
+            results.push(String(resolved));
+          }
+        } else {
+          // No operators, treat as variable
+          const resolved = await resolveValueFn(part);
+          results.push(String(resolved));
+        }
       } else {
-        // Variable reference or literal
+        // No expression evaluator - treat as variable reference
         const resolved = await resolveValueFn(part);
         results.push(String(resolved));
       }
     }
-    
+
     return results.join('');
 }
 
