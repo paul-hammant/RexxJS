@@ -28,6 +28,7 @@ let pathResolver;
 let interpolation;
 let callbackEvaluation;
 let functionExecution;
+let commandAddressUtils;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -62,6 +63,7 @@ if (typeof require !== 'undefined') {
   interpolation = require('./interpolation.js');
   callbackEvaluation = require('./interpreter-callback-evaluation.js');
   functionExecution = require('./interpreter-function-execution.js');
+  commandAddressUtils = require('./interpreter-command-address.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -365,6 +367,11 @@ if (typeof require !== 'undefined') {
     // Set up window globals for backward compatibility
     window.executeFunctionCall = funcExec.executeFunctionCall;
     window.checkFunctionRequiresParameters = funcExec.checkFunctionRequiresParameters;
+  }
+
+  // Command address utilities
+  if (registry.has('commandAddress')) {
+    commandAddressUtils = registry.get('commandAddress');
   }
 }
 
@@ -1184,37 +1191,25 @@ class RexxInterpreter {
     
     switch (command.type) {
         case 'ADDRESS':
-          this.address = command.target.toLowerCase();
-          // Clear lines state when switching to default
-          if (this.address === 'default') {
-            this.addressLinesCount = 0;
-            this.addressLinesBuffer = [];
-            this.addressLinesStartLine = 0;
-          }
+          commandAddressUtils.executeAddressCommand(command, this);
           break;
-          
+
         case 'ADDRESS_WITH_STRING':
-          // Set the address target and execute the command string immediately
-          this.address = command.target.toLowerCase();
-          await this.executeQuotedString({ type: 'QUOTED_STRING', value: command.commandString });
+          await commandAddressUtils.executeAddressWithStringCommand(command, this);
           break;
-          
+
         // ADDRESS_WITH_MATCHING case removed - use HEREDOC instead
 
-          
+
         // ADDRESS_WITH_LINES case removed - use HEREDOC instead
-        
+
         case 'SIGNAL':
-          if (command.action === 'ON' || command.action === 'OFF') {
-            errorHandlingUtils.setupErrorHandler(command.condition, command.action, command.label, this.errorHandlers);
-          } else if (command.label) {
-            // Basic SIGNAL jump
-            return this.jumpToLabel(command.label);
-          }
+          const signalResult = commandAddressUtils.executeSignalCommand(command, this, errorHandlingUtils);
+          if (signalResult) return signalResult;
           break;
-          
+
         case 'SIGNAL_JUMP':
-          return this.jumpToLabel(command.label);
+          return commandAddressUtils.executeSignalJumpCommand(command, this);
           
         case 'LABEL':
           // Execute any command on the same line as the label
