@@ -105,11 +105,14 @@
                 );
 
                 // Create interpreter with the output handler
-                const interpreter = new RexxInterpreter(null, {
+                const interpreter = new RexxInterpreterBuilder(null)
+                .withOutputHandler({
                     output: (text) => {
                         outputHandler.output(text);
                     }
-                });
+                })
+                .withTraceToOutput(true)  // Enable trace mode - shows executed REXX lines
+                .build();
 
                 // Execute the REXX script directly by ID
                 await interpreter.runScriptInId('datetime-functions-script');

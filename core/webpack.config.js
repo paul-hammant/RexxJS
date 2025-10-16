@@ -32,7 +32,11 @@ module.exports = {
       "path": false,
       "fs": false,
       "vm": false,
-      "https": false
+      "https": false,
+      "module": false,
+      "os": false,
+      "zlib": false,
+      "child_process": false
     }
   },
   module: {

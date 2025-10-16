@@ -352,12 +352,15 @@
                 addToHistory('🚀 Running REXX Demo - Watch each command execute step by step!', 'repl-output');
                 addToHistory('', 'repl-output'); // Add blank line for spacing
                 
-                // Create interpreter instance
-                const demoInterpreter = new RexxInterpreter(null, {
-                    output: (text) => {
-                        addToHistory(`   → ${text}`, 'repl-output'); // Indent output
-                    }
-                });
+                // Create interpreter instance with trace mode enabled for demos
+                const demoInterpreter = new RexxInterpreterBuilder(null)
+                    .withOutputHandler({
+                        output: (text) => {
+                            addToHistory(`   → ${text}`, 'repl-output'); // Indent output
+                        }
+                    })
+                    .withTraceToOutput(true)  // Enable trace mode - shows executed REXX lines
+                    .build();
                 
                 // Get the selected demo script
                 const selectedScript = demoScripts[demoType];

@@ -147,13 +147,16 @@ SAY "Counter updated to:" count
                 
                 // Create document write styled output handler
                 const outputHandler = new DocumentWriteStyledOutputHandler(true, 'rexx-output', 'rexx-output-container'); // Include timestamps, CSS class, container ID
-                
-                // Create interpreter instance with document write output
-                interpreter = new RexxInterpreter(null, {
-                    output: (text) => {
-                        outputHandler.output(text);
-                    }
-                });
+
+                // Create interpreter instance with document write output using builder pattern with trace enabled
+                interpreter = new RexxInterpreterBuilder(null)
+                    .withOutputHandler({
+                        output: (text) => {
+                            outputHandler.output(text);
+                        }
+                    })
+                    .withTraceToOutput(true)  // Enable trace mode - shows executed REXX lines
+                    .build();
                 
                 // Enable buttons
                 document.getElementById('hello-btn').disabled = false;

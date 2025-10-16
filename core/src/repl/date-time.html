@@ -51,12 +51,15 @@
                 null          // trigger document.write!
             );
 
-            // Create interpreter with the output handler
-            const interpreter = new RexxInterpreter(null, {
-                output: (text) => {
-                    outputHandler.output(text);
-                }
-            });
+            // Create interpreter using builder pattern with trace mode enabled
+            const interpreter = new RexxInterpreterBuilder(null)
+                .withOutputHandler({
+                    output: (text) => {
+                        outputHandler.output(text);
+                    }
+                })
+                .withTraceToOutput(true)  // Enable trace mode - shows executed REXX lines
+                .build();
 
             // Execute the REXX script directly by ID
             await interpreter.runScriptInId('datetime-script');
