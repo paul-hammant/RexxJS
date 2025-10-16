@@ -3859,10 +3859,14 @@ class RexxInterpreter {
 
 // Export for both Node.js and browser environments
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Interpreter: RexxInterpreter, RexxInterpreter, RexxInterpreter: RexxInterpreter }; // Keep legacy name for backwards compat
+  module.exports = {
+    Interpreter: RexxInterpreter,
+    RexxInterpreter,
+    RexxInterpreterBuilder
+  };
 } else {
   // Browser environment - attach to window
-  window.Interpreter = RexxInterpreter; // Keep Interpreter for backwards compat
+  window.Interpreter = RexxInterpreter;
   window.RexxInterpreter = RexxInterpreter;
-  window.RexxInterpreter = RexxInterpreter; // Legacy alias
+  window.RexxInterpreterBuilder = RexxInterpreterBuilder;
 }

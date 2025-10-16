@@ -23,11 +23,45 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 
 #### Modes of operation
 
-- In the repo - un-built for NodeJs: core/src/interpreter.js with core/src/parser.js. Typical use would be Rexx lines embedded in a jest test with classic expectations
-- In the repo - un-built for NodeJs: `core/rexx` executable - does scripting to setup the interpreter given command line invocation. Devs of this repo, might use that.
-- Built for NodeJs: bin/rexx executable (after make-binary.sh invocation). This does scripting to setup the interpreter given commandline invocation. Should work on Glibc and Musl x86-64 systems. The result should be identical in operation an capabilities to `core/rexx`, but this time made by 'pkg'
-- Built for Web: GitHub-Action makes a bundle of the interpreter. `cd core/src/repl && npm install` to make it, or just use the one online that github-actions made: https://repl.rexxjs.org/repl/dist/rexxjs.bundle.js
-- In the repo - un-built for Web: core/src/interpreter.js and core/src/parser.js again but served up via https://localhost:portNum/core/src/interpreter-web-loader.js
+**Node.js Environments:**
+
+1. **Development (un-built)** - Direct source execution in Node.js:
+   - **Entry point**: `src/interpreter.js` + `src/parser.js` (loaded directly)
+   - **Usage**: Embedded in Jest tests with REXX code and assertions
+   - **Command**: Jest test runner (`npm test`)
+   - **Example**: Test files in `tests/` directory using `new RexxInterpreter()`
+
+2. **CLI (un-built)** - Repository CLI for development:
+   - **Entry point**: `core/src/cli.js` (via `core/rexx` bash wrapper)
+   - **Webpack config**: `webpack.config.js` entry point is now `./src/cli.js` (after deleting `src/index.js`)
+   - **Usage**: Developer-friendly command-line execution
+   - **Command**: `node core/src/cli.js script.rexx` or `./core/rexx script.rexx`
+   - **Size**: Minimal (CLI only, no bundled libraries)
+
+3. **Binary (built)** - Standalone executable via `pkg`:
+   - **Entry point**: `src/cli.js` compiled into `bin/rexx` binary
+   - **Build command**: `create-pkg-binary.js`
+   - **Usage**: Production CLI without requiring Node.js installation
+   - **Size**: ~49MB standalone binary
+   - **Compatibility**: Glibc and Musl x86-64 systems
+   - **Capability**: Identical to `core/rexx` but statically compiled
+
+**Web Environments:**
+
+4. **REPL Bundle (built)** - Full-featured browser bundle:
+   - **Entry point**: `src/repl/interpreter-bundle-entry.js`
+   - **Build command**: `cd core/src/repl && npm install` or GitHub Actions
+   - **Published**: `https://repl.rexxjs.org/repl/dist/rexxjs.bundle.js`
+   - **Size**: ~357KB (includes all function libraries)
+   - **Usage**: Interactive REPL, web applications with full library access
+   - **Includes**: All built-in functions, ADDRESS handlers, and utilities
+
+5. **Web Loader (un-built)** - Direct source serving in browser:
+   - **Entry point**: `core/src/interpreter-web-loader.js` (loads `src/interpreter.js` + `src/parser.js`)
+   - **Usage**: Local development via HTTP server
+   - **URL**: `https://localhost:portNum/core/src/interpreter-web-loader.js`
+   - **Limitation**: Same-origin policy applies
+   - **Advantage**: Easier debugging of source files
 
 
 ## CLI & Distribution
