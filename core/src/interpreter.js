@@ -32,6 +32,7 @@ let commandAddressUtils;
 let arrayFunctionsUtils;
 let exitUnlessUtils;
 let libraryRequireWrappersUtils;
+let libraryMetadataUtils;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -70,6 +71,7 @@ if (typeof require !== 'undefined') {
   arrayFunctionsUtils = require('./interpreter-array-functions.js');
   exitUnlessUtils = require('./interpreter-exit-unless.js');
   libraryRequireWrappersUtils = require('./interpreter-library-require-wrappers.js');
+  libraryMetadataUtils = require('./interpreter-library-metadata.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -393,6 +395,11 @@ if (typeof require !== 'undefined') {
   // Library require wrappers utilities
   if (registry.has('libraryRequireWrappers')) {
     libraryRequireWrappersUtils = registry.get('libraryRequireWrappers');
+  }
+
+  // Library metadata utilities
+  if (registry.has('libraryMetadata')) {
+    libraryMetadataUtils = registry.get('libraryMetadata');
   }
 }
 
@@ -2307,7 +2314,8 @@ class RexxInterpreter {
   }
 
   async extractDependencies(libraryName) {
-    return await requireSystem.extractDependencies(libraryName, this);
+    const metadata = libraryMetadataUtils.createLibraryMetadataUtils(requireSystem, this);
+    return await metadata.extractDependencies(libraryName);
   }
 
   parseCommentMetadata(sourceCode) {
@@ -2435,11 +2443,13 @@ class RexxInterpreter {
   }
 
   getLibraryDetectionFunction(libraryName) {
-    return requireSystem.getLibraryDetectionFunction(libraryName);
+    const metadata = libraryMetadataUtils.createLibraryMetadataUtils(requireSystem, this);
+    return metadata.getLibraryDetectionFunction(libraryName);
   }
 
   extractMetadataFunctionName(libraryCode) {
-    return requireSystem.extractMetadataFunctionName(libraryCode);
+    const metadata = libraryMetadataUtils.createLibraryMetadataUtils(requireSystem, this);
+    return metadata.extractMetadataFunctionName(libraryCode);
   }
 
   detectAndRegisterAddressTargets(libraryName, asClause = null) {
