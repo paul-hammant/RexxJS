@@ -31,6 +31,7 @@ let functionExecution;
 let commandAddressUtils;
 let arrayFunctionsUtils;
 let exitUnlessUtils;
+let libraryRequireWrappersUtils;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -68,6 +69,7 @@ if (typeof require !== 'undefined') {
   commandAddressUtils = require('./interpreter-command-address.js');
   arrayFunctionsUtils = require('./interpreter-array-functions.js');
   exitUnlessUtils = require('./interpreter-exit-unless.js');
+  libraryRequireWrappersUtils = require('./interpreter-library-require-wrappers.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -386,6 +388,11 @@ if (typeof require !== 'undefined') {
   // Exit unless utilities
   if (registry.has('exitUnless')) {
     exitUnlessUtils = registry.get('exitUnless');
+  }
+
+  // Library require wrappers utilities
+  if (registry.has('libraryRequireWrappers')) {
+    libraryRequireWrappersUtils = registry.get('libraryRequireWrappers');
   }
 }
 
@@ -2147,73 +2154,18 @@ class RexxInterpreter {
   // Transitive dependency resolution
   
   async requireWithDependencies(libraryName, asClause = null) {
-    const ctx = {
-      libraryManagementUtils,
-      loadingQueue: this.loadingQueue,
-      checkLibraryPermissions: this.checkLibraryPermissions.bind(this),
-      isLibraryLoaded: this.isLibraryLoaded.bind(this),
-      detectAndRegisterAddressTargets: (libName, asClause) => this.detectAndRegisterAddressTargets(libName, asClause),
-      extractDependencies: this.extractDependencies.bind(this),
-      dependencyGraph: this.dependencyGraph,
-      registerLibraryFunctions: (libName, asClause) => this.registerLibraryFunctions(libName, asClause),
-      requireRegistryLibrary: this.requireRegistryLibrary.bind(this),
-      isRemoteOrchestrated: this.isRemoteOrchestrated.bind(this),
-      isBuiltinLibrary: this.isBuiltinLibrary.bind(this),
-      requireViaCheckpoint: this.requireViaCheckpoint.bind(this),
-      detectEnvironment: this.detectEnvironment.bind(this),
-      requireWebStandalone: this.requireWebStandalone.bind(this),
-      requireControlBus: this.requireControlBus.bind(this),
-      requireNodeJS: this.requireNodeJS.bind(this),
-      requireNodeJSModule: this.requireNodeJSModule.bind(this),
-      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
-      libraryUrlUtils,
-      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
-      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
-      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this),
-      isLocalOrNpmModule: this.isLocalOrNpmModule.bind(this),
-      isRegistryStyleLibrary: this.isRegistryStyleLibrary.bind(this),
-      requireRegistryStyleLibrary: this.requireRegistryStyleLibrary.bind(this),
-      requireRemoteLibrary: this.requireRemoteLibrary.bind(this)
-    };
-    return await requireSystem.requireWithDependencies(libraryName, asClause, ctx);
+    const wrappers = libraryRequireWrappersUtils.createLibraryRequireWrappers(requireSystem, this, libraryManagementUtils, libraryUrlUtils);
+    return await wrappers.requireWithDependencies(libraryName, asClause);
   }
 
   async loadSingleLibrary(libraryName) {
-    const ctx = {
-      requireRegistryLibrary: this.requireRegistryLibrary.bind(this),
-      isRemoteOrchestrated: this.isRemoteOrchestrated.bind(this),
-      isBuiltinLibrary: this.isBuiltinLibrary.bind(this),
-      requireViaCheckpoint: this.requireViaCheckpoint.bind(this),
-      detectEnvironment: this.detectEnvironment.bind(this),
-      requireWebStandalone: this.requireWebStandalone.bind(this),
-      requireControlBus: this.requireControlBus.bind(this),
-      requireNodeJS: this.requireNodeJS.bind(this),
-      requireNodeJSModule: this.requireNodeJSModule.bind(this),
-      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
-      libraryUrlUtils,
-      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
-      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
-      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this)
-    };
-    return await requireSystem.loadSingleLibrary(libraryName, ctx);
+    const wrappers = libraryRequireWrappersUtils.createLibraryRequireWrappers(requireSystem, this, libraryManagementUtils, libraryUrlUtils);
+    return await wrappers.loadSingleLibrary(libraryName);
   }
 
   async requireNodeJS(libraryName) {
-    const ctx = {
-      requireNodeJSModule: this.requireNodeJSModule.bind(this),
-      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
-      libraryUrlUtils,
-      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
-      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
-      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this),
-      detectEnvironment: this.detectEnvironment.bind(this),
-      isBuiltinLibrary: this.isBuiltinLibrary.bind(this),
-      isLocalOrNpmModule: this.isLocalOrNpmModule.bind(this),
-      isRegistryStyleLibrary: this.isRegistryStyleLibrary.bind(this),
-      requireRegistryStyleLibrary: this.requireRegistryStyleLibrary.bind(this),
-      requireRemoteLibrary: this.requireRemoteLibrary.bind(this)
-    };
-    return await requireSystem.requireNodeJS(libraryName, ctx);
+    const wrappers = libraryRequireWrappersUtils.createLibraryRequireWrappers(requireSystem, this, libraryManagementUtils, libraryUrlUtils);
+    return await wrappers.requireNodeJS(libraryName);
   }
 
   /**
@@ -2222,17 +2174,13 @@ class RexxInterpreter {
    * @returns {Promise<boolean>} True if library loaded successfully
    */
   async requireRemoteLibrary(libraryName) {
-    const ctx = {
-      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this)
-    };
-    return await requireSystem.requireRemoteLibrary(libraryName, ctx);
+    const wrappers = libraryRequireWrappersUtils.createLibraryRequireWrappers(requireSystem, this, libraryManagementUtils, libraryUrlUtils);
+    return await wrappers.requireRemoteLibrary(libraryName);
   }
 
   isLocalOrNpmModule(libraryName) {
-    const ctx = {
-      libraryUrlUtils
-    };
-    return requireSystem.isLocalOrNpmModule(libraryName, ctx);
+    const wrappers = libraryRequireWrappersUtils.createLibraryRequireWrappers(requireSystem, this, libraryManagementUtils, libraryUrlUtils);
+    return wrappers.isLocalOrNpmModule(libraryName);
   }
 
   /**
@@ -2241,7 +2189,8 @@ class RexxInterpreter {
    * @returns {boolean} True if registry style
    */
   isRegistryStyleLibrary(libraryName) {
-    return requireSystem.isRegistryStyleLibrary(libraryName);
+    const wrappers = libraryRequireWrappersUtils.createLibraryRequireWrappers(requireSystem, this, libraryManagementUtils, libraryUrlUtils);
+    return wrappers.isRegistryStyleLibrary(libraryName);
   }
 
   /**
@@ -2250,15 +2199,8 @@ class RexxInterpreter {
    * @returns {Promise<boolean>} True if library loaded successfully
    */
   async requireRegistryStyleLibrary(libraryName) {
-    const ctx = {
-      lookupPublisherRegistry: this.lookupPublisherRegistry.bind(this),
-      lookupModuleInRegistry: this.lookupModuleInRegistry.bind(this),
-      loadLibraryFromUrl: this.loadLibraryFromUrl.bind(this),
-      detectEnvironment: this.detectEnvironment.bind(this),
-      loadAndExecuteLibrary: this.loadAndExecuteLibrary.bind(this),
-      requireRemoteLibrary: this.requireRemoteLibrary.bind(this)
-    };
-    return await requireSystem.requireRegistryStyleLibrary(libraryName, ctx);
+    const wrappers = libraryRequireWrappersUtils.createLibraryRequireWrappers(requireSystem, this, libraryManagementUtils, libraryUrlUtils);
+    return await wrappers.requireRegistryStyleLibrary(libraryName);
   }
 
   /**
