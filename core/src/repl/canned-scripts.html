@@ -155,6 +155,7 @@ SAY "Counter updated to:" count
                             outputHandler.output(text);
                         }
                     })
+                .withTraceMode('NORMAL')
                     .withTraceToOutput(true)  // Enable trace mode - shows executed REXX lines
                     .build();
                 
