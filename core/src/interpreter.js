@@ -1024,7 +1024,17 @@ class RexxInterpreter {
 
   async executeCommand(command) {
     // Add trace output for instruction execution
-    this.addTraceOutput(`${command.type}`, 'instruction');
+    // Include source line text if available
+    let traceMessage;
+    if (command.lineNumber && this.sourceLines && this.sourceLines[command.lineNumber - 1]) {
+      // Source line is available - show actual REXX code being executed
+      traceMessage = this.sourceLines[command.lineNumber - 1].trim();
+    } else {
+      // No source line available (e.g., dynamically generated commands, embedded REXX, or source not preserved)
+      // Fallback to command type as trace message
+      traceMessage = command.type;
+    }
+    this.addTraceOutput(traceMessage, 'instruction', command.lineNumber);
     
     switch (command.type) {
         case 'ADDRESS':
@@ -2121,7 +2131,9 @@ class RexxInterpreter {
     // Output trace to handler if trace-to-output is enabled
     if (this.options['trace-to-output'] && this.outputHandler && this.traceMode !== 'OFF') {
       // Format: >> <line-number> <message> [=> result]
-      let traceOutput = `>> ${lineNumber || '?'} ${message}`;
+      // Line numbers may be unavailable for dynamically generated code or embedded REXX
+      let lineDisplay = lineNumber ? String(lineNumber) : '(no line#)';
+      let traceOutput = `>> ${lineDisplay} ${message}`;
       if (result !== null && result !== undefined) {
         traceOutput += ` => ${result}`;
       }
