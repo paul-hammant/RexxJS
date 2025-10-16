@@ -1170,13 +1170,13 @@ class RexxInterpreter {
               }
               
               this.variables.set(variableName, value);
-              this.addTraceOutput(`LET ${variableName} = CALL ${command.command.subroutine}`, 'assignment', null, value);
+              // Trace already shown at executeCommand level with full source line
             } else {
               // Function call assignment: LET var = functionCall
               const result = await this.executeFunctionCall(command.command);
               const variableName = await this.interpolateString(command.variable);
               this.variables.set(variableName, result);
-              this.addTraceOutput(`LET ${variableName} = ${command.command.command}()`, 'assignment', null, result);
+              // Trace already shown at executeCommand level with full source line
             }
           } else if (command.expression) {
             // Expression assignment: LET var = expr
@@ -1233,7 +1233,7 @@ class RexxInterpreter {
             
             const variableName = await this.interpolateString(command.variable);
             this.variables.set(variableName, result);
-            this.addTraceOutput(`LET ${variableName} = expression`, 'assignment', null, result);
+            // Trace already shown at executeCommand level with full source line
           } else if (command.value !== undefined) {
             // Simple value assignment: LET var = value (resolve value in case it's a variable reference)
             let resolvedValue;
@@ -1302,7 +1302,7 @@ class RexxInterpreter {
             
             const variableName = await this.interpolateString(command.variable);
             this.variables.set(variableName, resolvedValue);
-            this.addTraceOutput(`LET ${variableName} = "${resolvedValue}"`, 'assignment', null, resolvedValue);
+            // Trace already shown at executeCommand level with full source line
           }
           break;
         
