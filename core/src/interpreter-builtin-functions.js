@@ -748,6 +748,31 @@ function initializeBuiltInFunctions() {
       }
     },
 
+    // SYMBOL function - Check variable definition status
+    // Usage:
+    //   SYMBOL('varName') - Returns 'VAR' if defined, 'LIT' if not defined, 'BAD' if invalid name
+    'SYMBOL': (varName) => {
+      if (typeof varName !== 'string') {
+        return 'BAD';
+      }
+
+      // Strip surrounding quotes if present
+      let cleanVarName = varName.replace(/^['"]|['"]$/g, '');
+
+      // Check if it's a valid REXX variable name
+      // Valid names start with letter or underscore, contain letters, digits, underscores, and periods
+      if (!/^[A-Za-z_][A-Za-z0-9_.]*$/.test(cleanVarName)) {
+        return 'BAD';
+      }
+
+      // Check if variable is defined in the interpreter's variable map
+      if (interpreter.variables.has(cleanVarName)) {
+        return 'VAR';  // Variable is defined
+      } else {
+        return 'LIT';  // Variable is not defined (treat as literal)
+      }
+    },
+
   };
 
   return builtIns;
