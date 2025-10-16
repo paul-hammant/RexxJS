@@ -522,6 +522,11 @@ class RexxInterpreterBuilder {
     return this;
   }
 
+  withTraceMode(mode = 'NORMAL') {
+    this.options['trace-mode'] = mode;
+    return this;
+  }
+
   withOutputHandler(handler) {
     this.outputHandler = handler;
     return this;
@@ -678,7 +683,7 @@ class RexxInterpreter {
     this.returnValue = null; // Value returned from subroutine
     
     // TRACE support
-    this.traceMode = 'OFF'; // OFF, A, R, I, O, NORMAL
+    this.traceMode = this.options && this.options['trace-mode'] ? this.options['trace-mode'] : 'OFF'; // OFF, A, R, I, O, NORMAL
     this.traceOutput = []; // Store trace output
     
     // DOM Element Manager for stale element handling

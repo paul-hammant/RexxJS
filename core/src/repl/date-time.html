@@ -58,7 +58,8 @@
                         outputHandler.output(text);
                     }
                 })
-                .withTraceToOutput(true)  // Enable trace mode - shows executed REXX lines
+                .withTraceMode('NORMAL')   // Enable trace mode - shows executed REXX lines
+                .withTraceToOutput(true)   // Output trace to handler
                 .build();
 
             // Execute the REXX script directly by ID
