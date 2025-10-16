@@ -481,7 +481,12 @@ class RexxInterpreterBuilder {
     this.options['tracing'] = enabled;
     return this;
   }
-  
+
+  withTraceToOutput(enabled = true) {
+    this.options['trace-to-output'] = enabled;
+    return this;
+  }
+
   withOutputHandler(handler) {
     this.outputHandler = handler;
     return this;
@@ -2439,6 +2444,16 @@ class RexxInterpreter {
   // Add trace output based on current mode
   addTraceOutput(message, type = 'instruction', lineNumber = null, result = null) {
     traceFormattingUtils.addTraceOutput(message, type, lineNumber, result, this.traceMode, this.traceOutput);
+
+    // Output trace to handler if trace-to-output is enabled
+    if (this.options['trace-to-output'] && this.outputHandler && this.traceMode !== 'OFF') {
+      // Format: >> <line-number> <message> [=> result]
+      let traceOutput = `>> ${lineNumber || '?'} ${message}`;
+      if (result !== null && result !== undefined) {
+        traceOutput += ` => ${result}`;
+      }
+      this.outputHandler.output(traceOutput);
+    }
   }
 
   // Get trace output as formatted strings
