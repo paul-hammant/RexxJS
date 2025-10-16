@@ -942,10 +942,11 @@ function convertParamsToArgs(functionName, params) {
 
         case 'LEFT':
         case 'RIGHT':
-            // Text and number of characters
+            // Text and number of characters and optional pad character
             return [
                 params.text || params.value || Object.values(params)[0] || '',
-                params.numChars || params.chars || params.length || Object.values(params)[1] || '1'
+                params.numChars || params.chars || params.length || Object.values(params)[1] || '1',
+                params.pad || Object.values(params)[2] || ' '
             ];
 
         case 'MID':
@@ -1072,17 +1073,19 @@ function convertParamsToArgs(functionName, params) {
             
         case 'LEFT':
         case 'left':
-            // LEFT(text, num_chars)
+            // LEFT(text, num_chars [, pad])
             const leftText = params.text || Object.values(params)[0] || '';
             const leftChars = parseInt(params.num_chars || params.chars || Object.values(params)[1]) || 1;
-            return [leftText, leftChars];
-            
+            const leftPad = params.pad || Object.values(params)[2] || ' ';
+            return [leftText, leftChars, leftPad];
+
         case 'RIGHT':
         case 'right':
-            // RIGHT(text, num_chars)
+            // RIGHT(text, num_chars [, pad])
             const rightText = params.text || Object.values(params)[0] || '';
             const rightChars = parseInt(params.num_chars || params.chars || Object.values(params)[1]) || 1;
-            return [rightText, rightChars];
+            const rightPad = params.pad || Object.values(params)[2] || ' ';
+            return [rightText, rightChars, rightPad];
             
         case 'MID':
         case 'mid':
