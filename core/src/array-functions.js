@@ -1541,6 +1541,10 @@ const arrayFunctions = {
 
   'FILTER': function(...args) {
     return arrayFunctions.ARRAY_FILTER(...args);
+  },
+
+  'REDUCE': function(...args) {
+    return arrayFunctions.ARRAY_REDUCE(...args);
   }
 
 };

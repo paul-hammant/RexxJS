@@ -71,6 +71,31 @@
         SAY "  After increment: " || counter
         counter = counter - 1
         SAY "  After decrement: " || counter
+        SAY ""
+
+        /* Operator Precedence (BODMAS/PEMDAS) */
+        SAY "Operator Precedence (BODMAS):"
+        SAY "  2 + 3 * 4 = " || (2 + 3 * 4) || " (multiply first, then add)"
+        SAY "  (2 + 3) * 4 = " || ((2 + 3) * 4) || " (parentheses override)"
+        SAY "  10 - 6 / 2 = " || (10 - 6 / 2) || " (divide first)"
+        SAY "  2 ** 3 * 4 = " || (2 ** 3 * 4) || " (power first, then multiply)"
+        SAY "  10 / 2 * 3 = " || (10 / 2 * 3) || " (left-to-right for same level)"
+        SAY "  2 + 3 ** 2 - 1 = " || (2 + 3 ** 2 - 1) || " (power > add/sub)"
+        SAY ""
+
+        /* Complex expressions */
+        SAY "Complex Expressions with Precedence:"
+        LET p = 5
+        LET q = 3
+        LET r = 2
+        SAY "  p=" || p || ", q=" || q || ", r=" || r
+        SAY "  p + q * r = " || (p + q * r) || " (equals " || (3 * 2) || " + " || p || ")"
+        SAY "  (p + q) * r = " || ((p + q) * r) || " (sum multiplied by r)"
+        SAY "  p * q + r ** 2 = " || (p * q + r ** 2) || " (multiply, power, then add)"
+        SAY "  100 / 4 / 5 = " || (100 / 4 / 5) || " (left-to-right: (100/4)/5)"
+        SAY ""
+
+        SAY "=== Arithmetic Operations Demo Complete ==="
     </script>
 
 </head>

@@ -62,6 +62,7 @@
             LET enumerated = color
           ELSE
             LET enumerated = enumerated || ", " || color
+          ENDIF
         END
         SAY "  Colors: " || enumerated
         SAY ""
@@ -86,6 +87,7 @@
         DO score OVER scores
           IF score >= 80 THEN
             LET count_passing = count_passing + 1
+          ENDIF
         END
         SAY "  Scores: " || JSON_STRINGIFY(scores)
         SAY "  Scores >= 80: " || count_passing

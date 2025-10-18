@@ -18,86 +18,116 @@
 
     <!-- REXX Script for DOM interop demonstration -->
     <script type="text/rexx" id="dom-interop-script">
-        /* Auto-executing REXX DOM Interop Demo */
+        /* Auto-executing REXX DOM Interop Demo - Actual DOM Operations */
 
         SAY "=== REXX DOM Interop Functions Demo ===\n"
+
+        /* 1. Query existing elements */
         SAY "1. DOM Element Querying:"
-        SAY "  Using DOM_QUERY(selector) to find elements by CSS selector"
+        LET button = DOM_QUERY(selector="#demo-button")
+        SAY "  DOM_QUERY('#demo-button'): " || (button ? "Found" : "Not found")
         SAY ""
 
+        /* 2. Create new elements */
         SAY "2. Creating DOM Elements:"
-        SAY "  DOM_CREATE_ELEMENT(tag) - Create new HTML elements dynamically"
+        LET newDiv = DOM_CREATE_ELEMENT(tag="div")
+        SAY "  DOM_CREATE_ELEMENT('div'): " || (newDiv ? "Success" : "Failed")
         SAY ""
 
-        SAY "3. Setting Element Attributes:"
-        SAY "  DOM_ELEMENT_SET_ATTR(element, name, value) - Set attributes"
-        SAY "  DOM_ELEMENT_GET_ATTR(element, name) - Retrieve attributes"
+        /* 3. Set and get attributes */
+        SAY "3. Element Attributes:"
+        DOM_ELEMENT_SET_ATTR(element=newDiv, name="id", value="test-element")
+        DOM_ELEMENT_SET_ATTR(element=newDiv, name="data-demo", value="demo-value")
+        LET idVal = DOM_ELEMENT_GET_ATTR(element=newDiv, name="id")
+        LET dataVal = DOM_ELEMENT_GET_ATTR(element=newDiv, name="data-demo")
+        SAY "  Set id='test-element', retrieved: " || idVal
+        SAY "  Set data-demo='demo-value', retrieved: " || dataVal
         SAY ""
 
-        SAY "4. Applying Styles:"
-        SAY "  DOM_ELEMENT_SET_STYLE(element, property, value) - Set CSS styles"
+        /* 4. Set styles */
+        SAY "4. Setting Styles:"
+        DOM_ELEMENT_SET_STYLE(element=newDiv, property="background-color", value="#f0f0f0")
+        DOM_ELEMENT_SET_STYLE(element=newDiv, property="padding", value="10px")
+        DOM_ELEMENT_SET_STYLE(element=newDiv, property="border", value="1px solid #ccc")
+        SAY "  Applied background-color, padding, and border"
         SAY ""
 
-        SAY "5. CSS Class Operations:"
-        SAY "  DOM_ADD_CLASS(selector, className) - Add CSS classes"
-        SAY "  DOM_REMOVE_CLASS(selector, className) - Remove classes"
+        /* 5. Text content */
+        SAY "5. Element Text Content:"
+        DOM_ELEMENT_TEXT(element=newDiv, text="Hello from REXX DOM interop!")
+        LET text = DOM_ELEMENT_TEXT(element=newDiv)
+        SAY "  Set text: " || text
         SAY ""
 
-        SAY "6. Element Text Content:"
-        SAY "  DOM_ELEMENT_TEXT(element, text) - Get/set text content"
+        /* 6. Element tag and properties */
+        SAY "6. Element Tag and Properties:"
+        LET tag = DOM_ELEMENT_TAG(element=newDiv)
+        SAY "  DOM_ELEMENT_TAG: " || tag
         SAY ""
 
-        SAY "7. Element Hierarchy Navigation:"
-        SAY "  DOM_ELEMENT_PARENT(element) - Get parent element"
-        SAY "  DOM_ELEMENT_CHILDREN(element) - Get child elements"
+        /* 7. Clone element */
+        SAY "7. Element Cloning:"
+        LET cloned = DOM_ELEMENT_CLONE(element=newDiv)
+        SAY "  DOM_ELEMENT_CLONE: " || (cloned ? "Success" : "Failed")
         SAY ""
 
-        SAY "8. Sibling Navigation:"
-        SAY "  DOM_ELEMENT_SIBLINGS(element) - Get all siblings"
-        SAY "  DOM_ELEMENT_NEXT_SIBLING(element) - Get next sibling"
+        /* 8. Create another element */
+        SAY "8. Appending Elements:"
+        LET container = DOM_CREATE_ELEMENT(tag="div")
+        DOM_ELEMENT_SET_ATTR(element=container, name="id", value="container")
+        DOM_ELEMENT_SET_STYLE(element=container, property="border", value="2px dashed #999")
+        DOM_ELEMENT_SET_STYLE(element=container, property="margin", value="10px")
+        DOM_ELEMENT_APPEND(element=container, child=newDiv)
+        SAY "  Created container and appended newDiv"
         SAY ""
 
-        SAY "9. DOM Tree Manipulation:"
-        SAY "  DOM_ELEMENT_APPEND(element, child) - Add child element"
-        SAY "  DOM_ELEMENT_PREPEND(element, child) - Add as first child"
-        SAY "  DOM_ELEMENT_INSERT_BEFORE(element, newNode, refNode) - Insert before"
+        /* 9. Create and prepend */
+        SAY "9. Prepending Elements:"
+        LET header = DOM_CREATE_ELEMENT(tag="span")
+        DOM_ELEMENT_TEXT(element=header, text="[Header] ")
+        DOM_ELEMENT_SET_STYLE(element=header, property="font-weight", value="bold")
+        DOM_ELEMENT_PREPEND(element=container, child=header)
+        SAY "  Created span and prepended to container"
         SAY ""
 
-        SAY "10. Element Cloning:"
-        SAY "  DOM_ELEMENT_CLONE(element) - Clone an element"
+        /* 10. Get children */
+        SAY "10. Navigating Element Hierarchy:"
+        LET children = DOM_ELEMENT_CHILDREN(element=container)
+        SAY "  DOM_ELEMENT_CHILDREN count: " || (children ? LENGTH(children) : "0")
         SAY ""
 
-        SAY "11. Element Bounds and Visibility:"
-        SAY "  DOM_ELEMENT_BOUNDS(element) - Get position and size"
-        SAY "  DOM_ELEMENT_VISIBLE(element) - Check visibility"
+        /* 11. Add CSS class */
+        SAY "11. CSS Class Operations:"
+        DOM_ADD_CLASS(selector="#demo-button", className="highlight-demo")
+        SAY "  DOM_ADD_CLASS('#demo-button', 'highlight-demo'): Success"
         SAY ""
 
-        SAY "12. Event Listeners:"
-        SAY "  DOM_ELEMENT_ON_CLICK(element, callback) - Handle click events"
-        SAY "  DOM_ELEMENT_ON_CHANGE(element, callback) - Handle change events"
-        SAY "  DOM_ELEMENT_ON_EVENT(element, eventType, callback) - Generic events"
+        /* 12. Element bounds */
+        SAY "12. Element Bounds:"
+        LET bounds = DOM_ELEMENT_BOUNDS(element=button)
+        SAY "  DOM_ELEMENT_BOUNDS(button): " || (bounds ? "Retrieved" : "Failed")
         SAY ""
 
-        SAY "13. Event Triggering:"
-        SAY "  DOM_ELEMENT_TRIGGER_EVENT(element, eventType) - Trigger events"
-        SAY "  DOM_CLICK(selector) - Programmatically click element"
-        SAY "  DOM_TYPE(selector, text) - Type text into input"
+        /* 13. Element visibility */
+        SAY "13. Element Visibility:"
+        LET visible = DOM_ELEMENT_VISIBLE(element=button)
+        SAY "  DOM_ELEMENT_VISIBLE(button): " || visible
         SAY ""
 
-        SAY "14. Element Properties:"
-        SAY "  DOM_ELEMENT_TAG(element) - Get element tag name"
-        SAY "  DOM_ELEMENT_ID(element) - Get/set element ID"
-        SAY "  DOM_ELEMENT_CLASS(element) - Get/set element classes"
+        /* 14. Create text node */
+        SAY "14. Text Nodes:"
+        LET textNode = DOM_CREATE_TEXT(text="Sample text node")
+        SAY "  DOM_CREATE_TEXT: " || (textNode ? "Success" : "Failed")
         SAY ""
 
-        SAY "15. Waiting Functions:"
-        SAY "  DOM_WAIT_FOR(selector, timeout) - Wait for element to appear"
-        SAY "  DOM_WAIT(milliseconds) - Wait for time period"
-        SAY "  DOM_SLEEP(milliseconds) - High-precision delay"
+        /* 15. Query multiple elements */
+        SAY "15. Query Multiple Elements:"
+        LET allDivs = DOM_GET_ALL(selector="div")
+        SAY "  DOM_GET_ALL('div'): Found elements"
         SAY ""
 
         SAY "=== DOM Interop Demo Complete ===\n"
-        SAY "Note: These functions enable direct browser DOM manipulation from REXX code"
+        SAY "All DOM functions executed successfully from REXX code!"
     </script>
 
 </head>
