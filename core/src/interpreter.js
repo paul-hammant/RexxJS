@@ -3057,19 +3057,34 @@ class RexxInterpreter {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     const libraryCode = await response.text();
-    
+
     // Execute the library code
     const func = new Function(libraryCode);
     func();
-    
+
     // Give the library a moment to register itself globally
     await new Promise(resolve => setTimeout(resolve, 10));
-    
+
+    // Extract metadata function name from the fetched code to properly detect the library
+    const metadataFunctionName = this.extractMetadataFunctionName(libraryCode);
+    if (metadataFunctionName) {
+      // Register the detection function for this HTTPS URL
+      if (typeof window !== 'undefined' && typeof window.registerLibraryDetectionFunction === 'function') {
+        window.registerLibraryDetectionFunction(libraryName, metadataFunctionName);
+      } else if (typeof global !== 'undefined' && typeof global.registerLibraryDetectionFunction === 'function') {
+        global.registerLibraryDetectionFunction(libraryName, metadataFunctionName);
+      }
+    }
+
     if (this.isLibraryLoaded(libraryName)) {
       // Register loaded functions as built-ins
       this.registerLibraryFunctions(libraryName);
+
+      // Detect and register ADDRESS handlers from the library
+      this.detectAndRegisterAddressTargets(libraryName);
+
       console.log(`✓ Loaded ${libraryName} via fetch`);
       return true;
     } else {
