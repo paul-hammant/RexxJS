@@ -71,12 +71,33 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 - **./rexxt** - Test runner (via src/test-interpreter.js) with TUI experience 
 
 ### Function Libraries (core `src/` and modular `extras/functions/`)
-- **Core functions**: String processing, JSON/Web, security, validation (in `src/`)
-- **HTTP functions**: RESTful API integration with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` returning structured `{status, body, headers, ok}` objects (in `src/`)
-- **R-style functions**: Statistical computing (data frames, factors, mathematical operations) - relocated to `extras/functions/r-inspired/`
-- **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`
-- **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
-- **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements. Libraries can be loaded by their published name (e.g., `REQUIRE "org.rexxjs/excel-functions"`) or by a relative path to the source file (e.g., `REQUIRE "../path/to/excel-functions.js"`)
+
+**Core Functions in `src/` (65 modules):**
+- **String Processing**: `string-functions.js`, `string-processing.js`, `regex-functions.js`, `escape-sequence-processor.js`
+- **Data Structures**: `array-functions.js`, `data-functions.js`, `json-functions.js`
+- **Numeric Operations**: `math-functions.js`, `statistics-functions.js`, `probability-functions.js`, `random-functions.js`
+- **Date/Time**: `date-time-functions.js`
+- **File System**: `file-functions.js`, `path-functions.js`, `path-resolver.js`
+- **HTTP/Web**: `http-functions.js`, `url-functions.js`, `dom-functions.js`
+- **Security**: `cryptography-functions.js`, `validation-functions.js`, `security.js`
+- **Logic/Flow**: `logic-functions.js`
+- **System**: `shell-functions.js`
+- **Utilities**: `interpolation.js`, `interpolation-functions.js`, `utils.js`, `parameter-converter.js`
+- **Infrastructure**: `address-handler-utils.js`, `composite-output-handler.js`, `function-parsing-strategies.js`, `test-framework-address.js`, `expectations-address.js`
+- **Interpreter Core**: `interpreter.js`, `parser.js`, `executor.js`, `test-interpreter.js`, `test-runner-cli.js`, `cli.js`
+- **Interpreter Modules** (40+ supporting modules): `interpreter-address-handling.js`, `interpreter-array-functions.js`, `interpreter-builtin-functions.js`, `interpreter-control-flow.js`, `interpreter-dom-manager.js`, `interpreter-error-handling.js`, `interpreter-library-management.js`, `interpreter-security.js`, `interpreter-trace-formatting.js`, `interpreter-variable-stack.js`, `require-system.js`, and more
+
+**Function Libraries in `extras/functions/` (13 domains):**
+- **R Statistical Computing**: `r-inspired/` - data frames, factors, statistical functions (MEAN, MEDIAN, SD, VAR, etc.)
+- **SciPy Scientific**: `scipy-inspired/` - interpolation, signal processing, statistical functions
+- **Excel Spreadsheet**: `excel/` - VLOOKUP, HLOOKUP, INDEX, MATCH, SUMIF, COUNTIF, etc.
+- **Data Processing**: `jq-functions/` (jq-compatible JSON processor), `sed/` (stream editor), `diff/` (file diffing)
+- **ML/Numerical**: `numpy-inspired/`, `numpy-via-pyoide/`, `sympy-inspired/` (symbolic math)
+- **Visualization**: `graphviz/` (graph generation)
+- **Text Processing**: `minimatch/` (glob pattern matching), `matlab-inspired/` (MATLAB compatibility)
+- **Lambda Support**: `jq-wasm-functions/` (jq compiled to WebAssembly)
+
+**Modular Design**: Function libraries loaded on-demand via REXX `REQUIRE` statements. Libraries can be loaded by their published name (e.g., `REQUIRE "org.rexxjs/excel-functions"`) or by a relative path to the source file (e.g., `REQUIRE "../path/to/excel-functions.js"`)
 
 ### Operations vs Functions Architecture
 RexxJS distinguishes between two types of callable code:
@@ -112,39 +133,48 @@ This ensures standard REXX functions always work, while allowing ADDRESS handler
 - **HEREDOC JSON auto-parsing**: `LET config = <<JSON` automatically parses to JavaScript objects
 - Supports both traditional command strings (`"CREATE TABLE users"`) and modern method calls (`execute sql="CREATE TABLE users"`)
 
-### Provisioning & Orchestration (`extras/addresses/provisioning-and-orchestration/`)
-Comprehensive infrastructure management with VM, container automation, and **cloud orchestration**:
+### ADDRESS Handlers (`extras/addresses/` - 26 handlers)
 
-**Google Cloud Platform (`address-gcp.js`) - The Modern Cloud Orchestration Language:**
-- **🚀 Killer Feature: Direct Spreadsheet Access** - `"SHEET 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms SELECT * FROM 'Sales'"`
-- **SQL-like operations on Google Sheets** - Treat spreadsheets as databases with SELECT, INSERT, UPDATE
-- **Service-specific command languages** - SHEETS, BIGQUERY, FIRESTORE, STORAGE, PUBSUB, FUNCTIONS, RUN
-- **Production-ready Cloud Functions & Cloud Run** - 2nd gen functions with JSON-based URL extraction, intelligent error detection
-- **HEREDOC orchestration workflows** - Complex multi-service operations as readable documentation
-- **Cross-service data flow** - Sheets → BigQuery → Firestore → Pub/Sub → Functions → Cloud Run in single scripts
-- **Replaces Google Apps Script, gcloud scripting, Zapier/IFTTT, ETL tools**
-- **Built-in test examples** - Working end-to-end tests with automatic cleanup (all within free tier)
+**Cloud Orchestration & Provisioning:**
+- **Google Cloud Platform** (`gcp-address.js`, `google-cloud-platform/`) - 🚀 Killer Feature: Direct Spreadsheet SQL (`SHEET ... SELECT * FROM 'Sales'`), BigQuery, Firestore, Pub/Sub, Cloud Functions, Cloud Run, cross-service data pipelines
+- **AWS Lambda** (`lambda-address.js`) - Serverless function execution, deployment
+- **OpenFaaS** (`openfaas-address.js`) - Function-as-a-Service platform
 
 **Container Management:**
-- **Docker** (`address-docker.js`) - Full Docker container lifecycle
-- **Podman** (`address-podman.js`) - Rootless container operations
-- **systemd-nspawn** (`address-nspawn.js`) - Lightweight OS containers
+- **Docker** (`docker-address.js`) - Full Docker container lifecycle
+- **Remote Docker** (`remote-docker-address.js`) - Docker operations on remote hosts
+- **Podman** (`podman-address.js`) - Rootless container operations
+- **systemd-nspawn** (`nspawn-address.js`) - Lightweight OS containers
 
 **Virtual Machine Management:**
-- **QEMU/KVM** (`address-qemu.js`) - Production virtualization with Guest Agent
-  - Command execution via qemu-guest-agent (no SSH needed)
-  - Three execution methods: Guest Agent → SSH fallback → Serial console
-  - Full lifecycle with pause/resume, save/restore state (via virsh)
-- **VirtualBox** (`address-virtualbox.js`) - Desktop/development VMs with Guest Additions
-  - Command execution via Guest Additions (no SSH needed)
-  - ISO management, network configuration, snapshot support
-  - Full lifecycle with pause/resume, save/restore state
+- **QEMU/KVM** (`qemu-address.js`) - Production virtualization with Guest Agent (no SSH needed)
+- **VirtualBox** (`virtualbox-address.js`) - Desktop/development VMs with Guest Additions
+- **Proxmox** (`proxmox-address.js`) - Enterprise virtualization platform
+- **Firecracker** (`firecracker-address.js`) - Lightweight VM runtime (AWS)
+- **LXD** (`lxd-address.js`) - System container manager
+
+**Database & Data:**
+- **SQLite3** (`sqlite3/`) - Local database operations with full CRUD via SQL
+- **DuckDB** (`duckdb-address.js`, `duckdb-wasm-address.js`) - OLAP SQL engine, in-process and WebAssembly
+- **Pyodide** (`pyodide/`) - Python runtime in browser/Node.js
+
+**AI/ML & APIs:**
+- **Anthropic Claude** (`anthropic-ai/claude/`) - Claude API integration
+- **OpenAI** (`open-ai/chat-completions/`) - GPT API integration
+- **Google Gemini** (`gemini-address.js`, `gemini-pro/`) - Gemini API integration
+
+**System & Testing:**
+- **System Shell** (`system/`) - OS-level shell command execution
+- **Echo/Testing** (`echo/`) - Simple echo handler for testing and demonstrations
+
+**Shared Utilities:**
+- `_shared/`, `shared-utils/` - Common utilities and helper functions
 
 **Key Capabilities:**
-- **Cloud-native orchestration**: Single unified interface for all Google Cloud services
+- **Cloud-native orchestration**: Single unified interface for all major cloud services
 - **Exec without SSH**: Run commands directly in VMs/containers like `docker exec`
 - **RexxJS deployment**: Automatically deploy and execute RexxJS scripts in VMs/cloud
-- **Idempotent operations**: `start_if_stopped`, `stop_if_running` for automation
+- **Idempotent operations**: `start_if_stopped`, `stop_if_running` for safe automation
 - **Lifecycle management**: Create, start, stop, pause, resume, restart, snapshot, restore
 - **Production features**: Host verification, permissions setup, ISO downloads, guest agent installation
 - **Security policies**: Memory/CPU limits, command filtering, audit logging
@@ -519,5 +549,20 @@ REQUIRE "registry:org.rexxjs/excel-functions"
 - **Test Execution**: Use `@scratch_test.sh` instructions for all test invocations
 - **Playwright Tests**: Prefix with `PLAYWRIGHT_HTML_OPEN=never` to prevent browser windows
 - **No Fallback Logic**: Avoid implementing "fallback" patterns - ask for explicit guidance instead
+
+## Implementation Summary
+
+**✅ Core Implementation (`core/src/` - 65 modules)**
+All major language features, function domains, and infrastructure components are implemented in source files for transparency and debugging. The comprehensive module breakdown above details every significant component.
+
+**✅ Extended Ecosystems**
+- **13 Function Libraries** in `extras/functions/` spanning R, SciPy, Excel, NumPy, SymPy, GraphViz, data processing, and more
+- **26 ADDRESS Handlers** in `extras/addresses/` covering cloud platforms (GCP, AWS, Azure), containers (Docker, Podman), VMs (QEMU, VirtualBox, Proxmox), databases (SQLite, DuckDB), AI/ML (Claude, GPT, Gemini), and system integration
+
+**✅ Rapid Feature Overview**
+The LLM can quickly reference specific implementations by checking this document:
+- Core functions by category (String, Math, Date, File, HTTP, Security, etc.)
+- ADDRESS handlers by use case (Cloud, Containers, VMs, Databases, AI)
+- Infrastructure capabilities (VM lifecycle, container orchestration, cross-service data pipelines)
 
 This repository provides a complete REXX environment with modern extensions, making it suitable for everything from simple scripting to complex distributed applications running in browsers or Node.js.
