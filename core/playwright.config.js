@@ -6,7 +6,7 @@ const { defineConfig, devices } = require('@playwright/test');
  */
 module.exports = defineConfig({
   testDir: './tests/web',
-  testMatch: ['**/multi-instance-scripting.spec.js', '**/dom-*.spec.js', '**/stale-element.spec.js', '**/streaming-control.spec.js', '**/checkpoint-simple.spec.js'],
+  testMatch: ['**/multi-instance-scripting.spec.js', '**/dom-*.spec.js', '**/stale-element.spec.js', '**/streaming-control.spec.js', '**/checkpoint-simple.spec.js', '**/repl-demo-pages*.spec.js'],
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -20,7 +20,7 @@ module.exports = defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:8082',
+    baseURL: 'http://localhost:8000',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -44,11 +44,6 @@ module.exports = defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npx http-server . -p 8082 -c-1 --silent',
-    port: 8082,
-    reuseExistingServer: !process.env.CI,
-    cwd: require('path').resolve(__dirname, '../'),
-  },
+  /* Use existing Python simple server on port 8000 */
+  webServer: null,
 });
