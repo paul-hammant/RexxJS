@@ -545,9 +545,11 @@ REQUIRE "registry:org.rexxjs/excel-functions"
 
 ### For LLM Assistants (`CLAUDE.md`)
 - **Testing Requirements**: All work must have `npm test` passing at 100% before completion
-- **Web/DOM Work**: Must also have `npm run test:web` passing for browser-related features  
+- **Web/DOM Work**: Must also have `npm run test:web` passing for browser-related features
 - **Test Execution**: Use `@scratch_test.sh` instructions for all test invocations
-- **Playwright Tests**: Prefix with `PLAYWRIGHT_HTML_OPEN=never` to prevent browser windows
+- **CI Pipeline Tests**: The `./ci.sh` script runs Jest, Rexxt, and Playwright tests. All must pass before deployment.
+- **Playwright Tests**: Prefix with `PLAYWRIGHT_HTML_OPEN=never` to prevent browser windows opening
+- **Web Server**: Playwright tests automatically start an HTTP server on port 8000 (via `npx http-server`)
 - **No Fallback Logic**: Avoid implementing "fallback" patterns - ask for explicit guidance instead
 
 ## Implementation Summary
