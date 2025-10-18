@@ -87,6 +87,9 @@ function normalizeOutputForSnapshot(text) {
   // 3-digit milliseconds like "272" or "742" - remaining 3 digit numbers
   normalized = normalized.replace(/\b(\d{3})\b/g, 'MMM');
 
+  // Document dimensions like "1920x1080" or "800x600"
+  normalized = normalized.replace(/\b(\d{3,5})x(\d{3,5})\b/g, 'WIDTHxHEIGHT');
+
   return normalized;
 }
 
