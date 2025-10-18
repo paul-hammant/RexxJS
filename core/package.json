@@ -11,7 +11,9 @@
     "test:web": "PLAYWRIGHT_HTML_OPEN=never npx playwright test tests/web --project=chromium",
     "build": "webpack",
     "build:dev": "webpack --mode=development",
-    "build:watch": "webpack --watch"
+    "build:watch": "webpack --watch",
+    "build:web": "webpack --config src/repl/webpack.config.js",
+    "build:web:watch": "webpack --config src/repl/webpack.config.js --watch"
   },
   "license": "MIT",
   "devDependencies": {
