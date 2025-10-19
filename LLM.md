@@ -552,6 +552,203 @@ REQUIRE "registry:org.rexxjs/excel-functions"
 - **Web Server**: Playwright tests automatically start an HTTP server on port 8000 (via `npx http-server`)
 - **No Fallback Logic**: Avoid implementing "fallback" patterns - ask for explicit guidance instead
 
+## Common Test Pitfalls & Patterns
+
+Understanding common patterns in RexxJS tests helps avoid integration issues and ensures consistent cross-platform compatibility. The ADDRESS handler infrastructure and module loading system have specific requirements that must be properly configured.
+
+### ADDRESS Handler Module Export Pattern
+
+ADDRESS handlers must export their functionality to both global scope (for browser/eval contexts) and CommonJS (for Node.js module loading). Tests rely on discovering these exports to validate handler metadata and functionality.
+
+**Correct Pattern** (works in all environments):
+
+```javascript
+/*! rexxjs/sqlite-address v1.0.0 | (c) 2025 RexxJS Project | MIT License
+ * @rexxjs-meta=SQLITE_ADDRESS_META
+ */
+
+// Core metadata function - MUST use {NAME}_ADDRESS_META naming pattern
+function SQLITE_ADDRESS_META() {
+    return {
+        canonical: "org.rexxjs/sqlite-address",
+        type: 'address-handler',  // NOT 'address-target'
+        name: 'SQLite Service',
+        provides: {
+            addressTarget: 'sqlite',
+            handlerFunction: 'ADDRESS_SQLITE_HANDLER',
+            commandSupport: true,
+            methodSupport: true
+        },
+        dependencies: { "sqlite3": "^5.0.0" }
+    };
+}
+
+// Handler function - receives (method, params) and returns promise
+async function ADDRESS_SQLITE_HANDLER(method, params) {
+    try {
+        // Implementation
+        return { success: true, result: data };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+// Methods documentation
+const ADDRESS_SQLITE_METHODS = {
+    query: { description: "Execute SQL query", params: ["sql"] }
+};
+
+// Export to global scope (for browser/eval contexts)
+if (typeof window !== 'undefined') {
+    window.SQLITE_ADDRESS_META = SQLITE_ADDRESS_META;
+    window.ADDRESS_SQLITE_HANDLER = ADDRESS_SQLITE_HANDLER;
+    window.ADDRESS_SQLITE_METHODS = ADDRESS_SQLITE_METHODS;
+} else if (typeof global !== 'undefined') {
+    global.SQLITE_ADDRESS_META = SQLITE_ADDRESS_META;
+    global.ADDRESS_SQLITE_HANDLER = ADDRESS_SQLITE_HANDLER;
+    global.ADDRESS_SQLITE_METHODS = ADDRESS_SQLITE_METHODS;
+}
+
+// CRITICAL: Export via CommonJS for Node.js REQUIRE
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        SQLITE_ADDRESS_META,
+        ADDRESS_SQLITE_HANDLER,
+        ADDRESS_SQLITE_METHODS
+    };
+}
+```
+
+**Key Requirements:**
+1. **Naming Convention**: Always use `{UPPERCASE_NAME}_ADDRESS_META` (no "MAIN" suffix)
+2. **Metadata Type**: Must return `type: 'address-handler'` (not `'address-target'`)
+3. **Handler Function**: Returns object with `{ success: boolean, result?, error? }`
+4. **Both Exports**: Global scope AND CommonJS exports for dual environment support
+5. **Comment Marker**: Include `@rexxjs-meta={NAME}_ADDRESS_META` in file header for bundling
+
+**Common Mistakes:**
+- ❌ Using `*_ADDRESS_MAIN` naming (legacy, breaks modern tests)
+- ❌ Having BOTH `*_ADDRESS_META` and `*_ADDRESS_MAIN` (choose one pattern)
+- ❌ Returning `type: 'address-target'` instead of `'address-handler'`
+- ❌ Missing CommonJS `module.exports` (breaks Node.js require)
+- ❌ Async handler that doesn't return promise (breaks await chains)
+
+### Jest Mock Completeness
+
+Jest mocks must include all functions and properties that the code will actually use. Incomplete mocks cause "Received undefined" or "is not a function" errors at runtime.
+
+**Incomplete Mock** (FAILS):
+```javascript
+// This fails because promisify(exec) tries to use exec before mock is applied
+jest.mock('child_process', () => ({
+    spawn: jest.fn()  // Missing: exec
+}));
+
+// Later in code:
+const { exec } = require('child_process');
+const execAsync = promisify(exec);  // TypeError: exec is undefined
+```
+
+**Complete Mock** (PASSES):
+```javascript
+jest.mock('child_process', () => ({
+    spawn: jest.fn(),
+    exec: jest.fn((command, callback) => {
+        // Simulate async behavior
+        process.nextTick(() => callback(null, 'output', ''));
+    })
+}));
+```
+
+**Pattern for Promisified Functions:**
+```javascript
+jest.mock('child_process', () => ({
+    exec: jest.fn((command, callback) => {
+        // Callback signature: (error, stdout, stderr)
+        process.nextTick(() => callback(null, 'command output', ''));
+    })
+}));
+
+// This now works:
+const { exec } = require('child_process');
+const execAsync = promisify(exec);  // ✅ exec is defined
+```
+
+**Common Mistakes:**
+- ❌ Mocking only subset of imported functions
+- ❌ Using `mockReturnValue` instead of `mockImplementation` for async operations
+- ❌ Forgetting callback signature requirements (error-first for Node.js conventions)
+- ❌ Not applying mock before module import (mock must be before require)
+
+### REQUIRE Path Resolution
+
+REXX's REQUIRE system works differently in test contexts vs runtime. Tests must use absolute paths with `path.resolve(__dirname, ...)` to ensure files can be found regardless of where tests execute from.
+
+**Inline REXX Script Path Error** (FAILS in tests):
+```javascript
+test('should load sqlite', async () => {
+    const { Interpreter, parse } = require('../../../../core/src/interpreter');
+    const interpreter = new Interpreter();
+
+    // This fails: relative path is resolved from interpreter's context, not test file
+    await interpreter.run(parse('REQUIRE "./sqlite-address.js"'));
+    // Error: Cannot find module "./sqlite-address.js"
+});
+```
+
+**Absolute Path via Node.js** (PASSES in all contexts):
+```javascript
+test('should load sqlite', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const { Interpreter, parse } = require('../../../../core/src/interpreter');
+    const interpreter = new Interpreter();
+
+    // Load module source directly
+    const source = fs.readFileSync(
+        path.resolve(__dirname, 'src/sqlite-address.js'),
+        'utf8'
+    );
+
+    // Eval in global scope to set up globals
+    eval(source);
+
+    // Now globals are available to interpreter
+    expect(global.SQLITE_ADDRESS_META).toBeDefined();
+});
+```
+
+**Alternative: Mock REQUIRE** (For cleaner tests):
+```javascript
+test('should load sqlite', async () => {
+    const sqlite = require('./src/sqlite-address.js');  // Node.js require
+
+    // Mock the REQUIRE statement
+    global.SQLITE_ADDRESS_META = sqlite.SQLITE_ADDRESS_META;
+    global.ADDRESS_SQLITE_HANDLER = sqlite.ADDRESS_SQLITE_HANDLER;
+    global.ADDRESS_SQLITE_METHODS = sqlite.ADDRESS_SQLITE_METHODS;
+
+    // Now verify it works
+    expect(global.SQLITE_ADDRESS_META).toBeDefined();
+    const metadata = global.SQLITE_ADDRESS_META();
+    expect(metadata.provides.addressTarget).toBe('sqlite');
+});
+```
+
+**Key Strategies:**
+1. **Absolute paths in tests**: Always use `path.resolve(__dirname, 'file.js')`
+2. **Load module first**: Use Node.js `require()` to get the actual module
+3. **Set globals manually**: Assign exports to `global` or `window` for interpreter access
+4. **Test module metadata**: Verify that `*_ADDRESS_META()` returns correct structure
+5. **Cleanup after tests**: Use `afterEach()` to clear globals between tests
+
+**Common Mistakes:**
+- ❌ Using relative paths like `"./address.js"` in inline REXX scripts
+- ❌ Expecting interpreter's REQUIRE to work without globals set up
+- ❌ Not using `path.resolve(__dirname, ...)` for cross-platform compatibility
+- ❌ Forgetting to validate metadata structure (just checking existence is insufficient)
+- ❌ Not cleaning up globals between tests (causes flaky tests)
+
 ## Implementation Summary
 
 **✅ Core Implementation (`core/src/` - 65 modules)**
