@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -euo pipefail
+# Exit on error, but we'll handle test failures explicitly
+set -eo pipefail
 
 # Initialize statistics
 TOTAL_JEST_SUITES=0
@@ -123,7 +124,9 @@ run_test() {
   cd "$module_path"
   if [ -f "package.json" ]; then
     MODULE_JEST_TEMP=$(mktemp)
+    set +e  # Don't exit on test failures
     MODULE_JEST_OUTPUT=$(npm test -- --ci --verbose 2>&1 | tee "$MODULE_JEST_TEMP")
+    set -e
     extract_jest_stats "$MODULE_JEST_OUTPUT" "$module_name" "$(pwd)" "$MODULE_JEST_TEMP"
     rm -f "$MODULE_JEST_TEMP"
   fi
@@ -236,13 +239,24 @@ echo "========================="
 # Run core tests
 echo "📦 Running core tests..."
 cd core/
+
+echo "  Running Jest tests..."
 CORE_JEST_TEMP=$(mktemp)
+set +e  # Don't exit on Jest failures, we want to collect stats
 CORE_JEST_OUTPUT=$(npx jest --ci --verbose 2>&1 | tee "$CORE_JEST_TEMP")
+JEST_EXIT_CODE=$?
+set -e
+echo "  Jest exit code: $JEST_EXIT_CODE"
 extract_jest_stats "$CORE_JEST_OUTPUT" "core" "$(pwd)" "$CORE_JEST_TEMP"
 rm -f "$CORE_JEST_TEMP"
 
+echo "  Running Rexxt dogfood tests..."
 CORE_REXXT_TEMP=$(mktemp)
+set +e  # Don't exit on Rexxt failures
 CORE_REXXT_OUTPUT=$(./rexxt tests/dogfood/* 2>&1 | tee "$CORE_REXXT_TEMP")
+REXXT_EXIT_CODE=$?
+set -e
+echo "  Rexxt exit code: $REXXT_EXIT_CODE"
 extract_rexxt_stats "$CORE_REXXT_OUTPUT" "core/dogfood" "$(pwd)" "$CORE_REXXT_TEMP"
 rm -f "$CORE_REXXT_TEMP"
 
