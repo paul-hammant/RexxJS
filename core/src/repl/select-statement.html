@@ -183,8 +183,29 @@
         <p>SELECT statements provide clean, readable alternatives to nested IF/THEN/ELSE structures, making code easier to maintain and understand.</p>
     </div>
 
-    <h2>REXX Output:</h2>
-    <div class="output-section">
+    <style>
+        .dual-pane { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        .code-pane { border: 1px solid #ddd; border-radius: 6px; background: #fafafa; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; line-height: 1.45; padding: 8px 0; max-height: 70vh; overflow: auto; }
+        .code-line { display: grid; grid-template-columns: 3ch auto; padding: 0 10px; }
+        .ln { color: #999; text-align: right; padding-right: 10px; user-select: none; }
+        .src { white-space: pre; }
+        .code-line.executed { background: #e7f7ec; }
+        .code-line.current { background: #d1ecf1; }
+        .code-line.skipped { opacity: 0.5; }
+        .pane-title { margin: 0 0 8px 0; font-size: 16px; }
+        .output-pane { border: 1px solid #ddd; border-radius: 6px; padding: 8px; max-height: 70vh; overflow: auto; }
+        #code-pane, .output-pane { scroll-behavior: smooth; }
+    </style>
+
+    <div class="dual-pane">
+        <div>
+            <h2 class="pane-title">REXX Code</h2>
+            <div id="code-pane" class="code-pane" aria-label="Rexx source with line numbers"></div>
+        </div>
+        <div>
+            <h2 class="pane-title">REXX Output</h2>
+            <div class="output-section output-pane" id="output-pane">
+                <div id="rexx-output-container"></div>
 
         <script>
             // Auto-execute using shared demo executor - wait for dependencies to load
@@ -201,14 +222,115 @@
                     return;
                 }
 
+                // Build left code pane with numbered lines
+                const scriptEl = document.getElementById('select-script');
+                const source = scriptEl.textContent.replace(/\r\n/g, '\n');
+                const lines = source.split('\n');
+                const codePane = document.getElementById('code-pane');
+                codePane.innerHTML = '';
+                lines.forEach((txt, idx) => {
+                    const row = document.createElement('div');
+                    row.className = 'code-line';
+                    row.dataset.lineNumber = String(idx + 1);
+                    const ln = document.createElement('span');
+                    ln.className = 'ln';
+                    ln.textContent = String(idx + 1);
+                    const src = document.createElement('span');
+                    src.className = 'src';
+                    src.textContent = txt.length ? txt : ' ';
+                    row.appendChild(ln); row.appendChild(src);
+                    codePane.appendChild(row);
+                });
+
+                const executed = new Set();
+                let currentEl = null;
+
+                // Wrap output handler to get trace-like hooks
+                const outputContainerId = 'rexx-output-container';
+
+                function markCurrent(line) {
+                    if (!line) return;
+                    if (currentEl) currentEl.classList.remove('current');
+                    const el = codePane.querySelector(`.code-line[data-line-number="${line}"]`);
+                    if (el) {
+                        el.classList.add('current');
+                        currentEl = el;
+                        el.scrollIntoView({ block: 'nearest' });
+                        syncScroll();
+                    }
+                }
+
+                function markExecuted(line) {
+                    if (!line) return;
+                    const el = codePane.querySelector(`.code-line[data-line-number="${line}"]`);
+                    if (el) {
+                        el.classList.add('executed');
+                        executed.add(line);
+                    }
+                }
+
+                // Build a small proxy output handler that attempts to parse the interpreter's trace prefix
+                const customHandler = new DocumentWriteStyledOutputHandler(
+                  false,
+                  'rexx-output',
+                  outputContainerId,
+                  (exception) => console.error(exception)
+                );
+
+                // Intercept output: detect trace lines (for highlighting) and suppress them from SAY output
+                const originalOutput = customHandler.output.bind(customHandler);
+                customHandler.output = (text) => {
+                    // Highlight line if trace prefix present
+                    const m = /^\s*>>\s*(\d+)\b/.exec(text);
+                    if (m) {
+                        const line = parseInt(m[1], 10);
+                        markCurrent(line);
+                        markExecuted(line);
+                        // Do not print trace lines to the output pane
+                        return;
+                    }
+                    // Forward SAY and other non-trace outputs
+                    originalOutput(text);
+                };
+
+                // Scroll sync setup
+                const outputPane = document.getElementById('output-pane');
+                let isSyncing = false;
+                function syncScrollFrom(source, target) {
+                    if (!target) return;
+                    if (isSyncing) return;
+                    isSyncing = true;
+                    const denom = (source.scrollHeight - source.clientHeight) || 1;
+                    const ratio = source.scrollTop / denom;
+                    target.scrollTop = ratio * ((target.scrollHeight - target.clientHeight) || 0);
+                    setTimeout(() => { isSyncing = false; }, 0);
+                }
+                function syncScroll() {
+                    if (outputPane) syncScrollFrom(codePane, outputPane);
+                }
+                codePane.addEventListener('scroll', () => syncScrollFrom(codePane, outputPane));
+                if (outputPane) outputPane.addEventListener('scroll', () => syncScrollFrom(outputPane, codePane));
+
                 try {
                     await executeRexxDemo('select-script', {
                         traceMode: 'NORMAL',
-                        traceToOutput: true
+                        // Keep trace enabled but do not render it in output (we filter above)
+                        traceToOutput: true,
+                        outputHandler: customHandler,
+                        containerId: outputContainerId
                     });
                 } catch (error) {
                     console.error('Failed to execute demo:', error);
                 }
+
+                // After run, fade non-executed lines but keep visible
+                const all = codePane.querySelectorAll('.code-line');
+                all.forEach(el => {
+                    const ln = parseInt(el.dataset.lineNumber, 10);
+                    if (!executed.has(ln)) {
+                        el.classList.add('skipped');
+                    }
+                });
             }
 
             // Run when DOM is ready
