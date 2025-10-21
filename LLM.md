@@ -316,6 +316,30 @@ ADDRESS GCP
     |> JOIN(",")
   ```
 - **REXX Stem Array Support in JOIN** - `JOIN()` now handles both JavaScript arrays and REXX stem arrays (format: `{0: count, 1: val1, 2: val2}`)
+- **DOM Scoped Interpreters** - Multiple REXX scripts can run on the same page with isolated function registrations:
+  - Add `RexxScript` CSS class to container elements for automatic scope isolation
+  - Functions register to `element.__rexxFunctions` instead of global `window`
+  - Prevents namespace pollution and enables multi-tenant applications
+  - Backward compatible: existing code without `RexxScript` class continues to work unchanged
+  - Opt-in feature for new pages/applications
+  ```html
+  <!-- Script 1: Isolated scope -->
+  <div class="RexxScript" id="script1">
+    <textarea>SAY "Script 1"</textarea>
+  </div>
+
+  <!-- Script 2: Isolated scope -->
+  <div class="RexxScript" id="script2">
+    <textarea>SAY "Script 2"</textarea>
+  </div>
+
+  <!-- Script 3: Global scope (backward compatible) -->
+  <div id="script3">
+    <textarea>SAY "Script 3"</textarea>
+  </div>
+  ```
+  - Demo page: `core/src/repl/dom-scoped-rexx.html`
+  - Full reference: `site/reference/35-dom-scoped-interpreters.md`
 - **Function Metadata and Reflection System** (`function-metadata-registry.js` + `INFO()` / `FUNCTIONS()` reflection functions):
   - `INFO(functionName)` - Get detailed metadata about any function (module, category, description, parameters, return type, examples)
   - `FUNCTIONS()` - List all 100+ functions grouped by module, or filter by category/module: `FUNCTIONS("String")`, `FUNCTIONS("array-functions.js")`

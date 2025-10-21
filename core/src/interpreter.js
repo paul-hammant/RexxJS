@@ -810,6 +810,118 @@ class RexxInterpreter {
     
     // Execution context stack for proper nested execution tracking
     this.executionStack = [];
+
+    // Scope registration for web environments (DOM element -> scope mapping)
+    // When a RexxInterpreter is created, it can traverse parent DOM for 'RexxScript' class
+    // to determine where to register its functions (window by default, or specific DOM element)
+    this.scopeElement = this.findScopeElement(optionsOrHandler && optionsOrHandler.scopeElement);
+    this.scopeRegistry = this.setupScopeRegistry();
+  }
+
+  /**
+   * Find the DOM element where this interpreter's functions should be registered
+   * Traverses parent DOM tree looking for 'RexxScript' class
+   * Falls back to window if not in web environment or class not found
+   */
+  findScopeElement(explicitScopeElement) {
+    // If scope explicitly provided in options, use that
+    if (explicitScopeElement) {
+      return explicitScopeElement;
+    }
+
+    // Only in web environment
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return null;
+    }
+
+    // Try to find closest element with 'RexxScript' class
+    try {
+      // If we're in an iframe, check the iframe element
+      if (window.frameElement) {
+        let element = window.frameElement;
+        while (element) {
+          if (element.classList && element.classList.contains('RexxScript')) {
+            return element;
+          }
+          element = element.parentElement;
+        }
+      }
+
+      // Check document root
+      const root = document.documentElement;
+      if (root && root.classList && root.classList.contains('RexxScript')) {
+        return root;
+      }
+    } catch (e) {
+      // Cross-origin or other access issues - fallback to window
+    }
+
+    return null; // Will default to window
+  }
+
+  /**
+   * Setup scope registry for registering functions
+   * Returns object with functions that register to either window or specific DOM element
+   */
+  setupScopeRegistry() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const self = this;
+    const targetScope = this.scopeElement || window;
+
+    return {
+      // Register a function to the scope (either DOM element or window)
+      registerFunction: function(name, func) {
+        if (self.scopeElement) {
+          // Store in DOM element's dataset
+          if (!self.scopeElement.__rexxFunctions) {
+            self.scopeElement.__rexxFunctions = {};
+          }
+          self.scopeElement.__rexxFunctions[name] = func;
+        } else {
+          // Store in window (legacy behavior)
+          window[name] = func;
+        }
+      },
+
+      // Get a function from the scope
+      getFunction: function(name) {
+        if (self.scopeElement && self.scopeElement.__rexxFunctions && self.scopeElement.__rexxFunctions[name]) {
+          return self.scopeElement.__rexxFunctions[name];
+        }
+        return window[name] || null;
+      },
+
+      // Check if function exists
+      hasFunction: function(name) {
+        if (self.scopeElement && self.scopeElement.__rexxFunctions && self.scopeElement.__rexxFunctions[name]) {
+          return true;
+        }
+        return typeof window[name] !== 'undefined';
+      },
+
+      // Register metadata
+      registerMetadata: function(name, metadata) {
+        if (self.scopeElement) {
+          if (!self.scopeElement.__rexxMetadata) {
+            self.scopeElement.__rexxMetadata = {};
+          }
+          self.scopeElement.__rexxMetadata[name] = metadata;
+        } else {
+          window[name] = metadata;
+        }
+      },
+
+      // Get metadata
+      getMetadata: function(name) {
+        if (self.scopeElement && self.scopeElement.__rexxMetadata && self.scopeElement.__rexxMetadata[name]) {
+          return self.scopeElement.__rexxMetadata[name];
+        }
+        return window[name] || null;
+      }
+    };
   }
   
   // Execution context stack management
