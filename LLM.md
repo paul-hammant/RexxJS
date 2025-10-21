@@ -72,13 +72,13 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 
 ### Function Libraries (core `src/` and modular `extras/functions/`)
 
-**Core Functions in `src/` (65 modules):**
+**Core Functions in `src/` (66 modules):**
 - **String Processing**: `string-functions.js`, `string-processing.js`, `regex-functions.js`, `escape-sequence-processor.js`
 - **Data Structures**: `array-functions.js`, `data-functions.js`, `json-functions.js`
 - **Numeric Operations**: `math-functions.js`, `statistics-functions.js`, `probability-functions.js`, `random-functions.js`
 - **Date/Time**: `date-time-functions.js`
 - **File System**: `file-functions.js`, `path-functions.js`, `path-resolver.js`
-- **HTTP/Web**: `http-functions.js`, `url-functions.js`, `dom-functions.js`
+- **HTTP/Web**: `http-functions.js`, `url-functions.js`, `dom-functions.js`, `dom-pipeline-functions.js`
 - **Security**: `cryptography-functions.js`, `validation-functions.js`, `security.js`
 - **Logic/Flow**: `logic-functions.js`
 - **System**: `shell-functions.js`
@@ -225,6 +225,22 @@ LET result = execute sql="INSERT INTO users VALUES (1, 'Alice')"
 -- Statistical functions
 LET summary = SUMMARY(data)
 LET correlation = COR(x_values, y_values)
+
+-- DOM element extraction and filtering in pipelines
+LET email_values = ELEMENT("input.email", "all")
+  |> FILTER_BY_ATTR("data-required", "true")
+  |> GET_VALUES
+  |> JOIN(",")
+
+LET active_text = ELEMENT("div.message", "all")
+  |> FILTER_BY_CLASS("active")
+  |> GET_TEXT
+  |> SORT
+
+LET data_ids = ELEMENT("tr.data-row", "all")
+  |> FILTER_BY_CLASS("visible")
+  |> GET_ATTRS("data-id")
+  |> JOIN("|")
 ```
 
 ### Cross-Application Automation
@@ -286,6 +302,27 @@ ADDRESS GCP
 - Real-time progress monitoring with `CHECKPOINT()`
 - Configurable string interpolation patterns - switch between `{{var}}`, `${var}`, `%var%`, or custom delimiters with `SET_INTERPOLATION('pattern')`
 - **JavaScript-style escape sequences** in all strings: `\n`, `\t`, `\r`, `\b`, `\f`, `\v`, `\0`, `\'`, `\"`, `\\`, and Unicode escapes `\uXXXX` and `\uXXXXXXXX` - works in assignments, SAY statements, function parameters, and concatenation (**Note: breaks from classic REXX which doesn't support these escape sequences**)
+- **DOM Pipeline Functions** (`dom-pipeline-functions.js`) - Extract and filter DOM elements in data pipelines:
+  - `FILTER_BY_ATTR(elements, attrName, value)` - Filter elements by attribute value
+  - `FILTER_BY_CLASS(elements, className)` - Filter elements by CSS class
+  - `GET_VALUES(elements)` - Extract `.value` from form elements (returns REXX stem array)
+  - `GET_TEXT(elements)` - Extract `.textContent` from elements (returns REXX stem array)
+  - `GET_ATTRS(elements, attrName)` - Extract attribute values from elements (returns REXX stem array)
+- **Chainable DOM Operations** - All ELEMENT mutation operations (`click`, `type`, `focus`, `class`, `text`, `attr`, `style`, `append`, `prepend`, `remove`) now return elements instead of void, enabling seamless pipeline composition:
+  ```rexx
+  ELEMENT("input.data", "all")
+    |> FILTER_BY_ATTR("data-required", "true")
+    |> GET_VALUES
+    |> JOIN(",")
+  ```
+- **REXX Stem Array Support in JOIN** - `JOIN()` now handles both JavaScript arrays and REXX stem arrays (format: `{0: count, 1: val1, 2: val2}`)
+- **Function Metadata and Reflection System** (`function-metadata-registry.js` + `INFO()` / `FUNCTIONS()` reflection functions):
+  - `INFO(functionName)` - Get detailed metadata about any function (module, category, description, parameters, return type, examples)
+  - `FUNCTIONS()` - List all 100+ functions grouped by module, or filter by category/module: `FUNCTIONS("String")`, `FUNCTIONS("array-functions.js")`
+  - `FUNCTIONS(name)` - Get quick info for a specific function: `FUNCTIONS("UPPER")` returns "string-functions.js - String: Convert string to uppercase"
+  - Comprehensive metadata for 100+ functions across 23 modules, organized by 13 categories (String, Math, Array, DOM, Shell, etc.)
+  - All returns use REXX stem arrays for seamless integration with REXX code
+  - Case-insensitive lookups for user-friendly API
 
 ## Architecture
 

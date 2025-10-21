@@ -1597,10 +1597,10 @@ function parseFunctionCall(line) {
     if (remaining.startsWith('(') && remaining.endsWith(')')) {
       remaining = remaining.substring(1, remaining.length - 1).trim();
     }
-    
+
     // Parse arguments manually to handle complex expressions properly
     const args = [];
-    
+
     while (remaining.length > 0) {
       // Match parameter name (but not arrow functions with =>)
       const nameMatch = remaining.match(/^(\w+)=(?!>)/);
@@ -1930,9 +1930,7 @@ function parseSelectStatement(tokens, startIndex) {
 
 function parseExpression(exprStr) {
   const expr = exprStr.trim();
-  
-  // Debug logging removed
-  
+
   // Reject array access syntax in expressions - not supported
   const arrayAccessMatch = expr.match(/^([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\[(.+?)\]$/);
   if (arrayAccessMatch) {
@@ -2018,7 +2016,12 @@ function parseExpression(exprStr) {
   }
 
   // First check if this looks like a mathematical expression (contains operators or parentheses)
-  if (expr.match(/[+\-*/%()]|\*\*|\|\||\|>/)) {
+  // But exclude function calls with named parameters like FUNC(name=value)
+  // Those should be handled as function calls, not arithmetic expressions
+  const hasOperators = /[+\-*/%\|]|\*\*|\|\||\|>/.test(expr);
+  const hasFunctionCallWithNamedParams = /^[a-zA-Z_]\w*\s*\([a-zA-Z_]\w*=/.test(expr);
+
+  if (hasOperators || (expr.match(/[()]/) && !hasFunctionCallWithNamedParams)) {
     // Parse as mathematical expression (which can contain function calls, concatenation, and piping)
     return parseArithmeticExpression(expr);
   }
@@ -2028,7 +2031,6 @@ function parseExpression(exprStr) {
   const funcMatch = expr.match(/^([A-Z_]\w*)\s*\(/i);
   if (funcMatch) {
     // Try to parse as a function call with parentheses
-    // Debug logging removed
     const funcCall = parseFunctionCall(expr);
     if (funcCall) {
       return funcCall;

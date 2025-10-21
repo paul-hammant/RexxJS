@@ -624,6 +624,54 @@ class RexxInterpreter {
     
     this.builtInFunctions = this.initializeBuiltInFunctions();
 
+    // Register DOM operations for unified ELEMENT() API
+    try {
+      if (typeof require !== 'undefined') {
+        const domFunctionsModule = require('./dom-functions');
+        const domOperations = domFunctionsModule.operations || {};
+        for (const [operationName, operationFunc] of Object.entries(domOperations)) {
+          // Bind the operation to this interpreter context so 'this' is available
+          this.operations[operationName] = operationFunc.bind(this);
+        }
+      }
+    } catch (e) {
+      // If DOM operations can't be loaded, continue without them (they may be loaded later)
+    }
+
+    // Collect function metadata from all function modules for namedParameters support
+    this.functionMetadata = {};
+    try {
+      if (typeof require !== 'undefined') {
+        const functionModules = [
+          require('./dom-functions'),
+          require('./string-functions'),
+          require('./math-functions'),
+          require('./array-functions'),
+          require('./json-functions'),
+          require('./date-time-functions'),
+          require('./url-functions'),
+          require('./regex-functions'),
+          require('./validation-functions'),
+          require('./file-functions'),
+          require('./http-functions'),
+          require('./statistics-functions'),
+          require('./logic-functions'),
+          require('./cryptography-functions'),
+          require('./data-functions'),
+          require('./probability-functions'),
+          require('./random-functions'),
+          require('./interpolation-functions')
+        ];
+        for (const mod of functionModules) {
+          if (mod && mod.functionMetadata) {
+            Object.assign(this.functionMetadata, mod.functionMetadata);
+          }
+        }
+      }
+    } catch (e) {
+      // Metadata collection is optional - don't fail if modules can't be loaded
+    }
+
     // NOTE: REQUIRE is NOT added to operations to avoid circular reference during Jest serialization
     // It's handled as a special case in executeFunctionCall before checking operations
 
@@ -1473,7 +1521,8 @@ class RexxInterpreter {
       sourceFilename: this.sourceFilename,
       interpolation: interpolation,
       RexxError: RexxError,
-      interpreterInstance: this
+      interpreterInstance: this,
+      functionMetadata: this.functionMetadata || {}
     };
     return await functionExecution.executeFunctionCall(funcCall, context);
   }

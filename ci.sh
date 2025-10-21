@@ -123,6 +123,11 @@ run_test() {
   echo "  🧪 Testing $module_name..."
   cd "$module_path"
   if [ -f "package.json" ]; then
+    # Install dependencies
+    echo "    📦 Installing dependencies..."
+    npm install > /dev/null 2>&1
+
+    # Run tests
     MODULE_JEST_TEMP=$(mktemp)
     set +e  # Don't exit on test failures
     MODULE_JEST_OUTPUT=$(npm test -- --ci --verbose 2>&1 | tee "$MODULE_JEST_TEMP")
@@ -239,6 +244,10 @@ echo "========================="
 # Run core tests
 echo "📦 Running core tests..."
 cd core/
+
+# Install dependencies
+echo "  📦 Installing dependencies..."
+npm install > /dev/null 2>&1
 
 echo "  Running Jest tests..."
 CORE_JEST_TEMP=$(mktemp)

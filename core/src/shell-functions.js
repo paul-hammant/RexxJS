@@ -787,36 +787,57 @@ function DIRNAME(pathArg) {
 }
 
 /**
- * PATH_JOIN - Join path components
+ * PATH_JOIN - Join path components (varargs style)
  *
- * @param {Array|string} parts - Path parts to join (array or first part)
- * @param {...string} moreParts - Additional path parts (if using variadic style)
+ * Supports multiple invocation styles:
+ *   PATH_JOIN("a", "b", "c")           - Varargs: most natural
+ *   PATH_JOIN(["a", "b", "c"])         - Array passed directly
+ *   PATH_JOIN(parts=["a", "b", "c"])   - Named parameter (from unified model)
+ *
+ * @param {...string|Array} pathParts - Variable number of path parts or array of parts
  * @returns {string} Joined path
  */
-function PATH_JOIN(parts, ...moreParts) {
-  // Support both array style: PATH_JOIN(parts=["a", "b"])
-  // and variadic style: PATH_JOIN("a", "b", "c")
-  if (Array.isArray(parts)) {
-    return path.join(...parts);
-  } else if (typeof parts === 'string' && parts.startsWith('[')) {
-    // Handle stringified array (parameter conversion issue)
-    try {
-      const parsedParts = JSON.parse(parts);
-      if (Array.isArray(parsedParts)) {
-        return path.join(...parsedParts);
-      }
-    } catch (e) {
-      // Not a valid JSON array, fall through
-    }
+function PATH_JOIN(...allArgs) {
+  // Handle different invocation styles
+  let actualParts = [];
+
+  if (allArgs.length === 0) {
+    throw new Error('PATH_JOIN requires at least one path part');
   }
 
-  if (moreParts.length > 0) {
-    return path.join(parts, ...moreParts);
-  } else if (typeof parts === 'string') {
-    return parts;
+  // Check if first arg is unified parameter model with 'parts' key
+  if (allArgs.length === 1 &&
+      typeof allArgs[0] === 'object' &&
+      allArgs[0] !== null &&
+      'parts' in allArgs[0]) {
+    // Named parameter: PATH_JOIN(parts=["a", "b"])
+    actualParts = Array.isArray(allArgs[0].parts) ? allArgs[0].parts : [allArgs[0].parts];
+  } else if (allArgs.length === 1 && Array.isArray(allArgs[0])) {
+    // Array passed directly: PATH_JOIN(["a", "b"])
+    actualParts = allArgs[0];
   } else {
-    throw new Error(`PATH_JOIN requires an array of path parts or multiple string arguments (received: ${typeof parts}, value: ${parts})`);
+    // Varargs style: PATH_JOIN("a", "b", "c")
+    actualParts = allArgs;
   }
+
+  // Flatten any nested arrays and filter out empty strings
+  actualParts = actualParts.flat().filter(p => p !== '');
+
+  if (actualParts.length === 0) {
+    throw new Error('PATH_JOIN requires at least one non-empty path part');
+  }
+
+  return path.join(...actualParts);
+}
+
+/**
+ * Sibling function: Convert positional arguments to named parameter map for PATH_JOIN
+ * Collects all varargs into a parts array
+ */
+function PATH_JOIN_positional_args_to_named_param_map(...args) {
+  return {
+    parts: args  // All varargs become the parts array
+  };
 }
 
 /**
@@ -1093,19 +1114,41 @@ function SEQ(start, end = null, step = 1) {
  * @param {string|Array} input - Text string, array, or file path
  * @returns {string|Array} Shuffled lines (returns same type as input)
  */
-function SHUF(input) {
+function SHUF(params) {
+  // Handle unified parameter model: { input: ... }
+  let actualInput;
+
+  if (typeof params === 'object' && params !== null && 'input' in params) {
+    actualInput = params.input;
+  } else {
+    // Direct value (from piped input or varargs)
+    actualInput = params;
+  }
+
+  // Handle stringified JSON arrays from parser limitations
+  if (typeof actualInput === 'string' && (actualInput.startsWith('[') || actualInput.startsWith('{'))) {
+    try {
+      const parsed = JSON.parse(actualInput);
+      if (Array.isArray(parsed)) {
+        actualInput = parsed;
+      }
+    } catch (e) {
+      // Not valid JSON, treat as regular string
+    }
+  }
+
   let lines = [];
-  const isArray = Array.isArray(input);
+  const isArray = Array.isArray(actualInput);
 
   if (isArray) {
-    lines = [...input];
-  } else if (typeof input === 'string') {
+    lines = [...actualInput];
+  } else if (typeof actualInput === 'string') {
     // Check if it's a file path
-    if (isNodeJS && fs.existsSync(input)) {
-      const content = fs.readFileSync(input, 'utf8');
+    if (isNodeJS && fs.existsSync(actualInput)) {
+      const content = fs.readFileSync(actualInput, 'utf8');
       lines = content.split('\n');
     } else {
-      lines = input.split('\n');
+      lines = actualInput.split('\n');
     }
   } else {
     throw new Error('SHUF requires a string or array as input');
@@ -1121,27 +1164,53 @@ function SHUF(input) {
 }
 
 /**
+ * Sibling function: Convert positional arguments to named parameter map for SHUF
+ * SHUF(input) -> { input }
+ */
+function SHUF_positional_args_to_named_param_map(...args) {
+  return {
+    input: args[0]
+  };
+}
+
+/**
  * Extract fields from text lines (like Unix cut)
  * @param {string|Array} input - Input text or array of lines
  * @param {string} [fields] - Field numbers to extract (e.g., "2" or "1,3")
  * @param {string} [delimiter] - Field delimiter (default: tab)
  * @returns {Array} Array of extracted field values
  */
-function CUT(input, fields = "1", delimiter = "\t") {
+function CUT(inputOrParams, fields = "1", delimiter = "\t") {
+  // Handle both unified parameter model and positional arguments
+  // If first arg is an object with 'input' property, it's the new unified model
+  let actualInput, actualFields, actualDelimiter;
+
+  if (typeof inputOrParams === 'object' && inputOrParams !== null && 'input' in inputOrParams) {
+    // Unified parameter model: { input, fields, delimiter }
+    actualInput = inputOrParams.input;
+    actualFields = inputOrParams.fields !== undefined ? inputOrParams.fields : "1";
+    actualDelimiter = inputOrParams.delimiter !== undefined ? inputOrParams.delimiter : "\t";
+  } else {
+    // Positional arguments (backward compatible)
+    actualInput = inputOrParams;
+    actualFields = fields;
+    actualDelimiter = delimiter;
+  }
+
   let lines;
 
   // Convert input to array of lines
-  if (Array.isArray(input)) {
-    lines = input;
-  } else if (typeof input === 'string') {
-    lines = input.split('\n');
+  if (Array.isArray(actualInput)) {
+    lines = actualInput;
+  } else if (typeof actualInput === 'string') {
+    lines = actualInput.split('\n');
   } else {
     throw new Error('CUT input must be a string or array of strings');
   }
 
   // Parse field numbers (supports ranges like "2-3" and lists like "1,3")
   const fieldNums = [];
-  const fieldSpecs = fields.split(',');
+  const fieldSpecs = String(actualFields).split(',');
 
   for (const spec of fieldSpecs) {
     const trimmed = spec.trim();
@@ -1159,7 +1228,7 @@ function CUT(input, fields = "1", delimiter = "\t") {
 
   const result = [];
   for (const line of lines) {
-    const parts = line.split(delimiter);
+    const parts = line.split(actualDelimiter);
     const extracted = fieldNums.map(fieldNum => parts[fieldNum] || '');
 
     if (fieldNums.length === 1) {
@@ -1167,7 +1236,7 @@ function CUT(input, fields = "1", delimiter = "\t") {
       result.push(extracted[0] || '');
     } else {
       // Multiple fields - join with delimiter
-      result.push(extracted.join(delimiter));
+      result.push(extracted.join(actualDelimiter));
     }
   }
 
@@ -1175,31 +1244,118 @@ function CUT(input, fields = "1", delimiter = "\t") {
 }
 
 /**
+ * Sibling function: Convert positional arguments to named parameter map for CUT
+ * CUT(input, fields, delimiter) -> { input, fields, delimiter }
+ */
+function CUT_positional_args_to_named_param_map(...args) {
+  return {
+    input: args[0],
+    fields: args[1],
+    delimiter: args[2]
+  };
+}
+
+/**
  * Combine arrays side by side (like Unix paste)
- * @param {Array} inputs - Array of arrays to combine
- * @param {string} [delimiter] - Delimiter between fields (default: tab)
+ *
+ * Expects unified parameter model from converter:
+ *   { inputs: [array1, array2, array3], delimiter: "," }
+ *
+ * Called from REXX as: PASTE(array1, array2, array3) or PASTE(array1, array2, delimiter=",")
+ * The converter transforms this to unified params, which is what we receive here.
+ *
+ * @param {Object} params - Unified parameter object with inputs and optional delimiter
  * @returns {Array} Array of combined lines
  */
-function PASTE(inputs, delimiter = "\t") {
-  if (!Array.isArray(inputs)) {
-    throw new Error('PASTE inputs must be an array of arrays');
-  }
+function PASTE(params) {
+  // Handle case where we receive a single unified params object
+  if (typeof params === 'object' && params !== null && 'inputs' in params) {
+    let inputs = params.inputs;
+    const delimiter = params.delimiter !== undefined ? params.delimiter : "\t";
 
-  // Find the maximum length
-  const maxLength = Math.max(...inputs.map(arr => Array.isArray(arr) ? arr.length : 0));
+    if (!Array.isArray(inputs) || inputs.length === 0) {
+      throw new Error('PASTE requires at least one array');
+    }
 
-  const result = [];
-  for (let i = 0; i < maxLength; i++) {
-    const line = inputs.map(arr => {
-      if (Array.isArray(arr) && i < arr.length) {
-        return arr[i];
+    // Handle stringified JSON arrays from parser limitations
+    inputs = inputs.map(item => {
+      if (typeof item === 'string' && (item.startsWith('[') || item.startsWith('{'))) {
+        try {
+          const parsed = JSON.parse(item);
+          return Array.isArray(parsed) ? parsed : item;
+        } catch (e) {
+          return item;
+        }
       }
-      return '';
-    }).join(delimiter);
-    result.push(line);
+      return item;
+    });
+
+    // Verify all inputs are arrays (handle stringified arrays from parser)
+    for (let i = 0; i < inputs.length; i++) {
+      // If it's not already an array but is a string, try to parse as JSON
+      if (!Array.isArray(inputs[i]) && typeof inputs[i] === 'string') {
+        try {
+          const trimmed = inputs[i].trim();
+          // Try to parse as JSON
+          if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+            inputs[i] = JSON.parse(trimmed);
+          }
+        } catch (e) {
+          // If it fails, that's OK - we'll throw the proper error below
+        }
+      }
+
+      if (!Array.isArray(inputs[i])) {
+        throw new Error(`PASTE argument ${i + 1} must be an array, got ${typeof inputs[i]}`);
+      }
+    }
+
+    // Find the maximum length
+    const maxLength = Math.max(...inputs.map(arr => arr.length));
+
+    const result = [];
+    for (let i = 0; i < maxLength; i++) {
+      const line = inputs.map(arr => {
+        return (i < arr.length) ? arr[i] : '';
+      }).join(delimiter);
+      result.push(line);
+    }
+
+    return result;
   }
 
-  return result;
+  throw new Error('PASTE expects unified parameter model: { inputs: [...], delimiter: "..." }');
+}
+
+/**
+ * Sibling function: Convert positional arguments to named parameter map for PASTE
+ * REXX invocations: PASTE(a, b, c) or PASTE(a, b, c, delimiter=",")
+ * Returns: { inputs: [a, b, c], delimiter: "," }
+ */
+function PASTE_positional_args_to_named_param_map(...args) {
+  // Check if last arg is "delimiter=..." (from parser not recognizing named params)
+  if (args.length > 0 &&
+      typeof args[args.length - 1] === 'string' &&
+      args[args.length - 1].startsWith('delimiter=')) {
+    // Extract delimiter value from "delimiter=..." string
+    const lastArg = args[args.length - 1];
+    const delimiterMatch = lastArg.match(/^delimiter=(.*)$/);
+    if (delimiterMatch) {
+      let delimiter = delimiterMatch[1];
+      // Strip surrounding quotes if present
+      if ((delimiter.startsWith('"') && delimiter.endsWith('"')) ||
+          (delimiter.startsWith("'") && delimiter.endsWith("'"))) {
+        delimiter = delimiter.slice(1, -1);
+      }
+      const inputs = args.slice(0, -1);
+      return { inputs, delimiter };
+    }
+  }
+
+  // All args are arrays to be combined (no custom delimiter)
+  return {
+    inputs: args
+  };
 }
 
 /**
@@ -3823,15 +3979,19 @@ if (isNodeJS) {
     PATH_JOIN,
     PATH_RESOLVE,
     PATH_EXTNAME,
+    PATH_JOIN_positional_args_to_named_param_map,
     HEAD,
     TAIL,
     WC,
     SORT,
     UNIQ,
     CUT,
+    CUT_positional_args_to_named_param_map,
     PASTE,
+    PASTE_positional_args_to_named_param_map,
     SEQ,
     SHUF,
+    SHUF_positional_args_to_named_param_map,
     TEE,
     XARGS,
     NL,
