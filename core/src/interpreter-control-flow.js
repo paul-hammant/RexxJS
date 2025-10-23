@@ -420,10 +420,36 @@ async function executeSelectStatement(selectCommand, evaluateConditionFn, runCom
     const conditionResult = await evaluateConditionFn(whenClause.condition);
     
     if (conditionResult) {
-      // Execute this WHEN clause and stop (no fall-through)
-      const result = await runCommandsFn(whenClause.commands);
-      if (result && result.terminated) {
-        return result;
+      // Trace entering this WHEN branch if interpreter context available via 'this'
+      try {
+        if (this && typeof this.addTraceOutput === 'function') {
+          const ln = whenClause.lineNumber || null;
+          // Prefer original source line if available
+          let msg = 'WHEN';
+          if (ln && this.sourceLines && this.sourceLines[ln - 1]) {
+            msg = this.sourceLines[ln - 1].trim();
+          }
+          this.addTraceOutput(msg, 'instruction', ln);
+        }
+      } catch (e) { /* no-op */ }
+      // Execute this WHEN clause in-place and stop (no fall-through)
+      if (this && Array.isArray(whenClause.commands)) {
+        for (let i = 0; i < whenClause.commands.length; i++) {
+          const result = await this.executeCommand(whenClause.commands[i]);
+          if (result && result.terminated) {
+            return result;
+          }
+          if (result && result.jump) {
+            return result;
+          }
+          if (result && result.skipCommands) {
+            i += result.skipCommands;
+          }
+        }
+      } else {
+        // Fallback to provided runner if context not bound (shouldn't happen in interpreter usage)
+        const result = await runCommandsFn(whenClause.commands);
+        if (result && result.terminated) return result;
       }
       return null; // Exit SELECT after executing a WHEN clause
     }
@@ -431,9 +457,36 @@ async function executeSelectStatement(selectCommand, evaluateConditionFn, runCom
   
   // If no WHEN clause matched, execute OTHERWISE if it exists
   if (selectCommand.otherwiseCommands.length > 0) {
-    const result = await runCommandsFn(selectCommand.otherwiseCommands);
-    if (result && result.terminated) {
-      return result;
+    // Trace OTHERWISE selection if we have context
+    try {
+      if (this && typeof this.addTraceOutput === 'function') {
+        // Use OTHERWISE header line number captured by parser
+        const ln = selectCommand.otherwiseLineNumber || null;
+        let msg = 'OTHERWISE';
+        if (ln && this.sourceLines && this.sourceLines[ln - 1]) {
+          // If source has the OTHERWISE line, use it verbatim
+          const src = this.sourceLines[ln - 1].trim();
+          if (/^OTHERWISE/i.test(src)) msg = src; else msg = 'OTHERWISE';
+        }
+        this.addTraceOutput(msg, 'instruction', ln);
+      }
+    } catch (e) { /* no-op */ }
+    if (this && Array.isArray(selectCommand.otherwiseCommands)) {
+      for (let i = 0; i < selectCommand.otherwiseCommands.length; i++) {
+        const result = await this.executeCommand(selectCommand.otherwiseCommands[i]);
+        if (result && result.terminated) {
+          return result;
+        }
+        if (result && result.jump) {
+          return result;
+        }
+        if (result && result.skipCommands) {
+          i += result.skipCommands;
+        }
+      }
+    } else {
+      const result = await runCommandsFn(selectCommand.otherwiseCommands);
+      if (result && result.terminated) return result;
     }
   }
   

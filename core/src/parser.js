@@ -344,11 +344,27 @@ function parseStatement(tokens, startIndex) {
     };
   }
   
-  // ADDRESS command (target only)
-  const addressMatch = line.match(/^ADDRESS\s+(\w+)/i);
+  // ADDRESS command (target only) and optional heredoc on same line: ADDRESS <target> <<DELIM
+  let addressMatch = line.match(/^ADDRESS\s+(\w+)(?:\s+<<([A-Za-z_][A-Za-z0-9_]*))?/i);
   if (addressMatch) {
+    const target = addressMatch[1];
+    const heredocDelim = addressMatch[2];
+    // If heredoc is indicated, the tokenizer will have produced current LINE token
+    // with hasHeredoc=true and the next token will be HEREDOC containing the payload.
+    if (heredocDelim && tokens[startIndex + 1] && tokens[startIndex + 1].type === 'HEREDOC' && tokens[startIndex + 1].delimiter === heredocDelim) {
+      const heredocToken = tokens[startIndex + 1];
+      return {
+        command: addLineNumber({
+          type: 'HEREDOC_STRING',
+          value: heredocToken.content,
+          delimiter: heredocDelim,
+          addressTarget: target
+        }, token),
+        nextIndex: startIndex + 2
+      };
+    }
     return {
-      command: addLineNumber({ type: 'ADDRESS', target: addressMatch[1] }, token),
+      command: addLineNumber({ type: 'ADDRESS', target: target }, token),
       nextIndex: startIndex + 1
     };
   }
@@ -487,6 +503,8 @@ function parseStatement(tokens, startIndex) {
     // Determine if this is a variable reference or direct name
     const isVariableCall = variableName !== undefined;
     let subroutineName = isVariableCall ? variableName : directName;
+    // Preserve original display token for tracing (before modification)
+    const displayName = isVariableCall ? `(${variableName})` : directName;
     
     // Strip quotes from direct names (for external script paths)
     if (!isVariableCall && ((subroutineName.startsWith('"') && subroutineName.endsWith('"')) || 
@@ -589,6 +607,7 @@ function parseStatement(tokens, startIndex) {
       command: addLineNumber({
         type: 'CALL',
         subroutine: subroutineName,
+        displayName: displayName,
         isVariableCall: isVariableCall,
         arguments: args
       }, token),
@@ -784,6 +803,8 @@ function parseStatement(tokens, startIndex) {
       // Determine if this is a variable reference or direct name
       const isVariableCall = variableName_call !== undefined;
       let subroutineName = isVariableCall ? variableName_call : directName;
+      // Preserve original display token for tracing (before modification)
+      const displayName = isVariableCall ? `(${variableName_call})` : directName;
       
       // Strip quotes from direct names (for external script paths)
       if (!isVariableCall && ((subroutineName.startsWith('"') && subroutineName.endsWith('"')) || 
@@ -855,6 +876,7 @@ function parseStatement(tokens, startIndex) {
           command: {
             type: 'CALL',
             subroutine: subroutineName,
+            displayName: displayName,
             arguments: args,
             isVariableCall: isVariableCall
           }
@@ -1803,6 +1825,7 @@ function parseSelectStatement(tokens, startIndex) {
   
   const whenClauses = [];
   let otherwiseCommands = [];
+  let otherwiseLineNumber = null;
   let currentIndex = startIndex + 1;
   
   // Find matching END and collect WHEN clauses and OTHERWISE
@@ -1820,6 +1843,7 @@ function parseSelectStatement(tokens, startIndex) {
     if (whenSingleLineMatch) {
       const condition = parseCondition(whenSingleLineMatch[1]);
       const statement = whenSingleLineMatch[2].trim();
+      const headerLineNumber = tokens[currentIndex].lineNumber;
 
       // Parse the statement on the same line
       const stmtTokens = [{
@@ -1832,7 +1856,8 @@ function parseSelectStatement(tokens, startIndex) {
 
       whenClauses.push({
         condition: condition,
-        commands: whenCommands
+        commands: whenCommands,
+        lineNumber: headerLineNumber
       });
       currentIndex++;
       continue;
@@ -1843,6 +1868,7 @@ function parseSelectStatement(tokens, startIndex) {
     if (whenMultiLineMatch) {
       const condition = parseCondition(whenMultiLineMatch[1]);
       const whenCommands = [];
+      const headerLineNumber = tokens[currentIndex].lineNumber;
       currentIndex++;
 
       // Collect commands for this WHEN clause until next WHEN, OTHERWISE, or END
@@ -1862,7 +1888,8 @@ function parseSelectStatement(tokens, startIndex) {
 
       whenClauses.push({
         condition: condition,
-        commands: whenCommands
+        commands: whenCommands,
+        lineNumber: headerLineNumber
       });
       continue;
     }
@@ -1883,6 +1910,7 @@ function parseSelectStatement(tokens, startIndex) {
       if (stmtResult.command) {
         otherwiseCommands.push(stmtResult.command);
       }
+      otherwiseLineNumber = tokens[currentIndex].lineNumber;
 
       currentIndex++;
       continue;
@@ -1891,6 +1919,7 @@ function parseSelectStatement(tokens, startIndex) {
     // Pattern 2: OTHERWISE (multi-line)
     const otherwiseMultiLineMatch = line.match(/^OTHERWISE\s*$/i);
     if (otherwiseMultiLineMatch) {
+      otherwiseLineNumber = tokens[currentIndex].lineNumber;
       currentIndex++;
 
       // Collect commands for OTHERWISE clause until END
@@ -1921,8 +1950,10 @@ function parseSelectStatement(tokens, startIndex) {
   return {
     command: {
       type: 'SELECT',
+      lineNumber: tokens[startIndex].lineNumber,
       whenClauses: whenClauses,
-      otherwiseCommands: otherwiseCommands
+      otherwiseCommands: otherwiseCommands,
+      otherwiseLineNumber: otherwiseLineNumber
     },
     nextIndex: currentIndex + 1  // Skip past END
   };

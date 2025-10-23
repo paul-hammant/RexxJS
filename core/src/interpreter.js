@@ -1075,6 +1075,7 @@ class RexxInterpreter {
     
     for (let i = startIndex; i < commands.length; i++) {
       const command = commands[i];
+      const prevLine = this.currentLineNumber;
       
       
       // Track current line number for error reporting and push execution context
@@ -1125,6 +1126,10 @@ class RexxInterpreter {
       }
       
       try {
+        // Ensure currentLineNumber is available for downstream traces (ADDRESS, CALL, etc.)
+        if (command && command.lineNumber) {
+          this.currentLineNumber = command.lineNumber;
+        }
         const result = await this.executeCommand(command);
         if (result && result.jump) {
           // Handle SIGNAL jumps
@@ -1178,6 +1183,9 @@ class RexxInterpreter {
           }
         }
         // If handled but no jump, continue execution
+      } finally {
+        // Restore previous currentLineNumber
+        this.currentLineNumber = prevLine || null;
       }
     }
     
@@ -1192,18 +1200,29 @@ class RexxInterpreter {
   }
 
   async executeCommand(command) {
-    // Add trace output for instruction execution
-    // Include source line text if available
-    let traceMessage;
-    if (command.lineNumber && this.sourceLines && this.sourceLines[command.lineNumber - 1]) {
-      // Source line is available - show actual REXX code being executed
-      traceMessage = this.sourceLines[command.lineNumber - 1].trim();
-    } else {
-      // No source line available (e.g., dynamically generated commands, embedded REXX, or source not preserved)
-      // Fallback to command type as trace message
-      traceMessage = command.type;
+    // Add trace output for instruction execution, except for CALL where we emit
+    // a canonical header separately with arg count.
+    if (command.type !== 'CALL') {
+      let traceMessage;
+      if (command.lineNumber && this.sourceLines && this.sourceLines[command.lineNumber - 1]) {
+        // Prefer originalLine if available to preserve quoting, else source text
+        traceMessage = (command.originalLine || this.sourceLines[command.lineNumber - 1]).trim();
+      } else {
+        // Fallback: reconstruct faithfully for certain commands
+        if (command.type === 'ADDRESS_WITH_STRING') {
+          traceMessage = this.reconstructCommandAsLine(command).trim();
+        } else {
+          traceMessage = command.type;
+        }
+      }
+      // Ensure a line number is present for forwarding. Prefer command.lineNumber,
+      // otherwise fall back to currentLineNumber for ADDRESS_WITH_STRING.
+      let ln = command.lineNumber;
+      if ((!ln || ln === null) && command.type === 'ADDRESS_WITH_STRING') {
+        ln = this.currentLineNumber || null;
+      }
+      this.addTraceOutput(traceMessage, 'instruction', ln);
     }
-    this.addTraceOutput(traceMessage, 'instruction', command.lineNumber);
     
     switch (command.type) {
         case 'ADDRESS':
@@ -1263,7 +1282,10 @@ class RexxInterpreter {
           break;
           
         case 'CALL':
-          this.addTraceOutput(`CALL ${command.subroutine} (${command.arguments.length} args)`, 'call', command.lineNumber);
+          // Emit a single canonical CALL header with explicit arg count
+          const argCount = Array.isArray(command.arguments) ? command.arguments.length : 0;
+          const callNameForDisplay = command.displayName ? command.displayName : command.subroutine;
+          this.addTraceOutput(`CALL ${callNameForDisplay} (${argCount} args)`, 'call', command.lineNumber);
           const callResult = await parseSubroutineUtils.executeCall(
             command,
             this.variables,
@@ -1516,7 +1538,7 @@ class RexxInterpreter {
           break;
         
         case 'SELECT':
-          const selectResult = await controlFlowUtils.executeSelectStatement(command, this.evaluateCondition.bind(this), this.run.bind(this));
+          const selectResult = await controlFlowUtils.executeSelectStatement.call(this, command, this.evaluateCondition.bind(this), this.run.bind(this));
           if (selectResult && selectResult.terminated) {
             if (selectResult.type === 'RETURN') {
               // RETURN inside SELECT should bubble up to caller
@@ -1559,6 +1581,10 @@ class RexxInterpreter {
           break;
           
         case 'HEREDOC_STRING':
+          // If parser associated an address target, set it for this heredoc execution only
+          if (command.addressTarget) {
+            this.address = command.addressTarget.toLowerCase();
+          }
           await this.executeHeredocString(command);
           break;
 
@@ -1580,6 +1606,11 @@ class RexxInterpreter {
     
     // Last resort: reconstruct from command properties
     switch (command.type) {
+      case 'ADDRESS_WITH_STRING':
+        if (command.target && command.commandString !== undefined) {
+          return `ADDRESS ${command.target} "${command.commandString}"`;
+        }
+        break;
       case 'ASSIGNMENT':
         if (command.expression && typeof command.expression === 'string') {
           return command.expression;
@@ -2302,16 +2333,20 @@ class RexxInterpreter {
   addTraceOutput(message, type = 'instruction', lineNumber = null, result = null) {
     traceFormattingUtils.addTraceOutput(message, type, lineNumber, result, this.traceMode, this.traceOutput);
 
-    // Output trace to handler if trace-to-output is enabled
+    // Output trace to handler if trace-to-output is enabled, but only for
+    // instruction-level events. Suppress lower-level ADDRESS internals.
     if (this.options['trace-to-output'] && this.outputHandler && this.traceMode !== 'OFF') {
-      // Format: >> <line-number> <message> [=> result]
-      // Line numbers may be unavailable for dynamically generated code or embedded REXX
-      let lineDisplay = lineNumber ? String(lineNumber) : '(no line#)';
-      let traceOutput = `>> ${lineDisplay} ${message}`;
-      if (result !== null && result !== undefined) {
-        traceOutput += ` => ${result}`;
+      // Only forward user-visible types
+      const userVisibleTypes = new Set(['instruction', 'call', 'trace']);
+      if (!userVisibleTypes.has(type)) {
+        return;
       }
-      this.outputHandler.output(traceOutput);
+      // Require a line number for user-facing stream
+      if (lineNumber === null || lineNumber === undefined) {
+        return;
+      }
+      const traceLine = `>> ${String(lineNumber)} ${message}`;
+      this.outputHandler.output(traceLine);
     }
   }
 
