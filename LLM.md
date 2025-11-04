@@ -37,12 +37,18 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 - **./rexxt** - Test runner (via src/test-interpreter.js) with TUI experience 
 
 ### Function Libraries (core `src/` and modular `extras/functions/`)
-- **Core functions**: String processing, JSON/Web, security, validation (in `src/`)
-- **HTTP functions**: RESTful API integration with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` returning structured `{status, body, headers, ok}` objects (in `src/`)
-- **R-style functions**: Statistical computing (data frames, factors, mathematical operations) - relocated to `extras/functions/r-inspired/`
-- **SciPy-style functions**: Scientific computing (interpolation, signal processing) - relocated to `extras/functions/scipy/`
-- **Excel functions**: Spreadsheet operations (VLOOKUP, statistical functions) - relocated to `extras/functions/excel/`
-- **Modular design**: Function libraries loaded on-demand via REXX `REQUIRE` statements. Libraries can be loaded by their published name (e.g., `REQUIRE "org.rexxjs/excel-functions"`) or by a relative path to the source file (e.g., `REQUIRE "../path/to/excel-functions.js"`)
+- **Core functions**: String (50+ ops), JSON/Web, HTTP APIs, security/crypto, date/time, validation, arrays, math/stats (in `src/`)
+- **Shell functions**: System command execution, process management (3,916 lines - largest library in `src/`)
+- **R-style functions**: Statistical computing, data frames, factors (`extras/functions/r-inspired/`)
+- **SciPy-style**: Scientific computing, interpolation, signal processing (`extras/functions/scipy-inspired/`)
+- **NumPy-style**: Array operations (`numpy-inspired/`, `numpy-via-pyodide/`)
+- **MATLAB-style**: Mathematical operations (`matlab-inspired/`)
+- **SymPy-style**: Symbolic mathematics (`sympy-inspired/`)
+- **Excel functions**: VLOOKUP, spreadsheet operations (`extras/functions/excel/`)
+- **Data utilities**: Diff/patch, sed stream editing, jq JSON queries (`diff/`, `sed/`, `jq-functions/`, `jq-wasm-functions/`)
+- **Visualization**: GraphViz graph rendering (`graphviz/`)
+- **Pattern matching**: Glob patterns via minimatch (`minimatch/`)
+- **Modular design**: Libraries loaded on-demand via REXX `REQUIRE` statements
 
 ### Operations vs Functions Architecture
 RexxJS distinguishes between two types of callable code:
@@ -78,7 +84,14 @@ This ensures standard REXX functions always work, while allowing ADDRESS handler
 - **HEREDOC JSON auto-parsing**: `LET config = <<JSON` automatically parses to JavaScript objects
 - Supports both traditional command strings (`"CREATE TABLE users"`) and modern method calls (`execute sql="CREATE TABLE users"`)
 
-### Provisioning & Orchestration (`extras/addresses/provisioning-and-orchestration/`)
+### AI/LLM Integration (`extras/addresses/`)
+Direct integration with major AI services via ADDRESS handlers:
+- **Claude** (`anthropic-ai/claude-address.js`) - Anthropic's Claude API (3.5 Sonnet, Opus)
+- **OpenAI** (`open-ai/openai-address.js`) - GPT-4, GPT-4o integration with function calling
+- **Gemini** (`gemini-address/gemini-address.js`) - Google Gemini with multimodal/vision support
+- **CHECKPOINT Collaboration** - See `CHECKPOINT-TECH.md` for remote LLM collaboration architecture using long-polling (COMET) for efficient async communication
+
+### Provisioning & Orchestration (`extras/addresses/`)
 Comprehensive infrastructure management with VM, container automation, and **cloud orchestration**:
 
 **Google Cloud Platform (`address-gcp.js`) - The Modern Cloud Orchestration Language:**
@@ -95,6 +108,7 @@ Comprehensive infrastructure management with VM, container automation, and **clo
 - **Docker** (`address-docker.js`) - Full Docker container lifecycle
 - **Podman** (`address-podman.js`) - Rootless container operations
 - **systemd-nspawn** (`address-nspawn.js`) - Lightweight OS containers
+- **LXD** (`lxd-address.js`) - LXD system container management
 
 **Virtual Machine Management:**
 - **QEMU/KVM** (`address-qemu.js`) - Production virtualization with Guest Agent
@@ -105,6 +119,15 @@ Comprehensive infrastructure management with VM, container automation, and **clo
   - Command execution via Guest Additions (no SSH needed)
   - ISO management, network configuration, snapshot support
   - Full lifecycle with pause/resume, save/restore state
+- **Firecracker** (`firecracker-address.js`) - AWS Firecracker microVMs
+- **Proxmox** (`proxmox-address.js`) - Proxmox VE platform integration
+
+**Database & Data Processing:**
+- **SQLite** (`sqlite3/sqlite-address.js`) - Embedded SQL database
+- **DuckDB** (`duckdb-address.js`, `duckdb-wasm-address.js`) - Analytics database (native & WebAssembly)
+
+**Language Runtimes:**
+- **Python** (`pyodide/pyodide-address.js`) - Python via Pyodide WebAssembly
 
 **Key Capabilities:**
 - **Cloud-native orchestration**: Single unified interface for all Google Cloud services
@@ -118,7 +141,10 @@ Comprehensive infrastructure management with VM, container automation, and **clo
 ### Browser Integration (`src/web/`)
 - PostMessage-based RPC between iframes
 - Secure cross-origin communication
-- Real-time streaming with CHECKPOINT functionality (back communication from worker to director)
+- **CHECKPOINT facility** - Long-polling (COMET) architecture for remote collaboration (see `CHECKPOINT-TECH.md`)
+  - Enables REXX scripts to collaborate with LLMs, microservices, DOM operations
+  - Structured JSON messaging with request/response correlation
+  - Progress reporting and timeout management
 - Director/worker patterns for distributed processing
 
 ### Test Infrastructure (`tests/`)
@@ -220,6 +246,7 @@ ADDRESS GCP
 - Functional programming constructs (`MAP`, `FILTER`, `REDUCE`)
 - Async/await patterns for browser operations
 - Real-time progress monitoring with `CHECKPOINT()`
+- **DOM Element Objects** - Efficient element caching with opaque references (`DOM_GET`, `DOM_ELEMENT_*` functions)
 - Configurable string interpolation patterns - switch between `{{var}}`, `${var}`, `%var%`, or custom delimiters with `SET_INTERPOLATION('pattern')`
 
 ## Architecture
