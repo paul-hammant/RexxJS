@@ -18,11 +18,13 @@ const isNodeJS = typeof require !== 'undefined' &&
 
 // Only load Node.js dependencies if we're in Node.js
 // This prevents webpack from trying to bundle them for the browser
-let fs, path;
+let fs, path, child_process, os;
 
 if (isNodeJS) {
   fs = require('fs');
   path = require('path');
+  child_process = require('child_process');
+  os = require('os');
 }
 
 /**
@@ -3361,6 +3363,316 @@ function UNSETENV(name) {
 }
 
 /**
+ * Process Management Operations
+ */
+
+/**
+ * PS - List running processes
+ * Returns array of process objects with pid, ppid, name, cmd, cpu, mem
+ * Node.js only
+ */
+function PS() {
+  if (!isNodeJS) {
+    throw new Error('PS is only available in Node.js environment');
+  }
+
+  const platform = os.platform();
+  let output;
+
+  try {
+    if (platform === 'win32') {
+      // Windows: Use WMIC or Get-Process
+      output = child_process.execSync('wmic process get ProcessId,ParentProcessId,Name,CommandLine,WorkingSetSize /format:csv', {
+        encoding: 'utf8',
+        timeout: 10000,
+        windowsHide: true
+      });
+    } else {
+      // Unix-like: Use ps command with standardized format
+      output = child_process.execSync('ps -eo pid,ppid,pcpu,pmem,comm,args', {
+        encoding: 'utf8',
+        timeout: 10000
+      });
+    }
+  } catch (error) {
+    throw new Error(`Failed to list processes: ${error.message}`);
+  }
+
+  // Parse the output into structured data
+  const processes = [];
+  const lines = output.trim().split('\n');
+
+  if (platform === 'win32') {
+    // Parse Windows CSV format (skip header lines)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith('Node,')) continue;
+
+      const parts = line.split(',');
+      if (parts.length >= 4) {
+        processes.push({
+          pid: parseInt(parts[3]) || 0,
+          ppid: parseInt(parts[2]) || 0,
+          name: parts[1] || '',
+          cmd: parts[4] || parts[1] || '',
+          cpu: 0,
+          mem: parseInt(parts[5]) || 0
+        });
+      }
+    }
+  } else {
+    // Parse Unix ps output (skip header)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Split by whitespace, handling multiple spaces
+      const parts = line.split(/\s+/);
+      if (parts.length >= 5) {
+        processes.push({
+          pid: parseInt(parts[0]) || 0,
+          ppid: parseInt(parts[1]) || 0,
+          cpu: parseFloat(parts[2]) || 0,
+          mem: parseFloat(parts[3]) || 0,
+          name: parts[4] || '',
+          cmd: parts.slice(5).join(' ') || parts[4] || ''
+        });
+      }
+    }
+  }
+
+  return processes;
+}
+
+/**
+ * PGREP - Find process IDs by name or pattern
+ * Returns array of PIDs matching the pattern
+ * Node.js only
+ */
+function PGREP(pattern, full = false, exact = false) {
+  if (!isNodeJS) {
+    throw new Error('PGREP is only available in Node.js environment');
+  }
+
+  full = toBool(full);
+  exact = toBool(exact);
+  const platform = os.platform();
+  let pids = [];
+
+  try {
+    if (platform === 'win32') {
+      // Windows: Use tasklist and filter
+      const processes = PS();
+      const regex = exact ? new RegExp(`^${pattern}$`, 'i') : new RegExp(pattern, 'i');
+
+      pids = processes
+        .filter(p => {
+          const searchField = full ? p.cmd : p.name;
+          return regex.test(searchField);
+        })
+        .map(p => p.pid);
+    } else {
+      // Unix-like: Use pgrep command if available
+      try {
+        let cmd = 'pgrep';
+        if (full) cmd += ' -f';
+        if (exact) cmd += ' -x';
+        cmd += ` "${pattern}"`;
+
+        const output = child_process.execSync(cmd, {
+          encoding: 'utf8',
+          timeout: 5000
+        });
+
+        pids = output.trim().split('\n').map(pid => parseInt(pid)).filter(pid => !isNaN(pid));
+      } catch (error) {
+        // pgrep not available or no matches, fall back to PS
+        if (error.status === 1) {
+          // pgrep returns 1 when no processes match
+          return [];
+        }
+
+        // pgrep command not found, use PS
+        const processes = PS();
+        const regex = exact ? new RegExp(`^${pattern}$`) : new RegExp(pattern);
+
+        pids = processes
+          .filter(p => {
+            const searchField = full ? p.cmd : p.name;
+            return regex.test(searchField);
+          })
+          .map(p => p.pid);
+      }
+    }
+  } catch (error) {
+    throw new Error(`Failed to search processes: ${error.message}`);
+  }
+
+  return pids;
+}
+
+/**
+ * KILLALL - Kill all processes matching name
+ * Returns number of processes killed
+ * Node.js only
+ */
+function KILLALL(name, signal = 'SIGTERM') {
+  if (!isNodeJS) {
+    throw new Error('KILLALL is only available in Node.js environment');
+  }
+
+  const platform = os.platform();
+  const sig = String(signal).toUpperCase();
+
+  try {
+    if (platform === 'win32') {
+      // Windows: Use taskkill
+      const output = child_process.execSync(`taskkill /F /IM "${name}" /T`, {
+        encoding: 'utf8',
+        timeout: 10000,
+        windowsHide: true
+      });
+
+      // Parse output to count killed processes
+      const matches = output.match(/SUCCESS/g);
+      return matches ? matches.length : 0;
+    } else {
+      // Unix-like: Find processes and kill them
+      const pids = PGREP(name, { exact: false });
+
+      let killedCount = 0;
+      for (const pid of pids) {
+        try {
+          process.kill(pid, sig);
+          killedCount++;
+        } catch (err) {
+          // Process might have already exited or permission denied
+          // Continue with other processes
+        }
+      }
+
+      return killedCount;
+    }
+  } catch (error) {
+    // If no processes found, return 0 instead of throwing
+    if (error.message && error.message.includes('not found')) {
+      return 0;
+    }
+    throw new Error(`Failed to kill processes: ${error.message}`);
+  }
+}
+
+/**
+ * TOP - Get real-time process information snapshot
+ * Returns object with system stats and top processes
+ * Node.js only
+ */
+function TOP(limit = 10, sortBy = 'cpu') {
+  if (!isNodeJS) {
+    throw new Error('TOP is only available in Node.js environment');
+  }
+
+  const n = parseInt(limit) || 10;
+  const sortField = String(sortBy) === 'mem' ? 'mem' : 'cpu';
+
+  // Get all processes
+  const processes = PS();
+
+  // Sort by requested field
+  processes.sort((a, b) => b[sortField] - a[sortField]);
+
+  // Get top N processes
+  const topProcesses = processes.slice(0, n);
+
+  // Get system information
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+  const loadAvg = os.loadavg();
+  const uptime = os.uptime();
+  const cpus = os.cpus();
+
+  return {
+    timestamp: new Date().toISOString(),
+    system: {
+      uptime: uptime,
+      loadAverage: {
+        '1min': loadAvg[0],
+        '5min': loadAvg[1],
+        '15min': loadAvg[2]
+      },
+      memory: {
+        total: totalMem,
+        free: freeMem,
+        used: usedMem,
+        percentUsed: (usedMem / totalMem) * 100
+      },
+      cpus: cpus.length,
+      cpuModel: cpus[0] ? cpus[0].model : 'Unknown'
+    },
+    processes: {
+      total: processes.length,
+      top: topProcesses
+    }
+  };
+}
+
+/**
+ * NICE - Run a command with modified scheduling priority
+ * Returns object with { exitCode, stdout, stderr }
+ * Node.js only
+ */
+function NICE(command, priority = 10, shell = true) {
+  if (!isNodeJS) {
+    throw new Error('NICE is only available in Node.js environment');
+  }
+
+  shell = toBool(shell);
+  const platform = os.platform();
+
+  // Validate priority (-20 to 19 on Unix, not applicable on Windows)
+  const niceness = Math.max(-20, Math.min(19, parseInt(priority) || 10));
+
+  try {
+    let cmd;
+    let execOptions = {
+      encoding: 'utf8',
+      timeout: 30000,
+      shell: shell
+    };
+
+    if (platform === 'win32') {
+      // Windows: Use start with priority class
+      // Priority mapping: below normal, normal, above normal, high
+      let windowsPriority = '/normal';
+      if (niceness < -10) windowsPriority = '/high';
+      else if (niceness < 0) windowsPriority = '/abovenormal';
+      else if (niceness > 10) windowsPriority = '/belownormal';
+      else if (niceness > 0) windowsPriority = '/low';
+
+      cmd = `start ${windowsPriority} /wait /b ${command}`;
+    } else {
+      // Unix-like: Use nice command
+      cmd = `nice -n ${niceness} ${command}`;
+    }
+
+    const output = child_process.execSync(cmd, execOptions);
+
+    return {
+      exitCode: 0,
+      stdout: output.toString(),
+      stderr: ''
+    };
+  } catch (error) {
+    return {
+      exitCode: error.status || 1,
+      stdout: error.stdout ? error.stdout.toString() : '',
+      stderr: error.stderr ? error.stderr.toString() : error.message
+    };
+  }
+}
+
+/**
  * Network Operations
  */
 
@@ -3907,6 +4219,11 @@ if (isNodeJS) {
     HOST,
     IFCONFIG,
     FILESPLIT,
+    PS,
+    PGREP,
+    KILLALL,
+    TOP,
+    NICE,
   };
 } else if (typeof module !== 'undefined' && module.exports) {
   // Browser mode with module system (webpack) - export empty object
