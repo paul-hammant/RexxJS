@@ -81,7 +81,7 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 - **HTTP/Web**: `http-functions.js`, `url-functions.js`, `dom-functions.js`, `dom-pipeline-functions.js`
 - **Security**: `cryptography-functions.js`, `validation-functions.js`, `security.js`
 - **Logic/Flow**: `logic-functions.js`
-- **System**: `shell-functions.js`
+- **System**: `shell-functions.js` - process management (PS, PGREP, KILLALL, TOP, NICE), environment variables, shell command execution (Node.js only)
 - **Utilities**: `interpolation.js`, `interpolation-functions.js`, `utils.js`, `parameter-converter.js`
 - **Infrastructure**: `address-handler-utils.js`, `composite-output-handler.js`, `function-parsing-strategies.js`, `test-framework-address.js`, `expectations-address.js`
 - **Interpreter Core**: `interpreter.js`, `parser.js`, `executor.js`, `test-interpreter.js`, `test-runner-cli.js`, `cli.js`
@@ -338,6 +338,41 @@ ADDRESS GCP
 "FIRESTORE SET /metrics/today {\"orders\": 342, \"revenue\": 125000}"
 "PUBSUB PUBLISH daily-metrics MESSAGE 'Dashboard updated'"
 "FUNCTIONS DEPLOY process-orders SOURCE './functions' TRIGGER 'pubsub:orders' RUNTIME 'python311'"
+```
+
+### Process Management (Node.js only)
+```rexx
+-- List all running processes
+LET processes = PS()
+LET count = ARRAY_LENGTH(array=processes)
+SAY "Found " || count || " processes"
+
+-- Find processes by name
+LET nodePids = PGREP(pattern="node")
+LET currentPid = GETPID()
+SAY "Current process: " || currentPid
+
+-- Search full command line
+LET fullMatch = PGREP(pattern="npm.*test", full=true)
+
+-- Get system information with top processes
+LET info = TOP(limit=10, sortBy="cpu")
+SAY "System uptime: " || info.system.uptime || " seconds"
+SAY "CPU count: " || info.system.cpus
+SAY "Memory used: " || info.system.memory.percentUsed || "%"
+
+-- Find high CPU processes
+LET topProcs = info.processes.top
+LET first = ARRAY_GET(array=topProcs, index=0)
+SAY "Top process: " || first.name || " (" || first.cpu || "% CPU)"
+
+-- Run command with modified priority (lower = higher priority)
+LET result = NICE(command="echo 'Background task'", priority=10)
+SAY result.stdout
+
+-- Kill processes by name (be careful!)
+-- LET killed = KILLALL(name="test-process", signal="SIGTERM")
+-- SAY "Killed " || killed || " processes"
 ```
 
 ### Modern Extensions
@@ -633,7 +668,7 @@ REQUIRE "registry:org.rexxjs/excel-functions"
 2. **Web Automation**: Cross-iframe scripting and browser control
 3. **Database Operations**: SQL integration with full CRUD capabilities (SQLite3)
 4. **HTTP API Integration**: RESTful service communication with `HTTP_GET`, `HTTP_POST`, `HTTP_PUT`, `HTTP_DELETE` functions
-5. **System Administration**: OS command execution and file operations
+5. **System Administration**: OS command execution, file operations, and process management (PS, PGREP, KILLALL, TOP, NICE) for monitoring and controlling system processes
 6. **Testing**: Comprehensive mock frameworks for ADDRESS-based applications
 7. **Infrastructure Automation**: VM/container provisioning with QEMU, VirtualBox, Docker, Podman
    - CI/CD test environments with automatic VM creation and teardown
