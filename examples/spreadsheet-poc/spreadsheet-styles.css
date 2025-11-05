@@ -603,3 +603,14 @@ body {
 .button-secondary:hover {
     background: #e0e0e0;
 }
+
+/* Multi-selection styling */
+.cell.in-selection {
+    background: rgba(33, 150, 243, 0.1);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.cell.in-selection.selected {
+    background: rgba(33, 150, 243, 0.2);
+    border: 2px solid #2196F3;
+}

@@ -223,11 +223,11 @@ function resolveWebLibraryUrl(libraryName) {
     }
   }
   
-  // Handle direct HTTPS URLs - return as-is
-  if (libraryName.startsWith('https://')) {
+  // Handle direct HTTP/HTTPS URLs - return as-is
+  if (libraryName.startsWith('https://') || libraryName.startsWith('http://')) {
     return libraryName;
   }
-  
+
   // Handle relative paths (../src/file.js or ./file.js) - return as-is
   if (libraryName.startsWith('../') || libraryName.startsWith('./') || libraryName.startsWith('/')) {
     return libraryName;

@@ -68,31 +68,23 @@ class SpreadsheetRexxAdapter {
 
     /**
      * Inject cell reference functions (A1, B2, etc.) into RexxJS context
+     * Sets up a variable_missing callback to resolve cell references on-demand
      */
     injectCellReferenceFunctions() {
         const self = this;
 
-        // Create a proxy to intercept function calls
-        // This allows any cell reference like A1, B2, AA10 to work
-        const originalExecuteFunction = this.interpreter.executeFunction.bind(this.interpreter);
-
-        this.interpreter.executeFunction = function(functionName, ...args) {
+        // Set up a variable resolver callback for missing variables
+        this.interpreter.variableResolver = function(name) {
             // Check if it's a cell reference pattern (A1, B2, AA10, etc.)
-            if (/^[A-Z]+\d+$/.test(functionName)) {
-                // Return cell value
-                const value = self.model.getCellValue(functionName);
+            if (/^[A-Z]+\d+$/.test(name)) {
+                const value = self.model.getCellValue(name);
                 // Try to parse as number if possible
                 const numValue = parseFloat(value);
                 return isNaN(numValue) ? value : numValue;
             }
 
-            // Check if it's a range reference (A1:B5)
-            if (/^[A-Z]+\d+:[A-Z]+\d+$/.test(functionName)) {
-                return self.getCellRange(functionName);
-            }
-
-            // Otherwise, call original function
-            return originalExecuteFunction(functionName, ...args);
+            // Not a cell reference - return undefined to let normal error handling occur
+            return undefined;
         };
     }
 
@@ -125,6 +117,16 @@ class SpreadsheetRexxAdapter {
     }
 
     /**
+     * Extract cell references from an expression
+     * Returns array of cell references like ['A1', 'B2', 'C3']
+     */
+    extractCellReferences(expression) {
+        const cellRefPattern = /\b([A-Z]+\d+)\b/g;
+        const matches = expression.match(cellRefPattern);
+        return matches ? [...new Set(matches)] : [];
+    }
+
+    /**
      * Evaluate a RexxJS expression in the spreadsheet context
      */
     async evaluate(expression, spreadsheetModel) {
@@ -133,6 +135,16 @@ class SpreadsheetRexxAdapter {
         }
 
         try {
+            // Extract all cell references from the expression
+            const cellRefs = this.extractCellReferences(expression);
+
+            // Pre-inject cell values as variables
+            for (const cellRef of cellRefs) {
+                const value = this.model.getCellValue(cellRef);
+                const numValue = parseFloat(value);
+                this.interpreter.variables.set(cellRef, isNaN(numValue) ? value : numValue);
+            }
+
             // Parse and run the expression
             const commands = parse(expression);
 
@@ -143,10 +155,10 @@ class SpreadsheetRexxAdapter {
             // If expression is a single line without LET, wrap it
             if (commands.length === 1 && !expression.trim().startsWith('LET')) {
                 // It's an expression to evaluate
-                const wrappedExpression = `LET __result = ${expression}`;
+                const wrappedExpression = `LET CELLRESULT = ${expression}`;
                 const wrappedCommands = parse(wrappedExpression);
                 await this.interpreter.run(wrappedCommands);
-                result = this.interpreter.variables.get('__RESULT');
+                result = this.interpreter.variables.get('CELLRESULT');
             } else {
                 // It's a statement or multi-line script
                 await this.interpreter.run(commands);
@@ -233,26 +245,16 @@ class SpreadsheetRexxAdapter {
     installSpreadsheetFunctions() {
         const functions = this.getSpreadsheetFunctions();
 
-        // Add functions to interpreter's function registry
+        // Register functions in the interpreter's builtin functions
+        // This makes them available for function calls
+        if (!this.interpreter.builtinFunctions) {
+            this.interpreter.builtinFunctions = {};
+        }
+
         Object.entries(functions).forEach(([name, func]) => {
-            // Store in interpreter's custom functions
-            if (!this.interpreter.customFunctions) {
-                this.interpreter.customFunctions = {};
-            }
-            this.interpreter.customFunctions[name] = func;
+            // Register in builtin functions
+            this.interpreter.builtinFunctions[name] = func;
         });
-
-        // Also override executeFunction to handle these
-        const originalExecuteFunction = this.interpreter.executeFunction;
-        const self = this;
-
-        this.interpreter.executeFunction = function(functionName, ...args) {
-            // Check custom functions first
-            if (self.interpreter.customFunctions && self.interpreter.customFunctions[functionName]) {
-                return self.interpreter.customFunctions[functionName](...args);
-            }
-            return originalExecuteFunction.call(this, functionName, ...args);
-        };
     }
 }
 
