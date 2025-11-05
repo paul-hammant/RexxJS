@@ -33,8 +33,11 @@ as accessing the file system in Node.js or manipulating the DOM in a browser.
 ## CLI & Distribution
 
 - **./rexx** - Standalone binary (49MB, no Node.js required) created via `create-pkg-binary.js`
-- **node core/src/cli.js** - Node.js CLI for development (requires Node.js installation)  
-- **./rexxt** - Test runner (via src/test-interpreter.js) with TUI experience 
+- **node core/src/cli.js** - Node.js CLI for development (requires Node.js installation)
+- **./rexxt** - Test runner (via src/test-interpreter.js) with modern testing features
+  - Test skip capability with `@skip` annotations (inspired by Jest/pytest/RSpec)
+  - Tag-based filtering, pattern matching, multiple output modes
+  - See `core/REXXT_GUIDE.md` for complete documentation 
 
 ### Function Libraries (core `src/` and modular `extras/functions/`)
 - **Core functions**: String processing, JSON/Web, security, validation (in `src/`)
@@ -122,6 +125,11 @@ Comprehensive infrastructure management with VM, container automation, and **clo
 - Director/worker patterns for distributed processing
 
 ### Test Infrastructure (`tests/`)
+- **rexxt test runner** - Native RexxJS test runner with modern features (see `core/REXXT_GUIDE.md`)
+  - Test skipping with `@skip` annotations
+  - Tag-based test filtering (`--tags`)
+  - Multiple output modes (live, verbose, minimal)
+  - JSON results for CI/CD integration
 - 50+ comprehensive test suites
 - Playwright browser automation tests
 - Jest unit tests for all function libraries
