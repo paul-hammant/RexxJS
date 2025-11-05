@@ -6,6 +6,10 @@ const { defineConfig, devices } = require('@playwright/test');
  */
 module.exports = defineConfig({
   testDir: './tests/web',
+  
+  // TODO: merge not done cos spreadsheet stuff should not be in core/
+  // testMatch: ['**/multi-instance-scripting.spec.js', '**/dom-*.spec.js', '**/stale-element.spec.js', '**/streaming-control.spec.js', '**/checkpoint-simple.spec.js', '**/spreadsheet-poc.spec.js'],
+  
   testMatch: ['**/multi-instance-scripting.spec.js', '**/dom-*.spec.js', '**/stale-element.spec.js', '**/streaming-control.spec.js', '**/checkpoint-simple.spec.js', '**/repl-demo-pages*.spec.js'],
   /* Run tests in files in parallel */
   fullyParallel: true,
