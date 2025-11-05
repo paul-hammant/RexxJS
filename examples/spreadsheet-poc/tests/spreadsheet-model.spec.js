@@ -4,7 +4,7 @@
  * Tests for the core spreadsheet model without DOM dependencies.
  */
 
-const SpreadsheetModel = require('../../examples/spreadsheet-poc/spreadsheet-model');
+const SpreadsheetModel = require('../spreadsheet-model');
 
 describe('SpreadsheetModel', () => {
     let model;

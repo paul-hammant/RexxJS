@@ -1,6 +1,10 @@
 # RexxJS Spreadsheet POC
 
-A proof-of-concept web spreadsheet powered by RexxJS expressions, built with React.
+A proof-of-concept spreadsheet powered by RexxJS expressions, built with React.
+
+**Deployment Modes:**
+- **Web**: Static HTML/JS that can be served from any web server
+- **Desktop**: Native application for Mac, Windows, and Linux via Tauri
 
 ## Features
 
@@ -15,6 +19,75 @@ A proof-of-concept web spreadsheet powered by RexxJS expressions, built with Rea
 - **Enhanced Info Panel**: Shows cell details, dependencies, type, comments
 - **View Mode Hotkeys**: Press V/E/F/N to toggle between different views
 - **Basic Styling**: Clean, modern UI with visual feedback
+
+## Deployment
+
+### Web Deployment
+
+The original `index.html` provides a standalone web version that can be opened directly in a browser.
+
+1. **Build the RexxJS bundle** (if not already built):
+   ```bash
+   cd core/src/repl
+   npm install
+   npm run build
+   ```
+
+2. **Start a local server** from the repository root:
+   ```bash
+   npx http-server -p 8082 -c-1
+   ```
+
+3. **Open in browser**:
+   ```
+   http://localhost:8082/examples/spreadsheet-poc/index.html
+   ```
+
+### Desktop Deployment (Tauri)
+
+The spreadsheet can also run as a native desktop application on Mac, Windows, and Linux.
+
+1. **Build the RexxJS bundle** (if not already built):
+   ```bash
+   cd core/src/repl
+   npm install
+   npm run build
+   ```
+
+2. **Navigate to spreadsheet directory**:
+   ```bash
+   cd examples/spreadsheet-poc
+   npm install
+   ```
+
+3. **Run in development mode**:
+   ```bash
+   npm run tauri:dev
+   ```
+
+4. **Build desktop application**:
+   ```bash
+   npm run tauri:build
+   ```
+
+   This creates platform-specific installers in `src-tauri/target/release/bundle/`:
+   - **Mac**: `.dmg` and `.app`
+   - **Windows**: `.msi` and `.exe`
+   - **Linux**: `.deb`, `.appimage`
+
+### Choosing Between Web and Desktop
+
+**Use Web Deployment When:**
+- You want to share via URL
+- No installation required
+- Cross-platform without builds
+- Easy to deploy to static hosting
+
+**Use Desktop Deployment When:**
+- You want a standalone application
+- Better integration with OS (file system, etc.)
+- Offline usage is important
+- Professional application feel
 
 ## Usage
 
@@ -60,25 +133,6 @@ Cells can have metadata attached:
 - **Formats**: Display formatting specs (shown as green border)
 
 Access these via the Info Panel when a cell is selected, or hover over cells to see tooltips.
-
-### Running Locally
-
-1. **Build the RexxJS bundle** (if not already built):
-   ```bash
-   cd core/src/repl
-   npm install
-   npm run build
-   ```
-
-2. **Start a local server** from the repository root:
-   ```bash
-   npx http-server -p 8082 -c-1
-   ```
-
-3. **Open in browser**:
-   ```
-   http://localhost:8082/examples/spreadsheet-poc/index.html
-   ```
 
 ### Sheet Name via Hash Parameter
 

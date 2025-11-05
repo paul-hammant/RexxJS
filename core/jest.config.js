@@ -2,7 +2,8 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: [
     '**/tests/**/*.spec.(js|ts)',
-    '**/__tests__/**/*.(js|ts)'
+    '**/__tests__/**/*.(js|ts)',
+    '../examples/**/tests/**/*.spec.(js|ts)'
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
