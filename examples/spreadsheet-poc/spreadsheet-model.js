@@ -97,7 +97,7 @@ class SpreadsheetModel {
      * If content starts with '=', treat as expression
      * Otherwise, treat as literal value
      */
-    setCell(ref, content, rexxInterpreter = null) {
+    setCell(ref, content, rexxInterpreter = null, metadata = {}) {
         if (typeof ref === 'object') {
             ref = SpreadsheetModel.formatCellRef(ref.col, ref.row);
         }
@@ -129,7 +129,9 @@ class SpreadsheetModel {
                 value: '',
                 expression: expression,
                 dependencies: [],
-                error: null
+                error: null,
+                comment: metadata.comment || oldCell?.comment || '',
+                format: metadata.format || oldCell?.format || ''
             });
 
             // Evaluate the expression
@@ -142,7 +144,9 @@ class SpreadsheetModel {
                 value: content,
                 expression: null,
                 dependencies: [],
-                error: null
+                error: null,
+                comment: metadata.comment || oldCell?.comment || '',
+                format: metadata.format || oldCell?.format || ''
             });
         }
 
@@ -230,6 +234,36 @@ class SpreadsheetModel {
     }
 
     /**
+     * Set cell metadata (comment, format)
+     */
+    setCellMetadata(ref, metadata) {
+        if (typeof ref === 'object') {
+            ref = SpreadsheetModel.formatCellRef(ref.col, ref.row);
+        }
+
+        const cell = this.cells.get(ref);
+        if (!cell) {
+            // Create empty cell with metadata
+            this.cells.set(ref, {
+                value: '',
+                expression: null,
+                dependencies: [],
+                error: null,
+                comment: metadata.comment || '',
+                format: metadata.format || ''
+            });
+        } else {
+            // Update existing cell
+            if (metadata.comment !== undefined) {
+                cell.comment = metadata.comment;
+            }
+            if (metadata.format !== undefined) {
+                cell.format = metadata.format;
+            }
+        }
+    }
+
+    /**
      * Get setup script
      */
     getSetupScript() {
@@ -253,10 +287,30 @@ class SpreadsheetModel {
         };
 
         for (const [ref, cell] of this.cells.entries()) {
+            const cellData = {};
+
             if (cell.expression) {
-                data.cells[ref] = '=' + cell.expression;
+                cellData.content = '=' + cell.expression;
             } else if (cell.value !== '') {
-                data.cells[ref] = cell.value;
+                cellData.content = cell.value;
+            }
+
+            // Add metadata if present
+            if (cell.comment) {
+                cellData.comment = cell.comment;
+            }
+            if (cell.format) {
+                cellData.format = cell.format;
+            }
+
+            // Only store if there's content or metadata
+            if (cellData.content || cellData.comment || cellData.format) {
+                // If only content, store as string for backward compatibility
+                if (Object.keys(cellData).length === 1 && cellData.content) {
+                    data.cells[ref] = cellData.content;
+                } else {
+                    data.cells[ref] = cellData;
+                }
             }
         }
         return data;
@@ -274,8 +328,19 @@ class SpreadsheetModel {
         if (data.setupScript !== undefined) {
             this.setupScript = data.setupScript || '';
             const cells = data.cells || {};
-            for (const [ref, content] of Object.entries(cells)) {
-                this.setCell(ref, content, rexxInterpreter);
+            for (const [ref, cellData] of Object.entries(cells)) {
+                // Handle both string format and object format
+                if (typeof cellData === 'string') {
+                    // Old format: just content
+                    this.setCell(ref, cellData, rexxInterpreter);
+                } else {
+                    // New format: object with content and metadata
+                    const metadata = {
+                        comment: cellData.comment || '',
+                        format: cellData.format || ''
+                    };
+                    this.setCell(ref, cellData.content || '', rexxInterpreter, metadata);
+                }
             }
         } else {
             // Old format - all entries are cells

@@ -13,7 +13,7 @@ const { useState, useEffect, useRef, useCallback } = React;
 /**
  * Cell Component
  */
-function Cell({ cellRef, cell, isSelected, onSelect, onEdit }) {
+function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
     const inputRef = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -46,16 +46,52 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit }) {
         }
     };
 
-    const displayValue = cell.error ? cell.value : (cell.value || '');
+    // Determine what to display based on view mode
+    let displayValue = '';
+    let showCell = true;
+
+    if (viewMode === 'values') {
+        // Show only literal values, blank if formula
+        displayValue = cell.expression ? '' : (cell.value || '');
+        showCell = !cell.expression || cell.value === '';
+    } else if (viewMode === 'expressions') {
+        // Show only formulas, hide value cells
+        displayValue = cell.expression ? '=' + cell.expression : '';
+        showCell = !!cell.expression;
+    } else if (viewMode === 'formats') {
+        // Show format strings only
+        displayValue = cell.format || '';
+        showCell = !!cell.format;
+    } else {
+        // Normal mode - show evaluated values
+        displayValue = cell.error ? cell.value : (cell.value || '');
+    }
+
     const hasError = !!cell.error;
     const hasFormula = !!cell.expression;
+    const hasFormat = !!cell.format;
+    const hasComment = !!cell.comment;
+
+    // Build title attribute
+    let title = '';
+    if (cell.error) {
+        title = cell.error;
+    } else if (cell.expression) {
+        title = '=' + cell.expression;
+    }
+    if (cell.comment) {
+        title += (title ? '\n' : '') + '💬 ' + cell.comment;
+    }
+    if (cell.format) {
+        title += (title ? '\n' : '') + '📊 ' + cell.format;
+    }
 
     return (
         <div
-            className={`cell ${isSelected ? 'selected' : ''} ${hasError ? 'error' : ''} ${hasFormula ? 'formula' : ''}`}
+            className={`cell ${isSelected ? 'selected' : ''} ${hasError ? 'error' : ''} ${hasFormula ? 'formula' : ''} ${hasFormat ? 'formatted' : ''} ${hasComment ? 'commented' : ''} ${viewMode !== 'normal' ? 'view-mode-' + viewMode : ''}`}
             onClick={() => onSelect(cellRef)}
             onDoubleClick={handleDoubleClick}
-            title={cell.error || (cell.expression ? '=' + cell.expression : '')}
+            title={title}
         >
             {isEditing ? (
                 <input
@@ -68,7 +104,7 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit }) {
                     className="cell-input"
                 />
             ) : (
-                <span className="cell-value">{displayValue}</span>
+                showCell && <span className="cell-value">{displayValue}</span>
             )}
         </div>
     );
@@ -99,7 +135,7 @@ function RowHeader({ row }) {
 /**
  * Grid Component
  */
-function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visibleCols }) {
+function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visibleCols, viewMode }) {
     const rows = [];
 
     // Header row with column letters
@@ -134,6 +170,7 @@ function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visi
                     isSelected={isSelected}
                     onSelect={onSelectCell}
                     onEdit={onEditCell}
+                    viewMode={viewMode}
                 />
             );
         }
@@ -194,42 +231,97 @@ function FormulaBar({ selectedCell, model, onEdit }) {
 }
 
 /**
- * Info Panel Component
+ * Info Panel Component - Shows selected cell details
  */
-function InfoPanel() {
+function InfoPanel({ selectedCell, model, viewMode }) {
+    const cell = selectedCell && model ? model.getCell(selectedCell) : null;
+
+    if (!selectedCell || !cell) {
+        return (
+            <div className="info-panel">
+                <h3>Cell Details</h3>
+                <p className="no-selection">No cell selected</p>
+                <div className="help-section">
+                    <p><strong>Hotkeys:</strong></p>
+                    <ul>
+                        <li><kbd>V</kbd> - View values only</li>
+                        <li><kbd>E</kbd> - View expressions only</li>
+                        <li><kbd>F</kbd> - View formats only</li>
+                        <li><kbd>N</kbd> - Normal view (default)</li>
+                    </ul>
+                    <p><strong>Named Variables:</strong></p>
+                    <p>Use <strong>⚙️ Setup</strong> to define:</p>
+                    <code style={{display: 'block', marginTop: '5px'}}>LET TAX_RATE = 0.07</code>
+                    <p style={{marginTop: '5px'}}>Then use in cells:</p>
+                    <code>=Revenue * TAX_RATE</code>
+                </div>
+            </div>
+        );
+    }
+
+    const cellType = cell.expression ? 'Formula' : (cell.value ? 'Value' : 'Empty');
+    const valueType = typeof cell.value === 'number' ? 'Number' :
+                      cell.value ? 'String' : 'Empty';
+
+    // Get dependents
+    const dependents = [];
+    if (model.dependents.has(selectedCell)) {
+        dependents.push(...model.dependents.get(selectedCell));
+    }
+
     return (
         <div className="info-panel">
-            <h3>RexxJS Spreadsheet POC</h3>
-            <p><strong>Features:</strong></p>
-            <ul>
-                <li>Cell values and formulas (start with <code>=</code>)</li>
-                <li>Cell references: <code>=A1 + B2</code></li>
-                <li>Function pipelines: <code>=A1 |&gt; UPPER |&gt; LENGTH</code></li>
-                <li>Range functions: <code>=SUM_RANGE("A1:A5")</code></li>
-                <li>Built-in RexxJS functions (200+ available)</li>
-                <li>Extra libraries via REQUIRE</li>
-            </ul>
-            <p><strong>Examples to try:</strong></p>
-            <ul>
-                <li>Put <code>10</code> in A1, <code>20</code> in A2</li>
-                <li>Put <code>=A1 + A2</code> in A3</li>
-                <li>Put <code>=A3 * 2</code> in A4</li>
-                <li>Put <code>="Hello" |&gt; UPPER |&gt; LENGTH</code> in B1</li>
-                <li>Put <code>=AVERAGE_RANGE("A1:A4")</code> in A5</li>
-            </ul>
-            <p><strong>Function Types:</strong></p>
-            <ul>
-                <li><strong>Built-in:</strong> UPPER, SUBSTR, ROUND, etc.</li>
-                <li><strong>Spreadsheet:</strong> SUM_RANGE, AVERAGE_RANGE</li>
-                <li><strong>Extra libs:</strong> Click ⚙️ Setup to load</li>
-            </ul>
-            <p><strong>Loading Extra Functions:</strong></p>
-            <ol>
-                <li>Click <strong>⚙️ Setup</strong> button in header</li>
-                <li>Add REQUIRE statements (e.g., Excel, R stats)</li>
-                <li>Click <strong>Save & Execute</strong></li>
-                <li>Functions are now available in all cells</li>
-            </ol>
+            <h3>Cell: {selectedCell}</h3>
+
+            <div className="cell-detail-section">
+                <p><strong>Type:</strong> {cellType}</p>
+
+                {cell.expression && (
+                    <p><strong>Formula:</strong><br/>
+                    <code className="formula-display">={cell.expression}</code></p>
+                )}
+
+                <p><strong>Value:</strong> {cell.value || <em>(empty)</em>}</p>
+
+                <p><strong>Value Type:</strong> {valueType}</p>
+
+                {cell.error && (
+                    <p className="error-display"><strong>Error:</strong> {cell.error}</p>
+                )}
+            </div>
+
+            {cell.dependencies && cell.dependencies.length > 0 && (
+                <div className="cell-detail-section">
+                    <p><strong>Dependencies:</strong></p>
+                    <p className="dependency-list">{cell.dependencies.join(', ')}</p>
+                </div>
+            )}
+
+            {dependents.length > 0 && (
+                <div className="cell-detail-section">
+                    <p><strong>Used By:</strong></p>
+                    <p className="dependency-list">{dependents.join(', ')}</p>
+                </div>
+            )}
+
+            {cell.comment && (
+                <div className="cell-detail-section">
+                    <p><strong>Comment:</strong></p>
+                    <p className="comment-display">{cell.comment}</p>
+                </div>
+            )}
+
+            {cell.format && (
+                <div className="cell-detail-section">
+                    <p><strong>Format:</strong></p>
+                    <p className="format-display">{cell.format}</p>
+                </div>
+            )}
+
+            <div className="cell-detail-section view-mode-indicator">
+                <p><strong>View Mode:</strong> {viewMode.toUpperCase()}</p>
+                <p className="help-text">Press V/E/F/N to change view</p>
+            </div>
         </div>
     );
 }
@@ -313,6 +405,7 @@ function App() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [viewMode, setViewMode] = useState('normal'); // 'normal', 'values', 'expressions', 'formats'
 
     const visibleRows = 20;
     const visibleCols = 10;
@@ -320,6 +413,30 @@ function App() {
     // Initialize on mount
     useEffect(() => {
         initializeSpreadsheet();
+    }, []);
+
+    // Keyboard handler for view mode switching
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            // Only handle if not in an input/textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            const key = e.key.toLowerCase();
+            if (key === 'v') {
+                setViewMode('values');
+            } else if (key === 'e') {
+                setViewMode('expressions');
+            } else if (key === 'f') {
+                setViewMode('formats');
+            } else if (key === 'n') {
+                setViewMode('normal');
+            }
+        };
+
+        window.addEventListener('keypress', handleKeyPress);
+        return () => window.removeEventListener('keypress', handleKeyPress);
     }, []);
 
     // Handle hash changes for sheet name
@@ -439,6 +556,9 @@ function App() {
             <div className="header">
                 <h1>RexxJS Spreadsheet POC</h1>
                 <div className="header-controls">
+                    <div className="view-mode-badge" title="Press V/E/F/N to change view">
+                        View: {viewMode.toUpperCase()}
+                    </div>
                     <button className="settings-button" onClick={() => setSettingsOpen(true)}>
                         ⚙️ Setup
                     </button>
@@ -460,9 +580,14 @@ function App() {
                     onEditCell={handleEditCell}
                     visibleRows={visibleRows}
                     visibleCols={visibleCols}
+                    viewMode={viewMode}
                 />
 
-                <InfoPanel />
+                <InfoPanel
+                    selectedCell={selectedCell}
+                    model={model}
+                    viewMode={viewMode}
+                />
             </div>
 
             <SettingsModal
