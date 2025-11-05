@@ -425,15 +425,30 @@ async function evaluateExpression(expr, resolveValueFn, variableGetFn, variableH
         }
         const builtInFunc = getBuiltinFunctionFn(method);
 
+        // DOM functions receive params object directly
+        if (method.startsWith('DOM_')) {
+          return await builtInFunc(resolvedParams);
+        }
+
         // Check if this is an operation (uses named params) or a function (uses positional args)
         if (isOperationFn && isOperationFn(method)) {
           // Operations receive the params object directly (named parameters)
           return await builtInFunc(resolvedParams);
-        } else {
-          // Functions receive positional args converted from params
-          const args = callConvertParamsToArgsFn(method, resolvedParams);
-          return await builtInFunc(...args);
         }
+
+        // Check if this function has been migrated to unified parameter model
+        const converterName = `${method}_positional_args_to_named_param_map`;
+        const sibling = getBuiltinFunctionFn(converterName);
+        if (sibling) {
+          // New unified param model - call converter to transform params to named map
+          const namedParams = await sibling(...Object.values(resolvedParams));
+          return await builtInFunc(namedParams);
+        }
+
+        // Function not yet migrated - temporarily use old positional argument conversion
+        // This maintains backward compatibility until all functions are migrated
+        const args = callConvertParamsToArgsFn(method, resolvedParams);
+        return await builtInFunc(...args);
       } else {
         // Allow RPC function calls in expressions (like assignments)
         return await executeFunctionCallFn(expr);
