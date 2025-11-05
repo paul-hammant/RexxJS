@@ -23,6 +23,13 @@ class TestRexxInterpreter extends RexxInterpreter {
     this.skippedTests = options.skippedTests || new Map();
     this.honorSkip = options.honorSkip !== false; // Default to true
 
+    // Store test requirements
+    this.testRequirements = options.testRequirements || new Map();
+
+    // Load system capability checker
+    const systemCapabilities = require('./system-capabilities.js');
+    this.checkCapability = systemCapabilities.checkCapability;
+
     // Set up command line arguments - stored as array for ARG() and PARSE ARG
     this.argv = commandLineArgs;
 
@@ -68,11 +75,32 @@ class TestRexxInterpreter extends RexxInterpreter {
       if (subroutineName) {
         const upperSubroutine = subroutineName.toUpperCase();
 
-        // Check if this is a test subroutine that should be skipped
-        if (upperSubroutine.endsWith('TEST') && this.honorSkip && this.skippedTests.has(upperSubroutine)) {
-          const skipReason = this.skippedTests.get(upperSubroutine);
-          this.handleSkippedTest(subroutineName, skipReason);
-          return; // Don't execute the test
+        // Check if this is a test subroutine
+        if (upperSubroutine.endsWith('TEST')) {
+          // Check if test should be skipped (manual @skip annotation)
+          if (this.honorSkip && this.skippedTests.has(upperSubroutine)) {
+            const skipReason = this.skippedTests.get(upperSubroutine);
+            this.handleSkippedTest(subroutineName, skipReason);
+            return; // Don't execute the test
+          }
+
+          // Check if test has unmet requirements (@requires annotation)
+          if (this.testRequirements.has(upperSubroutine)) {
+            const requirements = this.testRequirements.get(upperSubroutine);
+            const unmetRequirements = [];
+
+            for (const requirement of requirements) {
+              if (!this.checkCapability(requirement)) {
+                unmetRequirements.push(requirement);
+              }
+            }
+
+            if (unmetRequirements.length > 0) {
+              const reqList = unmetRequirements.join(', ');
+              this.handleSkippedTest(subroutineName, `Missing required: ${reqList}`);
+              return; // Don't execute the test
+            }
+          }
         }
 
         // Handle PASS and FAIL calls

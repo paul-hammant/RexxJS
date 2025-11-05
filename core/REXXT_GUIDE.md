@@ -208,6 +208,172 @@ Use `--no-honor-skip` to:
 - **Check if bugs are fixed** and tests can be re-enabled
 - **Run complete test suite** for comprehensive coverage
 
+## Conditional Test Execution
+
+### The @requires Annotation
+
+The `@requires` annotation provides **deterministic, system-based test skipping**. Tests are automatically skipped if required system capabilities are not available.
+
+This is the **canonical RexxJS way** to conditionally run tests based on system state (e.g., Docker installed, Podman available, etc.)
+
+#### Basic Usage
+
+```rexx
+/* @requires docker */
+DockerTest:
+  SAY "This test requires Docker"
+  // Docker-specific test code
+RETURN
+
+/* @requires podman */
+PodmanTest:
+  SAY "This test requires Podman"
+  // Podman-specific test code
+RETURN
+
+/* @requires git */
+GitIntegrationTest:
+  SAY "This test requires git"
+  // Git integration test code
+RETURN
+```
+
+#### Multiple Requirements
+
+Tests can require multiple capabilities - **ALL must be present** for the test to run:
+
+```rexx
+/* @requires docker, curl */
+DockerWithCurlTest:
+  SAY "This test needs both Docker AND curl"
+  // Test code that uses both Docker and curl
+RETURN
+```
+
+#### Supported Capabilities
+
+The following system capabilities are detected automatically:
+
+- `docker` - Docker daemon (checks both command and daemon availability)
+- `podman` - Podman container engine
+- `qemu` or `kvm` - QEMU/KVM virtualization
+- `virtualbox` or `vbox` - VirtualBox
+- `nspawn` or `systemd-nspawn` - systemd-nspawn containers
+- `git` - Git version control
+- `npm` - Node Package Manager
+- `curl` - curl command-line tool
+- `wget` - wget download utility
+- `ssh` - SSH client
+
+#### Skip Messages
+
+Tests skipped due to unmet requirements show clear messages:
+
+```
+✅ BasicTest
+⏭️  DOCKERTEST - SKIPPED (Missing required: docker)
+⏭️  DOCKERANDCURLTEST - SKIPPED (Missing required: docker, curl)
+✅ AnotherBasicTest
+```
+
+#### Real-World Example
+
+```rexx
+#!/usr/bin/env ./rexxt
+
+/* @test-tags docker, containers, integration */
+
+REQUIRE "../../src/expectations-address.js"
+
+SAY "🧪 Container Tests Starting..."
+
+CALL AlwaysRunsTest
+CALL DockerContainerTest
+CALL PodmanContainerTest
+
+EXIT 0
+
+AlwaysRunsTest:
+  SAY "✅ Test with no requirements"
+  ADDRESS EXPECTATIONS "1 should equal 1"
+RETURN
+
+/* @requires docker */
+DockerContainerTest:
+  SAY "🐳 Testing Docker containers"
+  // This only runs if Docker is available
+  // Docker-specific test code here
+  ADDRESS EXPECTATIONS "2 should equal 2"
+RETURN
+
+/* @requires podman */
+PodmanContainerTest:
+  SAY "🦭 Testing Podman containers"
+  // This only runs if Podman is available
+  // Podman-specific test code here
+  ADDRESS EXPECTATIONS "3 should equal 3"
+RETURN
+```
+
+### Comparison: @skip vs @requires
+
+| Feature | @skip | @requires |
+|---------|-------|-----------|
+| **Purpose** | Manual skip during development | Automatic skip based on system state |
+| **Decision** | Developer's choice | System capabilities |
+| **Deterministic** | No (subjective) | Yes (checks actual system) |
+| **Override** | `--no-honor-skip` | Always checks system (no override) |
+| **Use Case** | Broken tests, WIP | Platform/tool dependencies |
+
+**Use @skip when:**
+- Test is temporarily broken
+- Feature is incomplete
+- Waiting for bug fixes
+
+**Use @requires when:**
+- Test needs Docker/Podman/etc
+- Test requires specific tools
+- Test is platform-specific
+
+### Best Practices for @requires
+
+1. **Be specific about requirements**
+   ```rexx
+   /* @requires docker */          ✅ Clear requirement
+   /* @requires docker, curl */    ✅ Multiple clear requirements
+   ```
+
+2. **Document why requirements are needed**
+   ```rexx
+   /* @requires docker */
+   // This test validates Docker container networking
+   DockerNetworkTest:
+     ...
+   ```
+
+3. **Combine with skip for extra control**
+   ```rexx
+   /* @requires docker */
+   /* @skip Waiting for Docker 24.0 features */
+   Docker24FeatureTest:
+     // Skipped even if Docker is present
+   ```
+
+4. **Group tests by requirements**
+   ```rexx
+   // All Docker tests together
+   /* @requires docker */
+   DockerTest1: ...
+   /* @requires docker */
+   DockerTest2: ...
+
+   // All Podman tests together
+   /* @requires podman */
+   PodmanTest1: ...
+   /* @requires podman */
+   PodmanTest2: ...
+   ```
+
 ## Command-Line Options
 
 ### Basic Options
@@ -545,7 +711,8 @@ See the `tests/dogfood/` directory for comprehensive examples:
 rexxt provides a modern, elegant testing experience for RexxJS:
 
 - ✅ Simple, readable test syntax
-- ✅ Powerful skip annotations with `@skip`
+- ✅ Manual skip annotations with `@skip`
+- ✅ **Automatic conditional execution with `@requires`** (canonical RexxJS way)
 - ✅ Flexible test selection with tags and patterns
 - ✅ Rich output options from minimal to verbose
 - ✅ JSON results for automation
@@ -557,5 +724,6 @@ Write tests that are:
 - **Focused** - One concept per test
 - **Organized** - Tags and file structure
 - **Maintainable** - Skip annotations with reasons
+- **Portable** - Use `@requires` for platform/tool dependencies
 
 Happy testing! 🧪

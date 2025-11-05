@@ -109,6 +109,7 @@ function showHelp() {
   console.log(`${Colors.bright}Test Annotations:${Colors.reset}`);
   console.log(`${Colors.dim}  Add /* @test-tags math, integration */ at the top of test files${Colors.reset}`);
   console.log(`${Colors.dim}  Add /* @skip */ or /* @skip reason */ before test subroutines to skip them${Colors.reset}`);
+  console.log(`${Colors.dim}  Add /* @requires docker */ before tests that need specific capabilities${Colors.reset}`);
   console.log('');
   
   console.log(`${Colors.bright}File Conventions:${Colors.reset}`);
@@ -180,6 +181,56 @@ function parseSkippedTests(filePath) {
   }
 
   return skippedTests;
+}
+
+function parseTestRequirements(filePath) {
+  // Parse test file for @requires annotations before test subroutines
+  // Returns a Map of test name -> array of required capabilities
+  const testRequirements = new Map();
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Check for @requires annotation
+      const requiresMatch = line.match(/\/\*\s*@requires\s+([^*]+)\s*\*\//);
+      if (requiresMatch) {
+        // Parse comma-separated list of requirements
+        const requirements = requiresMatch[1]
+          .split(',')
+          .map(req => req.trim())
+          .filter(Boolean);
+
+        // Look ahead for the test subroutine definition
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          const nextLine = lines[j].trim();
+
+          // Skip empty lines and comments
+          if (!nextLine || nextLine.startsWith('//') || nextLine.startsWith('--')) {
+            continue;
+          }
+
+          // Check for test subroutine definition (ends with Test:)
+          const testMatch = nextLine.match(/^(\w+Test):/i);
+          if (testMatch) {
+            const testName = testMatch[1];
+            testRequirements.set(testName.toUpperCase(), requirements);
+            break;
+          }
+
+          // If we hit non-comment content that's not a test, stop looking
+          break;
+        }
+      }
+    }
+  } catch (error) {
+    // Ignore file read errors
+  }
+
+  return testRequirements;
 }
 
 // Static analysis functions removed - test counting now done at runtime by TestRexxInterpreter
@@ -304,6 +355,9 @@ async function runTestFile(filePath, options = {}) {
   // Parse skip annotations from the test file
   const skippedTests = parseSkippedTests(filePath);
 
+  // Parse requirement annotations from the test file
+  const testRequirements = parseTestRequirements(filePath);
+
   // Clear expectation and test counters before running this file
   const expectationCounterFile = '.rexxt-expectations-count.tmp';
   const testCounterFile = '.rexxt-test-count.tmp';
@@ -419,10 +473,11 @@ async function runTestFile(filePath, options = {}) {
     // Pass .*Test$ as default argument when no script arguments provided
     const scriptArgs = options.scriptArgs && options.scriptArgs.length > 0 ? options.scriptArgs : ['.*Test$'];
 
-    // Merge skip information and honor-skip flag into options
+    // Merge skip information, requirements, and honor-skip flag into options
     const testOptions = {
       ...options,
       skippedTests: skippedTests,
+      testRequirements: testRequirements,
       honorSkip: options.honorSkip !== false // Default to true
     };
 
