@@ -479,6 +479,25 @@ function App() {
             await newAdapter.initializeInterpreter(RexxInterpreter);
             newAdapter.installSpreadsheetFunctions();
 
+            // Check for data to load from hash parameter
+            const hash = window.location.hash.substring(1);
+            const loadSpec = SpreadsheetLoader.parseHashParameter(hash);
+
+            let loadedData = false;
+            if (loadSpec.type === 'url') {
+                try {
+                    console.log('Loading spreadsheet from:', loadSpec.value);
+                    const data = await SpreadsheetLoader.loadFromURL(loadSpec.value);
+                    await SpreadsheetLoader.importIntoModel(newModel, data, newAdapter);
+                    setSheetName(data.name || 'Sheet1');
+                    console.log('Spreadsheet loaded successfully');
+                    loadedData = true;
+                } catch (error) {
+                    console.error('Failed to load spreadsheet:', error);
+                    setError(`Failed to load spreadsheet: ${error.message}`);
+                }
+            }
+
             // Execute setup script if present
             const setupScript = newModel.getSetupScript();
             if (setupScript) {
@@ -489,8 +508,10 @@ function App() {
             setAdapter(newAdapter);
             setIsLoading(false);
 
-            // Load sample data
-            loadSampleData(newModel, newAdapter);
+            // Load sample data only if no data was loaded from URL
+            if (!loadedData) {
+                loadSampleData(newModel, newAdapter);
+            }
         } catch (err) {
             console.error('Failed to initialize spreadsheet:', err);
             setError(err.message);

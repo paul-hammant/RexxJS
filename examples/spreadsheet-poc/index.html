@@ -59,6 +59,12 @@
     <!-- Load Spreadsheet Model -->
     <script src="spreadsheet-model.js"></script>
 
+    <!-- Load Spreadsheet Loader -->
+    <script src="spreadsheet-loader.js"></script>
+
+    <!-- Load Spreadsheet Control Bus -->
+    <script src="spreadsheet-controlbus.js"></script>
+
     <!-- Load Spreadsheet RexxJS Adapter -->
     <script src="spreadsheet-rexx-adapter.js"></script>
 
@@ -71,6 +77,22 @@
         if (!hash) {
             window.location.hash = 'Sheet1';
         }
+
+        // Initialize control bus when app is ready
+        // This allows remote Rexx scripts to control the spreadsheet
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                // Check if control bus should be enabled (via URL parameter or always on)
+                const urlParams = new URLSearchParams(window.location.search);
+                const enableControlBus = urlParams.get('controlBus') !== 'false'; // Enabled by default
+
+                if (enableControlBus && window.SpreadsheetControlBus) {
+                    // The control bus will be initialized by the App component
+                    // We just need to expose a global reference for debugging
+                    console.log('Control bus will be enabled when app initializes');
+                }
+            }, 1000);
+        });
     </script>
 </body>
 </html>
