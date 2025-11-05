@@ -10,9 +10,56 @@ A proof-of-concept web spreadsheet powered by RexxJS expressions, built with Rea
 - **Function Pipelines**: Use the `|>` operator for data transformation chains
 - **Range Functions**: Built-in functions for working with cell ranges
 - **Dependency Tracking**: Automatic recalculation when referenced cells change
+- **Cell Comments & Formats**: Attach metadata to cells for documentation
+- **Named Variables**: Define constants in Setup Script (e.g., `LET TAX_RATE = 0.07`)
+- **Enhanced Info Panel**: Shows cell details, dependencies, type, comments
+- **View Mode Hotkeys**: Press V/E/F/N to toggle between different views
 - **Basic Styling**: Clean, modern UI with visual feedback
 
 ## Usage
+
+### Keyboard Shortcuts (Hotkeys)
+
+The spreadsheet supports view mode switching via keyboard:
+
+- **V** - Values view: Show only literal values (formulas show blank)
+- **E** - Expressions view: Show only formulas (value cells hidden)
+- **F** - Formats view: Show format strings only
+- **N** - Normal view: Standard spreadsheet view (default)
+
+Press these keys while the grid is active (not editing a cell) to switch views.
+
+**Use Cases:**
+- Press **V** to audit which cells are hard-coded values
+- Press **E** to review all formulas at once
+- Press **F** to see formatting specifications
+- Press **N** to return to normal operation
+
+### Named Variables
+
+Define constants and reusable values in the **⚙️ Setup** script:
+
+```rexx
+/* Setup Script */
+LET TAX_RATE = 0.07
+LET SHIPPING_COST = 15.00
+LET DAYS_IN_YEAR = 365
+```
+
+Then use in any cell:
+```rexx
+=Revenue * TAX_RATE
+=Subtotal + SHIPPING_COST
+=Hours / DAYS_IN_YEAR
+```
+
+### Cell Comments & Formats
+
+Cells can have metadata attached:
+- **Comments**: Documentation notes (shown as 💬 icon in cell)
+- **Formats**: Display formatting specs (shown as green border)
+
+Access these via the Info Panel when a cell is selected, or hover over cells to see tooltips.
 
 ### Running Locally
 
