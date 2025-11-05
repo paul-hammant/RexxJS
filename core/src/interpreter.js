@@ -3600,11 +3600,13 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     Interpreter: RexxInterpreter,
     RexxInterpreter,
-    RexxInterpreterBuilder
+    RexxInterpreterBuilder,
+    RexxError
   };
 } else {
   // Browser environment - attach to window
   window.Interpreter = RexxInterpreter;
   window.RexxInterpreter = RexxInterpreter;
   window.RexxInterpreterBuilder = RexxInterpreterBuilder;
+  window.RexxError = RexxError;
 }

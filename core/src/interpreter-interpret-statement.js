@@ -24,7 +24,16 @@ if (typeof require !== 'undefined') {
 async function executeInterpretStatement(interpreter, command) {
   // Get RexxInterpreter constructor from interpreter (avoid circular dependency)
   RexxInterpreter = interpreter.constructor;
-  RexxError = interpreter.constructor.RexxError || (typeof window !== 'undefined' ? window.RexxError : require('./interpreter.js').RexxError);
+
+  // Get RexxError - either from interpreter constructor, window, or require it
+  if (!RexxError) {
+    if (typeof window !== 'undefined' && window.RexxError) {
+      RexxError = window.RexxError;
+    } else {
+      const interpreterModule = require('./interpreter.js');
+      RexxError = interpreterModule.RexxError;
+    }
+  }
 
   if (typeof window !== 'undefined' && !interpolation) {
     interpolation = window.InterpolationConfig;
