@@ -99,7 +99,7 @@ This directory contains comprehensive reference documentation for RexxJS, organi
 - **[67-test-dogfood.md](67-test-dogfood.md)** - Dogfood tests (RexxJS testing RexxJS)
 - **[68-tracing.md](68-tracing.md)** - TRACE statement for debugging
 - **[69-security.md](69-security.md)** - Security model and permissions
-- **[70-cli-tools.md](70-cli-tools.md)** - Command-line tools (rexx, rexxt)
+- **[70-rexxt-test-runner.md](70-rexxt-test-runner.md)** - rexxt test runner with TUI navigation
 
 ### Advanced Topics (71-75)
 
