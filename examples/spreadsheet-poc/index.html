@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RexxJS Spreadsheet POC</title>
+
+    <!-- Spreadsheet Styles -->
+    <link rel="stylesheet" href="spreadsheet-styles.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Load RexxJS Interpreter -->
+    <!-- For local development, use the web loader -->
+    <!-- For production, use the bundle from core/src/repl/dist/rexxjs.bundle.js -->
+    <script>
+        // Check if we have the bundle or need to use the loader
+        const rexxScriptPath = window.location.pathname.includes('/examples/')
+            ? '../../core/src/repl/dist/rexxjs.bundle.js'  // From examples/spreadsheet-poc
+            : '../../core/src/interpreter-web-loader.js';  // Alternative path
+
+        // Try to load the bundle first, fall back to loader
+        const script = document.createElement('script');
+        script.src = rexxScriptPath;
+        script.onerror = function() {
+            console.warn('Bundle not found, trying web loader...');
+            const loaderScript = document.createElement('script');
+            loaderScript.src = '../../core/src/interpreter-web-loader.js';
+            loaderScript.onload = function() {
+                // Initialize via loader
+                initializeRexxViaLoader();
+            };
+            document.head.appendChild(loaderScript);
+        };
+        script.onload = function() {
+            console.log('RexxJS bundle loaded successfully');
+        };
+        document.head.appendChild(script);
+
+        async function initializeRexxViaLoader() {
+            if (typeof RexxWebLoader !== 'undefined') {
+                await RexxWebLoader.load({
+                    basePath: '../../core/src/',
+                    verbose: false
+                });
+                console.log('RexxJS loaded via web loader');
+            }
+        }
+    </script>
+
+    <!-- React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <!-- Babel Standalone for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Load Spreadsheet Model -->
+    <script src="spreadsheet-model.js"></script>
+
+    <!-- Load Spreadsheet RexxJS Adapter -->
+    <script src="spreadsheet-rexx-adapter.js"></script>
+
+    <!-- Load Spreadsheet React App (JSX) -->
+    <script type="text/babel" src="spreadsheet-app.jsx"></script>
+
+    <script>
+        // Initialize sheet name from hash
+        const hash = window.location.hash.substring(1);
+        if (!hash) {
+            window.location.hash = 'Sheet1';
+        }
+    </script>
+</body>
+</html>
