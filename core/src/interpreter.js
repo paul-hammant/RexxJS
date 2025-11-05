@@ -3005,12 +3005,12 @@ class RexxInterpreter {
     if (this.isRegistryStyleLibrary(libraryName)) {
       return await this.requireRegistryStyleLibrary(libraryName);
     }
-    
-    // Handle direct HTTPS URLs - try script tag first, fallback to fetch
-    if (libraryName.startsWith('https://')) {
+
+    // Handle direct HTTP/HTTPS URLs - try script tag first, fallback to fetch
+    if (libraryName.startsWith('https://') || libraryName.startsWith('http://')) {
       return await this.loadHttpsLibraryAdaptive(libraryName);
     }
-    
+
     // Handle local libraries via script tag
     const scriptUrl = this.resolveWebLibraryUrl(libraryName);
     
@@ -3057,14 +3057,37 @@ class RexxInterpreter {
   }
 
   async loadHttpsLibraryViaScript(libraryName) {
+    // First fetch the code to extract the metadata function name
+    const response = await fetch(libraryName);
+    if (!response.ok) {
+      throw new Error(`Script tag loading failed - fetch for metadata failed: HTTP ${response.status}`);
+    }
+    const libraryCode = await response.text();
+    const metadataFunctionName = this.extractMetadataFunctionName(libraryCode);
+
+    if (metadataFunctionName) {
+      // Register the detection function for this HTTP/HTTPS URL
+      const globalScope = typeof window !== 'undefined' ? window : global;
+      if (!globalScope.LIBRARY_DETECTION_REGISTRY) {
+        globalScope.LIBRARY_DETECTION_REGISTRY = new Map();
+      }
+      globalScope.LIBRARY_DETECTION_REGISTRY.set(libraryName, metadataFunctionName);
+    }
+
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = libraryName;
-      
+
       script.onload = () => {
         // Give the library a moment to register itself globally
         setTimeout(() => {
           if (this.isLibraryLoaded(libraryName)) {
+            // Register the metadata provider for this library
+            if (metadataFunctionName) {
+              this.libraryMetadataProviders = this.libraryMetadataProviders || new Map();
+              this.libraryMetadataProviders.set(libraryName, metadataFunctionName);
+            }
+
             // Register loaded functions as built-ins
             this.registerLibraryFunctions(libraryName);
             console.log(`✓ Loaded ${libraryName} via script tag`);
@@ -3074,11 +3097,11 @@ class RexxInterpreter {
           }
         }, 10);
       };
-      
+
       script.onerror = () => {
         reject(new Error(`Script tag loading failed`));
       };
-      
+
       document.head.appendChild(script);
     });
   }
@@ -3101,15 +3124,21 @@ class RexxInterpreter {
     // Extract metadata function name from the fetched code to properly detect the library
     const metadataFunctionName = this.extractMetadataFunctionName(libraryCode);
     if (metadataFunctionName) {
-      // Register the detection function for this HTTPS URL
-      if (typeof window !== 'undefined' && typeof window.registerLibraryDetectionFunction === 'function') {
-        window.registerLibraryDetectionFunction(libraryName, metadataFunctionName);
-      } else if (typeof global !== 'undefined' && typeof global.registerLibraryDetectionFunction === 'function') {
-        global.registerLibraryDetectionFunction(libraryName, metadataFunctionName);
+      // Register the detection function for this HTTP/HTTPS URL in the global registry
+      const globalScope = typeof window !== 'undefined' ? window : global;
+      if (!globalScope.LIBRARY_DETECTION_REGISTRY) {
+        globalScope.LIBRARY_DETECTION_REGISTRY = new Map();
       }
+      globalScope.LIBRARY_DETECTION_REGISTRY.set(libraryName, metadataFunctionName);
     }
 
     if (this.isLibraryLoaded(libraryName)) {
+      // Register the metadata provider for this library
+      if (metadataFunctionName) {
+        this.libraryMetadataProviders = this.libraryMetadataProviders || new Map();
+        this.libraryMetadataProviders.set(libraryName, metadataFunctionName);
+      }
+
       // Register loaded functions as built-ins
       this.registerLibraryFunctions(libraryName);
 

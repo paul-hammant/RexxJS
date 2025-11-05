@@ -13,7 +13,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 /**
  * Cell Component
  */
-function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
+function Cell({ cellRef, cell, isSelected, isInSelection, onSelect, onEdit, onStartEdit, viewMode, onMouseDown, onMouseEnter, bufferedKeysRef, isTransitioningRef }) {
     const inputRef = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -21,9 +21,41 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
     useEffect(() => {
         if (isEditing && inputRef.current) {
             inputRef.current.focus();
-            inputRef.current.select();
+
+            // Apply buffered keys if any
+            if (bufferedKeysRef && bufferedKeysRef.current.length > 0) {
+                const buffered = bufferedKeysRef.current.join('');
+                setEditValue(buffered);
+                bufferedKeysRef.current = [];
+                if (isTransitioningRef) {
+                    isTransitioningRef.current = false;
+                }
+                // Set cursor to end
+                setTimeout(() => {
+                    if (inputRef.current) {
+                        inputRef.current.setSelectionRange(buffered.length, buffered.length);
+                    }
+                }, 0);
+            } else {
+                inputRef.current.select();
+            }
         }
-    }, [isEditing]);
+    }, [isEditing, bufferedKeysRef, isTransitioningRef]);
+
+    // Start editing when parent triggers it
+    useEffect(() => {
+        if (isSelected && onStartEdit) {
+            const unsubscribe = onStartEdit((initialChar) => {
+                setIsEditing(true);
+                if (initialChar) {
+                    setEditValue(initialChar);
+                } else {
+                    setEditValue(cell.expression ? '=' + cell.expression : cell.value);
+                }
+            });
+            return unsubscribe;
+        }
+    }, [isSelected, cell, onStartEdit]);
 
     const handleDoubleClick = () => {
         setIsEditing(true);
@@ -31,8 +63,9 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            onEdit(cellRef, editValue);
+        if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            onEdit(cellRef, editValue, e.key, e.shiftKey);
             setIsEditing(false);
         } else if (e.key === 'Escape') {
             setIsEditing(false);
@@ -51,19 +84,15 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
     let showCell = true;
 
     if (viewMode === 'values') {
-        // Show only literal values, blank if formula
         displayValue = cell.expression ? '' : (cell.value || '');
         showCell = !cell.expression || cell.value === '';
     } else if (viewMode === 'expressions') {
-        // Show only formulas, hide value cells
         displayValue = cell.expression ? '=' + cell.expression : '';
         showCell = !!cell.expression;
     } else if (viewMode === 'formats') {
-        // Show format strings only
         displayValue = cell.format || '';
         showCell = !!cell.format;
     } else {
-        // Normal mode - show evaluated values
         displayValue = cell.error ? cell.value : (cell.value || '');
     }
 
@@ -88,9 +117,11 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
 
     return (
         <div
-            className={`cell ${isSelected ? 'selected' : ''} ${hasError ? 'error' : ''} ${hasFormula ? 'formula' : ''} ${hasFormat ? 'formatted' : ''} ${hasComment ? 'commented' : ''} ${viewMode !== 'normal' ? 'view-mode-' + viewMode : ''}`}
-            onClick={() => onSelect(cellRef)}
+            className={`cell ${isSelected ? 'selected' : ''} ${isInSelection ? 'in-selection' : ''} ${hasError ? 'error' : ''} ${hasFormula ? 'formula' : ''} ${hasFormat ? 'formatted' : ''} ${hasComment ? 'commented' : ''} ${viewMode !== 'normal' ? 'view-mode-' + viewMode : ''}`}
+            onClick={(e) => onSelect(cellRef, e.shiftKey)}
             onDoubleClick={handleDoubleClick}
+            onMouseDown={onMouseDown}
+            onMouseEnter={onMouseEnter}
             title={title}
         >
             {isEditing ? (
@@ -135,7 +166,7 @@ function RowHeader({ row }) {
 /**
  * Grid Component
  */
-function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visibleCols, viewMode }) {
+function Grid({ model, selectedCell, selectionRange, onSelectCell, onEditCell, onStartCellEdit, visibleRows, visibleCols, viewMode, onSelectionStart, onSelectionMove, onSelectionEnd, bufferedKeysRef, isTransitioningRef }) {
     const rows = [];
 
     // Header row with column letters
@@ -162,15 +193,24 @@ function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visi
             const cell = model.getCell(cellRef);
             const isSelected = selectedCell === cellRef;
 
+            // Check if cell is in selection range
+            const isInSelection = selectionRange && isCellInRange(cellRef, selectionRange);
+
             cells.push(
                 <Cell
-                    key={cellRef}
+                    key={`${cellRef}-${cell.value}-${cell.expression}`}
                     cellRef={cellRef}
                     cell={cell}
                     isSelected={isSelected}
+                    isInSelection={isInSelection}
                     onSelect={onSelectCell}
                     onEdit={onEditCell}
+                    onStartEdit={onStartCellEdit}
                     viewMode={viewMode}
+                    onMouseDown={() => onSelectionStart(cellRef)}
+                    onMouseEnter={() => onSelectionMove(cellRef)}
+                    bufferedKeysRef={bufferedKeysRef}
+                    isTransitioningRef={isTransitioningRef}
                 />
             );
         }
@@ -182,7 +222,43 @@ function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visi
         );
     }
 
-    return <div className="grid">{rows}</div>;
+    return <div className="grid" onMouseUp={onSelectionEnd}>{rows}</div>;
+}
+
+/**
+ * Check if cell is in selection range
+ */
+function isCellInRange(cellRef, range) {
+    if (!range) return false;
+
+    const { startCol, startRow, endCol, endRow } = range;
+    const { col, row } = parseCellRef(cellRef);
+
+    const minCol = Math.min(startCol, endCol);
+    const maxCol = Math.max(startCol, endCol);
+    const minRow = Math.min(startRow, endRow);
+    const maxRow = Math.max(startRow, endRow);
+
+    return col >= minCol && col <= maxCol && row >= minRow && row <= maxRow;
+}
+
+/**
+ * Parse cell reference like "A1" to {col: 1, row: 1}
+ */
+function parseCellRef(ref) {
+    const match = ref.match(/^([A-Z]+)(\d+)$/);
+    if (!match) return { col: 1, row: 1 };
+
+    const colLetter = match[1];
+    const row = parseInt(match[2], 10);
+
+    // Convert column letter to number (A=1, B=2, etc.)
+    let col = 0;
+    for (let i = 0; i < colLetter.length; i++) {
+        col = col * 26 + (colLetter.charCodeAt(i) - 64);
+    }
+
+    return { col, row };
 }
 
 /**
@@ -233,7 +309,7 @@ function FormulaBar({ selectedCell, model, onEdit }) {
 /**
  * Info Panel Component - Shows selected cell details
  */
-function InfoPanel({ selectedCell, model, viewMode }) {
+function InfoPanel({ selectedCell, selectionRange, model, viewMode }) {
     const cell = selectedCell && model ? model.getCell(selectedCell) : null;
 
     if (!selectedCell || !cell) {
@@ -242,18 +318,22 @@ function InfoPanel({ selectedCell, model, viewMode }) {
                 <h3>Cell Details</h3>
                 <p className="no-selection">No cell selected</p>
                 <div className="help-section">
-                    <p><strong>Hotkeys:</strong></p>
+                    <p><strong>Navigation:</strong></p>
                     <ul>
-                        <li><kbd>V</kbd> - View values only</li>
-                        <li><kbd>E</kbd> - View expressions only</li>
-                        <li><kbd>F</kbd> - View formats only</li>
-                        <li><kbd>N</kbd> - Normal view (default)</li>
+                        <li><kbd>Tab</kbd> - Move right</li>
+                        <li><kbd>Enter</kbd> / <kbd>↓</kbd> - Move down</li>
+                        <li><kbd>↑</kbd> <kbd>←</kbd> <kbd>→</kbd> - Navigate</li>
+                        <li><kbd>Ctrl+C</kbd> - Copy selection</li>
+                    </ul>
+                    <p><strong>Hotkeys (hold to view):</strong></p>
+                    <ul>
+                        <li><kbd>V</kbd> - Peek at values only</li>
+                        <li><kbd>E</kbd> - Peek at expressions only</li>
+                        <li><kbd>F</kbd> - Peek at formats only</li>
                     </ul>
                     <p><strong>Named Variables:</strong></p>
                     <p>Use <strong>⚙️ Setup</strong> to define:</p>
                     <code style={{display: 'block', marginTop: '5px'}}>LET TAX_RATE = 0.07</code>
-                    <p style={{marginTop: '5px'}}>Then use in cells:</p>
-                    <code>=Revenue * TAX_RATE</code>
                 </div>
             </div>
         );
@@ -269,9 +349,32 @@ function InfoPanel({ selectedCell, model, viewMode }) {
         dependents.push(...model.dependents.get(selectedCell));
     }
 
+    // Show selection info if present
+    let selectionInfo = null;
+    if (selectionRange) {
+        const { startCol, startRow, endCol, endRow } = selectionRange;
+        const minCol = Math.min(startCol, endCol);
+        const maxCol = Math.max(startCol, endCol);
+        const minRow = Math.min(startRow, endRow);
+        const maxRow = Math.max(startRow, endRow);
+        const cellCount = (maxCol - minCol + 1) * (maxRow - minRow + 1);
+
+        selectionInfo = (
+            <div className="cell-detail-section">
+                <p><strong>Selection:</strong> {cellCount} cells</p>
+                <p className="selection-range">
+                    {SpreadsheetModel.colNumberToLetter(minCol)}{minRow}:
+                    {SpreadsheetModel.colNumberToLetter(maxCol)}{maxRow}
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="info-panel">
             <h3>Cell: {selectedCell}</h3>
+
+            {selectionInfo}
 
             <div className="cell-detail-section">
                 <p><strong>Type:</strong> {cellType}</p>
@@ -320,7 +423,6 @@ function InfoPanel({ selectedCell, model, viewMode }) {
 
             <div className="cell-detail-section view-mode-indicator">
                 <p><strong>View Mode:</strong> {viewMode.toUpperCase()}</p>
-                <p className="help-text">Press V/E/F/N to change view</p>
             </div>
         </div>
     );
@@ -400,61 +502,112 @@ function App() {
     const [model, setModel] = useState(null);
     const [adapter, setAdapter] = useState(null);
     const [selectedCell, setSelectedCell] = useState('A1');
+    const [selectionRange, setSelectionRange] = useState(null);
+    const [isSelecting, setIsSelecting] = useState(false);
     const [sheetName, setSheetName] = useState('Sheet1');
     const [updateCounter, setUpdateCounter] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [viewMode, setViewMode] = useState('normal'); // 'normal', 'values', 'expressions', 'formats'
+    const [viewMode, setViewMode] = useState('normal');
+    const [startEditCallback, setStartEditCallback] = useState(null);
+    const isTransitioningToEdit = useRef(false);
+    const bufferedKeys = useRef([]);
 
     const visibleRows = 20;
     const visibleCols = 10;
 
-    // Initialize on mount
-    useEffect(() => {
-        initializeSpreadsheet();
-    }, []);
+    // Define handlers before useEffects that use them
+    const handleNavigation = useCallback((key, shiftKey) => {
+        if (!selectedCell) return;
 
-    // Keyboard handler for view mode switching
-    useEffect(() => {
-        const handleKeyPress = (e) => {
-            // Only handle if not in an input/textarea
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                return;
-            }
+        isTransitioningToEdit.current = false;  // Reset transition flag
+        bufferedKeys.current = [];  // Clear buffered keys
+        const { col, row } = parseCellRef(selectedCell);
+        let newCol = col;
+        let newRow = row;
 
-            const key = e.key.toLowerCase();
-            if (key === 'v') {
-                setViewMode('values');
-            } else if (key === 'e') {
-                setViewMode('expressions');
-            } else if (key === 'f') {
-                setViewMode('formats');
-            } else if (key === 'n') {
-                setViewMode('normal');
+        switch (key.toLowerCase()) {
+            case 'arrowdown':
+            case 'enter':
+                newRow = Math.min(row + 1, visibleRows);
+                break;
+            case 'arrowup':
+                newRow = Math.max(row - 1, 1);
+                break;
+            case 'arrowright':
+            case 'tab':
+                if (shiftKey && key.toLowerCase() === 'tab') {
+                    newCol = Math.max(col - 1, 1);
+                } else {
+                    newCol = Math.min(col + 1, visibleCols);
+                }
+                break;
+            case 'arrowleft':
+                newCol = Math.max(col - 1, 1);
+                break;
+        }
+
+        const newCellRef = SpreadsheetModel.formatCellRef(newCol, newRow);
+        setSelectedCell(newCellRef);
+        setSelectionRange(null);
+    }, [selectedCell, visibleRows, visibleCols]);
+
+    const handleCopy = useCallback(() => {
+        if (!model) return;
+
+        let textToCopy = '';
+
+        if (selectionRange) {
+            const { startCol, startRow, endCol, endRow } = selectionRange;
+            const minCol = Math.min(startCol, endCol);
+            const maxCol = Math.max(startCol, endCol);
+            const minRow = Math.min(startRow, endRow);
+            const maxRow = Math.max(startRow, endRow);
+
+            for (let row = minRow; row <= maxRow; row++) {
+                const rowValues = [];
+                for (let col = minCol; col <= maxCol; col++) {
+                    const cellRef = SpreadsheetModel.formatCellRef(col, row);
+                    const cell = model.getCell(cellRef);
+                    rowValues.push(cell.value || '');
+                }
+                textToCopy += rowValues.join('\t') + '\n';
             }
+        } else if (selectedCell) {
+            const cell = model.getCell(selectedCell);
+            textToCopy = cell.value || '';
+        }
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            console.log('Copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }, [model, selectedCell, selectionRange]);
+
+    const loadSampleData = useCallback(async (model, adapter) => {
+        const sampleData = {
+            'A1': '10',
+            'A2': '20',
+            'A3': '30',
+            'A4': '=A1 + A2',
+            'A5': '=SUM_RANGE("A1:A3")',
+            'B1': 'Hello',
+            'B2': '=UPPER(B1)',
+            'C1': '5',
+            'C2': '3',
+            'C3': '=C1 * C2'
         };
 
-        window.addEventListener('keypress', handleKeyPress);
-        return () => window.removeEventListener('keypress', handleKeyPress);
+        for (const [ref, content] of Object.entries(sampleData)) {
+            await model.setCell(ref, content, adapter);
+        }
+
+        setUpdateCounter(c => c + 1);
     }, []);
 
-    // Handle hash changes for sheet name
-    useEffect(() => {
-        const handleHashChange = () => {
-            const hash = window.location.hash.substring(1);
-            if (hash) {
-                setSheetName(hash);
-            }
-        };
-
-        window.addEventListener('hashchange', handleHashChange);
-        handleHashChange(); // Initial load
-
-        return () => window.removeEventListener('hashchange', handleHashChange);
-    }, []);
-
-    const initializeSpreadsheet = async () => {
+    const initializeSpreadsheet = useCallback(async () => {
         try {
             setIsLoading(true);
 
@@ -469,17 +622,19 @@ function App() {
                 throw new Error('RexxJS interpreter failed to load. Please refresh the page.');
             }
 
-            // Create model
             const newModel = new SpreadsheetModel(100, 26);
-
-            // Create adapter
             const newAdapter = new SpreadsheetRexxAdapter(newModel);
-
-            // Initialize RexxJS interpreter
             await newAdapter.initializeInterpreter(RexxInterpreter);
-            newAdapter.installSpreadsheetFunctions();
+            window.spreadsheetAdapter = newAdapter;
 
-            // Execute setup script if present
+            const libUrl = window.location.origin + '/lib/spreadsheet-functions.js';
+            const autoSetupScript = `REQUIRE "${libUrl}"`;
+            const result = await newAdapter.executeSetupScript(autoSetupScript);
+
+            if (!result.success) {
+                throw new Error(`Failed to load spreadsheet functions: ${result.error}`);
+            }
+
             const setupScript = newModel.getSetupScript();
             if (setupScript) {
                 await newAdapter.executeSetupScript(setupScript);
@@ -489,45 +644,168 @@ function App() {
             setAdapter(newAdapter);
             setIsLoading(false);
 
-            // Load sample data
             loadSampleData(newModel, newAdapter);
         } catch (err) {
             console.error('Failed to initialize spreadsheet:', err);
             setError(err.message);
             setIsLoading(false);
         }
-    };
+    }, [loadSampleData]);
 
-    const loadSampleData = async (model, adapter) => {
-        // Sample data to demonstrate features
-        const sampleData = {
-            'A1': '10',
-            'A2': '20',
-            'A3': '=A1 + A2',
-            'B1': 'Hello',
-            'B2': '=UPPER(B1)',
-            'C1': '5',
-            'C2': '3',
-            'C3': '=C1 * C2'
+    // Initialize on mount
+    useEffect(() => {
+        initializeSpreadsheet();
+    }, [initializeSpreadsheet]);
+
+    // Keyboard handler for navigation and copy
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Only handle if not in an input/textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            // View mode shortcuts
+            const key = e.key.toLowerCase();
+            if (key === 'v') {
+                setViewMode('values');
+                return;
+            } else if (key === 'e') {
+                setViewMode('expressions');
+                return;
+            } else if (key === 'f') {
+                setViewMode('formats');
+                return;
+            }
+
+            // Copy selection
+            if ((e.ctrlKey || e.metaKey) && key === 'c') {
+                e.preventDefault();
+                handleCopy();
+                return;
+            }
+
+            // Navigation
+            if (['arrowdown', 'arrowup', 'arrowleft', 'arrowright', 'tab', 'enter'].includes(key)) {
+                e.preventDefault();
+                handleNavigation(e.key, e.shiftKey);
+                return;
+            }
+
+            // Start editing on any printable character
+            if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                if (!isTransitioningToEdit.current) {
+                    // First character - start edit mode
+                    if (startEditCallback) {
+                        isTransitioningToEdit.current = true;
+                        bufferedKeys.current = [e.key];
+                        startEditCallback(e.key);
+                    }
+                } else {
+                    // Subsequent characters while transitioning - buffer them
+                    bufferedKeys.current.push(e.key);
+                }
+            }
         };
 
-        for (const [ref, content] of Object.entries(sampleData)) {
-            await model.setCell(ref, content, adapter);
-        }
+        const handleKeyUp = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
 
-        setUpdateCounter(c => c + 1);
-    };
+            const key = e.key.toLowerCase();
+            if (key === 'v' || key === 'e' || key === 'f') {
+                setViewMode('normal');
+            }
+        };
 
-    const handleEditCell = useCallback(async (cellRef, content) => {
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [selectedCell, selectionRange, model, adapter, startEditCallback, handleCopy, handleNavigation]);
+
+    // Handle hash changes for sheet name
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                setSheetName(hash);
+            }
+        };
+
+        window.addEventListener('hashchange', handleHashChange);
+        handleHashChange();
+
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
+
+
+    const handleEditCell = useCallback(async (cellRef, content, navigationKey, shiftKey) => {
         if (!model || !adapter) return;
 
         await model.setCell(cellRef, content, adapter);
         setUpdateCounter(c => c + 1);
-    }, [model, adapter]);
 
-    const handleSelectCell = useCallback((cellRef) => {
+        // Handle navigation after edit
+        if (navigationKey) {
+            handleNavigation(navigationKey, shiftKey);
+        }
+    }, [model, adapter, handleNavigation]);
+
+    const handleSelectCell = useCallback((cellRef, shiftKey) => {
+        isTransitioningToEdit.current = false;  // Reset transition flag
+        bufferedKeys.current = [];  // Clear buffered keys
+        if (shiftKey && selectedCell) {
+            // Extend selection
+            const start = parseCellRef(selectedCell);
+            const end = parseCellRef(cellRef);
+            setSelectionRange({
+                startCol: start.col,
+                startRow: start.row,
+                endCol: end.col,
+                endRow: end.row
+            });
+        } else {
+            setSelectedCell(cellRef);
+            setSelectionRange(null);
+        }
+    }, [selectedCell]);
+
+    const handleSelectionStart = useCallback((cellRef) => {
+        setIsSelecting(true);
         setSelectedCell(cellRef);
+        const { col, row } = parseCellRef(cellRef);
+        setSelectionRange({
+            startCol: col,
+            startRow: row,
+            endCol: col,
+            endRow: row
+        });
     }, []);
+
+    const handleSelectionMove = useCallback((cellRef) => {
+        if (isSelecting && selectionRange) {
+            const { col, row } = parseCellRef(cellRef);
+            setSelectionRange(prev => ({
+                ...prev,
+                endCol: col,
+                endRow: row
+            }));
+        }
+    }, [isSelecting, selectionRange]);
+
+    const handleSelectionEnd = useCallback(() => {
+        setIsSelecting(false);
+    }, []);
+
+    const handleStartCellEdit = (callback) => {
+        setStartEditCallback(() => (char) => callback(char));
+        return () => setStartEditCallback(null);
+    };
 
     if (isLoading) {
         return (
@@ -556,7 +834,7 @@ function App() {
             <div className="header">
                 <h1>RexxJS Spreadsheet POC</h1>
                 <div className="header-controls">
-                    <div className="view-mode-badge" title="Press V/E/F/N to change view">
+                    <div className="view-mode-badge" title="Hold V/E/F to peek at different views">
                         View: {viewMode.toUpperCase()}
                     </div>
                     <button className="settings-button" onClick={() => setSettingsOpen(true)}>
@@ -576,15 +854,23 @@ function App() {
                 <Grid
                     model={model}
                     selectedCell={selectedCell}
+                    selectionRange={selectionRange}
                     onSelectCell={handleSelectCell}
                     onEditCell={handleEditCell}
+                    onStartCellEdit={handleStartCellEdit}
                     visibleRows={visibleRows}
                     visibleCols={visibleCols}
                     viewMode={viewMode}
+                    onSelectionStart={handleSelectionStart}
+                    onSelectionMove={handleSelectionMove}
+                    onSelectionEnd={handleSelectionEnd}
+                    bufferedKeysRef={bufferedKeys}
+                    isTransitioningRef={isTransitioningToEdit}
                 />
 
                 <InfoPanel
                     selectedCell={selectedCell}
+                    selectionRange={selectionRange}
                     model={model}
                     viewMode={viewMode}
                 />
