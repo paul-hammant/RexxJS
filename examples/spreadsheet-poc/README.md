@@ -150,37 +150,75 @@ PLAYWRIGHT_HTML_OPEN=never npx playwright test examples/spreadsheet-poc/tests/
 
 ## RexxJS Functions Available
 
-The spreadsheet has access to all built-in RexxJS functions:
+The spreadsheet has access to three levels of functions:
 
-### String Functions
+### 1. Built-in RexxJS Functions (from `core/src/*`)
+
+Always available without any setup:
+
+**String Functions:**
 - `UPPER`, `LOWER`, `LENGTH`, `SUBSTR`, `STRIP`, `REVERSE`
 - `INDEX`, `POS`, `LASTPOS`, `WORDPOS`
 - `LEFT`, `RIGHT`, `CENTER`
 - `TRANSLATE`, `COPIES`, `SPACE`
 
-### Math Functions
+**Math Functions:**
 - `ABS`, `CEIL`, `FLOOR`, `ROUND`, `SQRT`, `POW`
 - `MIN`, `MAX`, `SUM`, `AVERAGE`
 - `RANDOM`, `SIGN`, `TRUNC`
 
-### JSON Functions
+**JSON Functions:**
 - `JSON_PARSE`, `JSON_STRINGIFY`
 - `JSON_GET`, `JSON_SET`
 
-### Array Functions
+**Array Functions:**
 - `MAP`, `FILTER`, `REDUCE`
 - `SORT`, `REVERSE`, `JOIN`
 - `SLICE`, `CONCAT`
 
-### Custom Spreadsheet Functions
-- `SUM_RANGE(rangeRef)` - Sum cells in range
+**Date/Time Functions:**
+- `DATE`, `TIME`, `FORMAT_DATE`
+- `PARSE_DATE`, `ADD_DAYS`, `DIFF_DAYS`
+
+### 2. Custom Spreadsheet Functions (from `examples/spreadsheet-poc/*`)
+
+Spreadsheet-specific functions for working with cell ranges:
+
+- `SUM_RANGE(rangeRef)` - Sum cells in range (e.g., `SUM_RANGE("A1:A5")`)
 - `AVERAGE_RANGE(rangeRef)` - Average of cells in range
 - `COUNT_RANGE(rangeRef)` - Count non-empty cells
 - `MIN_RANGE(rangeRef)` - Minimum value in range
 - `MAX_RANGE(rangeRef)` - Maximum value in range
 - `CELL(ref)` - Get cell value by reference
-- `ROW(ref)` - Get row number
-- `COLUMN(ref)` - Get column number
+- `ROW(ref)` - Get row number of cell
+- `COLUMN(ref)` - Get column number of cell
+
+### 3. Extra Function Libraries (from `extras/functions/*`)
+
+Extended function libraries that can be loaded via REQUIRE statements:
+
+**Excel Functions:**
+```rexx
+=REQUIRE "cwd:../../extras/functions/excel/src/excel-functions.js"
+=VLOOKUP(A1, B1:D10, 2, 0)
+=SUMIF(A1:A10, ">5", B1:B10)
+```
+
+**R-Inspired Statistical Functions:**
+```rexx
+=REQUIRE "cwd:../../extras/functions/r-inspired/src/r-statistics-functions.js"
+=MEAN([1,2,3,4,5])
+=MEDIAN([1,2,3,4,5])
+=SD([1,2,3,4,5])
+```
+
+**GraphViz Visualization:**
+```rexx
+=REQUIRE "cwd:../../extras/functions/graphviz/src/graphviz-functions.js"
+=DIGRAPH("A -> B -> C")
+```
+
+**Note:** Extra libraries require proper path resolution. Use `cwd:` prefix for relative paths from the HTML file location.
 
 ## Development
 

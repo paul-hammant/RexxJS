@@ -206,7 +206,8 @@ function InfoPanel() {
                 <li>Cell references: <code>=A1 + B2</code></li>
                 <li>Function pipelines: <code>=A1 |&gt; UPPER |&gt; LENGTH</code></li>
                 <li>Range functions: <code>=SUM_RANGE("A1:A5")</code></li>
-                <li>RexxJS functions: <code>=SUBSTR("Hello", 1, 3)</code></li>
+                <li>Built-in RexxJS functions (200+ available)</li>
+                <li>Extra libraries via REQUIRE</li>
             </ul>
             <p><strong>Examples to try:</strong></p>
             <ul>
@@ -214,6 +215,13 @@ function InfoPanel() {
                 <li>Put <code>=A1 + A2</code> in A3</li>
                 <li>Put <code>=A3 * 2</code> in A4</li>
                 <li>Put <code>="Hello" |&gt; UPPER |&gt; LENGTH</code> in B1</li>
+                <li>Put <code>=AVERAGE_RANGE("A1:A4")</code> in A5</li>
+            </ul>
+            <p><strong>Function Types:</strong></p>
+            <ul>
+                <li><strong>Built-in:</strong> UPPER, SUBSTR, ROUND, etc.</li>
+                <li><strong>Spreadsheet:</strong> SUM_RANGE, AVERAGE_RANGE</li>
+                <li><strong>Extra libs:</strong> Use REQUIRE in a cell</li>
             </ul>
         </div>
     );
