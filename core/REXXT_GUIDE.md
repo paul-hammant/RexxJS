@@ -212,9 +212,19 @@ Use `--no-honor-skip` to:
 
 ### The @requires Annotation
 
-The `@requires` annotation provides **deterministic, system-based test skipping**. Tests are automatically skipped if required system capabilities are not available.
+The `@requires` annotation is about **BOOLEAN DETERMINATION** - ANY yes/no decision.
 
-This is the **canonical RexxJS way** to conditionally run tests based on system state (e.g., Docker installed, Podman available, etc.)
+**NOT just "commands in PATH"** - it's a flexible system for checking ANY boolean condition:
+- Environment variables
+- Feature flags
+- Platform checks (Linux/macOS/Windows)
+- File existence
+- API availability
+- Hardware capabilities
+- Configuration settings
+- Commands in PATH (as fallback)
+
+This is the **canonical RexxJS way** to conditionally run tests based on system state.
 
 #### Basic Usage
 
@@ -250,36 +260,56 @@ DockerWithCurlTest:
 RETURN
 ```
 
-#### Open Capability System
+#### How Capabilities Are Determined (Priority Order)
 
-**The @requires system is OPEN and extensible** - it works with ANY capability name, not just a pre-defined list.
+**The @requires system is OPEN** - works with ANY capability name. What that name means is up to you!
 
-**Default behavior**: Checks if a command with that name exists on the system
+When you write `@requires X`, the system checks (in order):
 
-```rexx
-/* @requires docker */     // Checks if 'docker' command exists
-/* @requires podman */     // Checks if 'podman' command exists
-/* @requires git */        // Checks if 'git' command exists
-/* @requires doofus */     // Checks if 'doofus' command exists
-/* @requires anything */   // Checks if 'anything' command exists
+**1. Environment Variable** (highest priority)
+```bash
+HAS_FEATURE_X=true ./rexxt tests/my-test.rexx
+HAS_DOCKER=false ./rexxt tests/my-test.rexx
 ```
 
-**How it works:**
-1. Takes the capability name (e.g., "docker")
-2. Uses `which` (Unix) or `where` (Windows) to check if that command exists
-3. Caches the result to avoid repeated checks
-4. Skips the test if command not found
+**2. Custom Checker Functions** (passed to test runner)
+```javascript
+// In test-specific code
+HAS_DOOFUS() { return process.env.DOOFUS_ENABLED === 'true'; }
+```
 
-**Common capabilities** (not exhaustive - any name works!):
-- Container engines: `docker`, `podman`
-- Virtualization: `qemu`, `virtualbox`, `vboxmanage`
-- Version control: `git`, `hg`, `svn`
-- Package managers: `npm`, `pip`, `cargo`, `maven`
-- Tools: `curl`, `wget`, `ssh`, `jq`, `awk`, `sed`
-- Databases: `psql`, `mysql`, `redis-cli`, `mongo`
-- Your custom tools: `doofus`, `foobar`, `anything`
+**3. Configuration File** (`.rexxt-capabilities.js`)
+```javascript
+// .rexxt-capabilities.js
+exports.HAS_FEATURE_X = true;
+exports.HAS_CI_ENVIRONMENT = () => process.env.CI === 'true';
+exports.HAS_LINUX = () => process.platform === 'linux';
+```
 
-**The system is agnostic** - no hard-coded technology list!
+**4. File Path Check** (if starts with `/` or `./`)
+```rexx
+/* @requires ./test-data */      // Checks if directory exists
+/* @requires /etc/config.json */ // Checks if file exists
+```
+
+**5. Command in PATH** (fallback)
+```rexx
+/* @requires docker */  // Falls back to: which docker
+/* @requires git */     // Falls back to: which git
+/* @requires doofus */  // Falls back to: which doofus
+```
+
+**Examples of Boolean Determinations:**
+- `@requires docker` → Is docker available? (env var, config, or command)
+- `@requires feature-x` → Is feature-x enabled? (env var or config)
+- `@requires ci-environment` → Running in CI? (config check)
+- `@requires linux` → On Linux platform? (config check)
+- `@requires ./test-data` → Test data exists? (file check)
+- `@requires api-available` → API reachable? (custom checker)
+- `@requires gpu-support` → GPU available? (custom checker)
+- `@requires anything` → Whatever "anything" means to you!
+
+**The system is agnostic** - no hard-coded technology list! YOU define what capabilities mean.
 
 #### Custom Capability Logic
 
@@ -740,13 +770,18 @@ Make sure you:
 
 See the `tests/dogfood/` directory for comprehensive examples:
 
+**Skip & Requires:**
 - `skip-simple-demo.rexx` - Basic skip functionality
 - `skip-multiple-demo.rexx` - Multiple skipped tests
 - `requires-docker-demo.rexx` - Docker requirement example
 - `requires-podman-demo.rexx` - Podman requirement example
 - `requires-multiple-demo.rexx` - Multiple requirements example
-- `requires-open-system-demo.rexx` - **Open system demo (arbitrary capability names!)**
+- `requires-open-system-demo.rexx` - Open system with arbitrary capability names
+- `requires-boolean-demo.rexx` - **Boolean determination (NOT just commands!)**
 - `custom-capability-checkers.js` - Custom checker functions example
+- `.rexxt-capabilities.js` - Configuration file example
+
+**Other Tests:**
 - `mit-license-test.rexx` - File operations testing
 - `comment-styles-comprehensive.rexx` - Syntax testing
 - `two-parameter-functions.rexx` - Function testing
@@ -757,10 +792,12 @@ rexxt provides a modern, elegant testing experience for RexxJS:
 
 - ✅ Simple, readable test syntax
 - ✅ Manual skip annotations with `@skip`
-- ✅ **Open conditional execution with `@requires`** (canonical RexxJS way)
+- ✅ **Boolean determination with `@requires`** (canonical RexxJS way)
+  - NOT just "commands in PATH" - ANY yes/no decision
+  - Environment variables, feature flags, platform checks, file existence
+  - Priority: env vars → config file → file paths → commands (fallback)
   - Works with ANY capability name - no hard-coded list
-  - Default: checks if command exists
-  - Extensible: define custom checker functions
+  - Extensible: define what capabilities mean in `.rexxt-capabilities.js`
 - ✅ Flexible test selection with tags and patterns
 - ✅ Rich output options from minimal to verbose
 - ✅ JSON results for automation
@@ -772,6 +809,6 @@ Write tests that are:
 - **Focused** - One concept per test
 - **Organized** - Tags and file structure
 - **Maintainable** - Skip annotations with reasons
-- **Portable** - Use `@requires` for platform/tool dependencies (docker, podman, git, or YOUR tools)
+- **Portable** - Use `@requires` for ANY boolean condition (not just commands!)
 
 Happy testing! 🧪
