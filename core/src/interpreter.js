@@ -33,6 +33,10 @@ let arrayFunctionsUtils;
 let exitUnlessUtils;
 let libraryRequireWrappersUtils;
 let libraryMetadataUtils;
+let libraryDiscoveryUtils;
+let libraryFetchingUtils;
+let libraryRegistrationUtils;
+let interpretStatementUtils;
 
 if (typeof require !== 'undefined') {
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
@@ -72,6 +76,10 @@ if (typeof require !== 'undefined') {
   exitUnlessUtils = require('./interpreter-exit-unless.js');
   libraryRequireWrappersUtils = require('./interpreter-library-require-wrappers.js');
   libraryMetadataUtils = require('./interpreter-library-metadata.js');
+  libraryDiscoveryUtils = require('./interpreter-library-discovery.js');
+  libraryFetchingUtils = require('./interpreter-library-fetching.js');
+  libraryRegistrationUtils = require('./interpreter-library-registration.js');
+  interpretStatementUtils = require('./interpreter-interpret-statement.js');
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
@@ -400,6 +408,26 @@ if (typeof require !== 'undefined') {
   // Library metadata utilities
   if (registry.has('libraryMetadata')) {
     libraryMetadataUtils = registry.get('libraryMetadata');
+  }
+
+  // Library discovery utilities
+  if (registry.has('libraryDiscovery')) {
+    libraryDiscoveryUtils = registry.get('libraryDiscovery');
+  }
+
+  // Library fetching utilities
+  if (registry.has('libraryFetching')) {
+    libraryFetchingUtils = registry.get('libraryFetching');
+  }
+
+  // Library registration utilities
+  if (registry.has('libraryRegistration')) {
+    libraryRegistrationUtils = registry.get('libraryRegistration');
+  }
+
+  // INTERPRET statement utilities
+  if (registry.has('interpretStatement')) {
+    interpretStatementUtils = registry.get('interpretStatement');
   }
 }
 
@@ -1749,200 +1777,7 @@ class RexxInterpreter {
   }
 
   async executeInterpretStatement(command) {
-    // Check if INTERPRET is blocked
-    if (this.interpretBlocked) {
-      throw new Error('INTERPRET is blocked by NO-INTERPRET directive');
-    }
-
-    // Push INTERPRET context onto execution stack
-    const currentContext = this.getCurrentExecutionContext();
-    const interpretContext = this.pushExecutionContext(
-      'interpret',
-      this.currentLineNumber,
-      this.sourceLines && this.currentLineNumber ? this.sourceLines[this.currentLineNumber - 1] || '' : '',
-      this.sourceFilename || '',
-      { command }
-    );
-    
-    let codeToExecute;
-    let normalizedCode;
-
-    try {
-      // Evaluate the expression to get the code string
-      if (typeof command.expression === 'string' && command.expression.includes('||')) {
-        // Handle concatenation expressions
-        codeToExecute = await this.evaluateConcatenation(command.expression);
-      } else {
-        codeToExecute = await this.resolveValue(command.expression);
-      }
-      
-      normalizedCode = String(codeToExecute).replace(/\\n/g, '\n');
-      
-      // Import parser to compile the Rexx code
-      const { parse } = require('./parser');
-      const commands = parse(normalizedCode);
-      
-      if (command.mode === 'classic') {
-        // Mode C: Full classic behavior - share all variables and context
-        const subInterpreter = new RexxInterpreter(this.addressSender, this.outputHandler);
-        subInterpreter.address = this.address;
-        subInterpreter.builtInFunctions = this.builtInFunctions;
-        subInterpreter.operations = this.operations;
-        subInterpreter.errorHandlers = new Map(this.errorHandlers);
-        subInterpreter.labels = new Map(this.labels);
-        subInterpreter.addressTargets = new Map(this.addressTargets);
-        subInterpreter.subroutines = new Map(this.subroutines);
-        
-        
-        // Share all variables
-        for (const [key, value] of this.variables) {
-          subInterpreter.variables.set(key, value);
-        }
-        
-        // Execute the code with its own source context
-        await subInterpreter.run(commands, normalizedCode, `[interpreted from ${this.sourceFilename || 'unknown'}:${interpretContext.lineNumber}]`);
-        
-        // Copy back all variables
-        for (const [key, value] of subInterpreter.variables) {
-          this.variables.set(key, value);
-        }
-        
-      } else if (command.mode === 'isolated') {
-        // Mode B: Sandboxed scope - controlled variable sharing
-        const subInterpreter = new RexxInterpreter(this.addressSender, this.outputHandler);
-        subInterpreter.address = this.address;
-        subInterpreter.builtInFunctions = this.builtInFunctions;
-        subInterpreter.operations = this.operations;
-        subInterpreter.addressTargets = new Map(this.addressTargets);
-        subInterpreter.errorHandlers = new Map(this.errorHandlers);
-        subInterpreter.labels = new Map(this.labels);
-        subInterpreter.subroutines = new Map(this.subroutines);
-        
-        // Handle IMPORT - share specific variables TO the isolated scope
-        if (command.importVars && Array.isArray(command.importVars)) {
-          for (const varName of command.importVars) {
-            if (this.variables.has(varName)) {
-              subInterpreter.variables.set(varName, this.variables.get(varName));
-            }
-          }
-        }
-        
-        // Execute in isolation with its own source context
-        await subInterpreter.run(commands, normalizedCode, `[interpreted from ${this.sourceFilename || 'unknown'}:${interpretContext.lineNumber}]`);
-        
-        // Handle EXPORT - copy specific variables FROM the isolated scope
-        if (command.exportVars && Array.isArray(command.exportVars)) {
-          for (const varName of command.exportVars) {
-            if (subInterpreter.variables.has(varName)) {
-              this.variables.set(varName, subInterpreter.variables.get(varName));
-            }
-          }
-        }
-      } else {
-        // Default mode: Share variables and context like classic REXX INTERPRET
-        const subInterpreter = new RexxInterpreter(this.addressSender, this.outputHandler);
-        subInterpreter.address = this.address;
-        subInterpreter.builtInFunctions = this.builtInFunctions;
-        subInterpreter.operations = this.operations;
-        subInterpreter.errorHandlers = new Map(this.errorHandlers);
-        subInterpreter.labels = new Map(this.labels);
-        subInterpreter.addressTargets = new Map(this.addressTargets);
-        subInterpreter.subroutines = new Map(this.subroutines);
-        
-        
-        // Share all variables (classic Rexx behavior)
-        for (const [key, value] of this.variables) {
-          subInterpreter.variables.set(key, value);
-        }
-        
-        // Execute the interpreted code with its own source context
-        await subInterpreter.run(commands, normalizedCode, `[interpreted from ${this.sourceFilename || 'unknown'}:${interpretContext.lineNumber}]`);
-        
-        // Copy back all variables
-        for (const [key, value] of subInterpreter.variables) {
-          this.variables.set(key, value);
-        }
-      }
-      
-      // Pop the INTERPRET context on successful completion
-      this.popExecutionContext();
-      
-    } catch (e) {
-      // Get the INTERPRET context from the execution stack
-      const interpretCtx = this.getInterpretContext();
-      const sourceContext = interpretCtx ? {
-        lineNumber: interpretCtx.lineNumber,
-        sourceLine: interpretCtx.sourceLine,
-        sourceFilename: interpretCtx.sourceFilename,
-        interpreter: this,
-                    interpolation: interpolation
-      } : null;
-      
-      // Pop the INTERPRET context on error
-      this.popExecutionContext();
-      
-      // Try to extract more context about what was being interpreted
-      let detailedMessage = `INTERPRET failed: ${e.message}`;
-      
-      // Add information about what code was being interpreted
-      if (typeof codeToExecute === 'string' && codeToExecute.trim()) {
-        detailedMessage += `\nInterpreting code: "${codeToExecute.trim()}"`;
-        
-        // If it's a CALL statement, mention what's being called
-        if (codeToExecute.trim().startsWith('CALL ')) {
-          const callTarget = codeToExecute.trim().substring(5).trim();
-          detailedMessage += `\nCalling subroutine: ${callTarget}`;
-        }
-      }
-      
-      // If this is a property access error, try to identify the variable
-      if (e.message && e.message.includes("Cannot read properties of undefined")) {
-        const propertyMatch = e.message.match(/Cannot read properties of undefined \(reading '(.+?)'\)/);
-        if (propertyMatch) {
-          detailedMessage += `\nTrying to access property '${propertyMatch[1]}' on undefined variable`;
-        }
-      }
-      
-      // Include stack trace from sub-interpreter if available
-      if (e.stack) {
-        const relevantStack = e.stack.split('\n').slice(0, 3).join('\n');
-        detailedMessage += `\nSub-interpreter error: ${relevantStack}`;
-        
-        // Try to extract more context from the stack trace
-        if (e.stack.includes('executeCall')) {
-          detailedMessage += `\nLikely error in subroutine call execution`;
-        }
-        if (e.stack.includes('executeCommands')) {
-          detailedMessage += `\nError during command execution (possibly accessing undefined commands array)`;
-        }
-      }
-      
-      // Add debug info showing execution stack context
-      if (interpretCtx) {
-        detailedMessage += `\nINTERPRET statement: line ${interpretCtx.lineNumber} ("${interpretCtx.sourceLine.trim()}")`;
-      }
-      
-      const currentCtx = this.getCurrentExecutionContext();
-      if (currentCtx && currentCtx !== interpretCtx) {
-        detailedMessage += `\nCurrent execution: line ${currentCtx.lineNumber} ("${currentCtx.sourceLine.trim()}")`;
-      }
-      
-      // Show execution stack
-      if (this.executionStack.length > 0) {
-        detailedMessage += `\nExecution stack (${this.executionStack.length} levels):`;
-        for (let i = this.executionStack.length - 1; i >= 0; i--) {
-          const ctx = this.executionStack[i];
-          detailedMessage += `\n  [${i}] ${ctx.type} at ${ctx.sourceFilename}:${ctx.lineNumber}`;
-        }
-      }
-      
-      // Show what we're trying to interpret
-      if (normalizedCode) {
-        detailedMessage += `\nCode being interpreted: "${normalizedCode}"`;
-      }
-      
-      throw new RexxError(detailedMessage, 'INTERPRET', sourceContext);
-    }
+    return await interpretStatementUtils.executeInterpretStatement(this, command);
   }
 
 
@@ -3143,24 +2978,11 @@ class RexxInterpreter {
   }
 
   async fetchLibraryCode(libraryName) {
-    // Try multiple sources in order of preference
-    const sources = this.getLibrarySources(libraryName);
-    
-    for (const source of sources) {
-      try {
-        console.log(`Trying ${source.type}: ${source.url}`);
-        return await this.fetchFromUrl(source.url);
-      } catch (error) {
-        console.warn(`${source.type} failed for ${libraryName}: ${error.message}`);
-        // Continue to next source
-      }
-    }
-    
-    throw new Error(`All sources failed for ${libraryName}`);
+    return await libraryFetchingUtils.fetchLibraryCode(this, libraryName);
   }
 
   getLibrarySources(libraryName) {
-    return libraryUrlUtils.getLibrarySources(libraryName, this.isBuiltinLibrary.bind(this));
+    return libraryFetchingUtils.getLibrarySources(this, libraryName);
   }
 
   shouldTryCDN(libraryName) {
@@ -3176,113 +2998,19 @@ class RexxInterpreter {
   }
 
   async fetchFromReleaseWithFallbacks(libraryName) {
-    const libraryRepo = this.getLibraryRepository(libraryName);
-    const tag = this.getLibraryTag(libraryName);
-    const libName = libraryName.split('/').pop().split('@')[0];
-    
-    // Strategy 1: Try common individual file patterns
-    const filePatterns = [
-      `${libName}.js`,
-      `${libName}.min.js`, 
-      `${libName}-${tag}.js`,
-      `bundle.js`,
-      `index.js`
-    ];
-    
-    for (const filename of filePatterns) {
-      try {
-        const url = `https://github.com/${libraryRepo}/releases/download/${tag}/${filename}`;
-        console.log(`Trying release asset: ${filename}`);
-        return await this.fetchFromUrl(url);
-      } catch (error) {
-        // Continue to next pattern
-      }
-    }
-    
-    // Strategy 2: Try common zip patterns and extract
-    const zipPatterns = [
-      'dist.zip',
-      `${libName}.zip`,
-      `${libName}-${tag}.zip`,
-      'release.zip'
-    ];
-    
-    for (const zipName of zipPatterns) {
-      try {
-        const zipUrl = `https://github.com/${libraryRepo}/releases/download/${tag}/${zipName}`;
-        console.log(`Trying ZIP release asset: ${zipName}`);
-        return await this.fetchFromZipRelease(zipUrl, libName);
-      } catch (error) {
-        // Continue to next pattern
-      }
-    }
-    
-    // Strategy 3: Fallback to raw file at the release tag
-    console.log(`All release strategies failed, falling back to raw file at tag ${tag}`);
-    const fallbackUrl = `https://raw.githubusercontent.com/${libraryRepo}/${tag}/dist/${libName}.js`;
-    return await this.fetchFromUrl(fallbackUrl);
+    return await libraryFetchingUtils.fetchFromReleaseWithFallbacks(this, libraryName);
   }
 
   async fetchFromZipRelease(zipUrl, libName) {
-    // This would require a ZIP extraction library in Node.js
-    // For now, throw an error indicating ZIP support needed
-    throw new Error(`ZIP release extraction not yet implemented for ${zipUrl}`);
-    
-    // TODO: Implement ZIP extraction
-    // const zip = await this.fetchFromUrl(zipUrl);
-    // const jsContent = extractJavaScriptFromZip(zip, libName);
-    // return jsContent;
+    return await libraryFetchingUtils.fetchFromZipRelease(this, zipUrl, libName);
   }
 
   async fetchFromUrl(url) {
-    if (typeof window !== 'undefined') {
-      // Browser environment
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return await response.text();
-    } else {
-      // Node.js environment
-      const https = require('https');
-      return new Promise((resolve, reject) => {
-        https.get(url, (res) => {
-          let data = '';
-          res.on('data', (chunk) => data += chunk);
-          res.on('end', () => {
-            if (res.statusCode === 200) {
-              resolve(data);
-            } else {
-              reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
-            }
-          });
-        }).on('error', reject);
-      });
-    }
+    return await libraryFetchingUtils.fetchFromUrl(this, url);
   }
 
   async waitForLibraryResponse(requestId) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        cleanup();
-        reject(new Error('Library request timeout (30s)'));
-      }, 30000);
-      
-      const handler = (event) => {
-        if (event.data.type === 'library-response' && 
-            event.data.requestId === requestId) {
-          cleanup();
-          resolve(event.data);
-        }
-      };
-      
-      const cleanup = () => {
-        clearTimeout(timeout);
-        window.removeEventListener('message', handler);
-      };
-      
-      window.addEventListener('message', handler);
-    });
+    return await libraryFetchingUtils.waitForLibraryResponse(this, requestId);
   }
 
   async executeLibraryCode(libraryCode, libraryName) {
@@ -3290,18 +3018,18 @@ class RexxInterpreter {
       // Execute in current context
       const func = new Function(libraryCode);
       func();
-      
+
       // Verify loading succeeded - use new @rexxjs-meta pattern
       const extractedFunctionName = this.extractMetadataFunctionName(libraryCode);
       const detectionFunction = extractedFunctionName || this.getLibraryDetectionFunction(libraryName);
-      
+
       const globalScope = typeof window !== 'undefined' ? window : global;
       if (!globalScope[detectionFunction] || typeof globalScope[detectionFunction] !== 'function') {
         console.log(`Looking for detection function: ${detectionFunction}`);
         console.log(`Available global functions:`, Object.keys(globalScope).filter(k => k.includes('META') || k.includes('MAIN')));
         throw new Error(`Library executed but detection function not found: ${detectionFunction}`);
       }
-      
+
       // Register library functions with the interpreter
       this.registerLibraryFunctions(libraryName);
     } catch (error) {
@@ -3314,138 +3042,23 @@ class RexxInterpreter {
   }
 
   registerLibraryFunctions(libraryName, asClause = null) {
-
-    // FIRST: Retrieve and store metadata if available
-    // This must happen before getLibraryFunctionList so metadata is available for function discovery
-    if (this.libraryMetadataProviders && this.libraryMetadataProviders.has(libraryName)) {
-      const metadataFunctionName = this.libraryMetadataProviders.get(libraryName);
-
-      try {
-        // Call the metadata provider function to get full metadata
-        const metadataFunc = this.getGlobalFunction(metadataFunctionName, libraryName);
-        if (metadataFunc) {
-          const metadata = metadataFunc();
-
-          // Store metadata for later use by require system and function/operation discovery
-          this.libraryMetadata = this.libraryMetadata || new Map();
-          this.libraryMetadata.set(libraryName, metadata);
-        }
-      } catch (error) {
-        throw new Error(`Metadata provider function ${metadataFunctionName} failed: ${error.message}`);
-      }
-    }
-
-    // Get list of functions that should be registered for this library
-    // This now has access to metadata stored above
-    const libraryFunctions = this.getLibraryFunctionList(libraryName);
-
-    for (const functionName of libraryFunctions) {
-      // Get the function from global scope (with library context)
-      const func = this.getGlobalFunction(functionName, libraryName);
-      if (func) {
-        // Apply AS clause transformation if provided
-        const registeredName = this.applyAsClauseToFunction(functionName, asClause);
-
-        // Register as external function (from REQUIRE'd library) with potentially modified name
-        this.externalFunctions[registeredName] = (...args) => {
-          return func(...args);
-        };
-      }
-    }
-
-    // Register operations from this library (if any)
-    const libraryOperations = this.getLibraryOperationList(libraryName);
-
-    for (const operationName of libraryOperations) {
-      // Get the operation from global scope (with library context)
-      const op = this.getGlobalFunction(operationName, libraryName);
-      if (op) {
-        // Apply AS clause transformation if provided
-        const registeredName = this.applyAsClauseToFunction(operationName, asClause);
-
-        // Register as operation (receives params object directly)
-        this.operations[registeredName] = (params) => {
-          return op(params);
-        };
-      }
-    }
+    return libraryRegistrationUtils.registerLibraryFunctions(this, libraryName, asClause);
   }
 
   applyAsClauseToFunction(functionName, asClause) {
-    if (!asClause) {
-      return functionName; // No transformation
-    }
-
-    // Check if AS clause contains regex pattern with capture group
-    if (asClause.includes('(.*)')  ) {
-      // Extract prefix from pattern: "math_(.*)" -> "math_"
-      const prefix = asClause.replace('(.*)', '');
-      return prefix + functionName;
-    }
-
-    // Simple prefix (no regex)
-    if (!asClause.endsWith('_')) {
-      asClause += '_'; // Auto-add underscore for readability
-    }
-    return asClause + functionName;
+    return libraryRegistrationUtils.applyAsClauseToFunction(this, functionName, asClause);
   }
 
   applyAsClauseToAddressTarget(originalTargetName, asClause, metadata) {
-    if (!asClause) {
-      return originalTargetName; // No transformation
-    }
-
-    // Validate: ADDRESS targets cannot use regex patterns
-    if (asClause.includes('(.*)')) {
-      throw new Error(`Cannot use regex patterns in AS clause for ADDRESS modules (${metadata.type})`);
-    }
-
-    // For ADDRESS targets, AS clause is the exact new name but converted to lowercase to match ADDRESS command convention
-    return asClause.toLowerCase();
+    return libraryRegistrationUtils.applyAsClauseToAddressTarget(this, originalTargetName, asClause, metadata);
   }
 
   getLibraryFunctionList(libraryName) {
-    // Check library metadata first (from metadata provider function)
-    const metadata = this.libraryMetadata && this.libraryMetadata.get(libraryName);
-    if (metadata && metadata.functions) {
-      // Handle both array format and object format
-      if (Array.isArray(metadata.functions)) {
-        return metadata.functions;
-      } else if (typeof metadata.functions === 'object') {
-        return Object.keys(metadata.functions);
-      }
-    }
-
-    // Check the modern registry
-    if (typeof window !== 'undefined' && window.REXX_FUNCTION_LIBS) {
-      const found = window.REXX_FUNCTION_LIBS.find(lib =>
-        lib.path === libraryName ||
-        lib.name === libraryName ||
-        lib.path.endsWith('/' + libraryName) ||
-        libraryName.endsWith('/' + lib.name)
-      );
-      if (found && found.functions) {
-        return Object.keys(found.functions);
-      }
-    }
-
-    // Check if this is a built-in library first
-    if (this.isBuiltinLibrary(libraryName)) {
-      return this.discoverBuiltinLibraryFunctions(libraryName);
-    }
-
-    // Auto-discover functions for third-party libraries
-    return this.discoverLibraryFunctions(libraryName);
+    return libraryRegistrationUtils.getLibraryFunctionList(this, libraryName);
   }
 
   getLibraryOperationList(libraryName) {
-    // Get operations from library metadata
-    // Operations are discovered via the metadata provider function
-    const metadata = this.libraryMetadata && this.libraryMetadata.get(libraryName);
-    if (metadata && metadata.operations) {
-      return Object.keys(metadata.operations);
-    }
-    return [];
+    return libraryRegistrationUtils.getLibraryOperationList(this, libraryName);
   }
 
   isBuiltinLibrary(libraryName) {
@@ -3453,10 +3066,7 @@ class RexxInterpreter {
   }
 
   discoverBuiltinLibraryFunctions(libraryName) {
-    // For built-in libraries, we don't need to pre-enumerate functions
-    // They will be discovered when the library is loaded
-    // Return empty array - functions will be available after REQUIRE loads the library
-    return [];
+    return libraryRegistrationUtils.discoverBuiltinLibraryFunctions(this, libraryName);
   }
 
   async loadBuiltinLibrary(libraryName) {
@@ -3483,132 +3093,19 @@ class RexxInterpreter {
   }
 
   discoverLibraryFunctions(libraryName) {
-    // First try namespace approach (clean, modern)
-    const namespaceFunctions = this.extractFunctionsFromNamespace(libraryName);
-    if (namespaceFunctions.length > 0) {
-      return namespaceFunctions;
-    }
-
-    // Try the computed namespace (e.g., "./tests/test-libs/discworld-science.js" -> "discworld_science")
-    const libNamespace = this.getLibraryNamespace(libraryName);
-    const libNamespaceFunctions = this.extractFunctionsFromNamespace(libNamespace);
-    if (libNamespaceFunctions.length > 0) {
-      return libNamespaceFunctions;
-    }
-
-    // For module-style libraries, check the extracted lib name namespace
-    const libraryType = this.getLibraryType(libraryName);
-    if (libraryType === 'module') {
-      const libName = libraryName.split('/').pop();
-      const moduleNamespaceFunctions = this.extractFunctionsFromNamespace(libName);
-      if (moduleNamespaceFunctions.length > 0) {
-        return moduleNamespaceFunctions;
-      }
-    }
-
-    // Try global scope extraction (fallback for older libraries)
-    const globalFunctions = this.extractGlobalFunctions(libraryName);
-    if (globalFunctions.length > 0) {
-      return globalFunctions;
-    }
-
-    // Final fallback: just the detection function
-    const detectionFunction = this.getLibraryDetectionFunction(libraryName);
-    return [detectionFunction];
+    return libraryDiscoveryUtils.discoverLibraryFunctions(this, libraryName);
   }
 
   getThirdPartyNamespace(libName) {
-    // Use library name directly as namespace
-    // "my-rexx-lib" -> "my-rexx-lib"
-    return libName;
+    return libraryDiscoveryUtils.getThirdPartyNamespace(this, libName);
   }
 
   extractFunctionsFromNamespace(namespaceName) {
-    const functions = [];
-    let namespaceObj = null;
-    
-    if (typeof window !== 'undefined' && window[namespaceName]) {
-      namespaceObj = window[namespaceName];
-    } else if (typeof global !== 'undefined' && global[namespaceName]) {
-      namespaceObj = global[namespaceName];
-    }
-    
-    if (namespaceObj && typeof namespaceObj === 'object') {
-      for (const key in namespaceObj) {
-        if (typeof namespaceObj[key] === 'function') {
-          functions.push(key);
-        }
-      }
-    }
-    
-    return functions;
+    return libraryDiscoveryUtils.extractFunctionsFromNamespace(this, namespaceName);
   }
 
   extractGlobalFunctions(libraryName) {
-    // For legacy libraries that put functions directly in global scope
-    const functions = [];
-    const globalScope = (typeof window !== 'undefined') ? window : global;
-    
-    // Get the detection function as a starting point
-    const detectionFunction = this.getLibraryDetectionFunction(libraryName);
-    
-    if (globalScope && globalScope[detectionFunction] && typeof globalScope[detectionFunction] === 'function') {
-      functions.push(detectionFunction);
-      
-      // First, try to get function list from library metadata
-      try {
-        const metadata = globalScope[detectionFunction]();
-        // Check for functions list in metadata (supports two formats)
-        const functionsList = (metadata && metadata.provides && metadata.provides.functions) || 
-                             (metadata && metadata.functions);
-        
-        if (functionsList && Array.isArray(functionsList)) {
-          for (const funcName of functionsList) {
-            if (globalScope[funcName] && typeof globalScope[funcName] === 'function') {
-              functions.push(funcName);
-            }
-          }
-          return functions; // Return early if metadata-driven discovery worked
-        }
-      } catch (error) {
-        // If detection function fails, continue with prefix-based discovery
-      }
-      
-      // For R libraries, look for other functions with similar prefixes
-      if (libraryName.includes('r-') || libraryName.includes('R_')) {
-        const prefix = detectionFunction.split('_')[0] + '_'; // e.g., "R_"
-        
-        for (const key in globalScope) {
-          if (key !== detectionFunction && 
-              key.startsWith(prefix) && 
-              typeof globalScope[key] === 'function') {
-            functions.push(key);
-          }
-        }
-      }
-      
-      // For other libraries, look for common patterns
-      else {
-        // Look for functions that might be related to this library
-        const libPrefixes = [
-          libraryName.toUpperCase().replace(/[^A-Z0-9]/g, '_'),
-          libraryName.replace(/[^a-zA-Z0-9]/g, '_'),
-        ];
-        
-        for (const key in globalScope) {
-          if (key !== detectionFunction && typeof globalScope[key] === 'function') {
-            for (const prefix of libPrefixes) {
-              if (key.startsWith(prefix)) {
-                functions.push(key);
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    return functions;
+    return libraryDiscoveryUtils.extractGlobalFunctions(this, libraryName);
   }
 
   // Dependency management utilities
