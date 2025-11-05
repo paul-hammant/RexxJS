@@ -16,6 +16,7 @@ class SpreadsheetModel {
         this.cells = new Map(); // key: "A1", value: {value, expression, dependencies}
         this.dependents = new Map(); // key: "A1", value: Set of cells that depend on A1
         this.evaluationInProgress = new Set(); // For circular reference detection
+        this.setupScript = ''; // Page-level RexxJS code (REQUIRE statements, etc.)
     }
 
     /**
@@ -229,15 +230,33 @@ class SpreadsheetModel {
     }
 
     /**
+     * Get setup script
+     */
+    getSetupScript() {
+        return this.setupScript;
+    }
+
+    /**
+     * Set setup script
+     */
+    setSetupScript(script) {
+        this.setupScript = script || '';
+    }
+
+    /**
      * Export to JSON
      */
     toJSON() {
-        const data = {};
+        const data = {
+            setupScript: this.setupScript,
+            cells: {}
+        };
+
         for (const [ref, cell] of this.cells.entries()) {
             if (cell.expression) {
-                data[ref] = '=' + cell.expression;
+                data.cells[ref] = '=' + cell.expression;
             } else if (cell.value !== '') {
-                data[ref] = cell.value;
+                data.cells[ref] = cell.value;
             }
         }
         return data;
@@ -251,8 +270,19 @@ class SpreadsheetModel {
         this.dependents.clear();
         this.evaluationInProgress.clear();
 
-        for (const [ref, content] of Object.entries(data)) {
-            this.setCell(ref, content, rexxInterpreter);
+        // Handle both old format (flat) and new format (with setupScript)
+        if (data.setupScript !== undefined) {
+            this.setupScript = data.setupScript || '';
+            const cells = data.cells || {};
+            for (const [ref, content] of Object.entries(cells)) {
+                this.setCell(ref, content, rexxInterpreter);
+            }
+        } else {
+            // Old format - all entries are cells
+            this.setupScript = '';
+            for (const [ref, content] of Object.entries(data)) {
+                this.setCell(ref, content, rexxInterpreter);
+            }
         }
     }
 }

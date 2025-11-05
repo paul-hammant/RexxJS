@@ -195,18 +195,34 @@ Spreadsheet-specific functions for working with cell ranges:
 
 ### 3. Extra Function Libraries (from `extras/functions/*`)
 
-Extended function libraries that can be loaded via REQUIRE statements:
+Extended function libraries can be loaded via the **Setup Script** feature.
+
+#### Loading Extra Libraries via Setup Button
+
+Click the **⚙️ Setup** button in the header to open the setup editor. Add REQUIRE statements for the libraries you want to use:
+
+**Example Setup Script:**
+```rexx
+// Load Excel-like functions (VLOOKUP, SUMIF, etc.)
+REQUIRE "cwd:../../extras/functions/excel/src/excel-functions.js"
+
+// Load R-inspired statistical functions
+REQUIRE "cwd:../../extras/functions/r-inspired/src/r-statistics-functions.js"
+
+// Load GraphViz visualization
+REQUIRE "cwd:../../extras/functions/graphviz/src/graphviz-functions.js"
+```
+
+Click **Save & Execute** to load the libraries. Now all functions are available in all cells:
 
 **Excel Functions:**
 ```rexx
-=REQUIRE "cwd:../../extras/functions/excel/src/excel-functions.js"
 =VLOOKUP(A1, B1:D10, 2, 0)
 =SUMIF(A1:A10, ">5", B1:B10)
 ```
 
 **R-Inspired Statistical Functions:**
 ```rexx
-=REQUIRE "cwd:../../extras/functions/r-inspired/src/r-statistics-functions.js"
 =MEAN([1,2,3,4,5])
 =MEDIAN([1,2,3,4,5])
 =SD([1,2,3,4,5])
@@ -214,9 +230,14 @@ Extended function libraries that can be loaded via REQUIRE statements:
 
 **GraphViz Visualization:**
 ```rexx
-=REQUIRE "cwd:../../extras/functions/graphviz/src/graphviz-functions.js"
 =DIGRAPH("A -> B -> C")
 ```
+
+**Benefits of Setup Script Approach:**
+- ✅ Load libraries once, use everywhere
+- ✅ Clean formulas (no REQUIRE in each cell)
+- ✅ Easy to see what libraries are loaded
+- ✅ Setup script is saved with spreadsheet data
 
 **Note:** Extra libraries require proper path resolution. Use `cwd:` prefix for relative paths from the HTML file location.
 

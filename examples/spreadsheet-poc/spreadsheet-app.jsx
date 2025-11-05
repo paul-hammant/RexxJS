@@ -221,8 +221,82 @@ function InfoPanel() {
             <ul>
                 <li><strong>Built-in:</strong> UPPER, SUBSTR, ROUND, etc.</li>
                 <li><strong>Spreadsheet:</strong> SUM_RANGE, AVERAGE_RANGE</li>
-                <li><strong>Extra libs:</strong> Use REQUIRE in a cell</li>
+                <li><strong>Extra libs:</strong> Click ⚙️ Setup to load</li>
             </ul>
+            <p><strong>Loading Extra Functions:</strong></p>
+            <ol>
+                <li>Click <strong>⚙️ Setup</strong> button in header</li>
+                <li>Add REQUIRE statements (e.g., Excel, R stats)</li>
+                <li>Click <strong>Save & Execute</strong></li>
+                <li>Functions are now available in all cells</li>
+            </ol>
+        </div>
+    );
+}
+
+/**
+ * Settings Modal Component
+ */
+function SettingsModal({ isOpen, onClose, model, adapter, onScriptExecuted }) {
+    const [setupScript, setSetupScript] = useState('');
+    const [executeMessage, setExecuteMessage] = useState('');
+
+    useEffect(() => {
+        if (isOpen && model) {
+            setSetupScript(model.getSetupScript());
+            setExecuteMessage('');
+        }
+    }, [isOpen, model]);
+
+    const handleSave = async () => {
+        if (model && adapter) {
+            model.setSetupScript(setupScript);
+
+            // Execute the setup script
+            const result = await adapter.executeSetupScript(setupScript);
+
+            if (result.success) {
+                setExecuteMessage('✅ ' + result.message);
+                setTimeout(() => {
+                    onScriptExecuted();
+                    onClose();
+                }, 1000);
+            } else {
+                setExecuteMessage('❌ ' + result.message);
+            }
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Spreadsheet Setup</h2>
+                    <button className="close-button" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
+                    <p>Page-level RexxJS code that runs once when the spreadsheet loads.</p>
+                    <p><strong>Use this to load function libraries:</strong></p>
+                    <textarea
+                        className="setup-script-editor"
+                        value={setupScript}
+                        onChange={(e) => setSetupScript(e.target.value)}
+                        placeholder={`// Example: Load Excel-like functions\nREQUIRE "cwd:../../extras/functions/excel/src/excel-functions.js"\n\n// Example: Load R statistics\nREQUIRE "cwd:../../extras/functions/r-inspired/src/r-statistics-functions.js"\n\n// Now VLOOKUP, SUMIF, MEAN, MEDIAN, etc. are available in all cells`}
+                        rows={12}
+                    />
+                    {executeMessage && (
+                        <div className={`execute-message ${executeMessage.startsWith('✅') ? 'success' : 'error'}`}>
+                            {executeMessage}
+                        </div>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <button className="button-secondary" onClick={onClose}>Cancel</button>
+                    <button className="button-primary" onClick={handleSave}>Save & Execute</button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -238,6 +312,7 @@ function App() {
     const [updateCounter, setUpdateCounter] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     const visibleRows = 20;
     const visibleCols = 10;
@@ -286,6 +361,12 @@ function App() {
             // Initialize RexxJS interpreter
             await newAdapter.initializeInterpreter(RexxInterpreter);
             newAdapter.installSpreadsheetFunctions();
+
+            // Execute setup script if present
+            const setupScript = newModel.getSetupScript();
+            if (setupScript) {
+                await newAdapter.executeSetupScript(setupScript);
+            }
 
             setModel(newModel);
             setAdapter(newAdapter);
@@ -357,7 +438,12 @@ function App() {
         <div className="app">
             <div className="header">
                 <h1>RexxJS Spreadsheet POC</h1>
-                <div className="sheet-name">Sheet: {sheetName}</div>
+                <div className="header-controls">
+                    <button className="settings-button" onClick={() => setSettingsOpen(true)}>
+                        ⚙️ Setup
+                    </button>
+                    <div className="sheet-name">Sheet: {sheetName}</div>
+                </div>
             </div>
 
             <FormulaBar
@@ -378,6 +464,14 @@ function App() {
 
                 <InfoPanel />
             </div>
+
+            <SettingsModal
+                isOpen={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                model={model}
+                adapter={adapter}
+                onScriptExecuted={() => setUpdateCounter(c => c + 1)}
+            />
         </div>
     );
 }

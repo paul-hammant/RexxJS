@@ -36,6 +36,37 @@ class SpreadsheetRexxAdapter {
     }
 
     /**
+     * Execute setup script (page-level RexxJS code)
+     * This runs once when the spreadsheet loads, making REQUIRE'd functions available to all cells
+     */
+    async executeSetupScript(script) {
+        if (!script || script.trim() === '') {
+            return { success: true, message: 'No setup script to execute' };
+        }
+
+        if (!this.interpreter) {
+            throw new Error('Interpreter not initialized');
+        }
+
+        try {
+            // Parse and execute the setup script
+            const commands = parse(script);
+            await this.interpreter.run(commands);
+
+            return {
+                success: true,
+                message: 'Setup script executed successfully'
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message,
+                message: `Setup script failed: ${error.message}`
+            };
+        }
+    }
+
+    /**
      * Inject cell reference functions (A1, B2, etc.) into RexxJS context
      */
     injectCellReferenceFunctions() {
