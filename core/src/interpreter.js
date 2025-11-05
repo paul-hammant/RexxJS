@@ -37,8 +37,12 @@ let libraryDiscoveryUtils;
 let libraryFetchingUtils;
 let libraryRegistrationUtils;
 let interpretStatementUtils;
+let processEscapeSequences;
 
 if (typeof require !== 'undefined') {
+  const escapeProcessor = require('./escape-sequence-processor.js');
+  processEscapeSequences = escapeProcessor.processEscapeSequences;
+
   const stringProcessing = require('./interpreter-string-and-expression-processing.js');
   parseQuotedParts = stringProcessing.parseQuotedParts;
   interpolateString = stringProcessing.interpolateString;
@@ -83,7 +87,12 @@ if (typeof require !== 'undefined') {
 } else {
   // Browser environment - pull from registry and setup window globals
   const registry = window.rexxModuleRegistry;
-  
+
+  // Escape sequence processor
+  if (window.processEscapeSequences) {
+    processEscapeSequences = window.processEscapeSequences;
+  }
+
   // String processing functions
   if (registry.has('stringProcessing')) {
     const stringProcessing = registry.get('stringProcessing');
@@ -550,6 +559,11 @@ class RexxInterpreterBuilder {
     return this;
   }
 
+  withTraceMode(mode = 'NORMAL') {
+    this.options['trace-mode'] = mode;
+    return this;
+  }
+
   withOutputHandler(handler) {
     this.outputHandler = handler;
     return this;
@@ -638,6 +652,54 @@ class RexxInterpreter {
     
     this.builtInFunctions = this.initializeBuiltInFunctions();
 
+    // Register DOM operations for unified ELEMENT() API
+    try {
+      if (typeof require !== 'undefined') {
+        const domFunctionsModule = require('./dom-functions');
+        const domOperations = domFunctionsModule.operations || {};
+        for (const [operationName, operationFunc] of Object.entries(domOperations)) {
+          // Bind the operation to this interpreter context so 'this' is available
+          this.operations[operationName] = operationFunc.bind(this);
+        }
+      }
+    } catch (e) {
+      // If DOM operations can't be loaded, continue without them (they may be loaded later)
+    }
+
+    // Collect function metadata from all function modules for namedParameters support
+    this.functionMetadata = {};
+    try {
+      if (typeof require !== 'undefined') {
+        const functionModules = [
+          require('./dom-functions'),
+          require('./string-functions'),
+          require('./math-functions'),
+          require('./array-functions'),
+          require('./json-functions'),
+          require('./date-time-functions'),
+          require('./url-functions'),
+          require('./regex-functions'),
+          require('./validation-functions'),
+          require('./file-functions'),
+          require('./http-functions'),
+          require('./statistics-functions'),
+          require('./logic-functions'),
+          require('./cryptography-functions'),
+          require('./data-functions'),
+          require('./probability-functions'),
+          require('./random-functions'),
+          require('./interpolation-functions')
+        ];
+        for (const mod of functionModules) {
+          if (mod && mod.functionMetadata) {
+            Object.assign(this.functionMetadata, mod.functionMetadata);
+          }
+        }
+      }
+    } catch (e) {
+      // Metadata collection is optional - don't fail if modules can't be loaded
+    }
+
     // NOTE: REQUIRE is NOT added to operations to avoid circular reference during Jest serialization
     // It's handled as a special case in executeFunctionCall before checking operations
 
@@ -706,7 +768,7 @@ class RexxInterpreter {
     this.returnValue = null; // Value returned from subroutine
     
     // TRACE support
-    this.traceMode = 'OFF'; // OFF, A, R, I, O, NORMAL
+    this.traceMode = this.options && this.options['trace-mode'] ? this.options['trace-mode'] : 'OFF'; // OFF, A, R, I, O, NORMAL
     this.traceOutput = []; // Store trace output
     
     // DOM Element Manager for stale element handling
@@ -776,6 +838,118 @@ class RexxInterpreter {
     
     // Execution context stack for proper nested execution tracking
     this.executionStack = [];
+
+    // Scope registration for web environments (DOM element -> scope mapping)
+    // When a RexxInterpreter is created, it can traverse parent DOM for 'RexxScript' class
+    // to determine where to register its functions (window by default, or specific DOM element)
+    this.scopeElement = this.findScopeElement(optionsOrHandler && optionsOrHandler.scopeElement);
+    this.scopeRegistry = this.setupScopeRegistry();
+  }
+
+  /**
+   * Find the DOM element where this interpreter's functions should be registered
+   * Traverses parent DOM tree looking for 'RexxScript' class
+   * Falls back to window if not in web environment or class not found
+   */
+  findScopeElement(explicitScopeElement) {
+    // If scope explicitly provided in options, use that
+    if (explicitScopeElement) {
+      return explicitScopeElement;
+    }
+
+    // Only in web environment
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return null;
+    }
+
+    // Try to find closest element with 'RexxScript' class
+    try {
+      // If we're in an iframe, check the iframe element
+      if (window.frameElement) {
+        let element = window.frameElement;
+        while (element) {
+          if (element.classList && element.classList.contains('RexxScript')) {
+            return element;
+          }
+          element = element.parentElement;
+        }
+      }
+
+      // Check document root
+      const root = document.documentElement;
+      if (root && root.classList && root.classList.contains('RexxScript')) {
+        return root;
+      }
+    } catch (e) {
+      // Cross-origin or other access issues - fallback to window
+    }
+
+    return null; // Will default to window
+  }
+
+  /**
+   * Setup scope registry for registering functions
+   * Returns object with functions that register to either window or specific DOM element
+   */
+  setupScopeRegistry() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const self = this;
+    const targetScope = this.scopeElement || window;
+
+    return {
+      // Register a function to the scope (either DOM element or window)
+      registerFunction: function(name, func) {
+        if (self.scopeElement) {
+          // Store in DOM element's dataset
+          if (!self.scopeElement.__rexxFunctions) {
+            self.scopeElement.__rexxFunctions = {};
+          }
+          self.scopeElement.__rexxFunctions[name] = func;
+        } else {
+          // Store in window (legacy behavior)
+          window[name] = func;
+        }
+      },
+
+      // Get a function from the scope
+      getFunction: function(name) {
+        if (self.scopeElement && self.scopeElement.__rexxFunctions && self.scopeElement.__rexxFunctions[name]) {
+          return self.scopeElement.__rexxFunctions[name];
+        }
+        return window[name] || null;
+      },
+
+      // Check if function exists
+      hasFunction: function(name) {
+        if (self.scopeElement && self.scopeElement.__rexxFunctions && self.scopeElement.__rexxFunctions[name]) {
+          return true;
+        }
+        return typeof window[name] !== 'undefined';
+      },
+
+      // Register metadata
+      registerMetadata: function(name, metadata) {
+        if (self.scopeElement) {
+          if (!self.scopeElement.__rexxMetadata) {
+            self.scopeElement.__rexxMetadata = {};
+          }
+          self.scopeElement.__rexxMetadata[name] = metadata;
+        } else {
+          window[name] = metadata;
+        }
+      },
+
+      // Get metadata
+      getMetadata: function(name) {
+        if (self.scopeElement && self.scopeElement.__rexxMetadata && self.scopeElement.__rexxMetadata[name]) {
+          return self.scopeElement.__rexxMetadata[name];
+        }
+        return window[name] || null;
+      }
+    };
   }
   
   // Execution context stack management
@@ -929,6 +1103,7 @@ class RexxInterpreter {
     
     for (let i = startIndex; i < commands.length; i++) {
       const command = commands[i];
+      const prevLine = this.currentLineNumber;
       
       
       // Track current line number for error reporting and push execution context
@@ -979,6 +1154,10 @@ class RexxInterpreter {
       }
       
       try {
+        // Ensure currentLineNumber is available for downstream traces (ADDRESS, CALL, etc.)
+        if (command && command.lineNumber) {
+          this.currentLineNumber = command.lineNumber;
+        }
         const result = await this.executeCommand(command);
         if (result && result.jump) {
           // Handle SIGNAL jumps
@@ -1032,6 +1211,9 @@ class RexxInterpreter {
           }
         }
         // If handled but no jump, continue execution
+      } finally {
+        // Restore previous currentLineNumber
+        this.currentLineNumber = prevLine || null;
       }
     }
     
@@ -1046,8 +1228,29 @@ class RexxInterpreter {
   }
 
   async executeCommand(command) {
-    // Add trace output for instruction execution
-    this.addTraceOutput(`${command.type}`, 'instruction');
+    // Add trace output for instruction execution, except for CALL where we emit
+    // a canonical header separately with arg count.
+    if (command.type !== 'CALL') {
+      let traceMessage;
+      if (command.lineNumber && this.sourceLines && this.sourceLines[command.lineNumber - 1]) {
+        // Prefer originalLine if available to preserve quoting, else source text
+        traceMessage = (command.originalLine || this.sourceLines[command.lineNumber - 1]).trim();
+      } else {
+        // Fallback: reconstruct faithfully for certain commands
+        if (command.type === 'ADDRESS_WITH_STRING') {
+          traceMessage = this.reconstructCommandAsLine(command).trim();
+        } else {
+          traceMessage = command.type;
+        }
+      }
+      // Ensure a line number is present for forwarding. Prefer command.lineNumber,
+      // otherwise fall back to currentLineNumber for ADDRESS_WITH_STRING.
+      let ln = command.lineNumber;
+      if ((!ln || ln === null) && command.type === 'ADDRESS_WITH_STRING') {
+        ln = this.currentLineNumber || null;
+      }
+      this.addTraceOutput(traceMessage, 'instruction', ln);
+    }
     
     switch (command.type) {
         case 'ADDRESS':
@@ -1107,7 +1310,10 @@ class RexxInterpreter {
           break;
           
         case 'CALL':
-          this.addTraceOutput(`CALL ${command.subroutine} (${command.arguments.length} args)`, 'call');
+          // Emit a single canonical CALL header with explicit arg count
+          const argCount = Array.isArray(command.arguments) ? command.arguments.length : 0;
+          const callNameForDisplay = command.displayName ? command.displayName : command.subroutine;
+          this.addTraceOutput(`CALL ${callNameForDisplay} (${argCount} args)`, 'call', command.lineNumber);
           const callResult = await parseSubroutineUtils.executeCall(
             command,
             this.variables,
@@ -1183,13 +1389,13 @@ class RexxInterpreter {
               }
               
               this.variables.set(variableName, value);
-              this.addTraceOutput(`LET ${variableName} = CALL ${command.command.subroutine}`, 'assignment', null, value);
+              // Trace already shown at executeCommand level with full source line
             } else {
               // Function call assignment: LET var = functionCall
               const result = await this.executeFunctionCall(command.command);
               const variableName = await this.interpolateString(command.variable);
               this.variables.set(variableName, result);
-              this.addTraceOutput(`LET ${variableName} = ${command.command.command}()`, 'assignment', null, result);
+              // Trace already shown at executeCommand level with full source line
             }
           } else if (command.expression) {
             // Expression assignment: LET var = expr
@@ -1246,14 +1452,15 @@ class RexxInterpreter {
             
             const variableName = await this.interpolateString(command.variable);
             this.variables.set(variableName, result);
-            this.addTraceOutput(`LET ${variableName} = expression`, 'assignment', null, result);
+            // Trace already shown at executeCommand level with full source line
           } else if (command.value !== undefined) {
             // Simple value assignment: LET var = value (resolve value in case it's a variable reference)
             let resolvedValue;
             
             // For quoted strings, don't resolve as expressions or function calls - keep as literal
             if (command.isQuotedString) {
-              resolvedValue = command.value;
+              // Process escape sequences in quoted strings
+              resolvedValue = processEscapeSequences ? processEscapeSequences(command.value) : command.value;
             } else {
               // Check if we're in an ADDRESS context and the value could be an ADDRESS method call
               if (this.address && this.address !== 'default' && typeof command.value === 'string') {
@@ -1315,7 +1522,7 @@ class RexxInterpreter {
             
             const variableName = await this.interpolateString(command.variable);
             this.variables.set(variableName, resolvedValue);
-            this.addTraceOutput(`LET ${variableName} = "${resolvedValue}"`, 'assignment', null, resolvedValue);
+            // Trace already shown at executeCommand level with full source line
           }
           break;
         
@@ -1359,7 +1566,7 @@ class RexxInterpreter {
           break;
         
         case 'SELECT':
-          const selectResult = await controlFlowUtils.executeSelectStatement(command, this.evaluateCondition.bind(this), this.run.bind(this));
+          const selectResult = await controlFlowUtils.executeSelectStatement.call(this, command, this.evaluateCondition.bind(this), this.run.bind(this));
           if (selectResult && selectResult.terminated) {
             if (selectResult.type === 'RETURN') {
               // RETURN inside SELECT should bubble up to caller
@@ -1402,6 +1609,10 @@ class RexxInterpreter {
           break;
           
         case 'HEREDOC_STRING':
+          // If parser associated an address target, set it for this heredoc execution only
+          if (command.addressTarget) {
+            this.address = command.addressTarget.toLowerCase();
+          }
           await this.executeHeredocString(command);
           break;
 
@@ -1423,6 +1634,11 @@ class RexxInterpreter {
     
     // Last resort: reconstruct from command properties
     switch (command.type) {
+      case 'ADDRESS_WITH_STRING':
+        if (command.target && command.commandString !== undefined) {
+          return `ADDRESS ${command.target} "${command.commandString}"`;
+        }
+        break;
       case 'ASSIGNMENT':
         if (command.expression && typeof command.expression === 'string') {
           return command.expression;
@@ -1476,7 +1692,8 @@ class RexxInterpreter {
       sourceFilename: this.sourceFilename,
       interpolation: interpolation,
       RexxError: RexxError,
-      interpreterInstance: this
+      interpreterInstance: this,
+      functionMetadata: this.functionMetadata || {}
     };
     return await functionExecution.executeFunctionCall(funcCall, context);
   }
@@ -1703,7 +1920,7 @@ class RexxInterpreter {
     for (const part of parts) {
       if (part.startsWith('"') && part.endsWith('"')) {
         // Handle quoted string with potential interpolation
-        const rawString = part.substring(1, part.length - 1);
+        let rawString = part.substring(1, part.length - 1);
         // Check for interpolation using current pattern
         let pattern;
         try {
@@ -1718,7 +1935,10 @@ class RexxInterpreter {
           const interpolated = await this.interpolateString(rawString);
           outputParts.push(interpolated);
         } else {
-          // Simple string
+          // Simple string - apply escape sequence processor
+          if (processEscapeSequences) {
+            rawString = processEscapeSequences(rawString);
+          }
           outputParts.push(rawString);
         }
       } else if (part.startsWith("'") && part.endsWith("'")) {
@@ -1948,14 +2168,20 @@ class RexxInterpreter {
   addTraceOutput(message, type = 'instruction', lineNumber = null, result = null) {
     traceFormattingUtils.addTraceOutput(message, type, lineNumber, result, this.traceMode, this.traceOutput);
 
-    // Output trace to handler if trace-to-output is enabled
+    // Output trace to handler if trace-to-output is enabled, but only for
+    // instruction-level events. Suppress lower-level ADDRESS internals.
     if (this.options['trace-to-output'] && this.outputHandler && this.traceMode !== 'OFF') {
-      // Format: >> <line-number> <message> [=> result]
-      let traceOutput = `>> ${lineNumber || '?'} ${message}`;
-      if (result !== null && result !== undefined) {
-        traceOutput += ` => ${result}`;
+      // Only forward user-visible types
+      const userVisibleTypes = new Set(['instruction', 'call', 'trace']);
+      if (!userVisibleTypes.has(type)) {
+        return;
       }
-      this.outputHandler.output(traceOutput);
+      // Require a line number for user-facing stream
+      if (lineNumber === null || lineNumber === undefined) {
+        return;
+      }
+      const traceLine = `>> ${String(lineNumber)} ${message}`;
+      this.outputHandler.output(traceLine);
     }
   }
 
@@ -2862,19 +3088,34 @@ class RexxInterpreter {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     const libraryCode = await response.text();
-    
+
     // Execute the library code
     const func = new Function(libraryCode);
     func();
-    
+
     // Give the library a moment to register itself globally
     await new Promise(resolve => setTimeout(resolve, 10));
-    
+
+    // Extract metadata function name from the fetched code to properly detect the library
+    const metadataFunctionName = this.extractMetadataFunctionName(libraryCode);
+    if (metadataFunctionName) {
+      // Register the detection function for this HTTPS URL
+      if (typeof window !== 'undefined' && typeof window.registerLibraryDetectionFunction === 'function') {
+        window.registerLibraryDetectionFunction(libraryName, metadataFunctionName);
+      } else if (typeof global !== 'undefined' && typeof global.registerLibraryDetectionFunction === 'function') {
+        global.registerLibraryDetectionFunction(libraryName, metadataFunctionName);
+      }
+    }
+
     if (this.isLibraryLoaded(libraryName)) {
       // Register loaded functions as built-ins
       this.registerLibraryFunctions(libraryName);
+
+      // Detect and register ADDRESS handlers from the library
+      this.detectAndRegisterAddressTargets(libraryName);
+
       console.log(`✓ Loaded ${libraryName} via fetch`);
       return true;
     } else {
@@ -3356,10 +3597,14 @@ class RexxInterpreter {
 
 // Export for both Node.js and browser environments
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Interpreter: RexxInterpreter, RexxInterpreter, RexxInterpreter: RexxInterpreter }; // Keep legacy name for backwards compat
+  module.exports = {
+    Interpreter: RexxInterpreter,
+    RexxInterpreter,
+    RexxInterpreterBuilder
+  };
 } else {
   // Browser environment - attach to window
-  window.Interpreter = RexxInterpreter; // Keep Interpreter for backwards compat
+  window.Interpreter = RexxInterpreter;
   window.RexxInterpreter = RexxInterpreter;
-  window.RexxInterpreter = RexxInterpreter; // Legacy alias
+  window.RexxInterpreterBuilder = RexxInterpreterBuilder;
 }
