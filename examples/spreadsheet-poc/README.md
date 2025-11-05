@@ -19,6 +19,8 @@ A proof-of-concept spreadsheet powered by RexxJS expressions, built with React.
 - **Enhanced Info Panel**: Shows cell details, dependencies, type, comments
 - **View Mode Hotkeys**: Press V/E/F/N to toggle between different views
 - **Basic Styling**: Clean, modern UI with visual feedback
+- **📁 Load from File/URL**: Load spreadsheet data from JSON files (web mode via hash parameter)
+- **🔌 Control Bus**: Remote control via ARexx-inspired cross-application scripting (web mode: iframe postMessage, Tauri mode: HTTP API)
 
 ## Deployment
 
@@ -90,6 +92,154 @@ The spreadsheet can also run as a native desktop application on Mac, Windows, an
 - Professional application feel
 
 ## Usage
+
+### Loading Spreadsheet Data
+
+#### Web Mode - Load from URL
+
+Use the hash parameter to load spreadsheet data from a JSON file:
+
+```bash
+# Load from relative path
+http://localhost:8082/examples/spreadsheet-poc/index.html#load=sample-budget.json
+
+# Load from absolute path
+http://localhost:8082/examples/spreadsheet-poc/index.html#load=/data/mysheet.json
+
+# Load from HTTP(S) URL
+http://localhost:8082/examples/spreadsheet-poc/index.html#load=https://example.com/sheet.json
+```
+
+**Spreadsheet JSON Format:**
+```json
+{
+  "name": "My Spreadsheet",
+  "version": "1.0",
+  "setupScript": "LET TAX_RATE = 0.08",
+  "cells": {
+    "A1": { "value": "Item", "expression": null, "format": null, "comment": "Column header" },
+    "B2": { "value": "1200", "expression": null, "format": "$0.00", "comment": null },
+    "C2": { "value": "96", "expression": "B2 * TAX_RATE", "format": null, "comment": null }
+  },
+  "metadata": {
+    "rows": 100,
+    "cols": 26,
+    "created": "2025-11-05T18:00:00.000Z"
+  }
+}
+```
+
+See `sample-budget.json` for a complete example.
+
+#### Tauri Mode - Load from Filesystem
+
+In Tauri desktop mode, pass the file path as a command-line argument:
+
+```bash
+# Launch with file path
+./spreadsheet-app /path/to/mysheet.json
+
+# Or via npm in development
+npm run tauri:dev -- /path/to/mysheet.json
+```
+
+### Control Bus - Remote Scripting
+
+The spreadsheet supports remote control via an ARexx-inspired control bus, allowing other applications or Rexx scripts to manipulate the spreadsheet programmatically.
+
+#### Web Mode - iframe Communication
+
+Open the control bus demo to see it in action:
+
+```
+http://localhost:8082/examples/spreadsheet-poc/spreadsheet-controlbus-demo.html
+```
+
+**Example Rexx Script (controlling spreadsheet from another iframe):**
+
+```rexx
+-- Control the spreadsheet remotely
+ADDRESS spreadsheet
+
+-- Set cell values
+"setCell" ref="A1" content="100"
+"setCell" ref="A2" content="200"
+"setCell" ref="A3" content="=A1+A2"
+
+-- Get results
+LET result = "getCellValue" ref="A3"
+SAY "Sum: " || result.value  -- Output: Sum: 300
+
+-- Export data
+LET data = "export" name="MySheet"
+SAY "Exported " || data.name
+```
+
+**Available Control Bus Commands:**
+
+- `setCell` - Set a cell value or formula
+- `getCell` - Get complete cell information
+- `getCellValue` - Get just the computed value
+- `getCellExpression` - Get the formula expression
+- `getCells` - Get multiple cells by range (e.g., "A1:B5")
+- `setCells` - Set multiple cells at once
+- `clear` - Clear all cells
+- `export` - Export spreadsheet to JSON
+- `import` - Import spreadsheet from JSON
+- `getSheetName` / `setSheetName` - Manage sheet name
+- `evaluate` - Evaluate a RexxJS expression
+- `recalculate` - Force recalculation of all formulas
+- `getSetupScript` / `setSetupScript` / `executeSetupScript` - Manage setup script
+- `listCommands` - Get list of available commands
+- `getVersion` - Get control bus version
+
+#### Tauri Mode - HTTP API
+
+In Tauri desktop mode, the control bus is exposed as an HTTP API with token authentication:
+
+```bash
+# Start spreadsheet with control bus enabled
+./spreadsheet-app --control-bus --token=my-secret-token
+
+# Or with environment variable
+CONTROL_BUS_TOKEN=my-secret-token ./spreadsheet-app
+```
+
+**Example API Call:**
+
+```bash
+# Set a cell value
+curl -X POST http://localhost:8083/api/spreadsheet \
+  -H "Authorization: Bearer my-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "setCell", "params": {"ref": "A1", "content": "Hello"}}'
+
+# Get cell value
+curl -X POST http://localhost:8083/api/spreadsheet \
+  -H "Authorization: Bearer my-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "getCellValue", "params": {"ref": "A1"}}'
+```
+
+**Using from RexxJS:**
+
+```rexx
+-- Control spreadsheet via HTTP from another Rexx script
+LET token = "my-secret-token"
+LET url = "http://localhost:8083/api/spreadsheet"
+
+-- Set a cell
+LET request = '{"command": "setCell", "params": {"ref": "A1", "content": "100"}}'
+LET response = HTTP_POST(url, request, '{"Authorization": "Bearer ' || token || '"}')
+
+-- Get the value
+LET request2 = '{"command": "getCellValue", "params": {"ref": "A1"}}'
+LET response2 = HTTP_POST(url, request2, '{"Authorization": "Bearer ' || token || '"}')
+LET result = JSON_PARSE(response2.body)
+SAY "Cell A1 = " || result.result.value
+```
+
+This design is inspired by **ARexx** from the Amiga, which allowed applications like DPaint, PageStream, and Directory Opus to be controlled by external scripts, enabling powerful workflow automation and inter-application communication.
 
 ### Keyboard Shortcuts (Hotkeys)
 
