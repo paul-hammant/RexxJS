@@ -12,7 +12,6 @@ module.exports = {
   coverageDirectory: './coverage/',
   collectCoverageFrom: [
     'src/**/*.js',
-    '!src/index.js',
     '!src/cli.js',
     '!src/rexxjs-cli.js',
     '!src/standalone-tools/**/*.js',
