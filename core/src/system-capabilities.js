@@ -1,6 +1,6 @@
 /*!
- * System Capabilities Detection
- * Provides canonical functions to check for system capabilities
+ * System Capabilities Detection - Open/Extensible System
+ * Provides simple, generic capability checking without hard-coded technologies
  * Copyright (c) 2025 Paul Hammant | MIT License
  */
 
@@ -13,6 +13,7 @@ const capabilityCache = new Map();
 
 /**
  * Check if a command exists on the system
+ * This is the default capability check - just checks command existence
  */
 function hasCommand(command) {
   const cacheKey = `command:${command}`;
@@ -34,184 +35,43 @@ function hasCommand(command) {
 }
 
 /**
- * Check if Docker is available
+ * Check if a capability is available
+ *
+ * This is an OPEN system:
+ * - Default: Checks if a command with that name exists (via which/where)
+ * - Extensible: Can be customized by defining HAS_<capability>() functions
+ *
+ * Examples:
+ *   @requires docker   → checks if 'docker' command exists
+ *   @requires podman   → checks if 'podman' command exists
+ *   @requires doofus   → checks if 'doofus' command exists
+ *   @requires anything → checks if 'anything' command exists
+ *
+ * For custom logic, define HAS_DOCKER(), HAS_PODMAN(), etc. functions
+ * in your test file or a shared library.
  */
-function hasDocker() {
-  const cacheKey = 'docker:available';
-
-  if (capabilityCache.has(cacheKey)) {
-    return capabilityCache.get(cacheKey);
-  }
-
-  if (!hasCommand('docker')) {
-    capabilityCache.set(cacheKey, false);
-    return false;
-  }
-
-  try {
-    // Verify Docker daemon is running
-    execSync('docker info', { stdio: 'ignore', timeout: 2000 });
-    capabilityCache.set(cacheKey, true);
-    return true;
-  } catch (error) {
-    capabilityCache.set(cacheKey, false);
-    return false;
-  }
-}
-
-/**
- * Check if Podman is available
- */
-function hasPodman() {
-  const cacheKey = 'podman:available';
-
-  if (capabilityCache.has(cacheKey)) {
-    return capabilityCache.get(cacheKey);
-  }
-
-  if (!hasCommand('podman')) {
-    capabilityCache.set(cacheKey, false);
-    return false;
-  }
-
-  try {
-    // Verify Podman is working
-    execSync('podman info', { stdio: 'ignore', timeout: 2000 });
-    capabilityCache.set(cacheKey, true);
-    return true;
-  } catch (error) {
-    capabilityCache.set(cacheKey, false);
-    return false;
-  }
-}
-
-/**
- * Check if QEMU/KVM is available
- */
-function hasQemu() {
-  const cacheKey = 'qemu:available';
-
-  if (capabilityCache.has(cacheKey)) {
-    return capabilityCache.get(cacheKey);
-  }
-
-  const result = hasCommand('qemu-system-x86_64') || hasCommand('qemu-img');
-  capabilityCache.set(cacheKey, result);
-  return result;
-}
-
-/**
- * Check if VirtualBox is available
- */
-function hasVirtualBox() {
-  const cacheKey = 'virtualbox:available';
-
-  if (capabilityCache.has(cacheKey)) {
-    return capabilityCache.get(cacheKey);
-  }
-
-  const result = hasCommand('VBoxManage') || hasCommand('vboxmanage');
-  capabilityCache.set(cacheKey, result);
-  return result;
-}
-
-/**
- * Check if systemd-nspawn is available
- */
-function hasNspawn() {
-  const cacheKey = 'nspawn:available';
-
-  if (capabilityCache.has(cacheKey)) {
-    return capabilityCache.get(cacheKey);
-  }
-
-  const result = hasCommand('systemd-nspawn');
-  capabilityCache.set(cacheKey, result);
-  return result;
-}
-
-/**
- * Check if git is available
- */
-function hasGit() {
-  return hasCommand('git');
-}
-
-/**
- * Check if npm is available
- */
-function hasNpm() {
-  return hasCommand('npm');
-}
-
-/**
- * Check if curl is available
- */
-function hasCurl() {
-  return hasCommand('curl');
-}
-
-/**
- * Check if wget is available
- */
-function hasWget() {
-  return hasCommand('wget');
-}
-
-/**
- * Check if ssh is available
- */
-function hasSsh() {
-  return hasCommand('ssh');
-}
-
-/**
- * Check if a specific capability is available
- * This is the main function used by the test runner
- */
-function checkCapability(capability) {
+function checkCapability(capability, customCheckers = {}) {
   const normalizedCap = capability.toLowerCase().trim();
+  const cacheKey = `capability:${normalizedCap}`;
 
-  switch (normalizedCap) {
-    case 'docker':
-      return hasDocker();
-    case 'podman':
-      return hasPodman();
-    case 'qemu':
-    case 'kvm':
-      return hasQemu();
-    case 'virtualbox':
-    case 'vbox':
-      return hasVirtualBox();
-    case 'nspawn':
-    case 'systemd-nspawn':
-      return hasNspawn();
-    case 'git':
-      return hasGit();
-    case 'npm':
-      return hasNpm();
-    case 'curl':
-      return hasCurl();
-    case 'wget':
-      return hasWget();
-    case 'ssh':
-      return hasSsh();
-    default:
-      // Unknown capability - assume not available
-      return false;
+  // Check cache first
+  if (capabilityCache.has(cacheKey)) {
+    return capabilityCache.get(cacheKey);
   }
-}
 
-/**
- * Get all available capabilities
- */
-function getAvailableCapabilities() {
-  const capabilities = [
-    'docker', 'podman', 'qemu', 'virtualbox', 'nspawn',
-    'git', 'npm', 'curl', 'wget', 'ssh'
-  ];
+  // Check if there's a custom checker function
+  const checkerName = `HAS_${normalizedCap.toUpperCase()}`;
+  if (customCheckers[checkerName]) {
+    const result = customCheckers[checkerName]();
+    capabilityCache.set(cacheKey, result);
+    return result;
+  }
 
-  return capabilities.filter(cap => checkCapability(cap));
+  // Default behavior: check if command exists
+  // This works for: docker, podman, git, npm, curl, wget, ssh, doofus, anything
+  const result = hasCommand(normalizedCap);
+  capabilityCache.set(cacheKey, result);
+  return result;
 }
 
 /**
@@ -223,17 +83,6 @@ function clearCache() {
 
 module.exports = {
   hasCommand,
-  hasDocker,
-  hasPodman,
-  hasQemu,
-  hasVirtualBox,
-  hasNspawn,
-  hasGit,
-  hasNpm,
-  hasCurl,
-  hasWget,
-  hasSsh,
   checkCapability,
-  getAvailableCapabilities,
   clearCache
 };

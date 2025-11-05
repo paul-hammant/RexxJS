@@ -250,20 +250,60 @@ DockerWithCurlTest:
 RETURN
 ```
 
-#### Supported Capabilities
+#### Open Capability System
 
-The following system capabilities are detected automatically:
+**The @requires system is OPEN and extensible** - it works with ANY capability name, not just a pre-defined list.
 
-- `docker` - Docker daemon (checks both command and daemon availability)
-- `podman` - Podman container engine
-- `qemu` or `kvm` - QEMU/KVM virtualization
-- `virtualbox` or `vbox` - VirtualBox
-- `nspawn` or `systemd-nspawn` - systemd-nspawn containers
-- `git` - Git version control
-- `npm` - Node Package Manager
-- `curl` - curl command-line tool
-- `wget` - wget download utility
-- `ssh` - SSH client
+**Default behavior**: Checks if a command with that name exists on the system
+
+```rexx
+/* @requires docker */     // Checks if 'docker' command exists
+/* @requires podman */     // Checks if 'podman' command exists
+/* @requires git */        // Checks if 'git' command exists
+/* @requires doofus */     // Checks if 'doofus' command exists
+/* @requires anything */   // Checks if 'anything' command exists
+```
+
+**How it works:**
+1. Takes the capability name (e.g., "docker")
+2. Uses `which` (Unix) or `where` (Windows) to check if that command exists
+3. Caches the result to avoid repeated checks
+4. Skips the test if command not found
+
+**Common capabilities** (not exhaustive - any name works!):
+- Container engines: `docker`, `podman`
+- Virtualization: `qemu`, `virtualbox`, `vboxmanage`
+- Version control: `git`, `hg`, `svn`
+- Package managers: `npm`, `pip`, `cargo`, `maven`
+- Tools: `curl`, `wget`, `ssh`, `jq`, `awk`, `sed`
+- Databases: `psql`, `mysql`, `redis-cli`, `mongo`
+- Your custom tools: `doofus`, `foobar`, `anything`
+
+**The system is agnostic** - no hard-coded technology list!
+
+#### Custom Capability Logic
+
+For more complex checks beyond "does command exist", you can define custom checker functions:
+
+```javascript
+// In your test file or a shared library
+function HAS_DOCKER() {
+  // Check if docker daemon is actually running
+  try {
+    execSync('docker info', { stdio: 'ignore', timeout: 2000 });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function HAS_DOOFUS() {
+  // Check environment variable, file existence, API endpoint, etc.
+  return process.env.DOOFUS_ENABLED === 'true';
+}
+```
+
+See `tests/dogfood/custom-capability-checkers.js` for examples.
 
 #### Skip Messages
 
@@ -702,6 +742,11 @@ See the `tests/dogfood/` directory for comprehensive examples:
 
 - `skip-simple-demo.rexx` - Basic skip functionality
 - `skip-multiple-demo.rexx` - Multiple skipped tests
+- `requires-docker-demo.rexx` - Docker requirement example
+- `requires-podman-demo.rexx` - Podman requirement example
+- `requires-multiple-demo.rexx` - Multiple requirements example
+- `requires-open-system-demo.rexx` - **Open system demo (arbitrary capability names!)**
+- `custom-capability-checkers.js` - Custom checker functions example
 - `mit-license-test.rexx` - File operations testing
 - `comment-styles-comprehensive.rexx` - Syntax testing
 - `two-parameter-functions.rexx` - Function testing
@@ -712,7 +757,10 @@ rexxt provides a modern, elegant testing experience for RexxJS:
 
 - ✅ Simple, readable test syntax
 - ✅ Manual skip annotations with `@skip`
-- ✅ **Automatic conditional execution with `@requires`** (canonical RexxJS way)
+- ✅ **Open conditional execution with `@requires`** (canonical RexxJS way)
+  - Works with ANY capability name - no hard-coded list
+  - Default: checks if command exists
+  - Extensible: define custom checker functions
 - ✅ Flexible test selection with tags and patterns
 - ✅ Rich output options from minimal to verbose
 - ✅ JSON results for automation
@@ -724,6 +772,6 @@ Write tests that are:
 - **Focused** - One concept per test
 - **Organized** - Tags and file structure
 - **Maintainable** - Skip annotations with reasons
-- **Portable** - Use `@requires` for platform/tool dependencies
+- **Portable** - Use `@requires` for platform/tool dependencies (docker, podman, git, or YOUR tools)
 
 Happy testing! 🧪
