@@ -4,7 +4,7 @@
  * Tests for the spreadsheet UI interactions and RexxJS integration.
  */
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test.describe('Spreadsheet POC', () => {
     test.beforeEach(async ({ page }) => {
@@ -249,5 +249,214 @@ test.describe('Spreadsheet POC', () => {
         // Verify cell is empty
         cellValue = await cellA1.textContent();
         expect(cellValue.trim()).toBe('');
+    });
+
+    test('should apply number formatting from context menu', async ({ page }) => {
+        // Set a numeric value
+        const cellD1 = page.locator('.grid-row').nth(1).locator('.cell').nth(3);
+        await cellD1.dblclick();
+        await page.keyboard.type('123.456789');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Right-click to open context menu
+        await cellD1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+
+        // Navigate to Number Format submenu
+        await page.hover('.context-menu-item:has-text("Number Format")');
+        await page.waitForTimeout(100);
+
+        // Click on "2 Decimals (0.00)"
+        await page.click('.context-submenu .context-menu-item:has-text("2 Decimals")');
+        await page.waitForTimeout(200);
+
+        // Verify cell displays formatted value
+        const cellValue = await cellD1.textContent();
+        expect(cellValue.trim()).toBe('123.46');
+    });
+
+    test('should apply currency formatting from context menu', async ({ page }) => {
+        // Set a numeric value
+        const cellD2 = page.locator('.grid-row').nth(2).locator('.cell').nth(3);
+        await cellD2.dblclick();
+        await page.keyboard.type('1234.56');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Right-click to open context menu
+        await cellD2.click({ button: 'right' });
+        await page.waitForTimeout(100);
+
+        // Navigate to Number Format submenu
+        await page.hover('.context-menu-item:has-text("Number Format")');
+        await page.waitForTimeout(100);
+
+        // Click on "Currency (USD)"
+        await page.click('.context-submenu .context-menu-item:has-text("Currency (USD)")');
+        await page.waitForTimeout(200);
+
+        // Verify cell displays formatted value (with $ symbol)
+        const cellValue = await cellD2.textContent();
+        expect(cellValue.trim()).toContain('$');
+        expect(cellValue.trim()).toContain('1,234.56');
+    });
+
+    test('should apply percentage formatting from context menu', async ({ page }) => {
+        // Set a numeric value
+        const cellD3 = page.locator('.grid-row').nth(3).locator('.cell').nth(3);
+        await cellD3.dblclick();
+        await page.keyboard.type('0.125');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Right-click to open context menu
+        await cellD3.click({ button: 'right' });
+        await page.waitForTimeout(100);
+
+        // Navigate to Number Format submenu
+        await page.hover('.context-menu-item:has-text("Number Format")');
+        await page.waitForTimeout(100);
+
+        // Click on "Percent (0.0%)"
+        await page.click('.context-submenu .context-menu-item:has-text("Percent (0.0%)")');
+        await page.waitForTimeout(200);
+
+        // Verify cell displays formatted value
+        const cellValue = await cellD3.textContent();
+        expect(cellValue.trim()).toBe('12.5%');
+    });
+
+    test('should apply alignment formatting from context menu', async ({ page }) => {
+        // Set a text value
+        const cellE1 = page.locator('.grid-row').nth(1).locator('.cell').nth(4);
+        await cellE1.dblclick();
+        await page.keyboard.type('Center Me');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Right-click to open context menu
+        await cellE1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+
+        // Navigate to Align submenu
+        await page.hover('.context-menu-item:has-text("Align")');
+        await page.waitForTimeout(100);
+
+        // Click on "Align Center"
+        await page.click('.context-submenu .context-menu-item:has-text("Align Center")');
+        await page.waitForTimeout(200);
+
+        // Verify cell has center alignment style
+        const textAlign = await cellE1.evaluate(el => window.getComputedStyle(el).textAlign);
+        expect(textAlign).toBe('center');
+    });
+
+    test('should apply combined formatting (bold + color + currency)', async ({ page }) => {
+        // Set a numeric value
+        const cellF1 = page.locator('.grid-row').nth(1).locator('.cell').nth(5);
+        await cellF1.dblclick();
+        await page.keyboard.type('999.99');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Apply bold
+        await cellF1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+        await page.hover('.context-menu-item:has-text("Format")');
+        await page.waitForTimeout(100);
+        await page.click('.context-submenu .context-menu-item:has-text("Bold")');
+        await page.waitForTimeout(200);
+
+        // Apply red color
+        await cellF1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+        await page.hover('.context-menu-item:has-text("Format")');
+        await page.waitForTimeout(100);
+        await page.click('.context-submenu .context-menu-item:has-text("Text: Red")');
+        await page.waitForTimeout(200);
+
+        // Apply currency format
+        await cellF1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+        await page.hover('.context-menu-item:has-text("Number Format")');
+        await page.waitForTimeout(100);
+        await page.click('.context-submenu .context-menu-item:has-text("Currency (USD)")');
+        await page.waitForTimeout(200);
+
+        // Verify all formats are applied
+        const fontWeight = await cellF1.evaluate(el => window.getComputedStyle(el).fontWeight);
+        expect(parseInt(fontWeight)).toBeGreaterThanOrEqual(700); // Bold
+
+        const color = await cellF1.evaluate(el => window.getComputedStyle(el).color);
+        expect(color).toContain('255, 0, 0'); // Red (rgb format)
+
+        const cellValue = await cellF1.textContent();
+        expect(cellValue.trim()).toContain('$');
+        expect(cellValue.trim()).toContain('999.99');
+    });
+
+    test('should preserve formatting when updating cell value', async ({ page }) => {
+        // Set a value and apply formatting
+        const cellG1 = page.locator('.grid-row').nth(1).locator('.cell').nth(6);
+        await cellG1.dblclick();
+        await page.keyboard.type('100');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Apply bold format
+        await cellG1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+        await page.hover('.context-menu-item:has-text("Format")');
+        await page.waitForTimeout(100);
+        await page.click('.context-submenu .context-menu-item:has-text("Bold")');
+        await page.waitForTimeout(200);
+
+        // Change cell value
+        await cellG1.dblclick();
+        await page.keyboard.press('Control+A');
+        await page.keyboard.type('200');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Verify formatting is still applied
+        const fontWeight = await cellG1.evaluate(el => window.getComputedStyle(el).fontWeight);
+        expect(parseInt(fontWeight)).toBeGreaterThanOrEqual(700); // Still bold
+
+        const cellValue = await cellG1.textContent();
+        expect(cellValue.trim()).toBe('200');
+    });
+
+    test('should clear formatting from context menu', async ({ page }) => {
+        // Set a value and apply formatting
+        const cellH1 = page.locator('.grid-row').nth(1).locator('.cell').nth(7);
+        await cellH1.dblclick();
+        await page.keyboard.type('Test');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+
+        // Apply italic format
+        await cellH1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+        await page.hover('.context-menu-item:has-text("Format")');
+        await page.waitForTimeout(100);
+        await page.click('.context-submenu .context-menu-item:has-text("Italic")');
+        await page.waitForTimeout(200);
+
+        // Verify italic is applied
+        let fontStyle = await cellH1.evaluate(el => window.getComputedStyle(el).fontStyle);
+        expect(fontStyle).toBe('italic');
+
+        // Clear formatting
+        await cellH1.click({ button: 'right' });
+        await page.waitForTimeout(100);
+        await page.hover('.context-menu-item:has-text("Format")');
+        await page.waitForTimeout(100);
+        await page.click('.context-submenu .context-menu-item:has-text("Clear Format")');
+        await page.waitForTimeout(200);
+
+        // Verify formatting is cleared
+        fontStyle = await cellH1.evaluate(el => window.getComputedStyle(el).fontStyle);
+        expect(fontStyle).toBe('normal');
     });
 });

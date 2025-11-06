@@ -104,6 +104,84 @@ ELSE DO
   SAY "  ✗ Failed with RC =" RC "ERRORTEXT =" ERRORTEXT
 END
 
+/* Test formatting features */
+SAY ""
+SAY "Testing formatting features..."
+SAY ""
+
+/* Test number formatting */
+SAY "Setting D1 = 123.456789..."
+'SETCELL("D1", "123.456789")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Command sent"
+END
+
+SAY "Formatting D1 with 2 decimal places..."
+'SETFORMAT("D1", "number:0.00")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Format applied: number:0.00"
+END
+
+/* Test currency formatting */
+SAY "Setting D2 = 1234.56..."
+'SETCELL("D2", "1234.56")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Command sent"
+END
+
+SAY "Formatting D2 as USD currency..."
+'SETFORMAT("D2", "currency:USD")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Format applied: currency:USD"
+END
+
+/* Test percentage formatting */
+SAY "Setting D3 = 0.125..."
+'SETCELL("D3", "0.125")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Command sent"
+END
+
+SAY "Formatting D3 as percentage..."
+'SETFORMAT("D3", "percent:0.0%")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Format applied: percent:0.0%"
+END
+
+/* Test text alignment */
+SAY ""
+SAY "Testing alignment formatting..."
+SAY "Setting E1 = 'Left' with left alignment..."
+'SETCELL("E1", "Left")'
+'SETFORMAT("E1", "align:left")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Left alignment applied"
+END
+
+SAY "Setting E2 = 'Center' with center alignment..."
+'SETCELL("E2", "Center")'
+'SETFORMAT("E2", "align:center")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Center alignment applied"
+END
+
+SAY "Setting E3 = 'Right' with right alignment..."
+'SETCELL("E3", "Right")'
+'SETFORMAT("E3", "align:right")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Right alignment applied"
+END
+
+/* Test combined formatting */
+SAY ""
+SAY "Testing combined formatting..."
+SAY "Setting F1 = 999.99 with bold, red, currency format..."
+'SETCELL("F1", "999.99")'
+'SETFORMAT("F1", "bold;color:red;currency:USD")'
+IF RC = 0 THEN DO
+  SAY "  ✓ Combined format applied"
+END
+
 SAY ""
 SAY "==========================================="
 SAY "Demo completed! ✓"
@@ -114,6 +192,16 @@ SAY "  A2 = 200"
 SAY "  A3 = 300 (formula: =A1+A2)"
 SAY "  B1 = Hello from REXX!"
 SAY "  B2 = HELLO FROM REXX! (formula: =UPPER(B1))"
+SAY "  B3 = hello from rexx! (formula: =B2 |> LOWER)"
+SAY ""
+SAY "Formatted cells:"
+SAY "  D1 = 123.46 (2 decimal places)"
+SAY "  D2 = $1,234.56 (USD currency)"
+SAY "  D3 = 12.5% (percentage with 1 decimal)"
+SAY "  E1 = Left (left aligned)"
+SAY "  E2 = Center (center aligned)"
+SAY "  E3 = Right (right aligned)"
+SAY "  F1 = $999.99 (bold, red, currency)"
 SAY ""
 SAY "The RESULT variable contains values returned from GETCELL!"
 SAY ""
@@ -123,6 +211,7 @@ SAY "You should see detailed logs showing:"
 SAY "  - Control bus events received"
 SAY "  - Commands being executed"
 SAY "  - GETCELL results"
+SAY "  - SETFORMAT commands"
 SAY "  - UI update events"
 SAY ""
 SAY "The spreadsheet is being controlled remotely"
