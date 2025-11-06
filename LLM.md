@@ -10,6 +10,12 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - Advanced control structures: `DO OVER` for iteration, `INTERPRET` for dynamic code execution
 - There is `INTERPRET_JS` too dynamic JavaScript code execution - but that's really only for debugging
 - Function library system with 200+ built-in functions across multiple domains
+- **Variable Resolver (var_missing) Callback**: Lazy variable resolution system that allows external environments (like spreadsheets) to provide variable values on-demand without pre-injection
+  - Variables resolved via `variableResolver` callback when not found in interpreter's variable map
+  - No caching - callback invoked every time variable is accessed
+  - Enables first-class interop with host environments (Tauri, browser, Node.js)
+  - Example: Spreadsheet cell references (`A1`, `B2`) resolved dynamically from spreadsheet model
+  - Test coverage: 12 comprehensive tests in `core/tests/variable-resolver.spec.js`
 
 ### Environment Detection & Awareness
 

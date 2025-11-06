@@ -141,6 +141,14 @@ Execution in Node.js environments (desktop, server, docker-style container or VM
 
 ## Advanced Features
 
+### 🔄 [Variable Resolver (var_missing)](variable-resolver.md)
+- Lazy variable resolution system
+- External data source integration
+- Spreadsheet cell references
+- Database query results
+- No-cache on-demand resolution
+- First-class environment interop
+
 ### 🏃 [Dynamic Execution](18-interpret.md)
 - INTERPRET statement modes
 - Variable scoping and isolation

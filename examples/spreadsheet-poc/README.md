@@ -6,6 +6,47 @@ A proof-of-concept spreadsheet powered by RexxJS expressions, built with React.
 - **Web**: Static HTML/JS that can be served from any web server
 - **Desktop**: Native application for Mac, Windows, and Linux via Tauri
 
+## Quick Start
+
+### Development Mode (Tauri)
+
+**Launch with sample data:**
+```bash
+./rexxsheet-dev
+```
+
+**Load a specific spreadsheet:**
+```bash
+./rexxsheet-dev test-sheet.json
+./rexxsheet-dev sample-budget.json
+./rexxsheet-dev /path/to/your-spreadsheet.json
+```
+
+**Show help:**
+```bash
+./rexxsheet-dev --help
+```
+
+### Production Binary
+
+See **[BUILDING-BINARY.md](BUILDING-BINARY.md)** for instructions on building and distributing a standalone binary.
+
+### Sample Files
+
+- **`test-sheet.json`** - Simple test spreadsheet with basic formulas
+  - Numbers, text, SUM_RANGE, UPPER functions
+  - Good for quick testing and learning
+  - Matches the default programmatic sample data
+
+- **`sample-budget.json`** - Budget spreadsheet with tax calculations
+  - Demonstrates setupScript with global variables
+  - Cell dependencies and complex formulas
+  - Uses SUM_RANGE for totals
+
+### File Format
+
+See **[FILE-LOADING.md](FILE-LOADING.md)** for complete file format documentation and loading options.
+
 ## Features
 
 - **Cells with Values or Expressions**: Enter literal values or formulas starting with `=`
@@ -26,24 +67,47 @@ A proof-of-concept spreadsheet powered by RexxJS expressions, built with React.
 
 ### Web Deployment
 
-The original `index.html` provides a standalone web version that can be opened directly in a browser.
+The spreadsheet can run as a web application using Vite's dev server.
 
 1. **Build the RexxJS bundle** (if not already built):
    ```bash
    cd core/src/repl
    npm install
    npm run build
+   # This creates core/src/repl/dist/rexxjs.bundle.js
    ```
 
-2. **Start a local server** from the repository root:
+2. **Copy RexxJS bundle to public directory**:
    ```bash
-   npx http-server -p 8082 -c-1
+   cd examples/spreadsheet-poc
+   cp ../../core/src/repl/dist/rexxjs.bundle.js public/
    ```
 
-3. **Open in browser**:
+3. **Start Vite dev server**:
+   ```bash
+   npm run dev:vite
+   # Opens on http://localhost:5173/
    ```
-   http://localhost:8082/examples/spreadsheet-poc/index.html
+
+4. **Load a spreadsheet** (optional):
    ```
+   # Load sample budget
+   http://localhost:5173/#load=sample-budget.json
+
+   # Load test sheet
+   http://localhost:5173/#load=test-sheet.json
+   ```
+
+**Alternative: Static HTTP Server**
+
+You can also serve the built files via any HTTP server:
+```bash
+# Build for production
+npm run build
+
+# Serve the dist directory
+npx http-server dist -p 8082 -c-1
+```
 
 ### Desktop Deployment (Tauri)
 
@@ -64,6 +128,13 @@ The spreadsheet can also run as a native desktop application on Mac, Windows, an
 
 3. **Run in development mode**:
    ```bash
+   # Using the convenience script (recommended)
+   ./rexxsheet-dev
+
+   # Or with a specific file
+   ./rexxsheet-dev sample-budget.json
+
+   # Or via npm directly
    npm run tauri:dev
    ```
 
@@ -136,11 +207,14 @@ See `sample-budget.json` for a complete example.
 In Tauri desktop mode, pass the file path as a command-line argument:
 
 ```bash
-# Launch with file path
-./spreadsheet-app /path/to/mysheet.json
+# Launch with file path (development)
+./rexxsheet-dev /path/to/mysheet.json
 
-# Or via npm in development
-npm run tauri:dev -- /path/to/mysheet.json
+# Or via npm directly
+npm run tauri:dev:file /path/to/mysheet.json
+
+# Without file argument (loads sample data)
+npm run tauri:dev
 ```
 
 ### Control Bus - Remote Scripting
@@ -193,51 +267,40 @@ SAY "Exported " || data.name
 - `listCommands` - Get list of available commands
 - `getVersion` - Get control bus version
 
-#### Tauri Mode - HTTP API
+#### Tauri Mode - HTTP API (ADDRESS Remote)
 
-In Tauri desktop mode, the control bus is exposed as an HTTP API with token authentication:
-
-```bash
-# Start spreadsheet with control bus enabled
-./spreadsheet-app --control-bus --token=my-secret-token
-
-# Or with environment variable
-CONTROL_BUS_TOKEN=my-secret-token ./spreadsheet-app
-```
-
-**Example API Call:**
+The Tauri spreadsheet can be controlled via HTTP using RexxJS's built-in ADDRESS facility:
 
 ```bash
-# Set a cell value
-curl -X POST http://localhost:8083/api/spreadsheet \
-  -H "Authorization: Bearer my-secret-token" \
-  -H "Content-Type: application/json" \
-  -d '{"command": "setCell", "params": {"ref": "A1", "content": "Hello"}}'
+# Terminal 1: Start spreadsheet with control bus
+./rexxsheet-dev --control-bus
 
-# Get cell value
-curl -X POST http://localhost:8083/api/spreadsheet \
-  -H "Authorization: Bearer my-secret-token" \
-  -H "Content-Type: application/json" \
-  -d '{"command": "getCellValue", "params": {"ref": "A1"}}'
+# Terminal 2: Control it with REXX
+../../core/rexx test-spreadsheet-address.rexx
 ```
 
-**Using from RexxJS:**
-
+**Example Control Script:**
 ```rexx
--- Control spreadsheet via HTTP from another Rexx script
-LET token = "my-secret-token"
-LET url = "http://localhost:8083/api/spreadsheet"
+-- Register the remote spreadsheet endpoint (automatically switches to it)
+ADDRESS "http://localhost:8083/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
 
--- Set a cell
-LET request = '{"command": "setCell", "params": {"ref": "A1", "content": "100"}}'
-LET response = HTTP_POST(url, request, '{"Authorization": "Bearer ' || token || '"}')
+-- Send commands (already in SPREADSHEET context)
+"setCell A1 100"
+"setCell A2 200"
+"setCell A3 =A1+A2"
 
--- Get the value
-LET request2 = '{"command": "getCellValue", "params": {"ref": "A1"}}'
-LET response2 = HTTP_POST(url, request2, '{"Authorization": "Bearer ' || token || '"}')
-LET result = JSON_PARSE(response2.body)
-SAY "Cell A1 = " || result.result.value
+IF RC = 0 THEN
+  SAY "Spreadsheet updated successfully"
 ```
+
+**Key Features:**
+- Built-in to RexxJS core (no external libraries needed)
+- Bearer token authentication for security (`Authorization: Bearer <token>`)
+- Classic ARexx-style inter-process communication
+- Works from command-line, automation scripts, or CI/CD pipelines
+- Automatic ADDRESS context switching after registration
+
+See **[TESTING-CONTROL-BUS.md](TESTING-CONTROL-BUS.md)** for complete documentation.
 
 This design is inspired by **ARexx** from the Amiga, which allowed applications like DPaint, PageStream, and Directory Opus to be controlled by external scripts, enabling powerful workflow automation and inter-application communication.
 
@@ -353,17 +416,36 @@ The sheet name is specified via the URL hash:
    - Provides cell reference functions (A1(), B2(), etc.)
    - Range functions (SUM_RANGE, AVERAGE_RANGE, etc.)
    - Expression evaluation context
+   - Setup script execution
 
-3. **spreadsheet-app.jsx**
-   - React components for UI
-   - Grid, Cell, FormulaBar components
-   - State management and event handling
+3. **spreadsheet-loader.js**
+   - Load/save spreadsheet data from JSON files
+   - Supports both Tauri filesystem and web URLs
+   - Import/export model data
+   - Validate spreadsheet format
 
-4. **index.html**
-   - Main entry point
-   - Loads RexxJS bundle or web loader
-   - Loads React from CDN
-   - Initializes the application
+4. **SpreadsheetApp.jsx** (React components)
+   - `App` - Main application with state management
+   - `Grid` - Spreadsheet grid with row/column headers
+   - `Cell` - Individual cell with edit/view modes
+   - `FormulaBar` - Cell formula/value editor
+   - `InfoPanel` - Cell details and help
+   - `SettingsModal` - Setup script editor
+
+5. **main.jsx** (Vite entry point)
+   - Waits for RexxJS to load
+   - Initializes React app
+   - Handles Tauri file events
+
+6. **index.html**
+   - Loads RexxJS bundle
+   - Mounts React via Vite
+   - Entry point for both web and Tauri modes
+
+7. **lib.rs** (Tauri backend)
+   - CLI argument handling
+   - File path event emission
+   - Filesystem plugin initialization
 
 ## Testing
 
@@ -381,23 +463,35 @@ PLAYWRIGHT_HTML_OPEN=never npx playwright test examples/spreadsheet-poc/tests/
 ## Limitations & Future Enhancements
 
 ### Current Limitations
-- No persistence (no save/load functionality)
-- No backend integration
-- Basic styling only
-- Limited to 100 rows × 26 columns
+- No save functionality (load is supported via JSON files)
 - No undo/redo
-- No copy/paste
+- No paste (copy is supported with Ctrl+C)
+- Basic styling only
+- Limited to 100 rows × 26 columns (configurable in code)
+- No backend integration
+- Control Bus HTTP API not yet implemented for Tauri mode
+
+### Implemented Features
+- ✅ Load from JSON files (web mode: hash parameter, Tauri mode: CLI argument)
+- ✅ Cell comments and formats
+- ✅ Keyboard navigation (arrow keys, Tab, Enter)
+- ✅ Cell selection ranges (click and drag, or Shift+Click)
+- ✅ Copy selection to clipboard (Ctrl+C)
+- ✅ View mode hotkeys (V/E/F for values/expressions/formats)
+- ✅ Named variables via Setup Script
+- ✅ Control Bus for remote scripting (web mode only)
 
 ### Potential Enhancements
-- Add more Excel-like functions (IF, VLOOKUP, etc.)
-- Cell formatting (colors, fonts, borders)
-- Multi-sheet support
-- Import/export (CSV, JSON)
+- Save/export to JSON file (complement the load feature)
+- Undo/redo functionality
+- Paste from clipboard
+- Add more Excel-like functions (IF, VLOOKUP via extras/functions/excel)
+- Visual cell formatting (colors, fonts, borders)
+- Multi-sheet support (tabs)
+- Import/export CSV format
 - Collaborative editing
-- Cell comments and annotations
 - Charts and visualizations
-- Keyboard navigation (arrow keys, Tab)
-- Cell selection ranges
+- Control Bus HTTP API for Tauri mode
 
 ## RexxJS Functions Available
 
@@ -498,14 +592,39 @@ Click **Save & Execute** to load the libraries. Now all functions are available 
 ```
 examples/spreadsheet-poc/
 ├── README.md                      # This file
-├── index.html                     # Main HTML entry point
-├── spreadsheet-model.js           # Core spreadsheet logic
-├── spreadsheet-rexx-adapter.js    # RexxJS integration layer
-├── spreadsheet-app.jsx            # React components
-├── spreadsheet-styles.css         # Stylesheet
-└── tests/                         # Test files
-    ├── spreadsheet-model.test.js  # Jest tests
-    └── spreadsheet-ui.spec.js     # Playwright tests
+├── FILE-LOADING.md               # File format and loading documentation
+├── BUILDING-BINARY.md            # Production binary build guide
+├── rexxsheet-dev                 # Development launch script (executable)
+├── package.json                  # Node.js/npm configuration
+├── vite.config.js                # Vite build configuration
+├── index.html                    # HTML entry point (Vite-served)
+├── spreadsheet-styles.css        # Stylesheet
+├── test-sheet.json               # Sample test spreadsheet
+├── sample-budget.json            # Sample budget spreadsheet
+├── spreadsheet-loader.js         # Load/save spreadsheet files (legacy location)
+├── src/                          # Source files (Vite entry)
+│   ├── main.jsx                  # Vite entry point
+│   ├── SpreadsheetApp.jsx        # React components
+│   ├── spreadsheet-model.js      # Core spreadsheet logic
+│   ├── spreadsheet-rexx-adapter.js  # RexxJS integration layer
+│   └── spreadsheet-loader.js     # Load/save spreadsheet files
+├── src-tauri/                    # Tauri (desktop app) backend
+│   ├── Cargo.toml                # Rust dependencies
+│   ├── tauri.conf.json           # Tauri configuration
+│   └── src/
+│       ├── main.rs               # Rust entry point
+│       └── lib.rs                # CLI argument handling
+├── public/                       # Static assets served by Vite
+│   ├── rexxjs.bundle.js          # RexxJS interpreter bundle
+│   └── lib/
+│       └── spreadsheet-functions.js  # Custom spreadsheet functions
+└── tests/                        # Test files
+    ├── spreadsheet-model.test.js    # Jest tests
+    ├── spreadsheet-loader.spec.js   # Loader tests
+    └── web/                         # Playwright browser tests
+        ├── spreadsheet-ui.spec.js
+        ├── spreadsheet-loader-web.spec.js
+        └── spreadsheet-controlbus-web.spec.js
 ```
 
 ### Code Organization
@@ -516,4 +635,20 @@ examples/spreadsheet-poc/
 
 ## License
 
-Same as RexxJS - MIT License
+**RexxSheet uses dual licensing:**
+
+- **Application**: GNU Affero General Public License v3 (AGPL)
+- **Control Protocol/Grammar**: MIT License
+
+This means:
+- ✅ The spreadsheet UI and application code is AGPL (share modifications)
+- ✅ The wire protocol for controlling spreadsheets is MIT (use freely)
+- ✅ You can build proprietary clients using the MIT protocol
+- ✅ Alternative spreadsheet implementations can use the MIT protocol
+- ⚠️ Modifications to the application itself must remain open source (AGPL)
+
+**See [LICENSING.md](LICENSING.md) for complete details.**
+
+Quick summary:
+- Want to control the spreadsheet? → **MIT** (do whatever you want)
+- Want to modify the app? → **AGPL** (share your changes)

@@ -135,15 +135,8 @@ class SpreadsheetRexxAdapter {
         }
 
         try {
-            // Extract all cell references from the expression
-            const cellRefs = this.extractCellReferences(expression);
-
-            // Pre-inject cell values as variables
-            for (const cellRef of cellRefs) {
-                const value = this.model.getCellValue(cellRef);
-                const numValue = parseFloat(value);
-                this.interpreter.variables.set(cellRef, isNaN(numValue) ? value : numValue);
-            }
+            // NO PRE-INJECTION! Cell references are resolved lazily via variableResolver callback
+            // This is more efficient and allows first-class interop
 
             // Parse and run the expression
             const commands = parse(expression);
@@ -158,12 +151,12 @@ class SpreadsheetRexxAdapter {
                 const wrappedExpression = `LET CELLRESULT = ${expression}`;
                 const wrappedCommands = parse(wrappedExpression);
                 await this.interpreter.run(wrappedCommands);
-                result = this.interpreter.variables.get('CELLRESULT');
+                result = this.interpreter.getVariable('CELLRESULT');
             } else {
                 // It's a statement or multi-line script
                 await this.interpreter.run(commands);
                 // Try to get result from a RESULT variable if set
-                result = this.interpreter.variables.get('RESULT') || '';
+                result = this.interpreter.getVariable('RESULT') || '';
             }
 
             return result;

@@ -19,6 +19,82 @@ function registerAddressTarget(name, target) {
 }
 
 /**
+ * Execute a command on a remote HTTP ADDRESS endpoint
+ * @param {Object} interpreter - The interpreter context
+ * @param {string} commandString - The command to execute
+ * @param {Object} remote - The remote endpoint config {url, authToken}
+ * @param {Object} command - The command object for tracing
+ */
+async function executeRemoteCommand(interpreter, commandString, remote, command) {
+  // Ensure fetch is available
+  let fetchFn = typeof fetch !== 'undefined' ? fetch : null;
+  if (!fetchFn && typeof require !== 'undefined') {
+    try {
+      fetchFn = require('node-fetch');
+    } catch (e) {
+      throw new Error('Remote ADDRESS requires node-fetch in Node.js: npm install node-fetch');
+    }
+  }
+
+  if (!fetchFn) {
+    throw new Error('Remote ADDRESS requires fetch API or node-fetch module');
+  }
+
+  // Send command as-is (already valid REXX syntax like: SETCELL("A1", "100"))
+  const requestBody = {
+    command: commandString.trim()
+  };
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (remote.authToken) {
+      headers['Authorization'] = `Bearer ${remote.authToken}`;
+    }
+
+    const response = await fetchFn(remote.url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Unauthorized - check authentication token');
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+
+    // Extract value/error from consistent result structure
+    const resultData = result.result || {};
+    const hasError = !result.success || resultData.error;
+
+    // Set REXX variables
+    interpreter.variables.set('RC', hasError ? 1 : 0);
+    interpreter.variables.set('RESULT', resultData.value !== undefined ? resultData.value : result);
+
+    if (hasError) {
+      const errorMsg = result.error || resultData.error || 'Unknown error';
+      interpreter.variables.set('ERRORTEXT', errorMsg);
+    }
+
+    interpreter.addTraceOutput(`"${commandString}"`, 'address_remote', command.lineNumber || interpreter.currentLineNumber || null, result);
+  } catch (error) {
+    if (error.code === 'ECONNREFUSED' || error.message.includes('fetch failed')) {
+      throw new Error(`Connection refused to ${remote.url} - is the remote service running?`);
+    }
+
+    interpreter.variables.set('RC', 1);
+    interpreter.variables.set('ERRORTEXT', error.message);
+    throw error;
+  }
+}
+
+/**
  * Execute a quoted string command with ADDRESS handling
  * @param {Object} command - The command object with value property
  * @param {Object} interpreter - The interpreter context (`this`)
@@ -26,9 +102,15 @@ function registerAddressTarget(name, target) {
 async function executeQuotedString(command) {
   const interpreter = this;
   const commandString = command.value;
-  
+
   // Check if there's an active ADDRESS target
   if (interpreter.address && interpreter.address !== 'default') {
+    // Check if this is a remote HTTP endpoint
+    if (interpreter.addressRemoteEndpoints && interpreter.addressRemoteEndpoints[interpreter.address]) {
+      const remote = interpreter.addressRemoteEndpoints[interpreter.address];
+      return await executeRemoteCommand(interpreter, commandString, remote, command);
+    }
+
     const addressTarget = interpreter.addressTargets.get(interpreter.address);
     
     if (addressTarget && addressTarget.handler) {

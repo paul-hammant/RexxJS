@@ -9,6 +9,8 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { createSpreadsheetControlFunctions } from './spreadsheet-control-functions';
 
 /**
  * Cell Component
@@ -513,6 +515,8 @@ function App() {
     const [startEditCallback, setStartEditCallback] = useState(null);
     const isTransitioningToEdit = useRef(false);
     const bufferedKeys = useRef([]);
+    const initializationInProgress = useRef(false);
+    const hasInitialized = useRef(false);
 
     const visibleRows = 20;
     const visibleCols = 10;
@@ -604,10 +608,19 @@ function App() {
             await model.setCell(ref, content, adapter);
         }
 
-        setUpdateCounter(c => c + 1);
-    }, []);
+        // Note: No setUpdateCounter here - SETCELL already triggers spreadsheet-update events
+    }, []); // No dependencies - function is stable
 
-    const initializeSpreadsheet = useCallback(async () => {
+    const initializeSpreadsheet = useCallback(async (initialFilePath = null) => {
+        // Prevent multiple initializations using ref
+        if (hasInitialized.current || initializationInProgress.current) {
+            console.log('[Init] Already initialized or in progress, skipping');
+            return;
+        }
+
+        initializationInProgress.current = true;
+        console.log('[Init] Starting initialization...');
+
         try {
             setIsLoading(true);
 
@@ -627,6 +640,18 @@ function App() {
             await newAdapter.initializeInterpreter(RexxInterpreter);
             window.spreadsheetAdapter = newAdapter;
 
+            // Register spreadsheet control functions (SETCELL, GETCELL, etc.)
+            // These are available in cell expressions AND via remote ADDRESS commands
+            const controlFunctions = createSpreadsheetControlFunctions(newModel, newAdapter);
+            for (const [name, func] of Object.entries(controlFunctions)) {
+                newAdapter.interpreter.externalFunctions[name] = func;
+            }
+            console.log('[Init] Registered control functions:', Object.keys(controlFunctions));
+
+            // Note: No ADDRESS handler needed anymore!
+            // Remote commands now execute via isolated interpreters calling REXX functions directly.
+            // This ensures single source of truth - same SETCELL/GETCELL used in expressions and remotely.
+
             const libUrl = window.location.origin + '/lib/spreadsheet-functions.js';
             const autoSetupScript = `REQUIRE "${libUrl}"`;
             const result = await newAdapter.executeSetupScript(autoSetupScript);
@@ -635,27 +660,224 @@ function App() {
                 throw new Error(`Failed to load spreadsheet functions: ${result.error}`);
             }
 
-            const setupScript = newModel.getSetupScript();
-            if (setupScript) {
-                await newAdapter.executeSetupScript(setupScript);
+            // Load file if provided
+            if (initialFilePath) {
+                try {
+                    console.log('Loading spreadsheet from file:', initialFilePath);
+                    const data = await SpreadsheetLoader.loadFromFile(initialFilePath);
+                    await SpreadsheetLoader.importIntoModel(newModel, data, newAdapter);
+                    console.log('Spreadsheet loaded successfully');
+                } catch (error) {
+                    console.log('File loading not available or failed:', error.message);
+                    // Fall through to sample data
+                }
+            }
+
+            if (!initialFilePath) {
+                // Load sample data if no file provided
+                const setupScript = newModel.getSetupScript();
+                if (setupScript) {
+                    await newAdapter.executeSetupScript(setupScript);
+                }
+                loadSampleData(newModel, newAdapter);
             }
 
             setModel(newModel);
             setAdapter(newAdapter);
             setIsLoading(false);
-
-            loadSampleData(newModel, newAdapter);
+            hasInitialized.current = true;
+            initializationInProgress.current = false;
+            console.log('[Init] ✅ Initialization complete');
         } catch (err) {
             console.error('Failed to initialize spreadsheet:', err);
             setError(err.message);
             setIsLoading(false);
+            initializationInProgress.current = false;
         }
-    }, [loadSampleData]);
+    }, []); // No dependencies - stable function
 
-    // Initialize on mount
+    // Initialize on mount and listen for file path from Tauri
     useEffect(() => {
-        initializeSpreadsheet();
-    }, [initializeSpreadsheet]);
+        let unlistenFn = null;
+        let timeout = null;
+        let initialized = false;
+
+        const setupTauriListener = async () => {
+            try {
+                // Try to listen for Tauri events (will work in desktop app)
+                console.log('[Init] Setting up Tauri initial-file listener...');
+                unlistenFn = await listen('initial-file', (event) => {
+                    if (!initialized) {
+                        initialized = true;
+                        console.log('Received initial-file event:', event.payload);
+                        const filePath = event.payload.file_path;
+                        initializeSpreadsheet(filePath);
+                    }
+                });
+
+                // Fallback: Initialize without file after timeout if no event received
+                timeout = setTimeout(() => {
+                    if (!initialized) {
+                        initialized = true;
+                        console.log('No initial file event received, initializing with defaults');
+                        initializeSpreadsheet();
+                    }
+                }, 1000);
+            } catch (error) {
+                // Not in Tauri mode, or Tauri not available - initialize immediately
+                if (!initialized) {
+                    initialized = true;
+                    console.log('[Init] Not in Tauri mode, initializing immediately');
+                    initializeSpreadsheet();
+                }
+            }
+        };
+
+        setupTauriListener();
+
+        return () => {
+            if (unlistenFn) unlistenFn();
+            if (timeout) clearTimeout(timeout);
+        };
+    }, []); // Empty deps - only run once on mount
+
+    // COMET-style polling for control bus commands (Selenium-RC style)
+    useEffect(() => {
+        if (!model || !adapter) {
+            console.log('[Control Bus] Waiting for model and adapter...');
+            return;
+        }
+
+        console.log('[Control Bus] Starting COMET-style polling...');
+        let stopPolling = false;
+        let requestCounter = 0;
+
+        const pollForCommands = async () => {
+            while (!stopPolling) {
+                try {
+                    // Poll for pending commands
+                    const response = await fetch('http://localhost:8083/api/poll', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': 'Bearer dev-token-12345',
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    if (!response.ok) {
+                        console.error('[Control Bus] Poll failed:', response.status);
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+
+                    const data = await response.json();
+
+                    if (data && data.request_id && data.command) {
+                        const requestId = ++requestCounter;
+                        console.log(`[Control Bus #${requestId}] 🎯 Got command!`, data);
+                        const { request_id, command } = data;
+
+                        // Create isolated interpreter for this request
+                        let scopeElement = null;
+                        let isolatedInterpreter = null;
+                        let executionResult = null;
+                        let executionError = null;
+
+                        try {
+                            // Create hidden DOM element for scoping this interpreter
+                            scopeElement = document.createElement('div');
+                            scopeElement.id = `rexx-scope-${requestId}`;
+                            scopeElement.className = 'RexxScript';
+                            scopeElement.style.display = 'none';
+                            document.body.appendChild(scopeElement);
+
+                            console.log(`[Control Bus #${requestId}] Created isolated scope`);
+
+                            // Create isolated interpreter
+                            isolatedInterpreter = RexxInterpreter.builder().build();
+                            isolatedInterpreter.scopeElement = scopeElement;
+
+                            // Register control functions
+                            const controlFunctions = createSpreadsheetControlFunctions(model, adapter);
+                            for (const [name, func] of Object.entries(controlFunctions)) {
+                                isolatedInterpreter.externalFunctions[name] = func;
+                            }
+
+                            // Command is already valid REXX syntax - just wrap with assignment
+                            const rexxCode = `result = ${command.trim()}`;
+
+                            console.log(`[Control Bus #${requestId}] Executing:`, rexxCode);
+
+                            // Execute in isolated interpreter
+                            const commands = parse(rexxCode);
+                            await isolatedInterpreter.run(commands);
+
+                            const result = isolatedInterpreter.getVariable('result');
+
+                            console.log(`[Control Bus #${requestId}] ✅ Done!`, { result });
+                            executionResult = result;
+                        } catch (error) {
+                            console.error(`[Control Bus #${requestId}] ❌ Error:`, error);
+                            executionError = error.message || String(error);
+                        } finally {
+                            // Clean up
+                            if (scopeElement && scopeElement.parentNode) {
+                                document.body.removeChild(scopeElement);
+                            }
+
+                            // Post result back to Rust
+                            try {
+                                await fetch('http://localhost:8083/api/result', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': 'Bearer dev-token-12345',
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        request_id: request_id,
+                                        result: {
+                                            value: executionResult,
+                                            error: executionError
+                                        }
+                                    })
+                                });
+                                console.log(`[Control Bus #${requestId}] 📤 Result posted`);
+                            } catch (postError) {
+                                console.error(`[Control Bus #${requestId}] ❌ Failed to post result:`, postError);
+                            }
+                        }
+                    } else {
+                        // No commands, wait a bit before polling again
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                } catch (error) {
+                    console.error('[Control Bus] Polling error:', error);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        };
+
+        pollForCommands();
+
+        return () => {
+            console.log('[Control Bus] Stopping polling');
+            stopPolling = true;
+        };
+    }, [model, adapter]);
+
+    // Listen for spreadsheet updates from ADDRESS handler
+    useEffect(() => {
+        const handleUpdate = () => {
+            console.log('[UI] 🔄 spreadsheet-update event received, triggering re-render');
+            setUpdateCounter(c => c + 1);
+        };
+        console.log('[UI] Setting up spreadsheet-update listener');
+        window.addEventListener('spreadsheet-update', handleUpdate);
+        return () => {
+            console.log('[UI] Removing spreadsheet-update listener');
+            window.removeEventListener('spreadsheet-update', handleUpdate);
+        };
+    }, []);
 
     // Keyboard handler for navigation and copy
     useEffect(() => {
@@ -748,7 +970,7 @@ function App() {
         if (!model || !adapter) return;
 
         await model.setCell(cellRef, content, adapter);
-        setUpdateCounter(c => c + 1);
+        // Note: No setUpdateCounter here - model.setCell triggers spreadsheet-update event
 
         // Handle navigation after edit
         if (navigationKey) {

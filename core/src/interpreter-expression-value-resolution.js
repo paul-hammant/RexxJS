@@ -141,10 +141,15 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
   }
   
   // Check for simple variable references (no dots)
-  if (typeof value === 'string' && variableHasFn(value)) {
-    return variableGetFn(value);
+  // Always call variableGetFn for variable-like strings to support variableResolver callback
+  if (typeof value === 'string' && value.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+    const resolved = variableGetFn(value);
+    if (resolved !== undefined) {
+      return resolved;
+    }
+    // Variable not found and not resolved - fall through to return as literal
   }
-  
+
   // Check if the value looks like a function call
   if (typeof value === 'string' && value.match(/^[a-zA-Z_][a-zA-Z0-9_]*\s*\(/)) {
     try {
@@ -169,6 +174,16 @@ async function resolveValue(value, variableGetFn, variableHasFn, evaluateExpress
     } catch (error) {
       // If function call parsing/execution fails, continue to return as literal
     }
+  }
+
+  // Check for simple variable references (no dots, no parens)
+  // Always call variableGetFn for variable-like strings to support variableResolver callback
+  if (typeof value === 'string' && value.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+    const resolved = variableGetFn(value);
+    if (resolved !== undefined) {
+      return resolved;
+    }
+    // Variable not found and not resolved - fall through to return as literal
   }
 
   // Return value as-is if not a variable reference or function call

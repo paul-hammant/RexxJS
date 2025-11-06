@@ -317,10 +317,24 @@ function parseStatement(tokens, startIndex) {
   // ADDRESS command with MATCHING parameter - REMOVED
   // MATCHING functionality has been replaced with HEREDOC approach
   // Use: ADDRESS target followed by <<DELIMITER content DELIMITER
-  
+
   // ADDRESS command with LINES parameter - REMOVED
   // LINES functionality has been replaced with HEREDOC approach
   // Use: ADDRESS target followed by <<DELIMITER content DELIMITER
+
+  // ADDRESS remote URL registration: ADDRESS "url" [AUTH "token"] AS name
+  const addressRemoteMatch = line.match(/^ADDRESS\s+(["`'])(https?:\/\/[^"']+)\1(?:\s+AUTH\s+(["`'])([^"']+)\3)?\s+AS\s+(\w+)$/i);
+  if (addressRemoteMatch) {
+    return {
+      command: addLineNumber({
+        type: 'ADDRESS_REMOTE',
+        url: addressRemoteMatch[2],
+        authToken: addressRemoteMatch[4] || null,
+        asName: addressRemoteMatch[5]
+      }, token),
+      nextIndex: startIndex + 1
+    };
+  }
 
   // ADDRESS command with quoted string (combined form)
   const addressWithStringMatch = line.match(/^ADDRESS\s+(\w+)\s+(["`'])(.*?)\2$/i);

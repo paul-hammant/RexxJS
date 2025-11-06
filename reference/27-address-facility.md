@@ -40,6 +40,20 @@ ADDRESS REXX  -- or ADDRESS default
 ADDRESS target_name "single command"
 ```
 
+### Remote HTTP Endpoint Registration (Built-in)
+
+```rexx
+-- Register a remote HTTP endpoint as an ADDRESS target (automatically switches to it)
+ADDRESS "http://localhost:8080/api" AUTH "token-12345" AS MYAPP
+
+-- Already in MYAPP context - send commands immediately
+"command arg1 arg2"
+IF RC = 0 THEN
+  SAY "Success: " || RESULT
+```
+
+This feature is **built into the core interpreter** and requires no external libraries. It enables classic ARexx-style remote application control over HTTP. Registration automatically switches to that ADDRESS context.
+
 ### Common Pattern
 
 ```rexx
@@ -95,6 +109,146 @@ IF RC = 0 THEN
 ELSE
   SAY "Query failed with code: " || RC
 ```
+
+## Remote HTTP Endpoints (Built-in Feature)
+
+RexxJS includes built-in support for registering remote HTTP endpoints as ADDRESS targets, enabling classic ARexx-style inter-process communication over HTTP.
+
+### Syntax
+
+```rexx
+ADDRESS "url" [AUTH "token"] AS name
+```
+
+### Features
+
+- **No External Libraries Required**: Built into the core interpreter
+- **Bearer Token Authentication**: Optional `Authorization: Bearer <token>` header
+- **Standard REXX Variables**: Sets RC, RESULT, and ERRORTEXT
+- **HTTP POST Protocol**: Commands sent as JSON POST requests
+- **Fetch API Compatible**: Works in both Node.js (node-fetch) and browsers
+- **Automatic Context Switch**: Registration automatically switches to that ADDRESS
+
+### Example: Spreadsheet Control Bus
+
+```rexx
+-- Register remote spreadsheet endpoint (automatically switches to it)
+ADDRESS "http://localhost:8083/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
+
+-- Send commands (already in SPREADSHEET context)
+"setCell A1 10"
+"setCell A2 20"
+"setCell A3 =A1+A2"
+
+-- Check results
+IF RC = 0 THEN
+  SAY "Spreadsheet updated successfully"
+```
+
+### HTTP Request Format
+
+Commands are sent as HTTP POST requests with JSON body:
+
+```json
+{
+  "command": "setCell",
+  "params": {
+    "ref": "A1",
+    "content": "10"
+  }
+}
+```
+
+The command string `"setCell A1 10"` is parsed as:
+- Command: `setCell`
+- Arguments: `["A1", "10"]`
+- Parameters: `{ref: "A1", content: "10"}`
+
+### HTTP Response Format
+
+Responses should be JSON with these fields:
+
+```json
+{
+  "success": true,
+  "result": "Cell A1 set to 10",
+  "error": null
+}
+```
+
+- `success`: Boolean indicating success/failure (sets RC: 0 = success, 1 = failure)
+- `result`: Result data (sets RESULT variable)
+- `error`: Error message if failed (sets ERRORTEXT variable)
+
+### Authentication
+
+The `AUTH` parameter uses **Bearer token** authentication (the most common pattern for REST APIs).
+
+When AUTH is specified, requests include the Authorization header with Bearer scheme:
+
+```
+Authorization: Bearer dev-token-12345
+```
+
+**Note:** Currently only Bearer token authentication is supported. If you need other authentication schemes (Basic, API Key headers, etc.), you can implement them on the server side or this feature may be extended in the future.
+
+### Error Handling
+
+```rexx
+ADDRESS "http://localhost:8080/api" AUTH "secret" AS MYAPP
+ADDRESS MYAPP
+
+"operation arg1 arg2"
+
+IF RC = 0 THEN
+  SAY "Success: " || RESULT
+ELSE DO
+  SAY "Failed with RC=" || RC
+  SAY "Error: " || ERRORTEXT
+END
+```
+
+### Connection Errors
+
+The ADDRESS handler provides helpful error messages:
+
+- **Connection refused**: "Connection refused to http://... - is the remote service running?"
+- **Unauthorized**: "Unauthorized - check authentication token"
+- **HTTP errors**: "HTTP 500: Internal Server Error"
+
+### Switching Back to Other Contexts
+
+Registration automatically switches to the new ADDRESS, but you can switch to other contexts anytime:
+
+```rexx
+ADDRESS "http://localhost:8080/api" AUTH "token" AS MYAPP
+-- Now in MYAPP context
+
+"command1"  -- Goes to MYAPP
+
+ADDRESS REXX
+SAY "Back to default"  -- Regular REXX output
+
+ADDRESS MYAPP
+"command2"  -- Back to MYAPP
+```
+
+### Use Cases
+
+1. **Application Control**: Control desktop applications (Tauri, Electron) from REXX scripts
+2. **Microservices**: Coordinate microservices via REXX orchestration scripts
+3. **Test Automation**: Drive web applications and GUIs from test scripts
+4. **Cross-Process IPC**: Classic ARexx-style inter-application communication
+
+### Implementation Details
+
+**Location**: `core/src/interpreter-address-handling.js` (executeRemoteCommand function)
+
+**Parser**: `core/src/parser.js` (ADDRESS_REMOTE pattern)
+
+**Registration**: Endpoints stored in `interpreter.addressRemoteEndpoints` object
+
+**Fetch Compatibility**: Checks for native fetch, falls back to node-fetch in Node.js
 
 ## Complete ADDRESS Handler Catalog
 
@@ -437,6 +591,7 @@ These handlers integrate with databases and AI services:
 
 | ADDRESS Target | Type | Environment | Key Feature |
 |---------------|------|-------------|-------------|
+| **Remote HTTP** | Core | All | Remote endpoints via HTTP |
 | **SYSTEM** | Core | Node.js | Shell commands |
 | **SQL** | Core | Node.js | SQLite database |
 | **EXPECTATIONS** | Core | All | Test assertions |

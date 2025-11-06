@@ -3,12 +3,14 @@ import ReactDOM from 'react-dom/client';
 import SpreadsheetApp from './SpreadsheetApp';
 import SpreadsheetModel from './spreadsheet-model';
 import SpreadsheetRexxAdapter from './spreadsheet-rexx-adapter';
+import SpreadsheetLoader from './spreadsheet-loader';
 import '../spreadsheet-styles.css';
 
 // Make models available globally for compatibility
 if (typeof window !== 'undefined') {
   window.SpreadsheetModel = SpreadsheetModel;
   window.SpreadsheetRexxAdapter = SpreadsheetRexxAdapter;
+  window.SpreadsheetLoader = SpreadsheetLoader;
 }
 
 // Wait for RexxJS to be available
@@ -37,9 +39,7 @@ async function initializeApp() {
 
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(
-    <React.StrictMode>
-      <SpreadsheetApp />
-    </React.StrictMode>
+    <SpreadsheetApp />
   );
 }
 

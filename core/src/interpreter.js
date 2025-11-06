@@ -1026,7 +1026,7 @@ class RexxInterpreter {
   }
 
   getVariable(name) {
-    return variableStackUtils.getVariable(name, this.variables);
+    return variableStackUtils.getVariable(name, this.variables, this.variableResolver);
   }
 
   isExternalScriptCall(subroutineName) {
@@ -1255,6 +1255,10 @@ class RexxInterpreter {
     switch (command.type) {
         case 'ADDRESS':
           commandAddressUtils.executeAddressCommand(command, this);
+          break;
+
+        case 'ADDRESS_REMOTE':
+          commandAddressUtils.executeAddressRemoteCommand(command, this);
           break;
 
         case 'ADDRESS_WITH_STRING':
@@ -2027,7 +2031,8 @@ class RexxInterpreter {
     return await expressionValueUtils.evaluateExpression(
       expr,
       this.resolveValue.bind(this),
-      this.variables.get.bind(this.variables),
+      // Use getVariable with variableResolver instead of raw Map.get
+      (name) => variableStackUtils.getVariable(name, this.variables, this.variableResolver),
       this.variables.has.bind(this.variables),
       this.interpolateString.bind(this),
       this.evaluateConcatenation.bind(this),
@@ -2044,7 +2049,8 @@ class RexxInterpreter {
   async resolveValue(value) {
     return await expressionValueUtils.resolveValue(
       value,
-      this.variables.get.bind(this.variables),
+      // Use getVariable with variableResolver instead of raw Map.get
+      (name) => variableStackUtils.getVariable(name, this.variables, this.variableResolver),
       this.variables.has.bind(this.variables),
       this.evaluateExpression.bind(this),
       this.interpolateString.bind(this),
@@ -2077,7 +2083,7 @@ class RexxInterpreter {
     // Use the extracted interpolateString function, passing variableStack resolver to avoid circular calls
     return await interpolateString(template, async (variableName) => {
       // Use variableStack's resolveVariableValue which handles complex paths without circular calls
-      return await variableStackUtils.resolveVariableValue(variableName, this.variables, this.evaluateExpression.bind(this));
+      return await variableStackUtils.resolveVariableValue(variableName, this.variables, this.evaluateExpression.bind(this), this.variableResolver);
     });
   }
 
