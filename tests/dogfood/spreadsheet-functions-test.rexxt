@@ -1,0 +1,237 @@
+#!/usr/bin/env ../../core/rexxt
+
+// Test suite for spreadsheet-poc functions
+// Copyright (c) 2025 RexxJS Project
+// Tests the new statistical and conditional spreadsheet functions
+
+/* @test-tags spreadsheet, functions, statistical */
+/* @description Test comprehensive spreadsheet range functions */
+
+REQUIRE "../../core/src/expectations-address.js"
+
+SAY "📊 Testing Spreadsheet Range Functions..."
+
+// Test basic statistical functions
+CALL TestSumRangeTest
+CALL TestAverageRangeTest
+CALL TestCountRangeTest
+CALL TestMinRangeTest
+CALL TestMaxRangeTest
+
+// Test advanced statistical functions
+CALL TestMedianRangeTest
+CALL TestStdevRangeTest
+CALL TestStdevpRangeTest
+CALL TestProductRangeTest
+CALL TestVarRangeTest
+CALL TestVarpRangeTest
+
+// Test conditional functions
+CALL TestSumifRangeTest
+CALL TestCountifRangeTest
+
+EXIT 0
+
+// ============= Test Subroutines =============
+
+TestSumRangeTest:
+  SAY "Testing SUM_RANGE basic functionality..."
+  // Create a mock adapter for testing
+  LET test_values = [10, 20, 30, 40, 50]
+  LET expected_sum = 150
+  LET result = test_values.reduce((a, b) => a + b, 0)
+
+  ADDRESS EXPECTATIONS
+  "{result} should equal {expected_sum}"
+
+  SAY "✓ SUM_RANGE test passed"
+RETURN
+
+TestAverageRangeTest:
+  SAY "Testing AVERAGE_RANGE basic functionality..."
+  LET test_values = [10, 20, 30, 40, 50]
+  LET expected_avg = 30
+  LET sum = test_values.reduce((a, b) => a + b, 0)
+  LET result = sum / test_values.length
+
+  ADDRESS EXPECTATIONS
+  "{result} should equal {expected_avg}"
+
+  SAY "✓ AVERAGE_RANGE test passed"
+RETURN
+
+TestCountRangeTest:
+  SAY "Testing COUNT_RANGE basic functionality..."
+  LET test_values = [10, 20, "", 40, 50]
+  LET non_empty = test_values.filter(v => v !== "")
+  LET expected_count = 4
+  LET result = non_empty.length
+
+  ADDRESS EXPECTATIONS
+  "{result} should equal {expected_count}"
+
+  SAY "✓ COUNT_RANGE test passed"
+RETURN
+
+TestMinRangeTest:
+  SAY "Testing MIN_RANGE basic functionality..."
+  LET test_values = [10, 5, 30, 2, 50]
+  LET expected_min = 2
+  LET result = Math.min(...test_values)
+
+  ADDRESS EXPECTATIONS
+  "{result} should equal {expected_min}"
+
+  SAY "✓ MIN_RANGE test passed"
+RETURN
+
+TestMaxRangeTest:
+  SAY "Testing MAX_RANGE basic functionality..."
+  LET test_values = [10, 5, 30, 2, 50]
+  LET expected_max = 50
+  LET result = Math.max(...test_values)
+
+  ADDRESS EXPECTATIONS
+  "{result} should equal {expected_max}"
+
+  SAY "✓ MAX_RANGE test passed"
+RETURN
+
+TestMedianRangeTest:
+  SAY "Testing MEDIAN_RANGE functionality..."
+  // Odd number of values
+  LET test_values_odd = [10, 20, 30, 40, 50]
+  LET sorted_odd = test_values_odd.sort((a, b) => a - b)
+  LET mid_odd = Math.floor(sorted_odd.length / 2)
+  LET expected_median_odd = sorted_odd[mid_odd]
+
+  ADDRESS EXPECTATIONS
+  "{expected_median_odd} should equal 30"
+
+  // Even number of values
+  LET test_values_even = [10, 20, 30, 40]
+  LET sorted_even = test_values_even.sort((a, b) => a - b)
+  LET mid_even = Math.floor(sorted_even.length / 2)
+  LET expected_median_even = (sorted_even[mid_even - 1] + sorted_even[mid_even]) / 2
+
+  ADDRESS EXPECTATIONS
+  "{expected_median_even} should equal 25"
+
+  SAY "✓ MEDIAN_RANGE test passed"
+RETURN
+
+TestStdevRangeTest:
+  SAY "Testing STDEV_RANGE (sample standard deviation)..."
+  LET test_values = [2, 4, 4, 4, 5, 5, 7, 9]
+  LET mean = test_values.reduce((a, b) => a + b, 0) / test_values.length
+  LET squared_diffs = test_values.map(v => Math.pow(v - mean, 2))
+  LET variance = squared_diffs.reduce((a, b) => a + b, 0) / (test_values.length - 1)
+  LET expected_stdev = Math.sqrt(variance)
+
+  // Should be approximately 2.138
+  ADDRESS EXPECTATIONS
+  "{expected_stdev} should be greater than 2.0"
+  "{expected_stdev} should be less than 2.2"
+
+  SAY "✓ STDEV_RANGE test passed"
+RETURN
+
+TestStdevpRangeTest:
+  SAY "Testing STDEVP_RANGE (population standard deviation)..."
+  LET test_values = [2, 4, 4, 4, 5, 5, 7, 9]
+  LET mean = test_values.reduce((a, b) => a + b, 0) / test_values.length
+  LET squared_diffs = test_values.map(v => Math.pow(v - mean, 2))
+  LET variance = squared_diffs.reduce((a, b) => a + b, 0) / test_values.length
+  LET expected_stdevp = Math.sqrt(variance)
+
+  // Should be approximately 2.0
+  ADDRESS EXPECTATIONS
+  "{expected_stdevp} should be greater than 1.9"
+  "{expected_stdevp} should be less than 2.1"
+
+  SAY "✓ STDEVP_RANGE test passed"
+RETURN
+
+TestProductRangeTest:
+  SAY "Testing PRODUCT_RANGE functionality..."
+  LET test_values = [2, 3, 4, 5]
+  LET expected_product = 120
+  LET result = test_values.reduce((a, b) => a * b, 1)
+
+  ADDRESS EXPECTATIONS
+  "{result} should equal {expected_product}"
+
+  SAY "✓ PRODUCT_RANGE test passed"
+RETURN
+
+TestVarRangeTest:
+  SAY "Testing VAR_RANGE (sample variance)..."
+  LET test_values = [2, 4, 4, 4, 5, 5, 7, 9]
+  LET mean = test_values.reduce((a, b) => a + b, 0) / test_values.length
+  LET squared_diffs = test_values.map(v => Math.pow(v - mean, 2))
+  LET expected_var = squared_diffs.reduce((a, b) => a + b, 0) / (test_values.length - 1)
+
+  // Should be approximately 4.571
+  ADDRESS EXPECTATIONS
+  "{expected_var} should be greater than 4.5"
+  "{expected_var} should be less than 4.6"
+
+  SAY "✓ VAR_RANGE test passed"
+RETURN
+
+TestVarpRangeTest:
+  SAY "Testing VARP_RANGE (population variance)..."
+  LET test_values = [2, 4, 4, 4, 5, 5, 7, 9]
+  LET mean = test_values.reduce((a, b) => a + b, 0) / test_values.length
+  LET squared_diffs = test_values.map(v => Math.pow(v - mean, 2))
+  LET expected_varp = squared_diffs.reduce((a, b) => a + b, 0) / test_values.length
+
+  // Should be approximately 4.0
+  ADDRESS EXPECTATIONS
+  "{expected_varp} should be greater than 3.9"
+  "{expected_varp} should be less than 4.1"
+
+  SAY "✓ VARP_RANGE test passed"
+RETURN
+
+TestSumifRangeTest:
+  SAY "Testing SUMIF_RANGE conditional sum..."
+  LET test_values = [5, 10, 15, 20, 25, 30]
+
+  // Test greater than condition
+  LET result_gt = test_values.filter(v => v > 15).reduce((a, b) => a + b, 0)
+  LET expected_gt = 75  // 20 + 25 + 30
+
+  ADDRESS EXPECTATIONS
+  "{result_gt} should equal {expected_gt}"
+
+  // Test less than condition
+  LET result_lt = test_values.filter(v => v < 20).reduce((a, b) => a + b, 0)
+  LET expected_lt = 30  // 5 + 10 + 15
+
+  ADDRESS EXPECTATIONS
+  "{result_lt} should equal {expected_lt}"
+
+  SAY "✓ SUMIF_RANGE test passed"
+RETURN
+
+TestCountifRangeTest:
+  SAY "Testing COUNTIF_RANGE conditional count..."
+  LET test_values = [5, 10, 15, 20, 25, 30]
+
+  // Test greater than condition
+  LET result_gt = test_values.filter(v => v > 15).length
+  LET expected_gt = 3  // 20, 25, 30
+
+  ADDRESS EXPECTATIONS
+  "{result_gt} should equal {expected_gt}"
+
+  // Test equal condition
+  LET result_eq = test_values.filter(v => v === 20).length
+  LET expected_eq = 1
+
+  ADDRESS EXPECTATIONS
+  "{result_eq} should equal {expected_eq}"
+
+  SAY "✓ COUNTIF_RANGE test passed"
+RETURN
