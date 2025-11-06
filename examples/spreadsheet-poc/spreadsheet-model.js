@@ -17,6 +17,10 @@ class SpreadsheetModel {
         this.dependents = new Map(); // key: "A1", value: Set of cells that depend on A1
         this.evaluationInProgress = new Set(); // For circular reference detection
         this.setupScript = ''; // Page-level RexxJS code (REQUIRE statements, etc.)
+        this.columnWidths = {}; // key: column number, value: width in pixels
+        this.rowHeights = {}; // key: row number, value: height in pixels
+        this.defaultColumnWidth = 100;
+        this.defaultRowHeight = 32;
     }
 
     /**
@@ -278,6 +282,42 @@ class SpreadsheetModel {
     }
 
     /**
+     * Get column width (in pixels)
+     */
+    getColumnWidth(col) {
+        if (typeof col === 'string') {
+            col = SpreadsheetModel.colLetterToNumber(col);
+        }
+        return this.columnWidths[col] || this.defaultColumnWidth;
+    }
+
+    /**
+     * Set column width (in pixels)
+     */
+    setColumnWidth(col, width) {
+        if (typeof col === 'string') {
+            col = SpreadsheetModel.colLetterToNumber(col);
+        }
+        const minWidth = 20;
+        this.columnWidths[col] = Math.max(minWidth, width);
+    }
+
+    /**
+     * Get row height (in pixels)
+     */
+    getRowHeight(row) {
+        return this.rowHeights[row] || this.defaultRowHeight;
+    }
+
+    /**
+     * Set row height (in pixels)
+     */
+    setRowHeight(row, height) {
+        const minHeight = 15;
+        this.rowHeights[row] = Math.max(minHeight, height);
+    }
+
+    /**
      * Export to JSON
      */
     toJSON() {
@@ -313,6 +353,15 @@ class SpreadsheetModel {
                 }
             }
         }
+
+        // Add column widths and row heights if any are non-default
+        if (Object.keys(this.columnWidths).length > 0) {
+            data.columnWidths = this.columnWidths;
+        }
+        if (Object.keys(this.rowHeights).length > 0) {
+            data.rowHeights = this.rowHeights;
+        }
+
         return data;
     }
 
@@ -342,12 +391,18 @@ class SpreadsheetModel {
                     this.setCell(ref, cellData.content || '', rexxInterpreter, metadata);
                 }
             }
+
+            // Import column widths and row heights
+            this.columnWidths = data.columnWidths || {};
+            this.rowHeights = data.rowHeights || {};
         } else {
             // Old format - all entries are cells
             this.setupScript = '';
             for (const [ref, content] of Object.entries(data)) {
                 this.setCell(ref, content, rexxInterpreter);
             }
+            this.columnWidths = {};
+            this.rowHeights = {};
         }
     }
 }

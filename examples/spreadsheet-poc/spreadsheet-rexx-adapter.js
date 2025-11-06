@@ -223,6 +223,28 @@ class SpreadsheetRexxAdapter {
             COLUMN: function(ref) {
                 const parsed = SpreadsheetModel.parseCellRef(ref);
                 return SpreadsheetModel.colLetterToNumber(parsed.col);
+            },
+
+            // Set column width in pixels
+            SETCOLWIDTH: function(col, width) {
+                self.model.setColumnWidth(col, parseFloat(width));
+                return width;
+            },
+
+            // Get column width in pixels
+            GETCOLWIDTH: function(col) {
+                return self.model.getColumnWidth(col);
+            },
+
+            // Set row height in pixels
+            SETROWHEIGHT: function(row, height) {
+                self.model.setRowHeight(parseInt(row), parseFloat(height));
+                return height;
+            },
+
+            // Get row height in pixels
+            GETROWHEIGHT: function(row) {
+                return self.model.getRowHeight(parseInt(row));
             }
         };
     }
