@@ -5,19 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5174 --host 0.0.0.0",
+    "dev:vite": "vite --port 5174",
     "build": "vite build",
     "buildlib": "vite build --config libvite.config.js",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@xdadda/mini": "file:../minijs",
+    "@xdadda/mini": "^0.2.16",
     "@xdadda/mini-exif": "^0.2.2",
-    "@xdadda/mini-gl": "file:../mini_gl",
+    "@xdadda/mini-gl": "^0.1.14",
     "ismobilejs": "^1.1.1"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0",
     "rollup-plugin-minify-template-literals": "^1.1.7",
     "vite": "^6.2.2"
   },
