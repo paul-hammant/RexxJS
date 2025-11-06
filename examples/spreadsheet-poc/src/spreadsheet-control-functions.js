@@ -108,6 +108,134 @@ export function createSpreadsheetControlFunctions(model, adapter) {
      */
     SPREADSHEET_VERSION: function() {
       return 'var_missing-2024-11-06';
+    },
+
+    /**
+     * SETFORMAT - Set cell format
+     * Usage: CALL SETFORMAT("A1", "bold")
+     *        CALL SETFORMAT("A1", "bold;italic;color:red")
+     */
+    SETFORMAT: async function(cellRef, format) {
+      if (!cellRef || typeof cellRef !== 'string') {
+        throw new Error('SETFORMAT requires cell reference as first argument (e.g., "A1")');
+      }
+      if (format === undefined || format === null) {
+        format = '';
+      }
+
+      const formatStr = String(format);
+      model.setCellMetadata(cellRef, { format: formatStr });
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return formatStr;
+    },
+
+    /**
+     * GETFORMAT - Get cell format
+     * Usage: format = GETFORMAT("A1")
+     */
+    GETFORMAT: function(cellRef) {
+      if (!cellRef || typeof cellRef !== 'string') {
+        throw new Error('GETFORMAT requires cell reference as argument (e.g., "A1")');
+      }
+
+      const cell = model.getCell(cellRef);
+      return cell.format || '';
+    },
+
+    /**
+     * SETCOMMENT - Set cell comment
+     * Usage: CALL SETCOMMENT("A1", "This is a note")
+     */
+    SETCOMMENT: async function(cellRef, comment) {
+      if (!cellRef || typeof cellRef !== 'string') {
+        throw new Error('SETCOMMENT requires cell reference as first argument (e.g., "A1")');
+      }
+      if (comment === undefined || comment === null) {
+        comment = '';
+      }
+
+      const commentStr = String(comment);
+      model.setCellMetadata(cellRef, { comment: commentStr });
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return commentStr;
+    },
+
+    /**
+     * GETCOMMENT - Get cell comment
+     * Usage: comment = GETCOMMENT("A1")
+     */
+    GETCOMMENT: function(cellRef) {
+      if (!cellRef || typeof cellRef !== 'string') {
+        throw new Error('GETCOMMENT requires cell reference as argument (e.g., "A1")');
+      }
+
+      const cell = model.getCell(cellRef);
+      return cell.comment || '';
+    },
+
+    /**
+     * GETROW - Get row number from cell reference
+     * Usage: row = GETROW("A5")  -> 5
+     */
+    GETROW: function(cellRef) {
+      if (!cellRef || typeof cellRef !== 'string') {
+        throw new Error('GETROW requires cell reference as argument (e.g., "A1")');
+      }
+
+      const parsed = SpreadsheetModel.parseCellRef(cellRef);
+      return parsed.row;
+    },
+
+    /**
+     * GETCOL - Get column number from cell reference
+     * Usage: col = GETCOL("C1")  -> 3
+     */
+    GETCOL: function(cellRef) {
+      if (!cellRef || typeof cellRef !== 'string') {
+        throw new Error('GETCOL requires cell reference as argument (e.g., "A1")');
+      }
+
+      const parsed = SpreadsheetModel.parseCellRef(cellRef);
+      return SpreadsheetModel.colLetterToNumber(parsed.col);
+    },
+
+    /**
+     * GETCOLNAME - Get column letter from cell reference
+     * Usage: col = GETCOLNAME("C1")  -> "C"
+     */
+    GETCOLNAME: function(cellRef) {
+      if (!cellRef || typeof cellRef !== 'string') {
+        throw new Error('GETCOLNAME requires cell reference as argument (e.g., "A1")');
+      }
+
+      const parsed = SpreadsheetModel.parseCellRef(cellRef);
+      return parsed.col;
+    },
+
+    /**
+     * MAKECELLREF - Create cell reference from column and row
+     * Usage: ref = MAKECELLREF(3, 5)  -> "C5"
+     *        ref = MAKECELLREF("C", 5)  -> "C5"
+     */
+    MAKECELLREF: function(col, row) {
+      if (col === undefined || col === null) {
+        throw new Error('MAKECELLREF requires column as first argument (number or letter)');
+      }
+      if (row === undefined || row === null) {
+        throw new Error('MAKECELLREF requires row as second argument (number)');
+      }
+
+      return SpreadsheetModel.formatCellRef(col, Number(row));
     }
   };
 }
@@ -157,6 +285,72 @@ export const functionMetadata = {
     description: 'Get spreadsheet control functions version',
     examples: [
       'SAY SPREADSHEET_VERSION()'
+    ]
+  },
+  SETFORMAT: {
+    name: 'SETFORMAT',
+    params: ['cellRef', 'format'],
+    description: 'Set cell format (bold, italic, color, etc.)',
+    examples: [
+      'CALL SETFORMAT("A1", "bold")',
+      'CALL SETFORMAT("A1", "bold;italic;color:red")'
+    ]
+  },
+  GETFORMAT: {
+    name: 'GETFORMAT',
+    params: ['cellRef'],
+    description: 'Get cell format',
+    examples: [
+      'format = GETFORMAT("A1")'
+    ]
+  },
+  SETCOMMENT: {
+    name: 'SETCOMMENT',
+    params: ['cellRef', 'comment'],
+    description: 'Set cell comment/note',
+    examples: [
+      'CALL SETCOMMENT("A1", "Important note")'
+    ]
+  },
+  GETCOMMENT: {
+    name: 'GETCOMMENT',
+    params: ['cellRef'],
+    description: 'Get cell comment',
+    examples: [
+      'comment = GETCOMMENT("A1")'
+    ]
+  },
+  GETROW: {
+    name: 'GETROW',
+    params: ['cellRef'],
+    description: 'Get row number from cell reference',
+    examples: [
+      'row = GETROW("A5")  -- returns 5'
+    ]
+  },
+  GETCOL: {
+    name: 'GETCOL',
+    params: ['cellRef'],
+    description: 'Get column number from cell reference',
+    examples: [
+      'col = GETCOL("C1")  -- returns 3'
+    ]
+  },
+  GETCOLNAME: {
+    name: 'GETCOLNAME',
+    params: ['cellRef'],
+    description: 'Get column letter from cell reference',
+    examples: [
+      'col = GETCOLNAME("C1")  -- returns "C"'
+    ]
+  },
+  MAKECELLREF: {
+    name: 'MAKECELLREF',
+    params: ['col', 'row'],
+    description: 'Create cell reference from column and row',
+    examples: [
+      'ref = MAKECELLREF(3, 5)  -- returns "C5"',
+      'ref = MAKECELLREF("C", 5)  -- returns "C5"'
     ]
   }
 };

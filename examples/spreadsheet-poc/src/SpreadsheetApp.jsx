@@ -15,7 +15,7 @@ import { createSpreadsheetControlFunctions } from './spreadsheet-control-functio
 /**
  * Cell Component
  */
-function Cell({ cellRef, cell, isSelected, isInSelection, onSelect, onEdit, onStartEdit, viewMode, onMouseDown, onMouseEnter, bufferedKeysRef, isTransitioningRef }) {
+function Cell({ cellRef, cell, isSelected, isInSelection, onSelect, onEdit, onStartEdit, viewMode, onMouseDown, onMouseEnter, onContextMenu, bufferedKeysRef, isTransitioningRef }) {
     const inputRef = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -117,6 +117,9 @@ function Cell({ cellRef, cell, isSelected, isInSelection, onSelect, onEdit, onSt
         title += (title ? '\n' : '') + '📊 ' + cell.format;
     }
 
+    // Apply formatting styles
+    const formatStyles = cell.format ? parseFormatToCSS(cell.format) : {};
+
     return (
         <div
             className={`cell ${isSelected ? 'selected' : ''} ${isInSelection ? 'in-selection' : ''} ${hasError ? 'error' : ''} ${hasFormula ? 'formula' : ''} ${hasFormat ? 'formatted' : ''} ${hasComment ? 'commented' : ''} ${viewMode !== 'normal' ? 'view-mode-' + viewMode : ''}`}
@@ -124,7 +127,9 @@ function Cell({ cellRef, cell, isSelected, isInSelection, onSelect, onEdit, onSt
             onDoubleClick={handleDoubleClick}
             onMouseDown={onMouseDown}
             onMouseEnter={onMouseEnter}
+            onContextMenu={onContextMenu ? (e) => onContextMenu(e, cellRef) : undefined}
             title={title}
+            style={formatStyles}
         >
             {isEditing ? (
                 <input
@@ -168,7 +173,7 @@ function RowHeader({ row }) {
 /**
  * Grid Component
  */
-function Grid({ model, selectedCell, selectionRange, onSelectCell, onEditCell, onStartCellEdit, visibleRows, visibleCols, viewMode, onSelectionStart, onSelectionMove, onSelectionEnd, bufferedKeysRef, isTransitioningRef }) {
+function Grid({ model, selectedCell, selectionRange, onSelectCell, onEditCell, onStartCellEdit, visibleRows, visibleCols, viewMode, onSelectionStart, onSelectionMove, onSelectionEnd, onContextMenu, bufferedKeysRef, isTransitioningRef }) {
     const rows = [];
 
     // Header row with column letters
@@ -211,6 +216,7 @@ function Grid({ model, selectedCell, selectionRange, onSelectCell, onEditCell, o
                     viewMode={viewMode}
                     onMouseDown={() => onSelectionStart(cellRef)}
                     onMouseEnter={() => onSelectionMove(cellRef)}
+                    onContextMenu={onContextMenu}
                     bufferedKeysRef={bufferedKeysRef}
                     isTransitioningRef={isTransitioningRef}
                 />
@@ -261,6 +267,36 @@ function parseCellRef(ref) {
     }
 
     return { col, row };
+}
+
+/**
+ * Parse format string to CSS styles
+ * Format string: "bold;italic;color:red;background:yellow"
+ */
+function parseFormatToCSS(formatString) {
+    if (!formatString) return {};
+
+    const styles = {};
+    const parts = formatString.split(';').filter(p => p.trim());
+
+    for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed === 'bold') {
+            styles.fontWeight = 'bold';
+        } else if (trimmed === 'italic') {
+            styles.fontStyle = 'italic';
+        } else if (trimmed === 'underline') {
+            styles.textDecoration = 'underline';
+        } else if (trimmed.startsWith('color:')) {
+            styles.color = trimmed.substring(6);
+        } else if (trimmed.startsWith('background:')) {
+            styles.backgroundColor = trimmed.substring(11);
+        } else if (trimmed.startsWith('font-size:')) {
+            styles.fontSize = trimmed.substring(10);
+        }
+    }
+
+    return styles;
 }
 
 /**
@@ -431,6 +467,108 @@ function InfoPanel({ selectedCell, selectionRange, model, viewMode }) {
 }
 
 /**
+ * Context Menu Component
+ */
+function ContextMenu({ x, y, cellRef, onClose, onFormat, onCut, onCopy, onPaste, onPasteValues }) {
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                onClose();
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
+
+    const [formatMenuOpen, setFormatMenuOpen] = useState(false);
+
+    const handleFormatClick = (format) => {
+        onFormat(format);
+        onClose();
+    };
+
+    return (
+        <div
+            ref={menuRef}
+            className="context-menu"
+            style={{ left: x, top: y }}
+        >
+            <div className="context-menu-item" onClick={() => onCut()}>
+                <span>✂️ Cut</span>
+            </div>
+            <div className="context-menu-item" onClick={() => onCopy()}>
+                <span>📋 Copy</span>
+            </div>
+            <div className="context-menu-item" onClick={() => onPaste()}>
+                <span>📄 Paste</span>
+            </div>
+            <div className="context-menu-item" onClick={() => onPasteValues()}>
+                <span>📝 Paste Values Only</span>
+            </div>
+            <div className="context-menu-separator"></div>
+            <div
+                className="context-menu-item context-menu-submenu"
+                onMouseEnter={() => setFormatMenuOpen(true)}
+                onMouseLeave={() => setFormatMenuOpen(false)}
+            >
+                <span>🎨 Format</span>
+                <span className="submenu-arrow">▶</span>
+                {formatMenuOpen && (
+                    <div className="context-submenu">
+                        <div className="context-menu-item" onClick={() => handleFormatClick('bold')}>
+                            <span><strong>Bold</strong></span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('italic')}>
+                            <span><em>Italic</em></span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('underline')}>
+                            <span><u>Underline</u></span>
+                        </div>
+                        <div className="context-menu-separator"></div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('font-size:14px')}>
+                            <span>Font Size: Small</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('font-size:16px')}>
+                            <span>Font Size: Medium</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('font-size:20px')}>
+                            <span>Font Size: Large</span>
+                        </div>
+                        <div className="context-menu-separator"></div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('color:red')}>
+                            <span style={{color: 'red'}}>Text: Red</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('color:blue')}>
+                            <span style={{color: 'blue'}}>Text: Blue</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('color:green')}>
+                            <span style={{color: 'green'}}>Text: Green</span>
+                        </div>
+                        <div className="context-menu-separator"></div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('background:yellow')}>
+                            <span style={{background: 'yellow'}}>Background: Yellow</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('background:lightblue')}>
+                            <span style={{background: 'lightblue'}}>Background: Light Blue</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('background:lightgreen')}>
+                            <span style={{background: 'lightgreen'}}>Background: Light Green</span>
+                        </div>
+                        <div className="context-menu-separator"></div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('')}>
+                            <span>Clear Format</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
  * Settings Modal Component
  */
 function SettingsModal({ isOpen, onClose, model, adapter, onScriptExecuted }) {
@@ -513,6 +651,9 @@ function App() {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [viewMode, setViewMode] = useState('normal');
     const [startEditCallback, setStartEditCallback] = useState(null);
+    const [contextMenu, setContextMenu] = useState(null);
+    const [clipboard, setClipboard] = useState(null);
+    const [currentFilePath, setCurrentFilePath] = useState(null);
     const isTransitioningToEdit = useRef(false);
     const bufferedKeys = useRef([]);
     const initializationInProgress = useRef(false);
@@ -557,10 +698,13 @@ function App() {
         setSelectionRange(null);
     }, [selectedCell, visibleRows, visibleCols]);
 
-    const handleCopy = useCallback(() => {
+    const handleCopy = useCallback((includeFormulas = true) => {
         if (!model) return;
 
-        let textToCopy = '';
+        const clipboardData = {
+            cells: [],
+            asText: ''
+        };
 
         if (selectionRange) {
             const { startCol, startRow, endCol, endRow } = selectionRange;
@@ -569,26 +713,223 @@ function App() {
             const minRow = Math.min(startRow, endRow);
             const maxRow = Math.max(startRow, endRow);
 
+            let textRows = [];
             for (let row = minRow; row <= maxRow; row++) {
                 const rowValues = [];
                 for (let col = minCol; col <= maxCol; col++) {
                     const cellRef = SpreadsheetModel.formatCellRef(col, row);
                     const cell = model.getCell(cellRef);
                     rowValues.push(cell.value || '');
+
+                    clipboardData.cells.push({
+                        offsetCol: col - minCol,
+                        offsetRow: row - minRow,
+                        value: cell.value,
+                        expression: includeFormulas ? cell.expression : null,
+                        format: cell.format,
+                        comment: cell.comment
+                    });
                 }
-                textToCopy += rowValues.join('\t') + '\n';
+                textRows.push(rowValues.join('\t'));
             }
+            clipboardData.asText = textRows.join('\n');
         } else if (selectedCell) {
             const cell = model.getCell(selectedCell);
-            textToCopy = cell.value || '';
+            clipboardData.asText = cell.value || '';
+            clipboardData.cells.push({
+                offsetCol: 0,
+                offsetRow: 0,
+                value: cell.value,
+                expression: includeFormulas ? cell.expression : null,
+                format: cell.format,
+                comment: cell.comment
+            });
         }
 
-        navigator.clipboard.writeText(textToCopy).then(() => {
+        // Store in internal clipboard
+        setClipboard(clipboardData);
+
+        // Also copy text to system clipboard
+        navigator.clipboard.writeText(clipboardData.asText).then(() => {
             console.log('Copied to clipboard');
         }).catch(err => {
             console.error('Failed to copy:', err);
         });
     }, [model, selectedCell, selectionRange]);
+
+    const handleCut = useCallback(() => {
+        if (!model || !adapter) return;
+
+        // Copy first
+        handleCopy();
+
+        // Then clear cells
+        if (selectionRange) {
+            const { startCol, startRow, endCol, endRow } = selectionRange;
+            const minCol = Math.min(startCol, endCol);
+            const maxCol = Math.max(startCol, endCol);
+            const minRow = Math.min(startRow, endRow);
+            const maxRow = Math.max(startRow, endRow);
+
+            for (let row = minRow; row <= maxRow; row++) {
+                for (let col = minCol; col <= maxCol; col++) {
+                    const cellRef = SpreadsheetModel.formatCellRef(col, row);
+                    model.setCell(cellRef, '', adapter);
+                }
+            }
+        } else if (selectedCell) {
+            model.setCell(selectedCell, '', adapter);
+        }
+
+        setUpdateCounter(c => c + 1);
+    }, [model, adapter, selectedCell, selectionRange, handleCopy]);
+
+    const handlePaste = useCallback(async (valuesOnly = false) => {
+        if (!model || !adapter || !clipboard || !selectedCell) return;
+
+        const { col: startCol, row: startRow } = parseCellRef(selectedCell);
+
+        for (const cellData of clipboard.cells) {
+            const targetCol = startCol + cellData.offsetCol;
+            const targetRow = startRow + cellData.offsetRow;
+            const targetRef = SpreadsheetModel.formatCellRef(targetCol, targetRow);
+
+            let content = cellData.value;
+            if (!valuesOnly && cellData.expression) {
+                content = '=' + cellData.expression;
+            }
+
+            const metadata = {
+                format: valuesOnly ? '' : cellData.format,
+                comment: valuesOnly ? '' : cellData.comment
+            };
+
+            await model.setCell(targetRef, content, adapter, metadata);
+        }
+
+        setUpdateCounter(c => c + 1);
+    }, [model, adapter, clipboard, selectedCell]);
+
+    const handleFormat = useCallback(async (format) => {
+        if (!model || !selectedCell) return;
+
+        const cell = model.getCell(selectedCell);
+        const existingFormat = cell.format || '';
+
+        // Parse existing format
+        const formatParts = existingFormat.split(';').filter(p => p.trim());
+
+        if (format === '') {
+            // Clear all formatting
+            model.setCellMetadata(selectedCell, { format: '' });
+        } else {
+            // Toggle or set format
+            const [formatKey] = format.split(':');
+
+            // Remove existing format of same type
+            const filtered = formatParts.filter(p => {
+                const [key] = p.split(':');
+                return key !== formatKey && key !== format; // Handle both "bold" and "color:red"
+            });
+
+            // Add new format if not already present
+            if (!formatParts.includes(format)) {
+                filtered.push(format);
+            }
+
+            model.setCellMetadata(selectedCell, { format: filtered.join(';') });
+        }
+
+        setUpdateCounter(c => c + 1);
+    }, [model, selectedCell]);
+
+    const handleContextMenu = useCallback((e, cellRef) => {
+        e.preventDefault();
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            cellRef: cellRef
+        });
+    }, []);
+
+    const handleSave = useCallback(async () => {
+        if (!model) return;
+
+        try {
+            // Check if we're in Tauri mode
+            if (typeof window.__TAURI__ !== 'undefined') {
+                // Tauri mode - save to file system
+                const { save } = window.__TAURI__.dialog;
+                const { writeTextFile } = window.__TAURI__.fs;
+
+                let filePath = currentFilePath;
+
+                // If no current file, show save dialog
+                if (!filePath) {
+                    filePath = await save({
+                        filters: [{
+                            name: 'Spreadsheet',
+                            extensions: ['json']
+                        }]
+                    });
+                }
+
+                if (filePath) {
+                    const data = model.toJSON();
+                    const contents = JSON.stringify(data, null, 2);
+                    await writeTextFile(filePath, contents);
+                    setCurrentFilePath(filePath);
+                    console.log('Saved to file:', filePath);
+                    alert('Spreadsheet saved successfully!');
+                }
+            } else {
+                // Web mode - save via PUT request
+                const hash = window.location.hash.substring(1);
+                let saveUrl = null;
+
+                // Parse hash to find save URL
+                if (hash.startsWith('load=')) {
+                    saveUrl = hash.substring(5);
+                } else if (currentFilePath) {
+                    saveUrl = currentFilePath;
+                } else {
+                    // No URL specified - trigger download instead
+                    const data = model.toJSON();
+                    const contents = JSON.stringify(data, null, 2);
+                    const blob = new Blob([contents], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'spreadsheet.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    console.log('Downloaded as JSON file');
+                    return;
+                }
+
+                if (saveUrl) {
+                    const data = model.toJSON();
+                    const response = await fetch(saveUrl, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data, null, 2)
+                    });
+
+                    if (response.ok) {
+                        console.log('Saved to URL:', saveUrl);
+                        alert('Spreadsheet saved successfully!');
+                    } else {
+                        throw new Error(`Save failed: ${response.status} ${response.statusText}`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Save failed:', error);
+            alert('Failed to save spreadsheet: ' + error.message);
+        }
+    }, [model, currentFilePath]);
 
     const loadSampleData = useCallback(async (model, adapter) => {
         const sampleData = {
@@ -1056,6 +1397,9 @@ function App() {
             <div className="header">
                 <h1>RexxJS Spreadsheet POC</h1>
                 <div className="header-controls">
+                    <button className="save-button" onClick={handleSave} title="Save spreadsheet">
+                        💾 Save
+                    </button>
                     <div className="view-mode-badge" title="Hold V/E/F to peek at different views">
                         View: {viewMode.toUpperCase()}
                     </div>
@@ -1086,6 +1430,7 @@ function App() {
                     onSelectionStart={handleSelectionStart}
                     onSelectionMove={handleSelectionMove}
                     onSelectionEnd={handleSelectionEnd}
+                    onContextMenu={handleContextMenu}
                     bufferedKeysRef={bufferedKeys}
                     isTransitioningRef={isTransitioningToEdit}
                 />
@@ -1097,6 +1442,20 @@ function App() {
                     viewMode={viewMode}
                 />
             </div>
+
+            {contextMenu && (
+                <ContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    cellRef={contextMenu.cellRef}
+                    onClose={() => setContextMenu(null)}
+                    onFormat={handleFormat}
+                    onCut={() => { handleCut(); setContextMenu(null); }}
+                    onCopy={() => { handleCopy(); setContextMenu(null); }}
+                    onPaste={() => { handlePaste(false); setContextMenu(null); }}
+                    onPasteValues={() => { handlePaste(true); setContextMenu(null); }}
+                />
+            )}
 
             <SettingsModal
                 isOpen={settingsOpen}
