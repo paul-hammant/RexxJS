@@ -1,0 +1,18 @@
+#!/bin/bash
+# Development launcher for Rexx-A-Sketch
+# Automatically enables control bus and starts Tauri dev mode
+
+set -e
+
+echo "🎨 Starting Rexx-A-Sketch Development Mode"
+echo ""
+echo "Control Bus: http://localhost:8084"
+echo "Auth Token: dev-token-12345"
+echo ""
+echo "Try these commands in another terminal:"
+echo "  ../../core/rexx draw-stick-figure.rexx"
+echo "  ../../core/rexx test-connection.rexx"
+echo ""
+
+export ENABLE_CONTROL_BUS=1
+exec npm run tauri:dev
