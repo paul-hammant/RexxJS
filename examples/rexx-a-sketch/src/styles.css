@@ -1,0 +1,131 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+#app {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 900px;
+  width: 100%;
+}
+
+#header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#header h1 {
+  color: #333;
+  font-size: 2.5em;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  color: #666;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+#controls {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.dial-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.dial-container label {
+  font-size: 0.9em;
+  color: #666;
+  font-weight: 600;
+}
+
+.dial-container input[type="range"] {
+  width: 150px;
+}
+
+.dial-container span {
+  font-size: 0.85em;
+  color: #999;
+  min-width: 30px;
+  text-align: center;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9em;
+  cursor: pointer;
+  background: #e0e0e0;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  background: #d0d0d0;
+  transform: translateY(-1px);
+}
+
+.btn.primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn.primary:hover {
+  background: #5568d3;
+}
+
+#canvas {
+  display: block;
+  margin: 0 auto;
+  background: #f5f5f5;
+  border: 3px solid #333;
+  border-radius: 8px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#status {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  font-size: 0.9em;
+  color: #666;
+}
+
+#busStatus {
+  font-weight: 600;
+}
+
+#busStatus.connected {
+  color: #28a745;
+}
+
+#busStatus.disconnected {
+  color: #dc3545;
+}

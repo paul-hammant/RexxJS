@@ -1,0 +1,25 @@
+[package]
+name = "rexx-a-sketch"
+version = "0.1.0"
+description = "An etch-a-sketch app controlled by RexxJS"
+authors = ["RexxJS Team"]
+edition = "2021"
+
+[lib]
+name = "rexx_a_sketch_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-log = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1.11", features = ["v4"] }
+signal-hook = "0.3"
+log = "0.4"
