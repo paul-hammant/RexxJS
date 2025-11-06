@@ -13,7 +13,7 @@ const { useState, useEffect, useRef, useCallback } = React;
 /**
  * Cell Component
  */
-function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
+function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode, width, height }) {
     const inputRef = useRef(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -92,6 +92,7 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
             onClick={() => onSelect(cellRef)}
             onDoubleClick={handleDoubleClick}
             title={title}
+            style={{ width: `${width}px`, minWidth: `${width}px`, height: `${height}px` }}
         >
             {isEditing ? (
                 <input
@@ -113,10 +114,47 @@ function Cell({ cellRef, cell, isSelected, onSelect, onEdit, viewMode }) {
 /**
  * Column Header Component
  */
-function ColumnHeader({ col }) {
+function ColumnHeader({ col, width, onResize }) {
+    const [isResizing, setIsResizing] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [startWidth, setStartWidth] = useState(0);
+
+    const handleMouseDown = (e) => {
+        setIsResizing(true);
+        setStartX(e.clientX);
+        setStartWidth(width);
+        e.preventDefault();
+    };
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (e) => {
+            const delta = e.clientX - startX;
+            const newWidth = Math.max(20, startWidth + delta);
+            onResize(col, newWidth);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing, startX, startWidth, col, onResize]);
+
     return (
-        <div className="column-header">
-            {SpreadsheetModel.colNumberToLetter(col)}
+        <div className="column-header" style={{ width: `${width}px`, minWidth: `${width}px` }}>
+            <span>{SpreadsheetModel.colNumberToLetter(col)}</span>
+            <div
+                className="resize-handle resize-handle-col"
+                onMouseDown={handleMouseDown}
+            />
         </div>
     );
 }
@@ -124,10 +162,47 @@ function ColumnHeader({ col }) {
 /**
  * Row Header Component
  */
-function RowHeader({ row }) {
+function RowHeader({ row, height, onResize }) {
+    const [isResizing, setIsResizing] = useState(false);
+    const [startY, setStartY] = useState(0);
+    const [startHeight, setStartHeight] = useState(0);
+
+    const handleMouseDown = (e) => {
+        setIsResizing(true);
+        setStartY(e.clientY);
+        setStartHeight(height);
+        e.preventDefault();
+    };
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (e) => {
+            const delta = e.clientY - startY;
+            const newHeight = Math.max(15, startHeight + delta);
+            onResize(row, newHeight);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing, startY, startHeight, row, onResize]);
+
     return (
-        <div className="row-header">
-            {row}
+        <div className="row-header" style={{ height: `${height}px`, minHeight: `${height}px` }}>
+            <span>{row}</span>
+            <div
+                className="resize-handle resize-handle-row"
+                onMouseDown={handleMouseDown}
+            />
         </div>
     );
 }
@@ -135,16 +210,24 @@ function RowHeader({ row }) {
 /**
  * Grid Component
  */
-function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visibleCols, viewMode }) {
+function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visibleCols, viewMode, onColumnResize, onRowResize }) {
     const rows = [];
 
     // Header row with column letters
     const headerRow = (
         <div key="header" className="grid-row header-row">
             <div className="corner-cell"></div>
-            {Array.from({ length: visibleCols }, (_, i) => (
-                <ColumnHeader key={i} col={i + 1} />
-            ))}
+            {Array.from({ length: visibleCols }, (_, i) => {
+                const col = i + 1;
+                return (
+                    <ColumnHeader
+                        key={i}
+                        col={col}
+                        width={model.getColumnWidth(col)}
+                        onResize={onColumnResize}
+                    />
+                );
+            })}
         </div>
     );
     rows.push(headerRow);
@@ -152,15 +235,24 @@ function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visi
     // Data rows
     for (let row = 1; row <= visibleRows; row++) {
         const cells = [];
+        const rowHeight = model.getRowHeight(row);
 
         // Row header
-        cells.push(<RowHeader key={`row-${row}`} row={row} />);
+        cells.push(
+            <RowHeader
+                key={`row-${row}`}
+                row={row}
+                height={rowHeight}
+                onResize={onRowResize}
+            />
+        );
 
         // Data cells
         for (let col = 1; col <= visibleCols; col++) {
             const cellRef = SpreadsheetModel.formatCellRef(col, row);
             const cell = model.getCell(cellRef);
             const isSelected = selectedCell === cellRef;
+            const colWidth = model.getColumnWidth(col);
 
             cells.push(
                 <Cell
@@ -171,6 +263,8 @@ function Grid({ model, selectedCell, onSelectCell, onEditCell, visibleRows, visi
                     onSelect={onSelectCell}
                     onEdit={onEditCell}
                     viewMode={viewMode}
+                    width={colWidth}
+                    height={rowHeight}
                 />
             );
         }
@@ -244,6 +338,9 @@ function InfoPanel({ selectedCell, model, viewMode }) {
                 <div className="help-section">
                     <p><strong>Hotkeys:</strong></p>
                     <ul>
+                        <li><kbd>Ctrl+C</kbd> - Copy cell</li>
+                        <li><kbd>Ctrl+X</kbd> - Cut cell</li>
+                        <li><kbd>Ctrl+V</kbd> - Paste cell</li>
                         <li><kbd>V</kbd> - View values only</li>
                         <li><kbd>E</kbd> - View expressions only</li>
                         <li><kbd>F</kbd> - View formats only</li>
@@ -406,6 +503,7 @@ function App() {
     const [error, setError] = useState(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [viewMode, setViewMode] = useState('normal'); // 'normal', 'values', 'expressions', 'formats'
+    const [clipboard, setClipboard] = useState(null); // { content, sourceCol, sourceRow, isCut }
 
     const visibleRows = 20;
     const visibleCols = 10;
@@ -415,14 +513,30 @@ function App() {
         initializeSpreadsheet();
     }, []);
 
-    // Keyboard handler for view mode switching
+    // Keyboard handler for view mode switching and clipboard operations
     useEffect(() => {
-        const handleKeyPress = (e) => {
+        const handleKeyDown = (e) => {
             // Only handle if not in an input/textarea
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
 
+            // Clipboard shortcuts (Ctrl+C, Ctrl+X, Ctrl+V)
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'c') {
+                    e.preventDefault();
+                    handleCopy();
+                } else if (e.key === 'x') {
+                    e.preventDefault();
+                    handleCut();
+                } else if (e.key === 'v') {
+                    e.preventDefault();
+                    handlePaste();
+                }
+                return;
+            }
+
+            // View mode switching (plain keys without modifiers)
             const key = e.key.toLowerCase();
             if (key === 'v') {
                 setViewMode('values');
@@ -435,9 +549,9 @@ function App() {
             }
         };
 
-        window.addEventListener('keypress', handleKeyPress);
-        return () => window.removeEventListener('keypress', handleKeyPress);
-    }, []);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedCell, model, clipboard]);
 
     // Handle hash changes for sheet name
     useEffect(() => {
@@ -550,6 +664,100 @@ function App() {
         setSelectedCell(cellRef);
     }, []);
 
+    // Helper to adjust cell references in formulas
+    const adjustCellReferences = (expression, offsetCol, offsetRow) => {
+        // Match cell references like A1, B2, AA10 (case insensitive)
+        const cellRefPattern = /\b([A-Z]+)(\d+)\b/gi;
+        return expression.replace(cellRefPattern, (match, col, row) => {
+            const colNum = SpreadsheetModel.colLetterToNumber(col);
+            const rowNum = parseInt(row, 10);
+            const newColNum = colNum + offsetCol;
+            const newRowNum = rowNum + offsetRow;
+            if (newColNum < 1 || newRowNum < 1) {
+                return match; // Don't adjust if would go out of bounds
+            }
+            return SpreadsheetModel.formatCellRef(newColNum, newRowNum);
+        });
+    };
+
+    // Copy handler
+    const handleCopy = useCallback(() => {
+        if (!selectedCell || !model) return;
+
+        const cell = model.getCell(selectedCell);
+        const content = cell.expression ? '=' + cell.expression : cell.value;
+        const parsed = SpreadsheetModel.parseCellRef(selectedCell);
+
+        setClipboard({
+            content: content,
+            sourceCol: SpreadsheetModel.colLetterToNumber(parsed.col),
+            sourceRow: parsed.row,
+            isCut: false
+        });
+    }, [selectedCell, model]);
+
+    // Cut handler
+    const handleCut = useCallback(() => {
+        if (!selectedCell || !model) return;
+
+        const cell = model.getCell(selectedCell);
+        const content = cell.expression ? '=' + cell.expression : cell.value;
+        const parsed = SpreadsheetModel.parseCellRef(selectedCell);
+
+        setClipboard({
+            content: content,
+            sourceCol: SpreadsheetModel.colLetterToNumber(parsed.col),
+            sourceRow: parsed.row,
+            isCut: true
+        });
+
+        // Clear the source cell for cut operation
+        model.setCell(selectedCell, '', adapter);
+        setUpdateCounter(c => c + 1);
+    }, [selectedCell, model, adapter]);
+
+    // Paste handler with relative reference adjustment
+    const handlePaste = useCallback(async () => {
+        if (!selectedCell || !model || !clipboard) return;
+
+        const parsed = SpreadsheetModel.parseCellRef(selectedCell);
+        const targetCol = SpreadsheetModel.colLetterToNumber(parsed.col);
+        const targetRow = parsed.row;
+
+        let content = clipboard.content;
+
+        // If pasting a formula, adjust cell references
+        if (content.startsWith('=')) {
+            const offsetCol = targetCol - clipboard.sourceCol;
+            const offsetRow = targetRow - clipboard.sourceRow;
+            const expression = content.substring(1);
+            const adjustedExpression = adjustCellReferences(expression, offsetCol, offsetRow);
+            content = '=' + adjustedExpression;
+        }
+
+        await model.setCell(selectedCell, content, adapter);
+        setUpdateCounter(c => c + 1);
+
+        // Clear clipboard if it was a cut operation
+        if (clipboard.isCut) {
+            setClipboard(null);
+        }
+    }, [selectedCell, model, adapter, clipboard]);
+
+    // Column resize handler
+    const handleColumnResize = useCallback((col, width) => {
+        if (!model) return;
+        model.setColumnWidth(col, width);
+        setUpdateCounter(c => c + 1);
+    }, [model]);
+
+    // Row resize handler
+    const handleRowResize = useCallback((row, height) => {
+        if (!model) return;
+        model.setRowHeight(row, height);
+        setUpdateCounter(c => c + 1);
+    }, [model]);
+
     if (isLoading) {
         return (
             <div className="app loading">
@@ -602,6 +810,8 @@ function App() {
                     visibleRows={visibleRows}
                     visibleCols={visibleCols}
                     viewMode={viewMode}
+                    onColumnResize={handleColumnResize}
+                    onRowResize={handleRowResize}
                 />
 
                 <InfoPanel

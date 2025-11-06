@@ -179,6 +179,11 @@ body {
     border-right: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
     user-select: none;
+    position: relative;
+}
+
+.column-header:hover {
+    background: #e8f4fd;
 }
 
 .row-header {
@@ -194,6 +199,11 @@ body {
     left: 0;
     z-index: 5;
     user-select: none;
+    position: relative;
+}
+
+.row-header:hover {
+    background: #e8f4fd;
 }
 
 .cell {
@@ -684,4 +694,36 @@ body {
     min-width: 180px;
     padding: 4px 0;
     z-index: 10001;
+}
+
+/* Resize handles */
+.resize-handle {
+    position: absolute;
+    z-index: 10;
+}
+
+.resize-handle-col {
+    right: -3px;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+}
+
+.resize-handle-col:hover {
+    background: #2196F3;
+}
+
+.resize-handle-row {
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 6px;
+    cursor: row-resize;
+    background: transparent;
+}
+
+.resize-handle-row:hover {
+    background: #2196F3;
 }
