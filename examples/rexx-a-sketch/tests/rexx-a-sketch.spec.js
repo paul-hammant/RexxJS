@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test.describe('Rexx-A-Sketch', () => {
   test.beforeEach(async ({ page }) => {
@@ -21,24 +21,35 @@ test.describe('Rexx-A-Sketch', () => {
     const canvas = page.locator('#canvas');
     await expect(canvas).toBeVisible();
 
-    // Check dials exist
-    await expect(page.locator('#dialX')).toBeVisible();
-    await expect(page.locator('#dialY')).toBeVisible();
+    // Check knobs exist
+    await expect(page.locator('#knobX')).toBeVisible();
+    await expect(page.locator('#knobY')).toBeVisible();
   });
 
-  test('should have interactive dials', async ({ page }) => {
-    const dialX = page.locator('#dialX');
-    const dialXValue = page.locator('#dialX-value');
+  test('should have interactive knobs', async ({ page }) => {
+    const knobX = page.locator('#knobX');
+    const knobXValue = page.locator('#knobX-value');
 
-    // Initial value should be 0
-    await expect(dialXValue).toHaveText('0');
+    // Initial value should be 0°
+    await expect(knobXValue).toHaveText('0°');
 
-    // Change dial value
-    await dialX.fill('2');
+    // Simulate rotating the knob by dragging it
+    const box = await knobX.boundingBox();
+    const centerX = box.x + box.width / 2;
+    const centerY = box.y + box.height / 2;
 
-    // Value display should update
-    const value = await dialXValue.textContent();
-    expect(parseFloat(value)).toBeCloseTo(2, 0);
+    // Drag from center to the right (90 degrees)
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.down();
+    await page.mouse.move(centerX + box.width / 2, centerY);
+    await page.mouse.up();
+
+    // Wait for update
+    await page.waitForTimeout(100);
+
+    // Value display should have changed
+    const value = await knobXValue.textContent();
+    expect(value).not.toBe('0°');
   });
 
   test('should clear canvas when clear button clicked', async ({ page }) => {
@@ -70,16 +81,27 @@ test.describe('Rexx-A-Sketch', () => {
     await expect(posX).toBeVisible();
     await expect(posY).toBeVisible();
 
-    // Position should update when moving dials
-    const dialX = page.locator('#dialX');
-    await dialX.fill('1');
+    // Get initial position
+    const initialX = await posX.textContent();
 
-    // Wait a bit for position update
-    await page.waitForTimeout(100);
+    // Rotate knob to move cursor
+    const knobX = page.locator('#knobX');
+    const box = await knobX.boundingBox();
+    const centerX = box.x + box.width / 2;
+    const centerY = box.y + box.height / 2;
 
-    // Position should have changed (not necessarily to exact value due to clamping)
-    const xText = await posX.textContent();
-    expect(xText).toBeTruthy();
+    // Drag to rotate knob
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.down();
+    await page.mouse.move(centerX + box.width / 2, centerY);
+    await page.mouse.up();
+
+    // Wait for position updates to accumulate
+    await page.waitForTimeout(200);
+
+    // Position should have changed
+    const newX = await posX.textContent();
+    expect(newX).not.toBe(initialX);
   });
 
   test('should show control bus status', async ({ page }) => {

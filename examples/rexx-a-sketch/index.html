@@ -14,16 +14,26 @@
     </div>
 
     <div id="controls">
-      <div class="dial-container">
-        <label>Left Dial (X)</label>
-        <input type="range" id="dialX" min="-5" max="5" value="0" step="0.1" />
-        <span id="dialX-value">0</span>
+      <div class="knob-container">
+        <label>Left Knob (X)</label>
+        <svg class="knob" id="knobX" width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="45" class="knob-outer" />
+          <circle cx="50" cy="50" r="35" class="knob-inner" />
+          <line x1="50" y1="50" x2="50" y2="15" class="knob-indicator" />
+          <circle cx="50" cy="20" r="5" class="knob-dot" />
+        </svg>
+        <span id="knobX-value">0°</span>
       </div>
 
-      <div class="dial-container">
-        <label>Right Dial (Y)</label>
-        <input type="range" id="dialY" min="-5" max="5" value="0" step="0.1" />
-        <span id="dialY-value">0</span>
+      <div class="knob-container">
+        <label>Right Knob (Y)</label>
+        <svg class="knob" id="knobY" width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="45" class="knob-outer" />
+          <circle cx="50" cy="50" r="35" class="knob-inner" />
+          <line x1="50" y1="50" x2="50" y2="15" class="knob-indicator" />
+          <circle cx="50" cy="20" r="5" class="knob-dot" />
+        </svg>
+        <span id="knobY-value">0°</span>
       </div>
 
       <button id="clearBtn" class="btn">Clear Screen</button>

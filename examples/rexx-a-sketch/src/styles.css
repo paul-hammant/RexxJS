@@ -49,27 +49,56 @@ body {
   flex-wrap: wrap;
 }
 
-.dial-container {
+.knob-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
 }
 
-.dial-container label {
+.knob-container label {
   font-size: 0.9em;
   color: #666;
   font-weight: 600;
 }
 
-.dial-container input[type="range"] {
-  width: 150px;
+.knob {
+  cursor: grab;
+  user-select: none;
 }
 
-.dial-container span {
+.knob:active {
+  cursor: grabbing;
+}
+
+.knob-outer {
+  fill: #333;
+  stroke: #222;
+  stroke-width: 2;
+}
+
+.knob-inner {
+  fill: #555;
+  stroke: #444;
+  stroke-width: 1;
+}
+
+.knob-indicator {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.knob-dot {
+  fill: #ff6b6b;
+  stroke: #fff;
+  stroke-width: 1;
+}
+
+.knob-container span {
   font-size: 0.85em;
   color: #999;
-  min-width: 30px;
+  min-width: 40px;
   text-align: center;
 }
 
