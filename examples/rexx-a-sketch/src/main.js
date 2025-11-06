@@ -31,12 +31,95 @@ async function main() {
   // Initialize control bus adapter
   const controlBus = new ControlBusAdapter(etch);
 
-  // Connect dials to etch-a-sketch
-  const dialX = document.getElementById('dialX');
-  const dialY = document.getElementById('dialY');
-  const dialXValue = document.getElementById('dialX-value');
-  const dialYValue = document.getElementById('dialY-value');
+  // Connect knobs to etch-a-sketch
+  const knobX = document.getElementById('knobX');
+  const knobY = document.getElementById('knobY');
+  const knobXValue = document.getElementById('knobX-value');
+  const knobYValue = document.getElementById('knobY-value');
 
+  // Knob state
+  let knobXAngle = 0; // degrees
+  let knobYAngle = 0; // degrees
+  let isDraggingX = false;
+  let isDraggingY = false;
+
+  // Setup knob rotation
+  function setupKnob(svg, onRotate) {
+    const indicator = svg.querySelector('.knob-indicator');
+    const dot = svg.querySelector('.knob-dot');
+    let isDragging = false;
+    let currentAngle = 0;
+
+    function getAngle(clientX, clientY) {
+      const rect = svg.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = clientX - centerX;
+      const dy = clientY - centerY;
+      return Math.atan2(dy, dx) * (180 / Math.PI) + 90; // 0 degrees at top
+    }
+
+    function updateRotation(angle) {
+      currentAngle = angle;
+      const transform = `rotate(${angle} 50 50)`;
+      indicator.setAttribute('transform', transform);
+      dot.setAttribute('transform', transform);
+      onRotate(angle);
+    }
+
+    function handleMouseDown(e) {
+      isDragging = true;
+      e.preventDefault();
+    }
+
+    function handleMouseMove(e) {
+      if (!isDragging) return;
+      const angle = getAngle(e.clientX, e.clientY);
+      updateRotation(angle);
+    }
+
+    function handleMouseUp() {
+      isDragging = false;
+    }
+
+    svg.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    // Touch support
+    svg.addEventListener('touchstart', (e) => {
+      isDragging = true;
+      e.preventDefault();
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const touch = e.touches[0];
+      const angle = getAngle(touch.clientX, touch.clientY);
+      updateRotation(angle);
+    });
+
+    document.addEventListener('touchend', () => {
+      isDragging = false;
+    });
+
+    return {
+      getAngle: () => currentAngle,
+      setAngle: (angle) => updateRotation(angle)
+    };
+  }
+
+  const knobXController = setupKnob(knobX, (angle) => {
+    knobXAngle = angle;
+    knobXValue.textContent = `${Math.round(angle)}°`;
+  });
+
+  const knobYController = setupKnob(knobY, (angle) => {
+    knobYAngle = angle;
+    knobYValue.textContent = `${Math.round(angle)}°`;
+  });
+
+  // Continuous movement based on knob angles
   let lastUpdateTime = 0;
   const UPDATE_INTERVAL = 16; // ~60 FPS
 
@@ -45,8 +128,15 @@ async function main() {
     if (now - lastUpdateTime < UPDATE_INTERVAL) return;
     lastUpdateTime = now;
 
-    const dx = parseFloat(dialX.value);
-    const dy = parseFloat(dialY.value);
+    // Convert angle to speed (-180 to 180 degrees)
+    // Normalize to -180 to 180 range
+    let normalizedX = ((knobXAngle + 180) % 360) - 180;
+    let normalizedY = ((knobYAngle + 180) % 360) - 180;
+
+    // Map angle to movement speed (-5 to +5)
+    const maxSpeed = 5;
+    const dx = (normalizedX / 180) * maxSpeed;
+    const dy = (normalizedY / 180) * maxSpeed;
 
     if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
       etch.move(dx, dy);
@@ -56,25 +146,22 @@ async function main() {
     const pos = etch.getPosition();
     document.getElementById('posX').textContent = pos.x.toFixed(1);
     document.getElementById('posY').textContent = pos.y.toFixed(1);
+
+    requestAnimationFrame(updatePosition);
   }
 
-  dialX.addEventListener('input', (e) => {
-    dialXValue.textContent = parseFloat(e.target.value).toFixed(1);
-    updatePosition();
-  });
-
-  dialY.addEventListener('input', (e) => {
-    dialYValue.textContent = parseFloat(e.target.value).toFixed(1);
-    updatePosition();
-  });
+  // Start animation loop
+  requestAnimationFrame(updatePosition);
 
   // Clear button
   document.getElementById('clearBtn').addEventListener('click', () => {
     etch.clear();
-    dialX.value = 0;
-    dialY.value = 0;
-    dialXValue.textContent = '0';
-    dialYValue.textContent = '0';
+    knobXController.setAngle(0);
+    knobYController.setAngle(0);
+    knobXAngle = 0;
+    knobYAngle = 0;
+    knobXValue.textContent = '0°';
+    knobYValue.textContent = '0°';
   });
 
   // Draw stick figure button
