@@ -95,7 +95,12 @@ function Cell({ cellRef, cell, isSelected, isInSelection, onSelect, onEdit, onSt
         displayValue = cell.format || '';
         showCell = !!cell.format;
     } else {
+        // Normal mode - show value with number formatting if applicable
         displayValue = cell.error ? cell.value : (cell.value || '');
+        // Apply number formatting if present
+        if (!cell.error && cell.format) {
+            displayValue = applyNumberFormat(displayValue, cell.format);
+        }
     }
 
     const hasError = !!cell.error;
@@ -271,7 +276,7 @@ function parseCellRef(ref) {
 
 /**
  * Parse format string to CSS styles
- * Format string: "bold;italic;color:red;background:yellow"
+ * Format string: "bold;italic;color:red;background:yellow;align:center;number:0.00"
  */
 function parseFormatToCSS(formatString) {
     if (!formatString) return {};
@@ -293,10 +298,74 @@ function parseFormatToCSS(formatString) {
             styles.backgroundColor = trimmed.substring(11);
         } else if (trimmed.startsWith('font-size:')) {
             styles.fontSize = trimmed.substring(10);
+        } else if (trimmed.startsWith('align:')) {
+            const alignment = trimmed.substring(6);
+            styles.textAlign = alignment; // left, center, right, justify
         }
+        // Note: number formatting is handled in display logic, not CSS
     }
 
     return styles;
+}
+
+/**
+ * Apply number formatting to a value
+ * Format examples: "number:0", "number:0.00", "currency:USD", "percent:0.0%"
+ */
+function applyNumberFormat(value, formatString) {
+    if (!formatString || value === '' || value === null || value === undefined) {
+        return value;
+    }
+
+    // Extract number format from format string
+    const parts = formatString.split(';').filter(p => p.trim());
+    let numberFormat = null;
+
+    for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.startsWith('number:') || trimmed.startsWith('currency:') || trimmed.startsWith('percent:')) {
+            numberFormat = trimmed;
+            break;
+        }
+    }
+
+    if (!numberFormat) {
+        return value;
+    }
+
+    // Try to parse as number
+    const numValue = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(numValue)) {
+        return value; // Not a number, return as-is
+    }
+
+    if (numberFormat.startsWith('number:')) {
+        // Extract decimal places from format like "number:0.00"
+        const formatPattern = numberFormat.substring(7);
+        const decimalMatch = formatPattern.match(/0\.(\d+)/);
+        const decimalPlaces = decimalMatch ? decimalMatch[1].length : 0;
+        return numValue.toFixed(decimalPlaces);
+    } else if (numberFormat.startsWith('currency:')) {
+        // Extract currency code from format like "currency:USD"
+        const currencyCode = numberFormat.substring(9);
+        try {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currencyCode || 'USD'
+            }).format(numValue);
+        } catch (e) {
+            // Fallback if currency code invalid
+            return '$' + numValue.toFixed(2);
+        }
+    } else if (numberFormat.startsWith('percent:')) {
+        // Extract decimal places from format like "percent:0.0%"
+        const formatPattern = numberFormat.substring(8);
+        const decimalMatch = formatPattern.match(/0\.(\d+)/);
+        const decimalPlaces = decimalMatch ? decimalMatch[1].length : 0;
+        return (numValue * 100).toFixed(decimalPlaces) + '%';
+    }
+
+    return value;
 }
 
 /**
@@ -484,6 +553,8 @@ function ContextMenu({ x, y, cellRef, onClose, onFormat, onCut, onCopy, onPaste,
     }, [onClose]);
 
     const [formatMenuOpen, setFormatMenuOpen] = useState(false);
+    const [alignMenuOpen, setAlignMenuOpen] = useState(false);
+    const [numberFormatMenuOpen, setNumberFormatMenuOpen] = useState(false);
 
     const handleFormatClick = (format) => {
         onFormat(format);
@@ -560,6 +631,77 @@ function ContextMenu({ x, y, cellRef, onClose, onFormat, onCut, onCopy, onPaste,
                         <div className="context-menu-separator"></div>
                         <div className="context-menu-item" onClick={() => handleFormatClick('')}>
                             <span>Clear Format</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <div
+                className="context-menu-item context-menu-submenu"
+                onMouseEnter={() => setAlignMenuOpen(true)}
+                onMouseLeave={() => setAlignMenuOpen(false)}
+            >
+                <span>↔️ Align</span>
+                <span className="submenu-arrow">▶</span>
+                {alignMenuOpen && (
+                    <div className="context-submenu">
+                        <div className="context-menu-item" onClick={() => handleFormatClick('align:left')}>
+                            <span>⬅️ Align Left</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('align:center')}>
+                            <span>↔️ Align Center</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('align:right')}>
+                            <span>➡️ Align Right</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('align:justify')}>
+                            <span>⬌ Justify</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <div
+                className="context-menu-item context-menu-submenu"
+                onMouseEnter={() => setNumberFormatMenuOpen(true)}
+                onMouseLeave={() => setNumberFormatMenuOpen(false)}
+            >
+                <span>🔢 Number Format</span>
+                <span className="submenu-arrow">▶</span>
+                {numberFormatMenuOpen && (
+                    <div className="context-submenu">
+                        <div className="context-menu-item" onClick={() => handleFormatClick('number:0')}>
+                            <span>Integer (0)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('number:0.0')}>
+                            <span>1 Decimal (0.0)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('number:0.00')}>
+                            <span>2 Decimals (0.00)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('number:0.000')}>
+                            <span>3 Decimals (0.000)</span>
+                        </div>
+                        <div className="context-menu-separator"></div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('currency:USD')}>
+                            <span>💵 Currency (USD)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('currency:EUR')}>
+                            <span>💶 Currency (EUR)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('currency:GBP')}>
+                            <span>💷 Currency (GBP)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('currency:JPY')}>
+                            <span>💴 Currency (JPY)</span>
+                        </div>
+                        <div className="context-menu-separator"></div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('percent:0%')}>
+                            <span>Percent (0%)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('percent:0.0%')}>
+                            <span>Percent (0.0%)</span>
+                        </div>
+                        <div className="context-menu-item" onClick={() => handleFormatClick('percent:0.00%')}>
+                            <span>Percent (0.00%)</span>
                         </div>
                     </div>
                 )}

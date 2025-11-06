@@ -169,9 +169,10 @@ describe('SpreadsheetModel', () => {
             model.setCell('A3', '=A1 + A2');
 
             const json = model.toJSON();
-            expect(json.A1).toBe('10');
-            expect(json.A2).toBe('20');
-            expect(json.A3).toBe('=A1 + A2');
+            expect(json.cells).toBeDefined();
+            expect(json.cells.A1).toBe('10');
+            expect(json.cells.A2).toBe('20');
+            expect(json.cells.A3).toBe('=A1 + A2');
         });
 
         it('should import cells from JSON', () => {
@@ -239,6 +240,93 @@ describe('SpreadsheetModel', () => {
         it('should accept numeric column in objects', () => {
             model.setCell({ col: 1, row: 1 }, 'Test');
             expect(model.getCellValue('A1')).toBe('Test');
+        });
+    });
+
+    describe('Cell metadata and formatting', () => {
+        it('should store and retrieve cell format', () => {
+            model.setCell('A1', '100', null, { format: 'bold' });
+            const cell = model.getCell('A1');
+            expect(cell.format).toBe('bold');
+            expect(cell.value).toBe('100');
+        });
+
+        it('should store and retrieve cell comment', () => {
+            model.setCell('A1', '100', null, { comment: 'Important value' });
+            const cell = model.getCell('A1');
+            expect(cell.comment).toBe('Important value');
+            expect(cell.value).toBe('100');
+        });
+
+        it('should store both format and comment', () => {
+            model.setCell('A1', '100', null, {
+                format: 'bold;color:red',
+                comment: 'Critical value'
+            });
+            const cell = model.getCell('A1');
+            expect(cell.format).toBe('bold;color:red');
+            expect(cell.comment).toBe('Critical value');
+        });
+
+        it('should update format via setCellMetadata', () => {
+            model.setCell('A1', '100');
+            model.setCellMetadata('A1', { format: 'italic' });
+            const cell = model.getCell('A1');
+            expect(cell.format).toBe('italic');
+            expect(cell.value).toBe('100');
+        });
+
+        it('should preserve existing metadata when updating cell value', () => {
+            model.setCell('A1', '100', null, { format: 'bold', comment: 'Note' });
+            model.setCell('A1', '200');
+            const cell = model.getCell('A1');
+            expect(cell.value).toBe('200');
+            expect(cell.format).toBe('bold');
+            expect(cell.comment).toBe('Note');
+        });
+
+        it('should support alignment formats', () => {
+            model.setCell('A1', 'Left', null, { format: 'align:left' });
+            model.setCell('A2', 'Center', null, { format: 'align:center' });
+            model.setCell('A3', 'Right', null, { format: 'align:right' });
+
+            expect(model.getCell('A1').format).toBe('align:left');
+            expect(model.getCell('A2').format).toBe('align:center');
+            expect(model.getCell('A3').format).toBe('align:right');
+        });
+
+        it('should support number formats', () => {
+            model.setCell('A1', '123.456', null, { format: 'number:0.00' });
+            model.setCell('A2', '1234.56', null, { format: 'currency:USD' });
+            model.setCell('A3', '0.125', null, { format: 'percent:0.0%' });
+
+            expect(model.getCell('A1').format).toBe('number:0.00');
+            expect(model.getCell('A2').format).toBe('currency:USD');
+            expect(model.getCell('A3').format).toBe('percent:0.0%');
+        });
+
+        it('should support combined formats', () => {
+            model.setCell('A1', '999.99', null, {
+                format: 'bold;color:red;currency:USD'
+            });
+            const cell = model.getCell('A1');
+            expect(cell.format).toBe('bold;color:red;currency:USD');
+        });
+
+        it('should export and import cell metadata', () => {
+            model.setCell('A1', '100', null, {
+                format: 'bold;number:0.00',
+                comment: 'Test note'
+            });
+
+            const json = model.toJSON();
+            const newModel = new SpreadsheetModel(100, 26);
+            newModel.fromJSON(json);
+
+            const cell = newModel.getCell('A1');
+            expect(cell.value).toBe('100');
+            expect(cell.format).toBe('bold;number:0.00');
+            expect(cell.comment).toBe('Test note');
         });
     });
 });
