@@ -1,14 +1,17 @@
 module.exports = {
   testEnvironment: 'node',
   testMatch: [
-    '**/tests/**/*.spec.(js|ts)',
-    '**/__tests__/**/*.(js|ts)',
-    '../examples/**/tests/**/*.spec.(js|ts)'
+    '**/tests/**/*.spec.js',
+    '**/tests/**/*.spec.ts',
+    '**/__tests__/**/*.js',
+    '**/__tests__/**/*.ts',
+    '<rootDir>/../examples/**/tests/**/*.spec.js',
+    '<rootDir>/../examples/**/tests/**/*.spec.ts'
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
-    '/tests/web/',
-    'require-nodejs-wrapper.spec.js'  // Playwright test
+    '/core/tests/web/',
+    'require-nodejs-wrapper\\.spec\\.js'  // Playwright test
   ],
   coverageDirectory: './coverage/',
   collectCoverageFrom: [

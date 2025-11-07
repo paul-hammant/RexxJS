@@ -228,6 +228,153 @@ class SpreadsheetRexxAdapter {
             COLUMN: function(ref) {
                 const parsed = SpreadsheetModel.parseCellRef(ref);
                 return SpreadsheetModel.colLetterToNumber(parsed.col);
+            },
+
+            // MEDIAN value in range
+            MEDIAN_RANGE: function(rangeRef) {
+                const values = self.getCellRange(rangeRef);
+                const numbers = values.filter(v => !isNaN(parseFloat(v))).map(v => parseFloat(v));
+                if (numbers.length === 0) return 0;
+
+                numbers.sort((a, b) => a - b);
+                const mid = Math.floor(numbers.length / 2);
+
+                if (numbers.length % 2 === 0) {
+                    return (numbers[mid - 1] + numbers[mid]) / 2;
+                } else {
+                    return numbers[mid];
+                }
+            },
+
+            // STDEV (standard deviation) of range - sample standard deviation
+            STDEV_RANGE: function(rangeRef) {
+                const values = self.getCellRange(rangeRef);
+                const numbers = values.filter(v => !isNaN(parseFloat(v))).map(v => parseFloat(v));
+                if (numbers.length < 2) return 0;
+
+                const mean = numbers.reduce((s, v) => s + v, 0) / numbers.length;
+                const squaredDiffs = numbers.map(v => Math.pow(v - mean, 2));
+                const variance = squaredDiffs.reduce((s, v) => s + v, 0) / (numbers.length - 1);
+
+                return Math.sqrt(variance);
+            },
+
+            // STDEVP (standard deviation) of range - population standard deviation
+            STDEVP_RANGE: function(rangeRef) {
+                const values = self.getCellRange(rangeRef);
+                const numbers = values.filter(v => !isNaN(parseFloat(v))).map(v => parseFloat(v));
+                if (numbers.length === 0) return 0;
+
+                const mean = numbers.reduce((s, v) => s + v, 0) / numbers.length;
+                const squaredDiffs = numbers.map(v => Math.pow(v - mean, 2));
+                const variance = squaredDiffs.reduce((s, v) => s + v, 0) / numbers.length;
+
+                return Math.sqrt(variance);
+            },
+
+            // PRODUCT of range
+            PRODUCT_RANGE: function(rangeRef) {
+                const values = self.getCellRange(rangeRef);
+                const numbers = values.filter(v => !isNaN(parseFloat(v))).map(v => parseFloat(v));
+                if (numbers.length === 0) return 0;
+
+                return numbers.reduce((product, v) => product * v, 1);
+            },
+
+            // VAR (variance) of range - sample variance
+            VAR_RANGE: function(rangeRef) {
+                const values = self.getCellRange(rangeRef);
+                const numbers = values.filter(v => !isNaN(parseFloat(v))).map(v => parseFloat(v));
+                if (numbers.length < 2) return 0;
+
+                const mean = numbers.reduce((s, v) => s + v, 0) / numbers.length;
+                const squaredDiffs = numbers.map(v => Math.pow(v - mean, 2));
+
+                return squaredDiffs.reduce((s, v) => s + v, 0) / (numbers.length - 1);
+            },
+
+            // VARP (variance) of range - population variance
+            VARP_RANGE: function(rangeRef) {
+                const values = self.getCellRange(rangeRef);
+                const numbers = values.filter(v => !isNaN(parseFloat(v))).map(v => parseFloat(v));
+                if (numbers.length === 0) return 0;
+
+                const mean = numbers.reduce((s, v) => s + v, 0) / numbers.length;
+                const squaredDiffs = numbers.map(v => Math.pow(v - mean, 2));
+
+                return squaredDiffs.reduce((s, v) => s + v, 0) / numbers.length;
+            },
+
+            // SUMIF - Sum cells in range that meet a condition
+            SUMIF_RANGE: function(rangeRef, condition) {
+                const values = self.getCellRange(rangeRef);
+
+                // Parse condition (e.g., ">5", "=10", "<100")
+                const match = condition.match(/^([><=!]+)(.+)$/);
+                if (!match) {
+                    throw new Error('Invalid condition format. Use: ">5", "=10", "<100", etc.');
+                }
+
+                const operator = match[1];
+                const threshold = parseFloat(match[2]);
+
+                if (isNaN(threshold)) {
+                    throw new Error('Condition value must be a number');
+                }
+
+                return values.reduce((sum, val) => {
+                    const num = parseFloat(val);
+                    if (isNaN(num)) return sum;
+
+                    let matches = false;
+                    switch (operator) {
+                        case '>': matches = num > threshold; break;
+                        case '>=': matches = num >= threshold; break;
+                        case '<': matches = num < threshold; break;
+                        case '<=': matches = num <= threshold; break;
+                        case '=': case '==': matches = num === threshold; break;
+                        case '!=': case '<>': matches = num !== threshold; break;
+                        default: throw new Error('Unknown operator: ' + operator);
+                    }
+
+                    return matches ? sum + num : sum;
+                }, 0);
+            },
+
+            // COUNTIF - Count cells in range that meet a condition
+            COUNTIF_RANGE: function(rangeRef, condition) {
+                const values = self.getCellRange(rangeRef);
+
+                // Parse condition (e.g., ">5", "=10", "<100")
+                const match = condition.match(/^([><=!]+)(.+)$/);
+                if (!match) {
+                    throw new Error('Invalid condition format. Use: ">5", "=10", "<100", etc.');
+                }
+
+                const operator = match[1];
+                const threshold = parseFloat(match[2]);
+
+                if (isNaN(threshold)) {
+                    throw new Error('Condition value must be a number');
+                }
+
+                return values.reduce((count, val) => {
+                    const num = parseFloat(val);
+                    if (isNaN(num)) return count;
+
+                    let matches = false;
+                    switch (operator) {
+                        case '>': matches = num > threshold; break;
+                        case '>=': matches = num >= threshold; break;
+                        case '<': matches = num < threshold; break;
+                        case '<=': matches = num <= threshold; break;
+                        case '=': case '==': matches = num === threshold; break;
+                        case '!=': case '<>': matches = num !== threshold; break;
+                        default: throw new Error('Unknown operator: ' + operator);
+                    }
+
+                    return matches ? count + 1 : count;
+                }, 0);
             }
         };
     }
