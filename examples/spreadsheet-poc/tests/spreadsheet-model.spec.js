@@ -329,4 +329,171 @@ describe('SpreadsheetModel', () => {
             expect(cell.comment).toBe('Test note');
         });
     });
+
+    describe('Row operations', () => {
+        it('should insert a row and shift cells down', () => {
+            model.setCell('A1', '10');
+            model.setCell('A2', '20');
+            model.setCell('A3', '30');
+
+            model.insertRow(2);
+
+            expect(model.getCellValue('A1')).toBe('10');
+            expect(model.getCellValue('A2')).toBe(''); // New empty row
+            expect(model.getCellValue('A3')).toBe('20'); // Shifted down
+            expect(model.getCellValue('A4')).toBe('30'); // Shifted down
+        });
+
+        it('should delete a row and shift cells up', () => {
+            model.setCell('A1', '10');
+            model.setCell('A2', '20');
+            model.setCell('A3', '30');
+            model.setCell('A4', '40');
+
+            model.deleteRow(2);
+
+            expect(model.getCellValue('A1')).toBe('10');
+            expect(model.getCellValue('A2')).toBe('30'); // Shifted up from A3
+            expect(model.getCellValue('A3')).toBe('40'); // Shifted up from A4
+            expect(model.getCellValue('A4')).toBe(''); // Now empty
+        });
+
+        it('should handle row insert at beginning', () => {
+            model.setCell('A1', '10');
+            model.setCell('A2', '20');
+
+            model.insertRow(1);
+
+            expect(model.getCellValue('A1')).toBe(''); // New row
+            expect(model.getCellValue('A2')).toBe('10'); // Shifted
+            expect(model.getCellValue('A3')).toBe('20'); // Shifted
+        });
+
+        it('should preserve cell metadata during row operations', () => {
+            model.setCell('A1', '100', null, { format: 'bold', comment: 'Note' });
+            model.setCell('A2', '200');
+
+            model.insertRow(2);
+
+            const cell = model.getCell('A1');
+            expect(cell.value).toBe('100');
+            expect(cell.format).toBe('bold');
+            expect(cell.comment).toBe('Note');
+        });
+
+        it('should throw error for invalid row number', () => {
+            expect(() => model.insertRow(0)).toThrow('Invalid row number');
+            expect(() => model.insertRow(101)).toThrow('Invalid row number');
+            expect(() => model.deleteRow(0)).toThrow('Invalid row number');
+            expect(() => model.deleteRow(101)).toThrow('Invalid row number');
+        });
+
+        it('should handle multiple columns during row insert', () => {
+            model.setCell('A1', 'A1-val');
+            model.setCell('B1', 'B1-val');
+            model.setCell('C1', 'C1-val');
+            model.setCell('A2', 'A2-val');
+            model.setCell('B2', 'B2-val');
+            model.setCell('C2', 'C2-val');
+
+            model.insertRow(2);
+
+            expect(model.getCellValue('A1')).toBe('A1-val');
+            expect(model.getCellValue('B1')).toBe('B1-val');
+            expect(model.getCellValue('C1')).toBe('C1-val');
+            expect(model.getCellValue('A2')).toBe('');
+            expect(model.getCellValue('B2')).toBe('');
+            expect(model.getCellValue('C2')).toBe('');
+            expect(model.getCellValue('A3')).toBe('A2-val');
+            expect(model.getCellValue('B3')).toBe('B2-val');
+            expect(model.getCellValue('C3')).toBe('C2-val');
+        });
+    });
+
+    describe('Column operations', () => {
+        it('should insert a column and shift cells right', () => {
+            model.setCell('A1', '10');
+            model.setCell('B1', '20');
+            model.setCell('C1', '30');
+
+            model.insertColumn(2); // Insert before column B
+
+            expect(model.getCellValue('A1')).toBe('10');
+            expect(model.getCellValue('B1')).toBe(''); // New empty column
+            expect(model.getCellValue('C1')).toBe('20'); // Shifted right (was B1)
+            expect(model.getCellValue('D1')).toBe('30'); // Shifted right (was C1)
+        });
+
+        it('should delete a column and shift cells left', () => {
+            model.setCell('A1', '10');
+            model.setCell('B1', '20');
+            model.setCell('C1', '30');
+            model.setCell('D1', '40');
+
+            model.deleteColumn(2); // Delete column B
+
+            expect(model.getCellValue('A1')).toBe('10');
+            expect(model.getCellValue('B1')).toBe('30'); // Shifted left from C1
+            expect(model.getCellValue('C1')).toBe('40'); // Shifted left from D1
+            expect(model.getCellValue('D1')).toBe(''); // Now empty
+        });
+
+        it('should accept column letter for insert', () => {
+            model.setCell('A1', '10');
+            model.setCell('B1', '20');
+
+            model.insertColumn('B');
+
+            expect(model.getCellValue('A1')).toBe('10');
+            expect(model.getCellValue('B1')).toBe(''); // New column
+            expect(model.getCellValue('C1')).toBe('20'); // Shifted right
+        });
+
+        it('should accept column letter for delete', () => {
+            model.setCell('A1', '10');
+            model.setCell('B1', '20');
+            model.setCell('C1', '30');
+
+            model.deleteColumn('B');
+
+            expect(model.getCellValue('A1')).toBe('10');
+            expect(model.getCellValue('B1')).toBe('30'); // Shifted left from C1
+            expect(model.getCellValue('C1')).toBe(''); // Now empty
+        });
+
+        it('should preserve cell metadata during column operations', () => {
+            model.setCell('A1', '100', null, { format: 'bold', comment: 'Note' });
+            model.setCell('B1', '200');
+
+            model.insertColumn(2);
+
+            const cell = model.getCell('A1');
+            expect(cell.value).toBe('100');
+            expect(cell.format).toBe('bold');
+            expect(cell.comment).toBe('Note');
+        });
+
+        it('should throw error for invalid column number', () => {
+            expect(() => model.insertColumn(0)).toThrow('Invalid column number');
+            expect(() => model.insertColumn(27)).toThrow('Invalid column number');
+            expect(() => model.deleteColumn(0)).toThrow('Invalid column number');
+            expect(() => model.deleteColumn(27)).toThrow('Invalid column number');
+        });
+
+        it('should handle multiple rows during column insert', () => {
+            model.setCell('A1', 'A1-val');
+            model.setCell('B1', 'B1-val');
+            model.setCell('A2', 'A2-val');
+            model.setCell('B2', 'B2-val');
+
+            model.insertColumn(2);
+
+            expect(model.getCellValue('A1')).toBe('A1-val');
+            expect(model.getCellValue('B1')).toBe('');
+            expect(model.getCellValue('C1')).toBe('B1-val');
+            expect(model.getCellValue('A2')).toBe('A2-val');
+            expect(model.getCellValue('B2')).toBe('');
+            expect(model.getCellValue('C2')).toBe('B2-val');
+        });
+    });
 });

@@ -350,6 +350,311 @@ class SpreadsheetModel {
             }
         }
     }
+
+    /**
+     * Insert a row at the specified position
+     * Shifts all rows at or below the position down by 1
+     */
+    insertRow(rowNum, rexxInterpreter = null) {
+        if (rowNum < 1 || rowNum > this.rows) {
+            throw new Error(`Invalid row number: ${rowNum}. Must be between 1 and ${this.rows}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Move cells down, starting from the bottom to avoid overwrites
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            if (row >= rowNum) {
+                // Shift this cell down
+                const newRef = SpreadsheetModel.formatCellRef(col, row + 1);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Delete a row at the specified position
+     * Shifts all rows below the position up by 1
+     */
+    deleteRow(rowNum, rexxInterpreter = null) {
+        if (rowNum < 1 || rowNum > this.rows) {
+            throw new Error(`Invalid row number: ${rowNum}. Must be between 1 and ${this.rows}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Delete row and shift cells up
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            if (row === rowNum) {
+                // Skip this cell (delete it)
+                continue;
+            } else if (row > rowNum) {
+                // Shift this cell up
+                const newRef = SpreadsheetModel.formatCellRef(col, row - 1);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Insert a column at the specified position
+     * Shifts all columns at or to the right of the position right by 1
+     */
+    insertColumn(colNum, rexxInterpreter = null) {
+        // Convert column number to letter if needed
+        if (typeof colNum === 'string') {
+            colNum = SpreadsheetModel.colLetterToNumber(colNum);
+        }
+
+        if (colNum < 1 || colNum > this.cols) {
+            throw new Error(`Invalid column number: ${colNum}. Must be between 1 and ${this.cols}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Move cells right, processing from right to left to avoid overwrites
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            const currentColNum = SpreadsheetModel.colLetterToNumber(col);
+
+            if (currentColNum >= colNum) {
+                // Shift this cell right
+                const newRef = SpreadsheetModel.formatCellRef(currentColNum + 1, row);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Delete a column at the specified position
+     * Shifts all columns to the right of the position left by 1
+     */
+    deleteColumn(colNum, rexxInterpreter = null) {
+        // Convert column number to letter if needed
+        if (typeof colNum === 'string') {
+            colNum = SpreadsheetModel.colLetterToNumber(colNum);
+        }
+
+        if (colNum < 1 || colNum > this.cols) {
+            throw new Error(`Invalid column number: ${colNum}. Must be between 1 and ${this.cols}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Delete column and shift cells left
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            const currentColNum = SpreadsheetModel.colLetterToNumber(col);
+
+            if (currentColNum === colNum) {
+                // Skip this cell (delete it)
+                continue;
+            } else if (currentColNum > colNum) {
+                // Shift this cell left
+                const newRef = SpreadsheetModel.formatCellRef(currentColNum - 1, row);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Rebuild the dependents map from scratch based on current cells
+     */
+    _rebuildDependents() {
+        this.dependents.clear();
+
+        for (const [ref, cell] of this.cells.entries()) {
+            if (cell.expression) {
+                const dependencies = this.extractCellReferences(cell.expression);
+                cell.dependencies = dependencies;
+
+                dependencies.forEach(dep => {
+                    if (!this.dependents.has(dep)) {
+                        this.dependents.set(dep, new Set());
+                    }
+                    this.dependents.get(dep).add(ref);
+                });
+            }
+        }
+    }
+
+    /**
+     * Recalculate all formula cells
+     */
+    async _recalculateAll(rexxInterpreter) {
+        for (const [ref, cell] of this.cells.entries()) {
+            if (cell.expression) {
+                await this.evaluateCell(ref, rexxInterpreter);
+            }
+        }
+    }
+
+    /**
+     * Sort a range of cells by a specific column
+     * @param {string} rangeRef - Range like "A1:C5"
+     * @param {number|string} sortCol - Column to sort by (1-based index or letter)
+     * @param {boolean} ascending - Sort direction (default: true)
+     * @param {Object} rexxInterpreter - Optional interpreter for recalculation
+     */
+    sortRange(rangeRef, sortCol, ascending = true, rexxInterpreter = null) {
+        // Parse range reference
+        const match = rangeRef.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/i);
+        if (!match) {
+            throw new Error(`Invalid range reference: ${rangeRef}. Expected format: "A1:C5"`);
+        }
+
+        const startColLetter = match[1].toUpperCase();
+        const startRow = parseInt(match[2], 10);
+        const endColLetter = match[3].toUpperCase();
+        const endRow = parseInt(match[4], 10);
+
+        const startCol = SpreadsheetModel.colLetterToNumber(startColLetter);
+        const endCol = SpreadsheetModel.colLetterToNumber(endColLetter);
+
+        // Convert sortCol to number if needed
+        const sortColNum = typeof sortCol === 'string' ?
+            SpreadsheetModel.colLetterToNumber(sortCol) :
+            sortCol;
+
+        // Validate sort column is within range
+        if (sortColNum < startCol || sortColNum > endCol) {
+            throw new Error(`Sort column ${sortCol} is outside the range ${rangeRef}`);
+        }
+
+        // Extract all rows in the range
+        const rows = [];
+        for (let row = startRow; row <= endRow; row++) {
+            const rowData = {
+                rowNum: row,
+                cells: {}
+            };
+            for (let col = startCol; col <= endCol; col++) {
+                const ref = SpreadsheetModel.formatCellRef(col, row);
+                const cell = this.getCell(ref);
+                rowData.cells[col] = { ...cell };
+            }
+            rows.push(rowData);
+        }
+
+        // Sort rows by the sort column
+        rows.sort((a, b) => {
+            const aCell = a.cells[sortColNum];
+            const bCell = b.cells[sortColNum];
+            const aVal = aCell.value || '';
+            const bVal = bCell.value || '';
+
+            // Try numeric comparison first
+            const aNum = parseFloat(aVal);
+            const bNum = parseFloat(bVal);
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                return ascending ? aNum - bNum : bNum - aNum;
+            }
+
+            // Fall back to string comparison
+            const aStr = String(aVal).toLowerCase();
+            const bStr = String(bVal).toLowerCase();
+            if (aStr < bStr) return ascending ? -1 : 1;
+            if (aStr > bStr) return ascending ? 1 : -1;
+            return 0;
+        });
+
+        // Write sorted rows back to the model
+        for (let i = 0; i < rows.length; i++) {
+            const targetRow = startRow + i;
+            const sourceRow = rows[i];
+
+            for (let col = startCol; col <= endCol; col++) {
+                const targetRef = SpreadsheetModel.formatCellRef(col, targetRow);
+                const sourceCell = sourceRow.cells[col];
+
+                if (sourceCell.expression) {
+                    // Preserve expression
+                    const metadata = {
+                        comment: sourceCell.comment || '',
+                        format: sourceCell.format || ''
+                    };
+                    this.setCell(targetRef, '=' + sourceCell.expression, rexxInterpreter, metadata);
+                } else if (sourceCell.value !== '') {
+                    // Preserve value
+                    const metadata = {
+                        comment: sourceCell.comment || '',
+                        format: sourceCell.format || ''
+                    };
+                    this.setCell(targetRef, sourceCell.value, rexxInterpreter, metadata);
+                } else {
+                    // Clear cell
+                    this.setCell(targetRef, '', rexxInterpreter);
+                }
+            }
+        }
+
+        // Recalculate if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
 }
 
 // Export for Node.js (Jest), ES6 modules, and browser
