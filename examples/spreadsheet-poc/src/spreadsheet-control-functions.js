@@ -512,6 +512,94 @@ export function createSpreadsheetControlFunctions(model, adapter) {
     },
 
     /**
+     * INSERTROW - Insert a row at the specified position
+     * Usage: CALL INSERTROW(2)  -- Insert before row 2
+     */
+    INSERTROW: async function(rowNum) {
+      if (!rowNum || typeof rowNum !== 'number' && typeof rowNum !== 'string') {
+        throw new Error('INSERTROW requires row number as argument (e.g., 2)');
+      }
+
+      const rowNumber = parseInt(rowNum, 10);
+      if (isNaN(rowNumber)) {
+        throw new Error('INSERTROW requires a valid row number');
+      }
+
+      model.insertRow(rowNumber, adapter);
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return 'OK';
+    },
+
+    /**
+     * DELETEROW - Delete a row at the specified position
+     * Usage: CALL DELETEROW(2)  -- Delete row 2
+     */
+    DELETEROW: async function(rowNum) {
+      if (!rowNum || typeof rowNum !== 'number' && typeof rowNum !== 'string') {
+        throw new Error('DELETEROW requires row number as argument (e.g., 2)');
+      }
+
+      const rowNumber = parseInt(rowNum, 10);
+      if (isNaN(rowNumber)) {
+        throw new Error('DELETEROW requires a valid row number');
+      }
+
+      model.deleteRow(rowNumber, adapter);
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return 'OK';
+    },
+
+    /**
+     * INSERTCOLUMN - Insert a column at the specified position
+     * Usage: CALL INSERTCOLUMN(2)  -- Insert before column B
+     *        CALL INSERTCOLUMN("B")  -- Insert before column B
+     */
+    INSERTCOLUMN: async function(colNum) {
+      if (!colNum) {
+        throw new Error('INSERTCOLUMN requires column number or letter as argument (e.g., 2 or "B")');
+      }
+
+      model.insertColumn(colNum, adapter);
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return 'OK';
+    },
+
+    /**
+     * DELETECOLUMN - Delete a column at the specified position
+     * Usage: CALL DELETECOLUMN(2)  -- Delete column B
+     *        CALL DELETECOLUMN("B")  -- Delete column B
+     */
+    DELETECOLUMN: async function(colNum) {
+      if (!colNum) {
+        throw new Error('DELETECOLUMN requires column number or letter as argument (e.g., 2 or "B")');
+      }
+
+      model.deleteColumn(colNum, adapter);
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return 'OK';
+    },
+
+    /**
      * LISTCOMMANDS - Get list of available commands
      * Usage: commands = LISTCOMMANDS()
      * Returns: REXX stem array with command names
@@ -524,7 +612,8 @@ export function createSpreadsheetControlFunctions(model, adapter) {
         'GETCOLNAME', 'MAKECELLREF', 'GETCELLS', 'SETCELLS',
         'CLEAR', 'EXPORT', 'IMPORT', 'GETSHEETNAME', 'SETSHEETNAME',
         'EVALUATE', 'RECALCULATE', 'GETSETUPSCRIPT', 'SETSETUPSCRIPT',
-        'EXECUTESETUPSCRIPT', 'LISTCOMMANDS'
+        'EXECUTESETUPSCRIPT', 'INSERTROW', 'DELETEROW', 'INSERTCOLUMN', 'DELETECOLUMN',
+        'LISTCOMMANDS'
       ];
 
       // Return as REXX stem array

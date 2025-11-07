@@ -350,6 +350,206 @@ class SpreadsheetModel {
             }
         }
     }
+
+    /**
+     * Insert a row at the specified position
+     * Shifts all rows at or below the position down by 1
+     */
+    insertRow(rowNum, rexxInterpreter = null) {
+        if (rowNum < 1 || rowNum > this.rows) {
+            throw new Error(`Invalid row number: ${rowNum}. Must be between 1 and ${this.rows}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Move cells down, starting from the bottom to avoid overwrites
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            if (row >= rowNum) {
+                // Shift this cell down
+                const newRef = SpreadsheetModel.formatCellRef(col, row + 1);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Delete a row at the specified position
+     * Shifts all rows below the position up by 1
+     */
+    deleteRow(rowNum, rexxInterpreter = null) {
+        if (rowNum < 1 || rowNum > this.rows) {
+            throw new Error(`Invalid row number: ${rowNum}. Must be between 1 and ${this.rows}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Delete row and shift cells up
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            if (row === rowNum) {
+                // Skip this cell (delete it)
+                continue;
+            } else if (row > rowNum) {
+                // Shift this cell up
+                const newRef = SpreadsheetModel.formatCellRef(col, row - 1);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Insert a column at the specified position
+     * Shifts all columns at or to the right of the position right by 1
+     */
+    insertColumn(colNum, rexxInterpreter = null) {
+        // Convert column number to letter if needed
+        if (typeof colNum === 'string') {
+            colNum = SpreadsheetModel.colLetterToNumber(colNum);
+        }
+
+        if (colNum < 1 || colNum > this.cols) {
+            throw new Error(`Invalid column number: ${colNum}. Must be between 1 and ${this.cols}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Move cells right, processing from right to left to avoid overwrites
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            const currentColNum = SpreadsheetModel.colLetterToNumber(col);
+
+            if (currentColNum >= colNum) {
+                // Shift this cell right
+                const newRef = SpreadsheetModel.formatCellRef(currentColNum + 1, row);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Delete a column at the specified position
+     * Shifts all columns to the right of the position left by 1
+     */
+    deleteColumn(colNum, rexxInterpreter = null) {
+        // Convert column number to letter if needed
+        if (typeof colNum === 'string') {
+            colNum = SpreadsheetModel.colLetterToNumber(colNum);
+        }
+
+        if (colNum < 1 || colNum > this.cols) {
+            throw new Error(`Invalid column number: ${colNum}. Must be between 1 and ${this.cols}`);
+        }
+
+        // Create a new map to hold updated cells
+        const newCells = new Map();
+
+        // Delete column and shift cells left
+        for (const [ref, cell] of this.cells.entries()) {
+            const { col, row } = SpreadsheetModel.parseCellRef(ref);
+            const currentColNum = SpreadsheetModel.colLetterToNumber(col);
+
+            if (currentColNum === colNum) {
+                // Skip this cell (delete it)
+                continue;
+            } else if (currentColNum > colNum) {
+                // Shift this cell left
+                const newRef = SpreadsheetModel.formatCellRef(currentColNum - 1, row);
+                newCells.set(newRef, { ...cell });
+            } else {
+                // Keep this cell where it is
+                newCells.set(ref, cell);
+            }
+        }
+
+        // Replace cells map
+        this.cells = newCells;
+
+        // Rebuild dependents map
+        this._rebuildDependents();
+
+        // Recalculate all formulas if interpreter provided
+        if (rexxInterpreter) {
+            this._recalculateAll(rexxInterpreter);
+        }
+    }
+
+    /**
+     * Rebuild the dependents map from scratch based on current cells
+     */
+    _rebuildDependents() {
+        this.dependents.clear();
+
+        for (const [ref, cell] of this.cells.entries()) {
+            if (cell.expression) {
+                const dependencies = this.extractCellReferences(cell.expression);
+                cell.dependencies = dependencies;
+
+                dependencies.forEach(dep => {
+                    if (!this.dependents.has(dep)) {
+                        this.dependents.set(dep, new Set());
+                    }
+                    this.dependents.get(dep).add(ref);
+                });
+            }
+        }
+    }
+
+    /**
+     * Recalculate all formula cells
+     */
+    async _recalculateAll(rexxInterpreter) {
+        for (const [ref, cell] of this.cells.entries()) {
+            if (cell.expression) {
+                await this.evaluateCell(ref, rexxInterpreter);
+            }
+        }
+    }
 }
 
 // Export for Node.js (Jest), ES6 modules, and browser
