@@ -284,11 +284,10 @@ pub fn run() {
       // Register signal handler to close window on process termination
       let app_handle = app.handle().clone();
       std::thread::spawn(move || {
-        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::atomic::AtomicBool;
         use std::sync::Arc;
 
-        let running = Arc::new(AtomicBool::new(true));
-        let r = running.clone();
+        let _running = Arc::new(AtomicBool::new(true));
 
         #[cfg(unix)]
         {
@@ -307,13 +306,12 @@ pub fn run() {
         }
       });
 
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
+      // Enable logging in both debug and release modes
+      app.handle().plugin(
+        tauri_plugin_log::Builder::default()
+          .level(log::LevelFilter::Info)
+          .build(),
+      )?;
 
       // Get command-line arguments
       let args: Vec<String> = std::env::args().collect();
@@ -352,8 +350,20 @@ pub fn run() {
           log::info!("Auth token: {}", auth_token);
       }
 
-      // Emit the file path to the frontend after a short delay
+      // Log what URL the window will load
       let window = app.get_webview_window("main").unwrap();
+      if let Ok(url) = window.url() {
+        log::info!("Window URL: {}", url);
+      }
+
+      // Check if dist folder exists
+      let dist_path = std::path::Path::new("../dist");
+      log::info!("Dist folder exists: {}", dist_path.exists());
+      if dist_path.exists() {
+        log::info!("Dist folder absolute path: {:?}", dist_path.canonicalize());
+      }
+
+      // Emit the file path to the frontend after a short delay
       let file_path_clone = file_path.clone();
       std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(500));

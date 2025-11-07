@@ -1135,9 +1135,28 @@ function App() {
             // Remote commands now execute via isolated interpreters calling REXX functions directly.
             // This ensures single source of truth - same SETCELL/GETCELL used in expressions and remotely.
 
+            // Load spreadsheet functions via script tag instead of REQUIRE
+            // (REQUIRE doesn't work well with tauri:// protocol)
             const libUrl = window.location.origin + '/lib/spreadsheet-functions.js';
-            const autoSetupScript = `REQUIRE "${libUrl}"`;
-            const result = await newAdapter.executeSetupScript(autoSetupScript);
+            const scriptLoaded = await new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = libUrl;
+                script.onload = () => {
+                    console.log('✓ Loaded', libUrl, 'via script tag');
+                    resolve(true);
+                };
+                script.onerror = () => {
+                    console.error('Failed to load', libUrl);
+                    resolve(false);
+                };
+                document.head.appendChild(script);
+            });
+
+            if (!scriptLoaded) {
+                throw new Error(`Failed to load spreadsheet functions from ${libUrl}`);
+            }
+
+            const result = { success: true, message: 'Spreadsheet functions loaded' };
 
             if (!result.success) {
                 throw new Error(`Failed to load spreadsheet functions: ${result.error}`);
@@ -1239,7 +1258,7 @@ function App() {
             while (!stopPolling) {
                 try {
                     // Poll for pending commands
-                    const response = await fetch('http://localhost:8083/api/poll', {
+                    const response = await fetch('http://localhost:2410/api/poll', {
                         method: 'GET',
                         headers: {
                             'Authorization': 'Bearer dev-token-12345',
@@ -1310,7 +1329,7 @@ function App() {
 
                             // Post result back to Rust
                             try {
-                                await fetch('http://localhost:8083/api/result', {
+                                await fetch('http://localhost:2410/api/result', {
                                     method: 'POST',
                                     headers: {
                                         'Authorization': 'Bearer dev-token-12345',

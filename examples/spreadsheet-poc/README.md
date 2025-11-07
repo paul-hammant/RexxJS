@@ -27,7 +27,16 @@ A proof-of-concept spreadsheet powered by RexxJS expressions, built with React.
 ./rexxsheet-dev --help
 ```
 
-### Production Binary
+### Production Binary (Static Build)
+
+**Quick start with pre-built binary:**
+```bash
+./rexxsheet-static
+./rexxsheet-static spreadsheet.json
+./rexxsheet-static --control-bus  # Enable HTTP control bus
+```
+
+The static binary (`./rexxsheet-static`) is a symlink to `src-tauri/target/release/rexxsheet` and includes all dependencies.
 
 See **[BUILDING-BINARY.md](BUILDING-BINARY.md)** for instructions on building and distributing a standalone binary.
 
@@ -312,12 +321,12 @@ The Tauri spreadsheet can be controlled via HTTP using RexxJS's built-in ADDRESS
 **Example Control Script:**
 ```rexx
 -- Register the remote spreadsheet endpoint (automatically switches to it)
-ADDRESS "http://localhost:8083/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
+ADDRESS "http://localhost:2410/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
 
 -- Send commands (already in SPREADSHEET context)
-"setCell A1 100"
-"setCell A2 200"
-"setCell A3 =A1+A2"
+'SETCELL("A1", "100")'
+'SETCELL("A2", "200")'
+'SETCELL("A3", "=A1+A2")'
 
 IF RC = 0 THEN
   SAY "Spreadsheet updated successfully"
@@ -499,7 +508,6 @@ PLAYWRIGHT_HTML_OPEN=never npx playwright test examples/spreadsheet-poc/tests/
 - Basic styling only
 - Limited to 100 rows × 26 columns (configurable in code)
 - No backend integration
-- Control Bus HTTP API not yet implemented for Tauri mode
 
 ### Implemented Features
 - ✅ Load from JSON files (web mode: hash parameter, Tauri mode: CLI argument)
@@ -509,7 +517,8 @@ PLAYWRIGHT_HTML_OPEN=never npx playwright test examples/spreadsheet-poc/tests/
 - ✅ Copy selection to clipboard (Ctrl+C)
 - ✅ View mode hotkeys (V/E/F for values/expressions/formats)
 - ✅ Named variables via Setup Script
-- ✅ Control Bus for remote scripting (web mode only)
+- ✅ Control Bus for remote scripting (web mode: iframe postMessage, Tauri mode: HTTP API on port 2410)
+- ✅ Static binary build for production deployment (`./rexxsheet-static`)
 
 ### Potential Enhancements
 - Save/export to JSON file (complement the load feature)
@@ -521,7 +530,6 @@ PLAYWRIGHT_HTML_OPEN=never npx playwright test examples/spreadsheet-poc/tests/
 - Import/export CSV format
 - Collaborative editing
 - Charts and visualizations
-- Control Bus HTTP API for Tauri mode
 
 ## RexxJS Functions Available
 

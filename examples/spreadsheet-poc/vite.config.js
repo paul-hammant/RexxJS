@@ -34,9 +34,7 @@ export default defineConfig({
     // Don't minify for easier debugging
     minify: false,
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index-bundled.html')
-      }
+      input: resolve(__dirname, 'index.html')
     }
   },
 

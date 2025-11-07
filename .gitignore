@@ -23,6 +23,7 @@ core/process.log.checkpoint
 bin/rexx*
 pkg-build/
 sea-build/
+examples/spreadsheet-poc/rexxsheet-static
 
 # Temp files
 *.tmp

@@ -26,7 +26,7 @@ if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
     echo "  $0 --help              Show this help"
     echo ""
     echo "Options:"
-    echo "  --control-bus          Enable HTTP control bus API on port 8083"
+    echo "  --control-bus          Enable HTTP control bus API on port 2410"
     echo "                         (allows Node.js REXX scripts to control spreadsheet)"
     echo ""
     echo "Examples:"
@@ -36,18 +36,20 @@ if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
     echo "  $0 --control-bus"
     echo ""
     echo "Environment Variables:"
-    echo "  CONTROL_BUS_TOKEN      Authentication token for HTTP API"
-    echo "                         (default: dev-token-12345)"
+    echo "  CONTROL_BUS_TOKEN            Authentication token for HTTP API"
+    echo "                               (default: dev-token-12345)"
+    echo "  REXXSHEET_CONTROL_BUS_PORT   Port for control bus HTTP API"
+    echo "                               (default: 2410)"
     echo ""
     echo "File Format:"
     echo "  See FILE-LOADING.md for complete format specification"
     echo ""
     echo "Control Bus:"
     echo "  When --control-bus is enabled, the HTTP API listens on:"
-    echo "  http://localhost:8083/api/spreadsheet"
+    echo "  http://localhost:2410/api/spreadsheet"
     echo ""
     echo "  Test with curl:"
-    echo "  curl -X POST http://localhost:8083/api/spreadsheet \\"
+    echo "  curl -X POST http://localhost:2410/api/spreadsheet \\"
     echo "    -H \"Authorization: Bearer dev-token-12345\" \\"
     echo "    -H \"Content-Type: application/json\" \\"
     echo "    -d '{\"command\": \"setCell\", \"params\": {\"ref\": \"A1\", \"content\": \"100\"}}'"
@@ -94,8 +96,12 @@ if [[ "$CONTROL_BUS" == true ]]; then
     TAURI_ARGS="--control-bus"
     # Set environment variable for dev mode (CLI args don't work in tauri dev)
     export ENABLE_CONTROL_BUS=1
+
+    # Get port from environment or default to 2410
+    PORT="${REXXSHEET_CONTROL_BUS_PORT:-2410}"
+
     echo -e "${GREEN}Control Bus HTTP API enabled${NC}"
-    echo -e "${YELLOW}API URL:${NC} http://localhost:8083/api/spreadsheet"
+    echo -e "${YELLOW}API URL:${NC} http://localhost:${PORT}/api/spreadsheet"
 
     # Show token
     TOKEN="${CONTROL_BUS_TOKEN:-dev-token-12345}"

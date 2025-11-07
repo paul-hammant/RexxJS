@@ -27,11 +27,11 @@ SAY ""
 SAY "Prerequisites:"
 SAY "  1. Spreadsheet must be running with control bus enabled"
 SAY "  2. Run: ./rexxsheet-dev --control-bus"
-SAY "  3. Control bus should be at http://localhost:8083"
+SAY "  3. Control bus should be at http://localhost:2410"
 SAY ""
 
 // Connect to the spreadsheet control bus
-ADDRESS "http://localhost:8083/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
+ADDRESS "http://localhost:2410/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
 
 // Verify connection
 SAY "Checking spreadsheet connection..."
@@ -202,30 +202,32 @@ TestRangeOperations:
   ADDRESS EXPECTATIONS
   "{count} should equal 3"
 
-  // Check first cell
-  LET cell1_val = cells.1.value
+  // Check first cell value (cell values are strings)
+  LET cell1_val = INTERPRET_JS("cells['1'].value")
   ADDRESS EXPECTATIONS
-  "{cell1_val} should equal 10"
+  "{cell1_val} should be string 10"
 
-  // Test SETCELLS with array
+  // Test SETCELLS with array parsed from JSON
+  LET values = JSON_PARSE text='["100", "200", "300"]'
+
   ADDRESS SPREADSHEET
-  'SETCELLS("E1:E3", ["100", "200", "300"])'
+  'SETCELLS("E1:E3", values)'
   'GETCELL("E1")'
   LET e1 = RESULT
   ADDRESS EXPECTATIONS
-  "{e1} should equal 100"
+  "{e1} should be string 100"
 
   ADDRESS SPREADSHEET
   'GETCELL("E2")'
   LET e2 = RESULT
   ADDRESS EXPECTATIONS
-  "{e2} should equal 200"
+  "{e2} should be string 200"
 
   ADDRESS SPREADSHEET
   'GETCELL("E3")'
   LET e3 = RESULT
   ADDRESS EXPECTATIONS
-  "{e3} should equal 300"
+  "{e3} should be string 300"
 
   SAY "  ✓ Range operations (GETCELLS, SETCELLS)"
 RETURN
@@ -333,7 +335,8 @@ TestUtilityCommands:
   LET found_export = 0
 
   DO i = 1 TO cmd_count
-    LET cmd = commands.i
+    // Use INTERPRET to build the property access dynamically
+    INTERPRET "LET cmd = commands." || i
     IF cmd = "SETCELL" THEN found_setcell = 1
     IF cmd = "GETCELL" THEN found_getcell = 1
     IF cmd = "EXPORT" THEN found_export = 1

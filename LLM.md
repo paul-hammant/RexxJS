@@ -8,7 +8,7 @@ This is a **REXX interpreter and RPC framework** implemented in JavaScript, desi
 - Complete REXX language implementation with modern extensions
 - Supports classic REXX syntax: `SAY`, `LET`, `DO...END`, `IF...THEN...ELSE`, `SELECT...WHEN`
 - Advanced control structures: `DO OVER` for iteration, `INTERPRET` for dynamic code execution
-- There is `INTERPRET_JS` too dynamic JavaScript code execution - but that's really only for debugging
+- There is `INTERPRET_JS` too dynamic JavaScript code execution - but that's really only for debugging. See core/tests/interpret-js-functions.spec.js for how that works
 - Function library system with 200+ built-in functions across multiple domains
 - **Variable Resolver (var_missing) Callback**: Lazy variable resolution system that allows external environments (like spreadsheets) to provide variable values on-demand without pre-injection
   - Variables resolved via `variableResolver` callback when not found in interpreter's variable map
@@ -141,6 +141,8 @@ This ensures standard REXX functions always work, while allowing ADDRESS handler
 - **HEREDOC with interpolation**: `<<SQL` supports variable interpolation with configurable patterns (`{{var}}`, `${var}`, custom)
 - **HEREDOC JSON auto-parsing**: `LET config = <<JSON` automatically parses to JavaScript objects
 - Supports both traditional command strings (`"CREATE TABLE users"`) and modern method calls (`execute sql="CREATE TABLE users"`)
+
+Note JSON parsing was also available with JSON_PARSE function.
 
 ### ADDRESS Handlers (`extras/addresses/` - 26 handlers)
 
