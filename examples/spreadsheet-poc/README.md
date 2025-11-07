@@ -251,21 +251,51 @@ SAY "Exported " || data.name
 
 **Available Control Bus Commands:**
 
-- `setCell` - Set a cell value or formula
-- `getCell` - Get complete cell information
-- `getCellValue` - Get just the computed value
-- `getCellExpression` - Get the formula expression
-- `getCells` - Get multiple cells by range (e.g., "A1:B5")
-- `setCells` - Set multiple cells at once
-- `clear` - Clear all cells
-- `export` - Export spreadsheet to JSON
-- `import` - Import spreadsheet from JSON
-- `getSheetName` / `setSheetName` - Manage sheet name
-- `evaluate` - Evaluate a RexxJS expression
-- `recalculate` - Force recalculation of all formulas
-- `getSetupScript` / `setSetupScript` / `executeSetupScript` - Manage setup script
-- `listCommands` - Get list of available commands
-- `getVersion` - Get control bus version
+**All Control Bus Commands (26 total):**
+
+**Basic Cell Operations:**
+1. `SETCELL(cellRef, content)` - Set cell value or formula
+2. `GETCELL(cellRef)` - Get cell value
+3. `GETEXPRESSION(cellRef)` - Get cell formula/expression
+4. `CLEARCELL(cellRef)` - Clear cell content
+
+**Cell Metadata:**
+5. `SETFORMAT(cellRef, format)` - Set cell formatting
+6. `GETFORMAT(cellRef)` - Get cell format
+7. `SETCOMMENT(cellRef, comment)` - Set cell comment
+8. `GETCOMMENT(cellRef)` - Get cell comment
+
+**Cell References:**
+9. `GETROW(cellRef)` - Get row number from cell reference
+10. `GETCOL(cellRef)` - Get column number from cell reference
+11. `GETCOLNAME(cellRef)` - Get column letter from cell reference
+12. `MAKECELLREF(col, row)` - Create cell reference from column and row
+
+**Range Operations:**
+13. `GETCELLS(rangeRef)` - Get multiple cells by range (e.g., "A1:B5")
+14. `SETCELLS(rangeRef, values)` - Set multiple cells at once
+
+**Spreadsheet Management:**
+15. `CLEAR()` - Clear all cells in spreadsheet
+16. `EXPORT()` - Export spreadsheet to JSON
+17. `IMPORT(jsonData)` - Import spreadsheet from JSON
+18. `GETSHEETNAME()` - Get spreadsheet name
+19. `SETSHEETNAME(name)` - Set spreadsheet name
+
+**Expression Evaluation:**
+20. `EVALUATE(expression)` - Evaluate RexxJS expression in spreadsheet context
+21. `RECALCULATE()` - Force recalculation of all formulas
+
+**Setup Script Management:**
+22. `GETSETUPSCRIPT()` - Get setup script
+23. `SETSETUPSCRIPT(script)` - Set setup script
+24. `EXECUTESETUPSCRIPT()` - Execute setup script
+
+**Utility:**
+25. `LISTCOMMANDS()` - Get list of available commands
+26. `SPREADSHEET_VERSION()` - Get version
+
+**Testing:** See `examples/spreadsheet-poc/tests/spreadsheet-control-bus-test.rexx` for comprehensive tests of all commands.
 
 #### Tauri Mode - HTTP API (ADDRESS Remote)
 

@@ -236,6 +236,304 @@ export function createSpreadsheetControlFunctions(model, adapter) {
       }
 
       return SpreadsheetModel.formatCellRef(col, Number(row));
+    },
+
+    /**
+     * GETCELLS - Get multiple cells by range
+     * Usage: cells = GETCELLS("A1:B5")
+     * Returns: REXX stem array with cell values
+     */
+    GETCELLS: function(rangeRef) {
+      if (!rangeRef || typeof rangeRef !== 'string') {
+        throw new Error('GETCELLS requires range reference as argument (e.g., "A1:B5")');
+      }
+
+      // Parse range reference (e.g., "A1:B5")
+      const match = rangeRef.match(/^([A-Z]+\d+):([A-Z]+\d+)$/i);
+      if (!match) {
+        throw new Error('Invalid range reference format. Expected format: "A1:B5"');
+      }
+
+      const start = SpreadsheetModel.parseCellRef(match[1]);
+      const end = SpreadsheetModel.parseCellRef(match[2]);
+
+      const startCol = SpreadsheetModel.colLetterToNumber(start.col);
+      const endCol = SpreadsheetModel.colLetterToNumber(end.col);
+      const startRow = start.row;
+      const endRow = end.row;
+
+      // Build REXX stem array
+      const result = { 0: 0 }; // Count will be updated
+      let index = 1;
+
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          const ref = SpreadsheetModel.formatCellRef(col, row);
+          const cell = model.getCell(ref);
+          result[index] = {
+            ref: ref,
+            value: cell.value || '',
+            expression: cell.expression || '',
+            comment: cell.comment || '',
+            format: cell.format || ''
+          };
+          index++;
+        }
+      }
+
+      result[0] = index - 1; // Set count
+      return result;
+    },
+
+    /**
+     * SETCELLS - Set multiple cells at once
+     * Usage: CALL SETCELLS("A1:A3", ["100", "200", "300"])
+     */
+    SETCELLS: async function(rangeRef, values) {
+      if (!rangeRef || typeof rangeRef !== 'string') {
+        throw new Error('SETCELLS requires range reference as first argument (e.g., "A1:A3")');
+      }
+      if (!values) {
+        throw new Error('SETCELLS requires values array as second argument');
+      }
+
+      // Parse range reference
+      const match = rangeRef.match(/^([A-Z]+\d+):([A-Z]+\d+)$/i);
+      if (!match) {
+        throw new Error('Invalid range reference format. Expected format: "A1:B5"');
+      }
+
+      const start = SpreadsheetModel.parseCellRef(match[1]);
+      const end = SpreadsheetModel.parseCellRef(match[2]);
+
+      const startCol = SpreadsheetModel.colLetterToNumber(start.col);
+      const endCol = SpreadsheetModel.colLetterToNumber(end.col);
+      const startRow = start.row;
+      const endRow = end.row;
+
+      // Convert values to array if needed (handle REXX stem arrays)
+      let valuesArray = [];
+      if (Array.isArray(values)) {
+        valuesArray = values;
+      } else if (typeof values === 'object' && values[0] !== undefined) {
+        // REXX stem array format: {0: count, 1: val1, 2: val2, ...}
+        const count = values[0];
+        for (let i = 1; i <= count; i++) {
+          valuesArray.push(values[i]);
+        }
+      } else {
+        throw new Error('SETCELLS values must be an array or REXX stem array');
+      }
+
+      // Set cells
+      let valueIndex = 0;
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          if (valueIndex < valuesArray.length) {
+            const ref = SpreadsheetModel.formatCellRef(col, row);
+            await model.setCell(ref, String(valuesArray[valueIndex]), adapter);
+            valueIndex++;
+          }
+        }
+      }
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return valueIndex; // Return count of cells set
+    },
+
+    /**
+     * CLEAR - Clear all cells in spreadsheet
+     * Usage: CALL CLEAR()
+     */
+    CLEAR: async function() {
+      model.cells.clear();
+      model.dependents.clear();
+      model.evaluationInProgress.clear();
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return 'OK';
+    },
+
+    /**
+     * EXPORT - Export spreadsheet to JSON
+     * Usage: data = EXPORT()
+     * Returns: JSON string of spreadsheet data
+     */
+    EXPORT: function() {
+      const data = model.toJSON();
+      return JSON.stringify(data, null, 2);
+    },
+
+    /**
+     * IMPORT - Import spreadsheet from JSON
+     * Usage: CALL IMPORT(jsonData)
+     */
+    IMPORT: async function(jsonData) {
+      if (!jsonData || typeof jsonData !== 'string') {
+        throw new Error('IMPORT requires JSON string as argument');
+      }
+
+      try {
+        const data = JSON.parse(jsonData);
+        model.fromJSON(data, adapter);
+
+        // Trigger UI update
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+        }
+
+        return 'OK';
+      } catch (error) {
+        throw new Error(`IMPORT failed: ${error.message}`);
+      }
+    },
+
+    /**
+     * GETSHEETNAME - Get spreadsheet name
+     * Usage: name = GETSHEETNAME()
+     */
+    GETSHEETNAME: function() {
+      return model.name || 'Sheet1';
+    },
+
+    /**
+     * SETSHEETNAME - Set spreadsheet name
+     * Usage: CALL SETSHEETNAME("Budget2024")
+     */
+    SETSHEETNAME: function(name) {
+      if (!name || typeof name !== 'string') {
+        throw new Error('SETSHEETNAME requires name as argument');
+      }
+
+      model.name = name;
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return name;
+    },
+
+    /**
+     * EVALUATE - Evaluate RexxJS expression in spreadsheet context
+     * Usage: result = EVALUATE("A1 + A2")
+     */
+    EVALUATE: async function(expression) {
+      if (!expression || typeof expression !== 'string') {
+        throw new Error('EVALUATE requires expression as argument');
+      }
+
+      try {
+        const result = await adapter.evaluate(expression, model);
+        return result;
+      } catch (error) {
+        throw new Error(`EVALUATE failed: ${error.message}`);
+      }
+    },
+
+    /**
+     * RECALCULATE - Force recalculation of all formulas
+     * Usage: CALL RECALCULATE()
+     */
+    RECALCULATE: async function() {
+      // Get all cells with formulas
+      const cellsWithFormulas = [];
+      for (const [ref, cell] of model.cells.entries()) {
+        if (cell.expression) {
+          cellsWithFormulas.push(ref);
+        }
+      }
+
+      // Recalculate each cell
+      for (const ref of cellsWithFormulas) {
+        await model.evaluateCell(ref, adapter);
+      }
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return cellsWithFormulas.length; // Return count of cells recalculated
+    },
+
+    /**
+     * GETSETUPSCRIPT - Get setup script
+     * Usage: script = GETSETUPSCRIPT()
+     */
+    GETSETUPSCRIPT: function() {
+      return model.getSetupScript() || '';
+    },
+
+    /**
+     * SETSETUPSCRIPT - Set setup script
+     * Usage: CALL SETSETUPSCRIPT("LET TAX_RATE = 0.07")
+     */
+    SETSETUPSCRIPT: function(script) {
+      if (script === undefined || script === null) {
+        script = '';
+      }
+
+      model.setSetupScript(String(script));
+
+      // Trigger UI update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('spreadsheet-update'));
+      }
+
+      return 'OK';
+    },
+
+    /**
+     * EXECUTESETUPSCRIPT - Execute setup script
+     * Usage: CALL EXECUTESETUPSCRIPT()
+     */
+    EXECUTESETUPSCRIPT: async function() {
+      const script = model.getSetupScript();
+      if (!script) {
+        return 'OK'; // Nothing to execute
+      }
+
+      try {
+        await adapter.executeSetupScript(script);
+        return 'OK';
+      } catch (error) {
+        throw new Error(`EXECUTESETUPSCRIPT failed: ${error.message}`);
+      }
+    },
+
+    /**
+     * LISTCOMMANDS - Get list of available commands
+     * Usage: commands = LISTCOMMANDS()
+     * Returns: REXX stem array with command names
+     */
+    LISTCOMMANDS: function() {
+      const commands = [
+        'SETCELL', 'GETCELL', 'GETEXPRESSION', 'CLEARCELL',
+        'SPREADSHEET_VERSION', 'SETFORMAT', 'GETFORMAT',
+        'SETCOMMENT', 'GETCOMMENT', 'GETROW', 'GETCOL',
+        'GETCOLNAME', 'MAKECELLREF', 'GETCELLS', 'SETCELLS',
+        'CLEAR', 'EXPORT', 'IMPORT', 'GETSHEETNAME', 'SETSHEETNAME',
+        'EVALUATE', 'RECALCULATE', 'GETSETUPSCRIPT', 'SETSETUPSCRIPT',
+        'EXECUTESETUPSCRIPT', 'LISTCOMMANDS'
+      ];
+
+      // Return as REXX stem array
+      const result = { 0: commands.length };
+      commands.forEach((cmd, index) => {
+        result[index + 1] = cmd;
+      });
+
+      return result;
     }
   };
 }
@@ -351,6 +649,113 @@ export const functionMetadata = {
     examples: [
       'ref = MAKECELLREF(3, 5)  -- returns "C5"',
       'ref = MAKECELLREF("C", 5)  -- returns "C5"'
+    ]
+  },
+  GETCELLS: {
+    name: 'GETCELLS',
+    params: ['rangeRef'],
+    description: 'Get multiple cells by range',
+    examples: [
+      'cells = GETCELLS("A1:B5")',
+      'count = cells.0  -- number of cells'
+    ]
+  },
+  SETCELLS: {
+    name: 'SETCELLS',
+    params: ['rangeRef', 'values'],
+    description: 'Set multiple cells at once',
+    examples: [
+      'CALL SETCELLS("A1:A3", ["100", "200", "300"])'
+    ]
+  },
+  CLEAR: {
+    name: 'CLEAR',
+    params: [],
+    description: 'Clear all cells in spreadsheet',
+    examples: [
+      'CALL CLEAR()'
+    ]
+  },
+  EXPORT: {
+    name: 'EXPORT',
+    params: [],
+    description: 'Export spreadsheet to JSON',
+    examples: [
+      'data = EXPORT()',
+      'SAY data'
+    ]
+  },
+  IMPORT: {
+    name: 'IMPORT',
+    params: ['jsonData'],
+    description: 'Import spreadsheet from JSON',
+    examples: [
+      'CALL IMPORT(jsonString)'
+    ]
+  },
+  GETSHEETNAME: {
+    name: 'GETSHEETNAME',
+    params: [],
+    description: 'Get spreadsheet name',
+    examples: [
+      'name = GETSHEETNAME()'
+    ]
+  },
+  SETSHEETNAME: {
+    name: 'SETSHEETNAME',
+    params: ['name'],
+    description: 'Set spreadsheet name',
+    examples: [
+      'CALL SETSHEETNAME("Budget2024")'
+    ]
+  },
+  EVALUATE: {
+    name: 'EVALUATE',
+    params: ['expression'],
+    description: 'Evaluate RexxJS expression in spreadsheet context',
+    examples: [
+      'result = EVALUATE("A1 + A2")'
+    ]
+  },
+  RECALCULATE: {
+    name: 'RECALCULATE',
+    params: [],
+    description: 'Force recalculation of all formulas',
+    examples: [
+      'CALL RECALCULATE()'
+    ]
+  },
+  GETSETUPSCRIPT: {
+    name: 'GETSETUPSCRIPT',
+    params: [],
+    description: 'Get setup script',
+    examples: [
+      'script = GETSETUPSCRIPT()'
+    ]
+  },
+  SETSETUPSCRIPT: {
+    name: 'SETSETUPSCRIPT',
+    params: ['script'],
+    description: 'Set setup script',
+    examples: [
+      'CALL SETSETUPSCRIPT("LET TAX_RATE = 0.07")'
+    ]
+  },
+  EXECUTESETUPSCRIPT: {
+    name: 'EXECUTESETUPSCRIPT',
+    params: [],
+    description: 'Execute setup script',
+    examples: [
+      'CALL EXECUTESETUPSCRIPT()'
+    ]
+  },
+  LISTCOMMANDS: {
+    name: 'LISTCOMMANDS',
+    params: [],
+    description: 'Get list of available commands',
+    examples: [
+      'commands = LISTCOMMANDS()',
+      'SAY commands.0 "commands available"'
     ]
   }
 };
