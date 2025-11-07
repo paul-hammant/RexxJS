@@ -396,6 +396,90 @@ class SpreadsheetRexxAdapter {
             this.interpreter.builtinFunctions[name] = func;
         });
     }
+
+    /**
+     * Install numpy functions (via pyodide) into the interpreter
+     * Makes real numpy functions available in spreadsheet expressions
+     */
+    async installNumpyFunctions() {
+        if (!this.interpreter) {
+            throw new Error('Interpreter not initialized');
+        }
+
+        try {
+            // Load numpy-via-pyoide module
+            // In browser, assume it's loaded globally or via script tag
+            let numpyFunctions;
+
+            if (typeof window !== 'undefined' && window.numpy) {
+                // Browser environment - numpy loaded via script tag
+                numpyFunctions = window.numpy;
+            } else if (typeof require !== 'undefined') {
+                // Node.js environment
+                const numpyPath = '../../../extras/functions/numpy-via-pyoide/numpy.js';
+                numpyFunctions = require(numpyPath);
+            } else {
+                console.warn('NumPy functions not available - load numpy.js via script tag');
+                return false;
+            }
+
+            // Initialize PyOdide once (cached for subsequent calls)
+            console.log('Initializing PyOdide for NumPy support...');
+            await numpyFunctions.initializePyodide();
+            console.log('✅ PyOdide initialized and cached for spreadsheet');
+
+            // Register numpy functions in interpreter with NP_ prefix to avoid conflicts
+            if (!this.interpreter.builtinFunctions) {
+                this.interpreter.builtinFunctions = {};
+            }
+
+            // Install common numpy functions with NP_ prefix
+            const numpyFuncs = {
+                // Array creation
+                'NP_ZEROS': numpyFunctions.zeros,
+                'NP_ONES': numpyFunctions.ones,
+                'NP_EYE': numpyFunctions.eye,
+                'NP_ARANGE': numpyFunctions.arange,
+                'NP_LINSPACE': numpyFunctions.linspace,
+
+                // Math functions
+                'NP_SIN': numpyFunctions.sin,
+                'NP_COS': numpyFunctions.cos,
+                'NP_EXP': numpyFunctions.exp,
+                'NP_LOG': numpyFunctions.log,
+                'NP_SQRT': numpyFunctions.sqrt,
+
+                // Statistics
+                'NP_MEAN': numpyFunctions.mean,
+                'NP_MEDIAN': numpyFunctions.median,
+                'NP_STD': numpyFunctions.std,
+                'NP_SUM': numpyFunctions.sum,
+
+                // Linear algebra
+                'NP_DOT': numpyFunctions.dot,
+                'NP_MATMUL': numpyFunctions.matmul,
+                'NP_DET': numpyFunctions.det,
+                'NP_INV': numpyFunctions.inv,
+                'NP_EIGVALS': numpyFunctions.eigvals,
+                'NP_EIG': numpyFunctions.eig,
+
+                // Array manipulation
+                'NP_RESHAPE': numpyFunctions.reshape,
+                'NP_TRANSPOSE': numpyFunctions.transpose,
+                'NP_FLATTEN': numpyFunctions.flatten
+            };
+
+            Object.entries(numpyFuncs).forEach(([name, func]) => {
+                this.interpreter.builtinFunctions[name] = func;
+            });
+
+            console.log(`✅ ${Object.keys(numpyFuncs).length} NumPy functions registered with spreadsheet`);
+            return true;
+        } catch (error) {
+            console.error('Failed to install NumPy functions:', error);
+            return false;
+        }
+    }
 }
 
 // Export for Node.js (Jest), ES6 modules, and browser
