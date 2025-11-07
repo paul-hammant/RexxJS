@@ -27,9 +27,11 @@ cd examples/spreadsheet-poc
 ./rexxsheet-dev --control-bus
 ```
 
-Wait for the spreadsheet window to open and show "Control Bus HTTP API enabled" in the terminal.
+Wait for the spreadsheet window to open and show "Control Bus HTTP API enabled on port 2410" in the terminal.
 
 > **Note**: Control bus communication logs are at DEBUG level, so you won't see verbose output during normal operation. If you need to debug the control bus, use `RUST_LOG=debug ./rexxsheet-dev --control-bus`.
+>
+> **Port**: The control bus uses port 2410 by default (see [port-calculator](https://paul-hammant.github.io/port-calculator/#rexxsheet)). You can override this with `REXXSHEET_CONTROL_BUS_PORT=<port>` environment variable.
 
 **Terminal 2 - Run the test:**
 ```bash
@@ -69,7 +71,7 @@ npm run test:web
 
 The integration tests use a COMET-style control bus inspired by Selenium-RC (2007):
 
-1. Node.js REXX script → POST command to `/api/spreadsheet`
+1. Node.js REXX script → POST command to `/api/spreadsheet` (default port 2410)
 2. Rust/Tauri server → Queues command, waits for browser to poll
 3. Browser → Polls `/api/poll` continuously (100ms interval)
 4. Browser → Executes command in isolated REXX interpreter
@@ -78,3 +80,5 @@ The integration tests use a COMET-style control bus inspired by Selenium-RC (200
 7. REXX script → `RESULT` variable contains the return value
 
 This allows Node.js REXX scripts to control the spreadsheet running in the browser, similar to how ARexx worked on Amiga systems.
+
+The default port (2410) is registered at [paul-hammant.github.io/port-calculator](https://paul-hammant.github.io/port-calculator/#rexxsheet).

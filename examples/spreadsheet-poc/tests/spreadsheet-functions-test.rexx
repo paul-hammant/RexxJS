@@ -28,11 +28,11 @@ SAY ""
 SAY "Prerequisites:"
 SAY "  1. Spreadsheet must be running with control bus enabled"
 SAY "  2. Run: ./rexxsheet-dev --control-bus"
-SAY "  3. Control bus should be at http://localhost:8083"
+SAY "  3. Control bus should be at http://localhost:2410"
 SAY ""
 
 // Connect to the spreadsheet control bus
-ADDRESS "http://localhost:8083/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
+ADDRESS "http://localhost:2410/api/spreadsheet" AUTH "dev-token-12345" AS SPREADSHEET
 
 // Verify connection
 SAY "Checking spreadsheet connection..."

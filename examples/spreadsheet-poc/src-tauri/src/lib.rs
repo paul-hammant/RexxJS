@@ -329,6 +329,13 @@ pub fn run() {
       let auth_token = std::env::var("CONTROL_BUS_TOKEN")
           .unwrap_or_else(|_| "dev-token-12345".to_string());
 
+      // Get port from environment variable or default to 2410
+      // See https://paul-hammant.github.io/port-calculator/#rexxsheet
+      let port: u16 = std::env::var("REXXSHEET_CONTROL_BUS_PORT")
+          .ok()
+          .and_then(|p| p.parse().ok())
+          .unwrap_or(2410);
+
       // Start HTTP server if requested
       if enable_http {
           let state = Arc::new(ServerState {
@@ -337,12 +344,11 @@ pub fn run() {
               command_queue: command_queue_for_setup.clone(),
           });
 
-          let port = 8083;
           tauri::async_runtime::spawn(async move {
               start_http_server(state, port).await;
           });
 
-          log::info!("Control Bus HTTP API enabled on port 8083");
+          log::info!("Control Bus HTTP API enabled on port {}", port);
           log::info!("Auth token: {}", auth_token);
       }
 
