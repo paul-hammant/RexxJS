@@ -84,7 +84,7 @@ async fn poll_command(
             // Notify the HTTP handler that browser picked up the command
             let _ = notify.send(());
 
-            log::info!("Browser polled, sending command: {}", cmd.command);
+            log::debug!("Browser polled, sending command: {}", cmd.command);
             return Ok(Json(Some(cmd)));
         }
     }
@@ -123,7 +123,7 @@ async fn post_result(
         .cloned()
         .unwrap_or(serde_json::Value::Null);
 
-    log::info!("Received result for request {}: {:?}", request_id, result);
+    log::debug!("Received result for request {}: {:?}", request_id, result);
 
     // Find and remove the pending request
     let sender = {
@@ -147,7 +147,7 @@ async fn handle_control_bus(
     headers: HeaderMap,
     Json(request): Json<ControlBusRequest>,
 ) -> Result<Json<ControlBusResponse>, StatusCode> {
-    log::info!("Received HTTP request: command={:?}, params={:?}", request.command, request.params);
+    log::debug!("Received HTTP request: command={:?}, params={:?}", request.command, request.params);
 
     // Verify authentication token
     let auth_header = headers
@@ -166,7 +166,7 @@ async fn handle_control_bus(
 
     // Command is already valid REXX syntax - use it directly
     let full_command = request.command.clone();
-    log::info!("Received command: {}", full_command);
+    log::debug!("Received command: {}", full_command);
 
     // Generate unique request ID
     let request_id = uuid::Uuid::new_v4().to_string();
@@ -192,7 +192,7 @@ async fn handle_control_bus(
         queue.insert(request_id.clone(), (cmd, notify_tx));
     }
 
-    log::info!("Command queued, waiting for browser to poll...");
+    log::debug!("Command queued, waiting for browser to poll...");
 
     // Wait for browser to pick up command (with timeout)
     let pickup_timeout = tokio::time::timeout(Duration::from_secs(5), notify_rx).await;
@@ -210,14 +210,14 @@ async fn handle_control_bus(
         }));
     }
 
-    log::info!("Browser picked up command, waiting for result...");
+    log::debug!("Browser picked up command, waiting for result...");
 
     // Wait for response with timeout
     let result = tokio::time::timeout(Duration::from_secs(10), rx).await;
 
     match result {
         Ok(Ok(value)) => {
-            log::info!("Got result: {:?}", value);
+            log::debug!("Got result: {:?}", value);
             Ok(Json(ControlBusResponse {
                 success: true,
                 result: Some(value),

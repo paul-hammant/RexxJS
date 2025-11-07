@@ -148,8 +148,31 @@ class ExpectationError extends Error {
   }
 }
 
+// Helper to check if a value looks numeric (REXX-style)
+function looksNumeric(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'number') return !isNaN(value);
+    if (typeof value !== 'string') return false;
+
+    // Trim whitespace (REXX allows leading/trailing spaces in numeric strings)
+    const trimmed = value.trim();
+    if (trimmed === '') return false;
+
+    // Check if it parses as a valid number
+    const num = Number(trimmed);
+    return !isNaN(num) && isFinite(num);
+}
+
+// REXX-style equality comparison
+// If both values look numeric, compare them numerically
+// Otherwise, use strict equality
 function getB(actual, expected) {
-    //console.log("eq test " + actual + " " + typeof actual);
+    // REXX behavior: if both values look numeric, do numeric comparison
+    if (looksNumeric(actual) && looksNumeric(expected)) {
+        return Number(actual) === Number(expected);
+    }
+
+    // Otherwise, strict equality
     return actual === expected;
 }
 
