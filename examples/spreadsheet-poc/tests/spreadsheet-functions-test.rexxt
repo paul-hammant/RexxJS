@@ -1,4 +1,4 @@
-#!/usr/bin/env ../../core/rexxt
+#!/usr/bin/env ../../../core/rexxt
 
 // Test suite for spreadsheet-poc functions
 // Copyright (c) 2025 RexxJS Project
@@ -7,7 +7,7 @@
 /* @test-tags spreadsheet, functions, statistical */
 /* @description Test comprehensive spreadsheet range functions */
 
-REQUIRE "../../core/src/expectations-address.js"
+REQUIRE "../../../core/src/expectations-address.js"
 
 SAY "📊 Testing Spreadsheet Range Functions..."
 
